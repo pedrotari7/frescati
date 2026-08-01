@@ -1,0 +1,35 @@
+node_modules/
+.pnpm-store/
+
+# next
+.next/
+out/
+next-env.d.ts
+
+# builds
+lib/
+dist/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env*.local
+*-service-account.json
+
+# firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+pubsub-debug.log
+
+# vercel
+.vercel
+
+# test
+coverage/
+
+# editors / os
+.DS_Store
+*.swp

@@ -1,0 +1,106 @@
+'use client';
+
+import { use, useMemo } from 'react';
+import { MapPinIcon } from '@heroicons/react/24/outline';
+import { getGameLifecycle } from '@shared/game';
+import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
+import { useSeasonContext } from '../../../../../../components/SeasonProvider';
+import { useResponses, useUsers } from '../../../../../../hooks/useData';
+import { useMyResponses } from '../../../../../../hooks/useMyResponses';
+import { useRespond } from '../../../../../../hooks/useRespond';
+import { setConfirmOverride } from '../../../../../../lib/db/responses';
+import { seasonNavItems } from '../../../../../../components/BottomNav';
+import PageShell from '../../../../../../components/PageShell';
+import Skeleton from '../../../../../../components/Skeleton';
+import EmptyState from '../../../../../../components/EmptyState';
+import HeadcountBar from '../../../../../../components/HeadcountBar';
+import RespondControl from '../../../../../../components/RespondControl';
+import RosterList from '../../../../../../components/RosterList';
+import StatusPill from '../../../../../../components/StatusPill';
+
+const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
+	const { gameId } = use(params);
+	const { seasonId, season, games, loading, isAdmin, role } = useSeasonContext();
+	const { responses } = useResponses(seasonId, gameId);
+	const { users } = useUsers();
+	const { myResponses } = useMyResponses();
+	const { respond, clear } = useRespond(seasonId, role, myResponses);
+
+	const game = games.find(candidate => candidate.id === gameId) ?? null;
+	const usersByUid = useMemo(() => new Map(users.map(user => [user.uid, user])), [users]);
+
+	const navItems = seasonNavItems(seasonId, isAdmin);
+
+	if (loading) {
+		return (
+			<PageShell title='Game' backHref={`/s/${seasonId}`} navItems={navItems}>
+				<Skeleton />
+			</PageShell>
+		);
+	}
+
+	if (!season || !game) {
+		return (
+			<PageShell title='Game' backHref={`/s/${seasonId}`} navItems={navItems}>
+				<EmptyState title='Game not found' message='It may have been deleted from the calendar.' />
+			</PageShell>
+		);
+	}
+
+	const lifecycle = getGameLifecycle(game, season);
+	const timezone = season.slot.timezone;
+
+	return (
+		<PageShell
+			title={formatGameDateLong(game.kickoff, timezone)}
+			subtitle={`${formatGameTime(game.kickoff, timezone)} · ${game.venue.name}`}
+			backHref={`/s/${seasonId}`}
+			navItems={navItems}
+		>
+			<div className='space-y-6 p-4'>
+				<section className='glass rounded-3xl p-5'>
+					<div className='mb-4 flex flex-wrap items-center gap-2'>
+						<span className='text-faint text-xs'>{formatRelative(game.kickoff)}</span>
+						{game.isOneOff && <StatusPill tone='extra'>One-off</StatusPill>}
+						{lifecycle === 'cancelled' && <StatusPill tone='out'>Cancelled</StatusPill>}
+						{lifecycle === 'locked' && <StatusPill tone='neutral'>Answers closed</StatusPill>}
+						{lifecycle === 'live' && <StatusPill tone='in'>Playing now</StatusPill>}
+						{lifecycle === 'finished' && <StatusPill tone='neutral'>Played</StatusPill>}
+					</div>
+
+					<p className='text-muted mb-4 flex items-center gap-1.5 text-sm'>
+						<MapPinIcon className='size-4 shrink-0' aria-hidden='true' />
+						{game.venue.address ? `${game.venue.name} · ${game.venue.address}` : game.venue.name}
+					</p>
+
+					{game.note && <p className='text-muted mb-4 text-sm'>{game.note}</p>}
+
+					<HeadcountBar game={game} season={season} />
+
+					{lifecycle === 'cancelled' ? (
+						<p className='text-out mt-5 text-sm'>{game.cancelledReason || 'This game is off.'}</p>
+					) : (
+						<div className='mt-5'>
+							<RespondControl
+								status={myResponses[gameId]?.status}
+								onRespond={status => respond(gameId, status)}
+								onClear={() => clear(gameId)}
+								disabled={lifecycle !== 'open'}
+							/>
+						</div>
+					)}
+				</section>
+
+				<RosterList
+					memberUids={season.memberUids}
+					responses={responses}
+					usersByUid={usersByUid}
+					canManageExtras={isAdmin}
+					onToggleExtra={(uid, confirmed) => setConfirmOverride(seasonId, gameId, uid, confirmed)}
+				/>
+			</div>
+		</PageShell>
+	);
+};
+
+export default GamePage;

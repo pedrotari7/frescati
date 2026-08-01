@@ -1,0 +1,97 @@
+'use client';
+
+import { useMemo } from 'react';
+import Link from 'next/link';
+import { UsersIcon } from '@heroicons/react/24/outline';
+import { useSeasonContext } from '../../../../../components/SeasonProvider';
+import { useUsers } from '../../../../../hooks/useData';
+import { seasonNavItems } from '../../../../../components/BottomNav';
+import PageShell from '../../../../../components/PageShell';
+import Skeleton from '../../../../../components/Skeleton';
+import EmptyState from '../../../../../components/EmptyState';
+import Avatar from '../../../../../components/Avatar';
+import StatusPill from '../../../../../components/StatusPill';
+
+const MembersPage = () => {
+	const { seasonId, season, loading, isAdmin } = useSeasonContext();
+	const { users } = useUsers();
+
+	const members = useMemo(() => {
+		if (!season) return [];
+
+		const byUid = new Map(users.map(user => [user.uid, user]));
+
+		return season.memberUids
+			.map(uid => byUid.get(uid) ?? { uid, displayName: 'Unknown player', photoURL: null })
+			.sort((a, b) => a.displayName.localeCompare(b.displayName));
+	}, [season, users]);
+
+	const navItems = seasonNavItems(seasonId, isAdmin);
+
+	if (loading) {
+		return (
+			<PageShell title='Squad' navItems={navItems}>
+				<Skeleton />
+			</PageShell>
+		);
+	}
+
+	if (!season) {
+		return (
+			<PageShell title='Squad' navItems={navItems}>
+				<EmptyState title='Season not found' />
+			</PageShell>
+		);
+	}
+
+	return (
+		<PageShell
+			title='Squad'
+			subtitle={`${members.length} in ${season.name}`}
+			navItems={navItems}
+			actions={
+				isAdmin ? (
+					// Styled as a link rather than wrapping a <Button>, since a
+					// <button> inside an <a> is invalid and breaks keyboard nav.
+					<Link
+						href={`/s/${seasonId}/admin/members`}
+						className='text-muted hover:text-ink shrink-0 rounded-lg px-3 py-2 text-sm font-medium hover:bg-white/5'
+					>
+						Manage
+					</Link>
+				) : undefined
+			}
+		>
+			{members.length === 0 ? (
+				<EmptyState
+					icon={<UsersIcon />}
+					title='No squad yet'
+					message={
+						isAdmin
+							? 'Add players from the admin tab to build the roster.'
+							: 'An admin has not added anyone to this season yet.'
+					}
+				/>
+			) : (
+				<div className='p-4'>
+					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
+						{members.map(member => (
+							<div key={member.uid} className='flex items-center gap-3 py-3'>
+								<Avatar displayName={member.displayName} photoURL={member.photoURL} />
+								<span className='text-ink flex-1 truncate text-sm'>{member.displayName}</span>
+								{season.adminUids.includes(member.uid) && <StatusPill tone='brand'>Admin</StatusPill>}
+							</div>
+						))}
+					</div>
+
+					<p className='text-faint mt-4 px-1 text-xs leading-relaxed'>
+						Anyone signed in who isn&apos;t on this list can still put their hand up for a game — they show
+						up as an extra.
+					</p>
+				</div>
+			)}
+		</PageShell>
+	);
+};
+
+export default MembersPage;

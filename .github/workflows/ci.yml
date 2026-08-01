@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    uses: ./.github/workflows/changes.yml
+
+  shared:
+    needs: changes
+    uses: ./.github/workflows/shared.yml
+    with:
+      isShared: ${{ needs.changes.outputs.shared }}
+
+  frontend:
+    needs: changes
+    uses: ./.github/workflows/frontend.yml
+    with:
+      isFrontend: ${{ needs.changes.outputs.frontend }}
+
+  backend:
+    needs: changes
+    uses: ./.github/workflows/backend.yml
+    with:
+      isBackend: ${{ needs.changes.outputs.backend }}
+
+  rules:
+    needs: changes
+    uses: ./.github/workflows/rules.yml
+    with:
+      isRules: ${{ needs.changes.outputs.rules }}
+
+  # Deploys functions and rules together, so it must wait on both suites.
+  deploy:
+    needs: [changes, backend, rules]
+    if: >-
+      ${{ always() && !failure() && !cancelled()
+      && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.rules == 'true') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter backend build
+      - uses: w9jds/firebase-action@v15.18.0
+        with:
+          args: deploy --only functions,firestore:rules --force
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          PROJECT_ID: default
+          PROJECT_PATH: '.'

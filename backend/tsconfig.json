@@ -1,0 +1,22 @@
+{
+	"compilerOptions": {
+		"module": "commonjs",
+		"moduleResolution": "node",
+		"target": "es2022",
+		"lib": ["es2022"],
+		"outDir": "lib",
+		// `shared/` sits outside this package, so the root has to be the repo
+		// root for tsc to emit both trees. Output lands in lib/backend/src/,
+		// which is why `main` points there.
+		"rootDir": "..",
+		"strict": true,
+		"noImplicitReturns": true,
+		"noUnusedLocals": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"resolveJsonModule": true
+	},
+	"include": ["src/**/*.ts", "../shared/**/*.ts"],
+	"exclude": ["node_modules", "lib", "../shared/**/*.test.ts", "scripts"]
+}

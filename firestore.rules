@@ -1,0 +1,166 @@
+rules_version = '2';
+
+// Frescati — the client talks to Firestore directly, so these rules ARE the
+// authorization layer. There is no API in front of them.
+//
+// Two roles:
+//   * app admin  — the `admin` Firebase Auth custom claim. Creates seasons.
+//   * season admin — listed in `adminUids` on a season. Runs that season.
+//
+// Anyone signed in can read seasons and games (that's how "extras" find a game
+// to fill), but only their own response is theirs to write.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAppAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    function seasonData(seasonId) {
+      return get(/databases/$(database)/documents/seasons/$(seasonId)).data;
+    }
+
+    function isSeasonMember(seasonId) {
+      return isSignedIn() && request.auth.uid in seasonData(seasonId).memberUids;
+    }
+
+    function isSeasonAdmin(seasonId) {
+      return isAppAdmin() || (isSignedIn() && request.auth.uid in seasonData(seasonId).adminUids);
+    }
+
+    // Fields the client may never write — Cloud Functions own them.
+    function touchesDerivedGameFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['counts', 'atRisk', 'remindersSent']);
+    }
+
+    // ── users ────────────────────────────────────────────────────────────────
+    // Readable by anyone signed in: the admin member-picker and every roster
+    // needs names and avatars. This app has no private user data.
+    match /users/{uid} {
+      allow read: if isSignedIn();
+
+      // `isAppAdmin` is a display mirror of the custom claim. Let people create
+      // their own doc but never grant themselves the badge.
+      allow create: if isSelf(uid)
+                    && request.resource.data.uid == uid
+                    && request.resource.data.isAppAdmin == false;
+
+      allow update: if isSelf(uid)
+                    && request.resource.data.uid == uid
+                    && request.resource.data.isAppAdmin == resource.data.isAppAdmin;
+
+      allow delete: if false;
+
+      // FCM registration tokens. Private to their owner — a token is a
+      // capability to push to that device.
+      match /pushTokens/{token} {
+        allow read, write: if isSelf(uid);
+      }
+    }
+
+    // ── seasons ──────────────────────────────────────────────────────────────
+    match /seasons/{seasonId} {
+      allow read: if isSignedIn();
+
+      // Only an app admin bootstraps a season, and must name themselves an admin
+      // of it so it can't be created orphaned.
+      allow create: if isAppAdmin()
+                    && request.auth.uid in request.resource.data.adminUids;
+
+      // A season admin can hand over the season but not abandon it: adminUids
+      // must never end up empty.
+      allow update: if isSeasonAdmin(seasonId)
+                    && request.resource.data.adminUids.size() > 0;
+
+      allow delete: if isAppAdmin();
+
+      // ── games ──────────────────────────────────────────────────────────────
+      match /games/{gameId} {
+        allow read: if isSignedIn();
+
+        allow create: if isSeasonAdmin(seasonId)
+                      && request.resource.data.seasonId == seasonId
+                      && request.resource.data.counts.playing == 0
+                      && request.resource.data.atRisk == true;
+
+        allow update: if isSeasonAdmin(seasonId) && !touchesDerivedGameFields();
+
+        allow delete: if isSeasonAdmin(seasonId);
+
+        // ── responses ────────────────────────────────────────────────────────
+        // The document id IS the uid, so one person can only ever hold one
+        // response per game. No document at all means "no response" — that is a
+        // real third state, so nothing here ever writes a placeholder.
+        match /responses/{uid} {
+
+          function gameData() {
+            return get(/databases/$(database)/documents/seasons/$(seasonId)/games/$(gameId)).data;
+          }
+
+          function gameIsOpen() {
+            return gameData().status == 'scheduled';
+          }
+
+          // `role` is snapshotted onto the response, so it has to match reality
+          // at write time — otherwise an extra could claim a member's ranking.
+          function roleMatchesMembership() {
+            return request.resource.data.role == (isSeasonMember(seasonId) ? 'member' : 'extra');
+          }
+
+          // Confirming or dropping an extra is an admin decision.
+          function setsConfirmOverride() {
+            return request.resource.data.keys().hasAny(['confirmOverride']);
+          }
+
+          allow read: if isSignedIn();
+
+          allow create: if isSelf(uid)
+                        && request.resource.data.uid == uid
+                        && request.resource.data.status in ['in', 'out']
+                        && roleMatchesMembership()
+                        && !setsConfirmOverride()
+                        && gameIsOpen();
+
+          // Changing your mind is allowed while the game is still on. The
+          // response deadline is enforced in the UI, not here: a rule can't read
+          // the clock against a stored field without extra reads, and an admin
+          // needs to be able to fix things late anyway.
+          allow update: if isSelf(uid)
+                        && request.resource.data.uid == uid
+                        && request.resource.data.status in ['in', 'out']
+                        && roleMatchesMembership()
+                        && request.resource.data.get('confirmOverride', null)
+                           == resource.data.get('confirmOverride', null)
+                        && gameIsOpen();
+
+          allow delete: if isSelf(uid) && gameIsOpen();
+
+          // Season admins override extras and can clean up after anyone.
+          allow write: if isSeasonAdmin(seasonId);
+        }
+      }
+    }
+
+    // Enables the collection-group query the app uses to load "my answers
+    // across every game" in a single listener. Read-only: writes still have to
+    // go through the nested rule above, which validates role and ownership.
+    match /{path=**}/responses/{uid} {
+      allow read: if isSignedIn();
+    }
+
+    // Deny anything not matched above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

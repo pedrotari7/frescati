@@ -1,0 +1,51 @@
+name: changes
+
+on:
+  workflow_call:
+    outputs:
+      frontend:
+        value: ${{ jobs.changes.outputs.frontend }}
+      backend:
+        value: ${{ jobs.changes.outputs.backend }}
+      shared:
+        value: ${{ jobs.changes.outputs.shared }}
+      rules:
+        value: ${{ jobs.changes.outputs.rules }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      shared: ${{ steps.filter.outputs.shared }}
+      rules: ${{ steps.filter.outputs.rules }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4.0.1
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - 'shared/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - '.github/**'
+            backend:
+              - 'backend/**'
+              - 'shared/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - '.github/**'
+            shared:
+              - 'shared/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - '.github/**'
+            rules:
+              - 'firestore.rules'
+              - 'rules/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - '.github/**'

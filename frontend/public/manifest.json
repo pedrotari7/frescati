@@ -1,0 +1,40 @@
+{
+	"name": "Frescati",
+	"short_name": "Frescati",
+	"description": "Say whether you're in, see who else is.",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"orientation": "portrait",
+	"background_color": "#07080a",
+	"theme_color": "#07080a",
+	"categories": ["sports", "social"],
+	"icons": [
+		{
+			"src": "/icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/icon-maskable-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	],
+	"shortcuts": [
+		{
+			"name": "Next game",
+			"short_name": "Next game",
+			"url": "/",
+			"icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+		}
+	]
+}

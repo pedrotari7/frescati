@@ -1,0 +1,43 @@
+#!/usr/bin/env sh
+
+# Only run the checks relevant to what's actually being committed:
+# - frontend/-only changes -> frontend checks
+# - backend/-only changes  -> backend checks
+# - anything else (shared/root files, or both) -> run everything
+
+changed_files=$(git diff --cached --name-only)
+
+frontend_changed=false
+backend_changed=false
+other_changed=false
+
+echo "$changed_files" | grep -q '^frontend/' && frontend_changed=true
+echo "$changed_files" | grep -q '^backend/' && backend_changed=true
+echo "$changed_files" | grep -vE '^(frontend/|backend/)' | grep -q . && other_changed=true
+
+run_root() {
+  echo "Running shared checks..."
+  pnpm install && pnpm test
+}
+
+run_frontend() {
+  echo "Running frontend checks..."
+  pnpm --filter frontend lint && pnpm --filter frontend build && pnpm --filter frontend test
+}
+
+run_backend() {
+  echo "Running backend checks..."
+  pnpm --filter backend lint && pnpm --filter backend build
+}
+
+if [ "$other_changed" = true ] || { [ "$frontend_changed" = true ] && [ "$backend_changed" = true ]; }; then
+  run_root || exit 1
+  run_frontend || exit 1
+  run_backend || exit 1
+elif [ "$frontend_changed" = true ]; then
+  run_frontend || exit 1
+elif [ "$backend_changed" = true ]; then
+  run_backend || exit 1
+else
+  echo "No tracked changes, skipping pre-commit checks."
+fi

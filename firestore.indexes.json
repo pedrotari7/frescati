@@ -1,0 +1,30 @@
+{
+	"indexes": [
+		{
+			"collectionGroup": "games",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "status", "order": "ASCENDING" },
+				{ "fieldPath": "kickoff", "order": "ASCENDING" }
+			]
+		},
+		{
+			"collectionGroup": "games",
+			"queryScope": "COLLECTION_GROUP",
+			"fields": [
+				{ "fieldPath": "status", "order": "ASCENDING" },
+				{ "fieldPath": "kickoff", "order": "ASCENDING" }
+			]
+		}
+	],
+	"fieldOverrides": [
+		{
+			"collectionGroup": "responses",
+			"fieldPath": "uid",
+			"indexes": [
+				{ "order": "ASCENDING", "queryScope": "COLLECTION" },
+				{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+			]
+		}
+	]
+}

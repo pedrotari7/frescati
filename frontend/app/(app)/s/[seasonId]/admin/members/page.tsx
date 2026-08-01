@@ -1,0 +1,172 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { useSeasonContext } from '../../../../../../components/SeasonProvider';
+import { useUsers } from '../../../../../../hooks/useData';
+import {
+	addSeasonAdmin,
+	addSeasonMember,
+	removeSeasonAdmin,
+	removeSeasonMember,
+} from '../../../../../../lib/db/seasons';
+import { seasonNavItems } from '../../../../../../components/BottomNav';
+import PageShell from '../../../../../../components/PageShell';
+import Skeleton from '../../../../../../components/Skeleton';
+import EmptyState from '../../../../../../components/EmptyState';
+import Avatar from '../../../../../../components/Avatar';
+import Button from '../../../../../../components/Button';
+import StatusPill from '../../../../../../components/StatusPill';
+import { TextInput } from '../../../../../../components/Field';
+
+const AdminMembersPage = () => {
+	const { seasonId, season, loading, isAdmin } = useSeasonContext();
+	const { users, loading: usersLoading } = useUsers();
+	const [search, setSearch] = useState('');
+
+	const { members, others } = useMemo(() => {
+		if (!season) return { members: [], others: [] };
+
+		const term = search.trim().toLowerCase();
+		const matches = users.filter(
+			user => !term || user.displayName.toLowerCase().includes(term) || user.email.toLowerCase().includes(term)
+		);
+
+		return {
+			members: matches.filter(user => season.memberUids.includes(user.uid)),
+			others: matches.filter(user => !season.memberUids.includes(user.uid)),
+		};
+	}, [season, users, search]);
+
+	const navItems = seasonNavItems(seasonId, isAdmin);
+
+	if (loading || usersLoading) {
+		return (
+			<PageShell title='Manage squad' backHref={`/s/${seasonId}/admin`} navItems={navItems}>
+				<Skeleton />
+			</PageShell>
+		);
+	}
+
+	if (!season || !isAdmin) {
+		return (
+			<PageShell title='Manage squad' backHref={`/s/${seasonId}/admin`} navItems={navItems}>
+				<EmptyState title='Admins only' />
+			</PageShell>
+		);
+	}
+
+	// The rules refuse to leave a season without an admin, so block the last one
+	// here too rather than letting the write fail with a permission error.
+	const isLastAdmin = (uid: string) => season.adminUids.length === 1 && season.adminUids[0] === uid;
+
+	return (
+		<PageShell
+			title='Manage squad'
+			subtitle={`${season.memberUids.length} in the squad`}
+			backHref={`/s/${seasonId}/admin`}
+			navItems={navItems}
+		>
+			<div className='space-y-6 p-4'>
+				<div className='relative'>
+					<MagnifyingGlassIcon
+						className='text-faint pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2'
+						aria-hidden='true'
+					/>
+					<TextInput
+						value={search}
+						onChange={e => setSearch(e.target.value)}
+						placeholder='Search people'
+						className='pl-10'
+						type='search'
+					/>
+				</div>
+
+				<section>
+					<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
+						In the squad ({members.length})
+					</h2>
+
+					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
+						{members.length === 0 && (
+							<p className='text-faint py-4 text-sm'>Nobody yet — add players from below.</p>
+						)}
+
+						{members.map(user => {
+							const isSeasonAdmin = season.adminUids.includes(user.uid);
+
+							return (
+								<div key={user.uid} className='flex items-center gap-3 py-3'>
+									<Avatar displayName={user.displayName} photoURL={user.photoURL} />
+
+									<div className='min-w-0 flex-1'>
+										<p className='text-ink truncate text-sm'>{user.displayName}</p>
+										{isSeasonAdmin && <StatusPill tone='brand'>Admin</StatusPill>}
+									</div>
+
+									<Button
+										size='sm'
+										variant='ghost'
+										disabled={isLastAdmin(user.uid)}
+										onClick={() =>
+											isSeasonAdmin
+												? removeSeasonAdmin(seasonId, user.uid)
+												: addSeasonAdmin(seasonId, user.uid)
+										}
+									>
+										{isSeasonAdmin ? 'Demote' : 'Make admin'}
+									</Button>
+
+									<Button
+										size='sm'
+										variant='danger'
+										disabled={isLastAdmin(user.uid)}
+										onClick={() => removeSeasonMember(seasonId, user.uid)}
+									>
+										Remove
+									</Button>
+								</div>
+							);
+						})}
+					</div>
+				</section>
+
+				<section>
+					<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
+						Everyone else ({others.length})
+					</h2>
+
+					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
+						{others.length === 0 && (
+							<p className='text-faint py-4 text-sm'>
+								{search ? 'Nobody matches that search.' : 'Everyone signed up is already in.'}
+							</p>
+						)}
+
+						{others.map(user => (
+							<div key={user.uid} className='flex items-center gap-3 py-3'>
+								<Avatar displayName={user.displayName} photoURL={user.photoURL} />
+
+								<div className='min-w-0 flex-1'>
+									<p className='text-ink truncate text-sm'>{user.displayName}</p>
+									<p className='text-faint truncate text-xs'>{user.email}</p>
+								</div>
+
+								<Button size='sm' variant='primary' onClick={() => addSeasonMember(seasonId, user.uid)}>
+									Add
+								</Button>
+							</div>
+						))}
+					</div>
+
+					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
+						People appear here once they&apos;ve signed in at least once. Anyone not in the squad can still
+						join individual games as an extra.
+					</p>
+				</section>
+			</div>
+		</PageShell>
+	);
+};
+
+export default AdminMembersPage;
