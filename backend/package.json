@@ -13,7 +13,8 @@
 		"watch": "tsc --watch --preserveWatchOutput",
 		"serve": "pnpm build && firebase emulators:start --only functions,firestore",
 		"logs": "firebase functions:log",
-		"set-admin": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/setAdmin.ts"
+		"set-admin": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/setAdmin.ts",
+		"whoami": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/whoami.ts"
 	},
 	"dependencies": {
 		"firebase-admin": "13.10.0",

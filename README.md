@@ -44,12 +44,17 @@ Project: **`footballfrescati`**.
 3. **Cloud Messaging → Web Push certificates** → generate a key pair, put it in `frontend/.env.local` as `NEXT_PUBLIC_FIREBASE_VAPID_KEY`.
 4. **Authentication → Settings → Authorized domains** → add `localhost` and your Vercel domain.
 5. Deploy rules and indexes: `pnpm deploy:rules && firebase deploy --only firestore:indexes`.
-6. Make yourself an app admin (nothing in the app can grant this — that's the point):
+6. Sign into the app once so a Firebase Auth user exists for you.
+7. Make yourself an app admin (nothing in the app can grant this — that's the point):
+
     ```sh
-    GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json \
-      pnpm --filter backend set-admin you@example.com
+    gcloud auth application-default login   # once, if you have no ADC yet
+    pnpm --filter backend set-admin you@example.com
     ```
-    Sign out and back in for the claim to land.
+
+    Check it landed with `pnpm --filter backend whoami you@example.com` — custom claims aren't visible in the Firebase console. The claim reaches the browser on the next token refresh, which the app forces every 10 minutes; signing out and back in is instant.
+
+    A service account key works too, via `GOOGLE_APPLICATION_CREDENTIALS`, but ADC avoids putting a key file on disk.
 
 ## Commands
 
@@ -61,6 +66,8 @@ Project: **`footballfrescati`**.
 | `pnpm emulators` | Auth + Firestore + Functions emulators |
 | `pnpm build` / `pnpm lint` | both workspaces |
 | `pnpm deploy:functions` | deploy Cloud Functions |
+| `pnpm --filter backend set-admin <email>` | grant the app-admin claim (`--revoke` to remove) |
+| `pnpm --filter backend whoami <email>` | print a user's uid and custom claims |
 
 Emulator commands need JDK 21: `JAVA_HOME=/usr/local/opt/openjdk@21 pnpm test:rules`.
 
