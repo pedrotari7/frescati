@@ -39,6 +39,9 @@ const newGame = (
 ): Omit<Game, 'id'> => ({
 	seasonId: season.id,
 	kickoff: generated.kickoff,
+	// Numeric mirror of `kickoff`; security rules can't parse the ISO form, and
+	// the response deadline is enforced against this.
+	kickoffMillis: Date.parse(generated.kickoff),
 	endsAt: generated.endsAt,
 	venue: season.venue,
 	status: 'scheduled',

@@ -94,6 +94,14 @@ export interface Game {
 	seasonId: string;
 	/** ISO 8601 UTC. */
 	kickoff: string;
+	/**
+	 * `kickoff` as epoch milliseconds. Redundant on purpose: security rules have
+	 * no way to parse an ISO 8601 string into an instant, so without a numeric
+	 * mirror they cannot compare `request.time` against kickoff and the response
+	 * deadline is unenforceable outside the UI. Kept in step by whoever writes
+	 * `kickoff`.
+	 */
+	kickoffMillis: number;
 	/** ISO 8601 UTC. */
 	endsAt: string;
 	venue: Venue;

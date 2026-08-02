@@ -98,8 +98,14 @@ service cloud.firestore {
       match /games/{gameId} {
         allow read: if isSignedIn();
 
+        // `kickoffMillis` is required rather than optional: it is what the
+        // response deadline is enforced against, so a game without one would
+        // silently never lock. Its agreement with `kickoff` can't be checked
+        // here — rules can't parse ISO 8601 — but only season admins get this
+        // far, and they can already set kickoff to whatever they like.
         allow create: if isSeasonAdmin(seasonId)
                       && request.resource.data.seasonId == seasonId
+                      && request.resource.data.kickoffMillis is number
                       && request.resource.data.counts.playing == 0
                       && request.resource.data.atRisk == true;
 
@@ -117,8 +123,22 @@ service cloud.firestore {
             return get(/databases/$(database)/documents/seasons/$(seasonId)/games/$(gameId)).data;
           }
 
-          function gameIsOpen() {
-            return gameData().status == 'scheduled';
+          // Still on, and the deadline hasn't passed. Takes the game as an
+          // argument so the caller pays for exactly one `get()` of it.
+          //
+          // The deadline is read against `kickoffMillis` because a rule cannot
+          // parse the ISO 8601 `kickoff`, and `responseDeadlineHours` is read
+          // live off the season so changing it takes effect immediately rather
+          // than only for games created afterwards.
+          //
+          // Games written before `kickoffMillis` existed default to a year far
+          // enough out that they stay answerable — the same as the old
+          // behaviour — until `backfill-kickoff-millis` has run over them.
+          function responsesOpen(game) {
+            return game.status == 'scheduled'
+                   && request.time.toMillis()
+                      < game.get('kickoffMillis', 9999999999999)
+                        - seasonData(seasonId).responseDeadlineHours * 3600000;
           }
 
           // `role` is snapshotted onto the response, so it has to match reality
@@ -139,21 +159,20 @@ service cloud.firestore {
                         && request.resource.data.status in ['in', 'out']
                         && roleMatchesMembership()
                         && !setsConfirmOverride()
-                        && gameIsOpen();
+                        && responsesOpen(gameData());
 
-          // Changing your mind is allowed while the game is still on. The
-          // response deadline is enforced in the UI, not here: a rule can't read
-          // the clock against a stored field without extra reads, and an admin
-          // needs to be able to fix things late anyway.
+          // Changing your mind is allowed right up to the deadline. Past it the
+          // headcount is what the organiser is acting on, so only a season admin
+          // can still move it — see the admin `write` below.
           allow update: if isSelf(uid)
                         && request.resource.data.uid == uid
                         && request.resource.data.status in ['in', 'out']
                         && roleMatchesMembership()
                         && request.resource.data.get('confirmOverride', null)
                            == resource.data.get('confirmOverride', null)
-                        && gameIsOpen();
+                        && responsesOpen(gameData());
 
-          allow delete: if isSelf(uid) && gameIsOpen();
+          allow delete: if isSelf(uid) && responsesOpen(gameData());
 
           // Season admins override extras and can clean up after anyone.
           allow write: if isSeasonAdmin(seasonId);

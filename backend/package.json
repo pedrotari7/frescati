@@ -14,6 +14,7 @@
 		"serve": "pnpm build && firebase emulators:start --only functions,firestore",
 		"logs": "firebase functions:log",
 		"set-admin": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/setAdmin.ts",
+		"backfill-kickoff-millis": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillKickoffMillis.ts",
 		"whoami": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/whoami.ts"
 	},
 	"dependencies": {

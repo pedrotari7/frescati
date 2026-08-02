@@ -7,6 +7,7 @@ import { collectionGroup, deleteDoc, doc, getDoc, getDocs, query, setDoc, update
 const PROJECT_ID = 'demo-frescati';
 const SEASON = 'season-1';
 const GAME = 'game-1';
+const LOCKED_GAME = 'game-locked';
 
 const APP_ADMIN = 'app-admin';
 const SEASON_ADMIN = 'season-admin';
@@ -20,7 +21,24 @@ const authed = (uid: string, claims?: Record<string, unknown>) => testEnv.authen
 
 const seasonDoc = () => `seasons/${SEASON}`;
 const gameDoc = () => `seasons/${SEASON}/games/${GAME}`;
+const lockedGameDoc = () => `seasons/${SEASON}/games/${LOCKED_GAME}`;
 const responseDoc = (uid: string) => `seasons/${SEASON}/games/${GAME}/responses/${uid}`;
+const lockedResponseDoc = (uid: string) => `seasons/${SEASON}/games/${LOCKED_GAME}/responses/${uid}`;
+
+const aGame = (kickoff: string, endsAt: string) => ({
+	seasonId: SEASON,
+	kickoff,
+	// Rules can't parse ISO 8601, so the deadline is enforced against this.
+	kickoffMillis: Date.parse(kickoff),
+	endsAt,
+	venue: { name: 'Frescati IP' },
+	status: 'scheduled',
+	isOneOff: false,
+	counts: { membersIn: 0, membersOut: 0, extrasIn: 0, extrasOut: 0, extrasConfirmed: 0, playing: 0 },
+	atRisk: true,
+	createdAt: '2026-08-01T00:00:00.000Z',
+	createdBy: SEASON_ADMIN,
+});
 
 const aResponse = (uid: string, role: 'member' | 'extra', extras: Record<string, unknown> = {}) => ({
 	uid,
@@ -65,19 +83,16 @@ beforeEach(async () => {
 			createdBy: APP_ADMIN,
 		});
 
-		await setDoc(doc(db, gameDoc()), {
-			id: GAME,
-			seasonId: SEASON,
-			kickoff: '2026-09-01T17:00:00.000Z',
-			endsAt: '2026-09-01T18:30:00.000Z',
-			venue: { name: 'Frescati IP' },
-			status: 'scheduled',
-			isOneOff: false,
-			counts: { membersIn: 0, membersOut: 0, extrasIn: 0, extrasOut: 0, extrasConfirmed: 0, playing: 0 },
-			atRisk: true,
-			createdAt: '2026-08-01T00:00:00.000Z',
-			createdBy: SEASON_ADMIN,
-		});
+		await setDoc(doc(db, gameDoc()), aGame('2026-09-01T17:00:00.000Z', '2026-09-01T18:30:00.000Z'));
+
+		// Kicks off in an hour, so it is already inside the season's 24h
+		// response deadline. Relative to now, not a fixed date, so the suite
+		// doesn't quietly stop testing the locked path once that date passes.
+		const soon = new Date(Date.now() + 3_600_000);
+		await setDoc(
+			doc(db, lockedGameDoc()),
+			aGame(soon.toISOString(), new Date(soon.getTime() + 5_400_000).toISOString())
+		);
 	});
 });
 
@@ -257,6 +272,7 @@ describe('games', () => {
 			setDoc(doc(authed(SEASON_ADMIN), `seasons/${SEASON}/games/new`), {
 				seasonId: SEASON,
 				kickoff: '2026-09-08T17:00:00.000Z',
+				kickoffMillis: Date.parse('2026-09-08T17:00:00.000Z'),
 				status: 'scheduled',
 				counts: { membersIn: 0, membersOut: 0, extrasIn: 0, extrasOut: 0, extrasConfirmed: 0, playing: 0 },
 				atRisk: true,
@@ -269,6 +285,7 @@ describe('games', () => {
 			setDoc(doc(authed(SEASON_ADMIN), `seasons/${SEASON}/games/new`), {
 				seasonId: SEASON,
 				kickoff: '2026-09-08T17:00:00.000Z',
+				kickoffMillis: Date.parse('2026-09-08T17:00:00.000Z'),
 				status: 'scheduled',
 				counts: { membersIn: 5, membersOut: 0, extrasIn: 0, extrasOut: 0, extrasConfirmed: 0, playing: 5 },
 				atRisk: false,
@@ -280,6 +297,19 @@ describe('games', () => {
 		await assertFails(
 			setDoc(doc(authed(SEASON_ADMIN), `seasons/${SEASON}/games/new`), {
 				seasonId: 'some-other-season',
+				kickoff: '2026-09-08T17:00:00.000Z',
+				kickoffMillis: Date.parse('2026-09-08T17:00:00.000Z'),
+				status: 'scheduled',
+				counts: { membersIn: 0, membersOut: 0, extrasIn: 0, extrasOut: 0, extrasConfirmed: 0, playing: 0 },
+				atRisk: true,
+			})
+		);
+	});
+
+	it('stops a game being created with no kickoffMillis to enforce the deadline against', async () => {
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), `seasons/${SEASON}/games/new`), {
+				seasonId: SEASON,
 				kickoff: '2026-09-08T17:00:00.000Z',
 				status: 'scheduled',
 				counts: { membersIn: 0, membersOut: 0, extrasIn: 0, extrasOut: 0, extrasConfirmed: 0, playing: 0 },
@@ -390,6 +420,69 @@ describe('responses', () => {
 		});
 
 		await assertFails(setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member')));
+	});
+});
+
+// The UI disables the In/Out buttons past the deadline, but that is cosmetic on
+// its own — a direct SDK call, or a tab left open since before it passed, would
+// otherwise still land. These lock it down for real.
+describe('the response deadline', () => {
+	it('stops a member answering once the deadline has passed', async () => {
+		await assertFails(
+			setDoc(doc(authed(MEMBER), lockedResponseDoc(MEMBER)), aResponse(MEMBER, 'member'))
+		);
+	});
+
+	it('stops an extra answering once the deadline has passed', async () => {
+		await assertFails(setDoc(doc(authed(EXTRA), lockedResponseDoc(EXTRA)), aResponse(EXTRA, 'extra')));
+	});
+
+	it('stops a member changing their mind once the deadline has passed', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), lockedResponseDoc(MEMBER)), aResponse(MEMBER, 'member'));
+		});
+
+		await assertFails(updateDoc(doc(authed(MEMBER), lockedResponseDoc(MEMBER)), { status: 'out' }));
+	});
+
+	it('stops a member withdrawing once the deadline has passed', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), lockedResponseDoc(MEMBER)), aResponse(MEMBER, 'member'));
+		});
+
+		await assertFails(deleteDoc(doc(authed(MEMBER), lockedResponseDoc(MEMBER))));
+	});
+
+	// Somebody drops out an hour before kickoff and rings the organiser. That has
+	// to remain fixable, which is what the admin `write` rule is for.
+	it('still lets a season admin fix a response after the deadline', async () => {
+		await assertSucceeds(
+			setDoc(doc(authed(SEASON_ADMIN), lockedResponseDoc(MEMBER)), aResponse(MEMBER, 'member'))
+		);
+	});
+
+	it('leaves a game answerable while it is still outside the deadline', async () => {
+		await assertSucceeds(setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member')));
+	});
+
+	// Until the backfill script has run, older games carry no kickoffMillis and
+	// must keep behaving exactly as they did before the deadline existed.
+	it('leaves a game with no kickoffMillis answerable', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			const { kickoffMillis, ...withoutMillis } = aGame(
+				new Date(Date.now() + 3_600_000).toISOString(),
+				new Date(Date.now() + 9_000_000).toISOString()
+			);
+			void kickoffMillis;
+			await setDoc(doc(context.firestore(), `seasons/${SEASON}/games/legacy`), withoutMillis);
+		});
+
+		await assertSucceeds(
+			setDoc(
+				doc(authed(MEMBER), `seasons/${SEASON}/games/legacy/responses/${MEMBER}`),
+				aResponse(MEMBER, 'member')
+			)
+		);
 	});
 });
 
