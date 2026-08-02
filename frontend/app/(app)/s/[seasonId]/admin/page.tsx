@@ -6,6 +6,7 @@ import { CalendarDaysIcon, UsersIcon } from '@heroicons/react/24/outline';
 import type { SeasonStatus, Weekday } from '@shared/types';
 import { weekdayName } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
+import { useWrite } from '../../../../../hooks/useWrite';
 import { updateSeason } from '../../../../../lib/db/seasons';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
@@ -15,6 +16,7 @@ import { Field, Select, TextInput } from '../../../../../components/Field';
 
 const SeasonAdminPage = () => {
 	const { seasonId, season, loading, isAdmin } = useSeasonContext();
+	const write = useWrite();
 
 	const [form, setForm] = useState({
 		name: '',
@@ -76,24 +78,32 @@ const SeasonAdminPage = () => {
 	}
 
 	const handleSave = async () => {
-		await updateSeason(seasonId, {
-			name: form.name.trim(),
-			status: form.status,
-			venue: {
-				name: form.venueName.trim(),
-				...(form.venueAddress.trim() ? { address: form.venueAddress.trim() } : {}),
-			},
-			slot: {
-				weekday: form.weekday,
-				time: form.time,
-				durationMinutes: Number(form.durationMinutes),
-				timezone: season.slot.timezone,
-			},
-			startDate: form.startDate,
-			endDate: form.endDate,
-			minPlayers: Number(form.minPlayers),
-			responseDeadlineHours: Number(form.responseDeadlineHours),
-		});
+		// Only claim it saved if it did — this used to say "Saved" whether or not
+		// the write was accepted.
+		const ok = await write(
+			() =>
+				updateSeason(seasonId, {
+					name: form.name.trim(),
+					status: form.status,
+					venue: {
+						name: form.venueName.trim(),
+						...(form.venueAddress.trim() ? { address: form.venueAddress.trim() } : {}),
+					},
+					slot: {
+						weekday: form.weekday,
+						time: form.time,
+						durationMinutes: Number(form.durationMinutes),
+						timezone: season.slot.timezone,
+					},
+					startDate: form.startDate,
+					endDate: form.endDate,
+					minPlayers: Number(form.minPlayers),
+					responseDeadlineHours: Number(form.responseDeadlineHours),
+				}),
+			"Couldn't save the season settings."
+		);
+
+		if (!ok) return;
 
 		setSaved(true);
 		setTimeout(() => setSaved(false), 2500);

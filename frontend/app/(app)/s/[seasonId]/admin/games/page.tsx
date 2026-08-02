@@ -7,6 +7,7 @@ import { formatGameDate, formatGameTime } from '@shared/format';
 import { parseCivilDate, zonedTimeToUtc } from '@shared/datetime';
 import { useAuth } from '../../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
+import { useWrite } from '../../../../../../hooks/useWrite';
 import { cancelGame, createGames, createOneOffGame, deleteGame, restoreGame } from '../../../../../../lib/db/games';
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
@@ -18,6 +19,7 @@ import { Field, TextInput } from '../../../../../../components/Field';
 const AdminGamesPage = () => {
 	const { user } = useAuth();
 	const { seasonId, season, games, loading, isAdmin } = useSeasonContext();
+	const write = useWrite();
 
 	const [message, setMessage] = useState<string | null>(null);
 	const [oneOff, setOneOff] = useState({ date: '', time: '' });
@@ -59,8 +61,13 @@ const AdminGamesPage = () => {
 	const handleGenerate = async () => {
 		if (!preview || preview.toCreate.length === 0) return;
 
-		const created = await createGames(season, preview.toCreate, user.uid);
-		setMessage(`Added ${created} game${created === 1 ? '' : 's'}.`);
+		const created = preview.toCreate.length;
+		const ok = await write(
+			() => createGames(season, preview.toCreate, user.uid),
+			"Couldn't add the games. Nothing was created."
+		);
+
+		if (ok) setMessage(`Added ${created} game${created === 1 ? '' : 's'}.`);
 	};
 
 	const handleAddOneOff = async () => {
@@ -70,14 +77,20 @@ const AdminGamesPage = () => {
 		const [hours, minutes] = oneOff.time.split(':').map(Number);
 		const kickoff = zonedTimeToUtc(year, month, day, hours, minutes, season.slot.timezone);
 
-		await createOneOffGame(
-			season,
-			{
-				kickoff: kickoff.toISOString(),
-				endsAt: new Date(kickoff.getTime() + season.slot.durationMinutes * 60 * 1000).toISOString(),
-			},
-			user.uid
+		const ok = await write(
+			() =>
+				createOneOffGame(
+					season,
+					{
+						kickoff: kickoff.toISOString(),
+						endsAt: new Date(kickoff.getTime() + season.slot.durationMinutes * 60 * 1000).toISOString(),
+					},
+					user.uid
+				),
+			"Couldn't add that game."
 		);
+
+		if (!ok) return;
 
 		setOneOff({ date: '', time: '' });
 		setMessage('One-off game added.');
@@ -180,15 +193,28 @@ const AdminGamesPage = () => {
 										variant='ghost'
 										onClick={() =>
 											isCancelled
-												? restoreGame(seasonId, game.id)
-												: cancelGame(seasonId, game.id, 'Called off by an admin')
+												? write(
+														() => restoreGame(seasonId, game.id),
+														"Couldn't put that game back on."
+													)
+												: write(
+														() =>
+															cancelGame(seasonId, game.id, 'Called off by an admin'),
+														"Couldn't cancel that game."
+													)
 										}
 									>
 										{isCancelled ? 'Restore' : 'Cancel'}
 									</Button>
 
 									{/* Deleting loses the answers; cancelling keeps them. */}
-									<Button size='sm' variant='danger' onClick={() => deleteGame(seasonId, game.id)}>
+									<Button
+										size='sm'
+										variant='danger'
+										onClick={() =>
+											write(() => deleteGame(seasonId, game.id), "Couldn't delete that game.")
+										}
+									>
 										Delete
 									</Button>
 								</div>

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import './globals.css';
 import { AuthProvider } from '../lib/auth';
 import ErrorBoundary from '../components/ErrorBoundary';
+import ToastProvider from '../components/Toast';
 import ServiceWorkerRegistrar from '../components/ServiceWorkerRegistrar';
 import PwaInstallPrompt from '../components/PwaInstallPrompt';
 
@@ -37,8 +38,10 @@ const RootLayout = ({ children }: { children: ReactNode }) => (
 		<body suppressHydrationWarning>
 			<ErrorBoundary>
 				<AuthProvider>
-					{children}
-					<PwaInstallPrompt />
+					<ToastProvider>
+						{children}
+						<PwaInstallPrompt />
+					</ToastProvider>
 				</AuthProvider>
 			</ErrorBoundary>
 			<ServiceWorkerRegistrar />

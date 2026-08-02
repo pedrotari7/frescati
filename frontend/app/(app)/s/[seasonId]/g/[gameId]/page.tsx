@@ -8,6 +8,7 @@ import { useSeasonContext } from '../../../../../../components/SeasonProvider';
 import { useResponses, useUsers } from '../../../../../../hooks/useData';
 import { useMyResponses } from '../../../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../../../hooks/useRespond';
+import { useWrite } from '../../../../../../hooks/useWrite';
 import { setConfirmOverride } from '../../../../../../lib/db/responses';
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
@@ -24,6 +25,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const { users } = useUsers();
 	const { myResponses } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
+	const write = useWrite();
 
 	const game = games.find(candidate => candidate.id === gameId) ?? null;
 	const usersByUid = useMemo(() => new Map(users.map(user => [user.uid, user])), [users]);
@@ -92,7 +94,12 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 					responses={responses}
 					usersByUid={usersByUid}
 					canManageExtras={isAdmin}
-					onToggleExtra={(uid, confirmed) => setConfirmOverride(seasonId, gameId, uid, confirmed)}
+					onToggleExtra={async (uid, confirmed) => {
+						await write(
+							() => setConfirmOverride(seasonId, gameId, uid, confirmed),
+							confirmed ? "Couldn't give them a spot." : "Couldn't drop them."
+						);
+					}}
 				/>
 			</div>
 		</SeasonShell>

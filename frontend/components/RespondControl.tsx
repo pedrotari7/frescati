@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import type { ResponseStatus } from '@shared/types';
 import { classNames } from '../lib/utils/reactHelper';
+import { useToast } from './Toast';
 import { hapticLight, hapticSuccess } from '../lib/utils/haptics';
 
 /**
@@ -29,6 +30,7 @@ const RespondControl = ({
 	size?: 'sm' | 'lg';
 }) => {
 	const [pending, setPending] = useState<ResponseStatus | null>(null);
+	const { warn } = useToast();
 
 	const handle = async (next: ResponseStatus) => {
 		if (disabled || pending) return;
@@ -43,7 +45,11 @@ const RespondControl = ({
 				await onRespond(next);
 			}
 		} catch (error) {
+			// This is the one control the app exists for. A rejected write used
+			// to leave the button snapping back to its old state with the reason
+			// only in the console — indistinguishable from a missed tap.
 			console.error('Could not save your response', error);
+			warn("Couldn't save your answer. Try again in a moment.");
 		} finally {
 			setPending(null);
 		}

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
+import { useWrite } from '../../../../../../hooks/useWrite';
 import { useUsers } from '../../../../../../hooks/useData';
 import {
 	addSeasonAdmin,
@@ -21,6 +22,7 @@ import { TextInput } from '../../../../../../components/Field';
 const AdminMembersPage = () => {
 	const { seasonId, season, loading, isAdmin } = useSeasonContext();
 	const { users, loading: usersLoading } = useUsers();
+	const write = useWrite();
 	const [search, setSearch] = useState('');
 
 	const { members, others } = useMemo(() => {
@@ -104,8 +106,14 @@ const AdminMembersPage = () => {
 										disabled={isLastAdmin(user.uid)}
 										onClick={() =>
 											isSeasonAdmin
-												? removeSeasonAdmin(seasonId, user.uid)
-												: addSeasonAdmin(seasonId, user.uid)
+												? write(
+														() => removeSeasonAdmin(seasonId, user.uid),
+														`Couldn't demote ${user.displayName}.`
+													)
+												: write(
+														() => addSeasonAdmin(seasonId, user.uid),
+														`Couldn't make ${user.displayName} an admin.`
+													)
 										}
 									>
 										{isSeasonAdmin ? 'Demote' : 'Make admin'}
@@ -115,7 +123,12 @@ const AdminMembersPage = () => {
 										size='sm'
 										variant='danger'
 										disabled={isLastAdmin(user.uid)}
-										onClick={() => removeSeasonMember(seasonId, user.uid)}
+										onClick={() =>
+											write(
+												() => removeSeasonMember(seasonId, user.uid),
+												`Couldn't remove ${user.displayName} from the squad.`
+											)
+										}
 									>
 										Remove
 									</Button>
@@ -145,7 +158,16 @@ const AdminMembersPage = () => {
 									<p className='text-ink truncate text-sm'>{user.displayName}</p>
 								</div>
 
-								<Button size='sm' variant='primary' onClick={() => addSeasonMember(seasonId, user.uid)}>
+								<Button
+									size='sm'
+									variant='primary'
+									onClick={() =>
+										write(
+											() => addSeasonMember(seasonId, user.uid),
+											`Couldn't add ${user.displayName} to the squad.`
+										)
+									}
+								>
 									Add
 								</Button>
 							</div>
