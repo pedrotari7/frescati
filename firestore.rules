@@ -43,9 +43,14 @@ service cloud.firestore {
     }
 
     // Fields the client may never write — Cloud Functions own them.
+    //
+    // `teamsGeneration` is in here because it is the staleness guard the
+    // debounced team rebuild reads: a client that could move it could make
+    // every queued rebuild believe it had been superseded, and the teams would
+    // silently stop updating.
     function touchesDerivedGameFields() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['counts', 'atRisk', 'remindersSent']);
+        .hasAny(['counts', 'atRisk', 'remindersSent', 'teamsGeneration']);
     }
 
     // A brand new game has nobody in it, so every counter starts at zero — not
@@ -85,10 +90,23 @@ service cloud.firestore {
       // Read through `get()` throughout: profiles can legitimately be missing
       // fields mid-repair, and addressing an absent key errors rather than
       // yielding null.
+      // `rating` is owned by the rating functions. It has to be frozen
+      // explicitly rather than merely left off the allowlist, because this
+      // document is writable by the person it describes — without this, anyone
+      // could set their own rating to whatever they fancied and walk onto the
+      // strongest team every week.
+      //
+      // Expressed as a diff rather than an equality so a profile that has no
+      // rating yet — which is most of them — doesn't have to address a missing
+      // key to prove it hasn't changed.
+      function keepsRatingFrozen() {
+        return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rating']);
+      }
+
       function userShapeOk() {
         return request.resource.data.keys().hasOnly(
                  ['uid', 'displayName', 'photoURL', 'createdAt', 'lastSeenAt',
-                  'isAppAdmin', 'notificationPrefs', 'email'])
+                  'isAppAdmin', 'notificationPrefs', 'email', 'rating'])
                && request.resource.data.get('displayName', '') is string
                && request.resource.data.get('displayName', '').size() <= 100
                && request.resource.data.get('createdAt', '') is string
@@ -105,7 +123,7 @@ service cloud.firestore {
       allow create: if isSelf(uid)
                     && request.resource.data.uid == uid
                     && request.resource.data.isAppAdmin == false
-                    && !request.resource.data.keys().hasAny(['email'])
+                    && !request.resource.data.keys().hasAny(['email', 'rating'])
                     && userShapeOk();
 
       // Read through `get()` with a default rather than the field directly: a
@@ -117,6 +135,7 @@ service cloud.firestore {
                     && request.resource.data.get('isAppAdmin', false)
                        == resource.data.get('isAppAdmin', false)
                     && keepsContactDetailsOut()
+                    && keepsRatingFrozen()
                     && userShapeOk();
 
       allow delete: if false;
@@ -163,11 +182,27 @@ service cloud.firestore {
                       && request.resource.data.kickoffMillis is number
                       && countsStartEmpty()
                       && request.resource.data.atRisk == true
-                      && !request.resource.data.keys().hasAny(['remindersSent']);
+                      && !request.resource.data.keys().hasAny(['remindersSent', 'teamsGeneration']);
 
         allow update: if isSeasonAdmin(seasonId) && !touchesDerivedGameFields();
 
         allow delete: if isSeasonAdmin(seasonId);
+
+        // ── tournament ───────────────────────────────────────────────────────
+        // The generated lineup, written only by `rebuildTeams`.
+        //
+        // Readable by anyone signed in — a team sheet nobody can see is no use
+        // — and writable by nobody at all. That is the whole guarantee behind
+        // the Reshuffle button being the only way to change a lineup: a player
+        // cannot quietly move themselves onto the side they fancy, and two
+        // admins looking at the same game cannot produce different teams.
+        //
+        // Reshuffling goes through `reshuffleCount` on the game document
+        // instead, which is a season-admin write like any other.
+        match /tournament/{docId} {
+          allow read: if isSignedIn();
+          allow write: if false;
+        }
 
         // ── responses ────────────────────────────────────────────────────────
         // The document id IS the uid, so one person can only ever hold one

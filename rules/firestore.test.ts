@@ -274,6 +274,76 @@ describe('users', () => {
 		);
 	});
 
+	// The rating is what team selection and the ladder are built on, and this
+	// document is writable by the person it describes — so it has to be frozen
+	// explicitly, not merely left off the allowlist.
+	it('stops a user rating themselves on create', async () => {
+		await assertFails(
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				rating: { elo: 2000, games: 99, updatedAt: '2026-08-01T00:00:00.000Z' },
+			})
+		);
+	});
+
+	it('stops a user rating themselves later', async () => {
+		await setDoc(doc(authed(MEMBER), `users/${MEMBER}`), { uid: MEMBER, displayName: 'A', isAppAdmin: false });
+
+		await assertFails(
+			updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
+				rating: { elo: 2000, games: 99, updatedAt: '2026-08-01T00:00:00.000Z' },
+			})
+		);
+	});
+
+	it('stops a user editing the rating a function gave them', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				rating: { elo: 1000, games: 6, updatedAt: '2026-08-01T00:00:00.000Z' },
+			});
+		});
+
+		await assertFails(
+			updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
+				rating: { elo: 2000, games: 6, updatedAt: '2026-08-01T00:00:00.000Z' },
+			})
+		);
+	});
+
+	it('stops a user deleting a rating they do not like', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				rating: { elo: 820, games: 9, updatedAt: '2026-08-01T00:00:00.000Z' },
+			});
+		});
+
+		await assertFails(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { rating: deleteField() }));
+	});
+
+	// A rated player still has to be able to change their name and their
+	// notification settings — the freeze must not lock them out of their own
+	// profile the way an unguarded equality check would.
+	it('lets a rated user still edit the rest of their profile', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				rating: { elo: 1120, games: 8, updatedAt: '2026-08-01T00:00:00.000Z' },
+			});
+		});
+
+		await assertSucceeds(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { displayName: 'Anders' }));
+	});
+
 	it('keeps push tokens private to their owner', async () => {
 		await assertSucceeds(
 			setDoc(doc(authed(MEMBER), `users/${MEMBER}/pushTokens/tok`), { token: 'tok', createdAt: 'now' })
@@ -461,6 +531,98 @@ describe('games', () => {
 
 	it('stops even an admin hand-editing remindersSent', async () => {
 		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { remindersSent: [72, 24] }));
+	});
+
+	// The staleness guard the debounced team rebuild reads. A client able to
+	// move it could make every queued rebuild think it had been superseded, and
+	// the teams would quietly stop updating.
+	it('stops even an admin hand-editing teamsGeneration', async () => {
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { teamsGeneration: 99 }));
+	});
+
+	it('stops a game being created with teamsGeneration seeded', async () => {
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), `seasons/${SEASON}/games/new`), {
+				seasonId: SEASON,
+				kickoff: '2026-09-08T17:00:00.000Z',
+				kickoffMillis: Date.parse('2026-09-08T17:00:00.000Z'),
+				status: 'scheduled',
+				counts: { membersIn: 0, membersOut: 0, extrasIn: 0, extrasOut: 0, extrasConfirmed: 0, playing: 0 },
+				atRisk: true,
+				teamsGeneration: 99,
+			})
+		);
+	});
+
+	it('lets a season admin reshuffle the teams', async () => {
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { reshuffleCount: 1 }));
+	});
+
+	it('stops a member reshuffling the teams', async () => {
+		await assertFails(updateDoc(doc(authed(MEMBER), gameDoc()), { reshuffleCount: 1 }));
+	});
+});
+
+describe('the generated lineup', () => {
+	const teamsDoc = () => `seasons/${SEASON}/games/${GAME}/tournament/teams`;
+
+	const someTeams = () => ({
+		teams: [
+			{ index: 0, uids: [MEMBER, SEASON_ADMIN] },
+			{ index: 1, uids: [OTHER_MEMBER, EXTRA] },
+		],
+		elos: { [MEMBER]: 1000, [OTHER_MEMBER]: 1000, [SEASON_ADMIN]: 1000, [EXTRA]: 1000 },
+		seed: 1,
+		settings: { randomness: 0.3, repeatPenalty: 0.4, repeatLookback: 4, matchMinutes: 12 },
+		generation: 1,
+		builtAt: '2026-08-30T10:00:00.000Z',
+	});
+
+	const seedTeams = async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), teamsDoc()), someTeams());
+		});
+	};
+
+	it('lets any signed-in user read the team sheet', async () => {
+		await seedTeams();
+
+		await assertSucceeds(getDoc(doc(authed(EXTRA), teamsDoc())));
+	});
+
+	it('blocks anonymous reads', async () => {
+		await seedTeams();
+
+		await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), teamsDoc())));
+	});
+
+	// The whole guarantee behind Reshuffle being the only way to change a
+	// lineup: nobody hand-picks the side they fancy, not even the person who
+	// runs the season.
+	it('stops a player writing their own lineup', async () => {
+		await assertFails(setDoc(doc(authed(MEMBER), teamsDoc()), someTeams()));
+	});
+
+	it('stops a season admin writing a lineup by hand', async () => {
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), teamsDoc()), someTeams()));
+	});
+
+	it('stops an app admin writing a lineup by hand', async () => {
+		await assertFails(setDoc(doc(authed(APP_ADMIN, { admin: true }), teamsDoc()), someTeams()));
+	});
+
+	it('stops anyone editing a lineup that already exists', async () => {
+		await seedTeams();
+
+		await assertFails(
+			updateDoc(doc(authed(SEASON_ADMIN), teamsDoc()), { teams: [{ index: 0, uids: [MEMBER] }] })
+		);
+	});
+
+	it('stops anyone deleting a lineup', async () => {
+		await seedTeams();
+
+		await assertFails(deleteDoc(doc(authed(SEASON_ADMIN), teamsDoc())));
 	});
 });
 
