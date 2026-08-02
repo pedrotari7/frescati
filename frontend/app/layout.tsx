@@ -34,7 +34,7 @@ export const viewport: Viewport = {
 
 const RootLayout = ({ children }: { children: ReactNode }) => (
 	<html lang='en'>
-		<body>
+		<body suppressHydrationWarning>
 			<ErrorBoundary>
 				<AuthProvider>
 					{children}
