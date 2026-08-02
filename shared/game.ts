@@ -1,5 +1,6 @@
 import type { Game, GameCounts, GameResponse, PlayerRole, Season } from './types';
 import { addHours } from './datetime';
+import { describeSquads, getSquadSizes, getTeamCount } from './tournament';
 
 /**
  * Where a game sits in its lifecycle. Orthogonal to headcount — a game can be
@@ -8,12 +9,6 @@ import { addHours } from './datetime';
 export type GameLifecycle = 'cancelled' | 'finished' | 'live' | 'locked' | 'open';
 
 export type HeadcountState = 'at-risk' | 'ready';
-
-/** Fewer than this many players and it isn't a game, whatever the season says. */
-const MIN_VIABLE_PLAYERS = 8;
-
-/** Nobody is playing 12-a-side on a five-a-side pitch. */
-const MAX_PLAYERS_PER_SIDE = 11;
 
 export const getMinPlayers = (game: Pick<Game, 'minPlayers'>, season: Pick<Season, 'minPlayers'>): number =>
 	game.minPlayers ?? season.minPlayers;
@@ -50,15 +45,18 @@ export const getNoResponseCount = (counts: GameCounts, memberCount: number): num
 	Math.max(0, memberCount - counts.membersIn - counts.membersOut);
 
 /**
- * The format the confirmed headcount supports, e.g. `7v7` for 14 or 15 players.
- * `null` when there aren't enough bodies for a game at all.
+ * The format the confirmed headcount supports, e.g. `5v5` for ten players or
+ * `3 teams · 5 a side` for fifteen. `null` when there aren't enough bodies for
+ * a game at all.
+ *
+ * Delegates to the tournament bands rather than halving the headcount: past
+ * eleven players a night is no longer one match, and a badge reading `7v7` for
+ * fourteen described a game nobody was going to play.
  */
 export const getFormat = (playing: number): string | null => {
-	if (playing < MIN_VIABLE_PLAYERS) return null;
+	const teamCount = getTeamCount(playing);
 
-	const perSide = Math.min(Math.floor(playing / 2), MAX_PLAYERS_PER_SIDE);
-
-	return `${perSide}v${perSide}`;
+	return teamCount === 0 ? null : describeSquads(getSquadSizes(playing, teamCount));
 };
 
 export const getRole = (uid: string, season: Pick<Season, 'memberUids'>): PlayerRole =>
@@ -136,11 +134,12 @@ export const tallyResponses = (responses: Pick<GameResponse, 'status' | 'role' |
  * Sorted descending and de-duplicated so the stored value is canonical
  * regardless of what order somebody typed.
  */
-export const parseReminderHours = (input: string): number[] => [
-	...new Set(
-		input
-			.split(',')
-			.map(part => Number(part.trim()))
-			.filter(hours => Number.isFinite(hours) && hours > 0)
-	),
-].sort((a, b) => b - a);
+export const parseReminderHours = (input: string): number[] =>
+	[
+		...new Set(
+			input
+				.split(',')
+				.map(part => Number(part.trim()))
+				.filter(hours => Number.isFinite(hours) && hours > 0)
+		),
+	].sort((a, b) => b - a);

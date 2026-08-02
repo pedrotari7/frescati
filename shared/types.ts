@@ -55,6 +55,12 @@ export interface AppUser {
 	 */
 	isAppAdmin: boolean;
 	notificationPrefs: NotificationPrefs;
+	/**
+	 * Absent until they've played a rated game. A player with no rating is
+	 * seeded from the group average at selection time rather than carrying a
+	 * stored placeholder — same reasoning as a missing response document.
+	 */
+	rating?: PlayerRating;
 }
 
 export interface PushToken {
@@ -62,6 +68,54 @@ export interface PushToken {
 	createdAt: string;
 	userAgent: string;
 }
+
+/**
+ * A player's standing, carried across every season they ever play.
+ *
+ * Stored as Elo rather than the 0–100 people see, because a bounded scale
+ * clamps: once two players both sit at the ceiling the balancer can no longer
+ * tell them apart, and the clamp quietly breaks the zero-sum property the
+ * update relies on. `toDisplayRating` in `rating.ts` does the mapping.
+ *
+ * Written only by the rating functions; security rules freeze it against client
+ * writes the same way `isAppAdmin` is frozen.
+ */
+export interface PlayerRating {
+	elo: number;
+	/** Rated games played. Drives the provisional K-factor. */
+	games: number;
+	updatedAt: string;
+}
+
+/**
+ * The levers an admin has over team selection. Defaults live on the season and
+ * a game may override any of them; whatever was in force gets snapshotted onto
+ * the teams document so a lineup stays explicable after the levers move.
+ */
+export interface BalanceSettings {
+	/**
+	 * How far from the most balanced split the optimizer may wander, 0–1. At 0
+	 * it always returns the flattest teams it found, which means the same
+	 * headcount produces the same teams every week.
+	 */
+	randomness: number;
+	/**
+	 * How hard to avoid putting recent teammates together, 0–1. Weighed against
+	 * balance rather than absolute — at 0 history is ignored entirely.
+	 */
+	repeatPenalty: number;
+	/** How many previous games the repeat penalty looks back over. */
+	repeatLookback: number;
+	/** Minutes per match, used to size the night against the season's slot. */
+	matchMinutes: number;
+}
+
+export const DEFAULT_BALANCE_SETTINGS: BalanceSettings = {
+	randomness: 0.3,
+	repeatPenalty: 0.4,
+	repeatLookback: 4,
+	matchMinutes: 12,
+};
 
 export interface Season {
 	id: string;
@@ -79,6 +133,8 @@ export interface Season {
 	responseDeadlineHours: number;
 	/** Hours before kickoff at which to nudge members who haven't responded. */
 	reminderHours: number[];
+	/** Team-selection levers. Absent on seasons created before teams existed. */
+	balance?: BalanceSettings;
 	memberUids: string[];
 	adminUids: string[];
 	createdAt: string;
@@ -115,6 +171,23 @@ export interface Game {
 	status: GameStatus;
 	/** Overrides `Season.minPlayers` for this game only. */
 	minPlayers?: number;
+	/** Overrides any of `Season.balance` for this game only. */
+	balance?: Partial<BalanceSettings>;
+	/**
+	 * Bumped by `onResponseWrite` every time the playing pool could have moved.
+	 * The debounced team rebuild carries the generation it was queued for and
+	 * drops itself if this has moved on, so a burst of answers collapses into a
+	 * single run instead of one per response.
+	 *
+	 * Written only by the functions; client writes are rejected.
+	 */
+	teamsGeneration?: number;
+	/**
+	 * Bumped by an admin tapping Reshuffle. Feeds the optimizer's seed, so the
+	 * same pool re-rolls into a different — equally balanced — split. Admin
+	 * writable, unlike `teamsGeneration`.
+	 */
+	reshuffleCount?: number;
 	isOneOff: boolean;
 	note?: string;
 	cancelledReason?: string;
@@ -151,6 +224,35 @@ export interface GameResponse {
 	respondedAt: string;
 	updatedAt: string;
 	note?: string;
+}
+
+/**
+ * One squad for one night. `uids` is the whole squad; how many of them are on
+ * the pitch at once depends on who they're playing — see `getSideSize`.
+ */
+export interface TournamentTeam {
+	/** 0 = A, 1 = B … Stable for the life of the document. */
+	index: number;
+	uids: string[];
+}
+
+/**
+ * The generated lineup, at `seasons/{id}/games/{id}/tournament/teams`.
+ *
+ * Written only by the `rebuildTeams` function. It lives in a subcollection rather
+ * than on the game document because it is rewritten on every response and the
+ * game document is what the whole calendar subscribes to.
+ */
+export interface TournamentTeams {
+	teams: TournamentTeam[];
+	/** Ratings as they stood when this was built, for display and for replay. */
+	elos: Record<string, number>;
+	seed: number;
+	/** The levers in force at build time, so an old lineup stays explicable. */
+	settings: BalanceSettings;
+	/** The `Game.teamsGeneration` this was built from. */
+	generation: number;
+	builtAt: string;
 }
 
 export const EMPTY_COUNTS: GameCounts = {
