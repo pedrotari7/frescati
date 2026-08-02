@@ -96,6 +96,17 @@ Project: **`footballfrescati`**.
 | `pnpm --filter backend set-admin <email>` | grant the app-admin claim (`--revoke` to remove) |
 | `pnpm --filter backend whoami <email>` | print a user's uid and custom claims |
 
+### One-off maintenance
+
+Each takes `--dry-run` (except `recount-games`) and is safe to run twice.
+
+| | |
+| --- | --- |
+| `pnpm --filter backend backfill-kickoff-millis` | fill in `kickoffMillis` on games written before it existed — **the response deadline is not enforced on a game without it** |
+| `pnpm --filter backend strip-user-emails` | remove `email` from profiles written before it moved out of Firestore |
+| `pnpm --filter backend recount-games` | recompute `counts` and repair drifted `role`s across every game |
+| `pnpm --filter backend prune-orphans` | delete responses and games left behind by deletions that predate the cascade triggers |
+
 Emulator commands need JDK 21: `JAVA_HOME=/usr/local/opt/openjdk@21 pnpm test:rules`.
 
 Set `NEXT_PUBLIC_USE_EMULATORS=1` in `.env.local` to point the app at the local emulators.
