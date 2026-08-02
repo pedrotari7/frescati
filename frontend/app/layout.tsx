@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '../lib/auth';
 import ErrorBoundary from '../components/ErrorBoundary';
 import ToastProvider from '../components/Toast';
+import ConfirmProvider from '../components/ConfirmDialog';
 import ServiceWorkerRegistrar from '../components/ServiceWorkerRegistrar';
 import PwaInstallPrompt from '../components/PwaInstallPrompt';
 
@@ -39,8 +40,10 @@ const RootLayout = ({ children }: { children: ReactNode }) => (
 			<ErrorBoundary>
 				<AuthProvider>
 					<ToastProvider>
-						{children}
-						<PwaInstallPrompt />
+						<ConfirmProvider>
+							{children}
+							<PwaInstallPrompt />
+						</ConfirmProvider>
 					</ToastProvider>
 				</AuthProvider>
 			</ErrorBoundary>

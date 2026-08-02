@@ -8,6 +8,7 @@ import { parseCivilDate, zonedTimeToUtc } from '@shared/datetime';
 import { useAuth } from '../../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
 import { useWrite } from '../../../../../../hooks/useWrite';
+import { useConfirm } from '../../../../../../components/ConfirmDialog';
 import { cancelGame, createGames, createOneOffGame, deleteGame, restoreGame } from '../../../../../../lib/db/games';
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
@@ -20,6 +21,7 @@ const AdminGamesPage = () => {
 	const { user } = useAuth();
 	const { seasonId, season, games, loading, isAdmin } = useSeasonContext();
 	const write = useWrite();
+	const confirm = useConfirm();
 
 	const [message, setMessage] = useState<string | null>(null);
 	const [oneOff, setOneOff] = useState({ date: '', time: '' });
@@ -211,9 +213,30 @@ const AdminGamesPage = () => {
 									<Button
 										size='sm'
 										variant='danger'
-										onClick={() =>
-											write(() => deleteGame(seasonId, game.id), "Couldn't delete that game.")
-										}
+										onClick={async () => {
+											const answers =
+												game.counts.membersIn +
+												game.counts.membersOut +
+												game.counts.extrasIn +
+												game.counts.extrasOut;
+
+											const ok = await confirm({
+												title: `Delete ${formatGameDate(game.kickoff, season.slot.timezone)}?`,
+												message:
+													answers > 0
+														? `${answers} ${answers === 1 ? 'answer goes' : 'answers go'} with it, and this can't be undone. Cancelling the game instead keeps them.`
+														: "This can't be undone.",
+												confirmLabel: 'Delete',
+												tone: 'danger',
+											});
+
+											if (!ok) return;
+
+											await write(
+												() => deleteGame(seasonId, game.id),
+												"Couldn't delete that game."
+											);
+										}}
 									>
 										Delete
 									</Button>
