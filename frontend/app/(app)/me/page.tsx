@@ -126,6 +126,20 @@ const MePage = () => {
 					</Button>
 				</section>
 
+				{/* The only way into the app-admin screen. Hidden rather than
+				    shown-and-denied: nobody else has anything to do there. */}
+				{user.isAppAdmin && (
+					<section className='glass rounded-2xl p-5'>
+						<h2 className='text-ink mb-1 font-semibold'>App admins</h2>
+						<p className='text-muted mb-3 text-sm leading-relaxed'>
+							Manage who can create seasons and promote other admins.
+						</p>
+						<Button variant='secondary' fullWidth onClick={() => router.push('/admin')}>
+							Manage app admins
+						</Button>
+					</section>
+				)}
+
 				<Button
 					variant='ghost'
 					fullWidth
