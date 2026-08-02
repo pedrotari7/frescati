@@ -9,8 +9,7 @@ import { useResponses, useUsers } from '../../../../../../hooks/useData';
 import { useMyResponses } from '../../../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../../../hooks/useRespond';
 import { setConfirmOverride } from '../../../../../../lib/db/responses';
-import { seasonNavItems } from '../../../../../../components/BottomNav';
-import PageShell from '../../../../../../components/PageShell';
+import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
 import HeadcountBar from '../../../../../../components/HeadcountBar';
@@ -29,21 +28,19 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const game = games.find(candidate => candidate.id === gameId) ?? null;
 	const usersByUid = useMemo(() => new Map(users.map(user => [user.uid, user])), [users]);
 
-	const navItems = seasonNavItems(seasonId, isAdmin);
-
 	if (loading) {
 		return (
-			<PageShell title='Game' backHref={`/s/${seasonId}`} navItems={navItems}>
+			<SeasonShell title='Game' backHref={`/s/${seasonId}`}>
 				<Skeleton />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
 	if (!season || !game) {
 		return (
-			<PageShell title='Game' backHref={`/s/${seasonId}`} navItems={navItems}>
+			<SeasonShell title='Game' backHref={`/s/${seasonId}`}>
 				<EmptyState title='Game not found' message='It may have been deleted from the calendar.' />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
@@ -51,11 +48,10 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const timezone = season.slot.timezone;
 
 	return (
-		<PageShell
+		<SeasonShell
 			title={formatGameDateLong(game.kickoff, timezone)}
 			subtitle={`${formatGameTime(game.kickoff, timezone)} · ${game.venue.name}`}
 			backHref={`/s/${seasonId}`}
-			navItems={navItems}
 		>
 			<div className='space-y-6 p-4'>
 				<section className='glass rounded-3xl p-5'>
@@ -99,7 +95,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 					onToggleExtra={(uid, confirmed) => setConfirmOverride(seasonId, gameId, uid, confirmed)}
 				/>
 			</div>
-		</PageShell>
+		</SeasonShell>
 	);
 };
 

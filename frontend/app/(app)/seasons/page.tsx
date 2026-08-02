@@ -7,7 +7,7 @@ import { CalendarDaysIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../lib/auth';
 import { useSeasons } from '../../../hooks/useData';
 import PageShell from '../../../components/PageShell';
-import { globalNavItems } from '../../../components/BottomNav';
+import { useSeasonScope } from '../../../components/SeasonScope';
 import Skeleton from '../../../components/Skeleton';
 import EmptyState from '../../../components/EmptyState';
 import StatusPill from '../../../components/StatusPill';
@@ -17,6 +17,7 @@ const SeasonsPage = () => {
 	const router = useRouter();
 	const { user } = useAuth();
 	const { seasons, loading } = useSeasons();
+	const { seasonId: currentSeasonId } = useSeasonScope();
 
 	const active = useMemo(() => seasons.filter(season => season.status === 'active'), [seasons]);
 
@@ -31,8 +32,10 @@ const SeasonsPage = () => {
 		if (!loading && soleActiveId) router.replace(`/s/${soleActiveId}`);
 	}, [loading, soleActiveId, router]);
 
+	// A picker, not a destination: it carries no tabs of its own, so entering a
+	// season doesn't reshape the bar. Back returns to the season you left.
 	return (
-		<PageShell title='Seasons' navItems={globalNavItems()}>
+		<PageShell title='Seasons' backHref={currentSeasonId ? `/s/${currentSeasonId}` : undefined}>
 			{loading ? (
 				<Skeleton />
 			) : seasons.length === 0 ? (

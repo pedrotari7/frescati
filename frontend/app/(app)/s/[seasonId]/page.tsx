@@ -6,8 +6,7 @@ import { getGameLifecycle } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
 import { useMyResponses } from '../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../hooks/useRespond';
-import { seasonNavItems } from '../../../../components/BottomNav';
-import PageShell from '../../../../components/PageShell';
+import SeasonShell from '../../../../components/SeasonShell';
 import Skeleton from '../../../../components/Skeleton';
 import EmptyState from '../../../../components/EmptyState';
 import NextGameHero from '../../../../components/NextGameHero';
@@ -34,26 +33,24 @@ const SeasonHomePage = () => {
 		return { next: first ?? null, upcoming: rest, past: finished };
 	}, [games, season]);
 
-	const navItems = seasonNavItems(seasonId, isAdmin);
-
 	if (loading) {
 		return (
-			<PageShell title='Frescati' navItems={navItems}>
+			<SeasonShell title='Frescati'>
 				<Skeleton />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
 	if (!season) {
 		return (
-			<PageShell title='Season' navItems={navItems}>
+			<SeasonShell title='Season'>
 				<EmptyState title='Season not found' message='It may have been deleted, or the link is wrong.' />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
 	return (
-		<PageShell title={season.name} subtitle={season.venue.name} navItems={navItems}>
+		<SeasonShell title={season.name} subtitle={season.venue.name}>
 			<div className='space-y-6 p-4'>
 				{next ? (
 					<NextGameHero
@@ -70,7 +67,7 @@ const SeasonHomePage = () => {
 						title='No games scheduled'
 						message={
 							isAdmin
-								? 'Generate the season calendar from the admin tab.'
+								? 'Generate the season calendar from the admin settings.'
 								: 'Nothing on the calendar yet. An admin will add games soon.'
 						}
 					/>
@@ -124,7 +121,7 @@ const SeasonHomePage = () => {
 					</section>
 				)}
 			</div>
-		</PageShell>
+		</SeasonShell>
 	);
 };
 

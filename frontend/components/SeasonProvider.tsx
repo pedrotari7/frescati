@@ -1,11 +1,12 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import type { Game, Season } from '@shared/types';
 import { getRole } from '@shared/game';
 import { useAuth } from '../lib/auth';
 import { useGames, useSeason } from '../hooks/useData';
+import { useSeasonScope } from './SeasonScope';
 
 interface SeasonContextValue {
 	/** Always available, even while `season` is still loading or missing. */
@@ -42,8 +43,14 @@ export const SeasonProvider = ({ seasonId, children }: { seasonId: string; child
 	const { user } = useAuth();
 	const { season, loading: seasonLoading, error: seasonError } = useSeason(seasonId);
 	const { games, loading: gamesLoading, error: gamesError } = useGames(seasonId);
+	const { remember } = useSeasonScope();
 
 	const uid = user?.uid ?? null;
+
+	// Screens above this route keep pointing their tabs back here.
+	useEffect(() => {
+		remember(seasonId);
+	}, [seasonId, remember]);
 
 	const value = useMemo<SeasonContextValue>(() => {
 		const isMember = !!uid && !!season && season.memberUids.includes(uid);

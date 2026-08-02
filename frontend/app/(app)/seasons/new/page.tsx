@@ -6,7 +6,6 @@ import type { Weekday } from '@shared/types';
 import { weekdayName } from '@shared/format';
 import { useAuth } from '../../../../lib/auth';
 import { createSeason } from '../../../../lib/db/seasons';
-import { globalNavItems } from '../../../../components/BottomNav';
 import PageShell from '../../../../components/PageShell';
 import EmptyState from '../../../../components/EmptyState';
 import Button from '../../../../components/Button';
@@ -33,7 +32,7 @@ const NewSeasonPage = () => {
 
 	if (!user?.isAppAdmin) {
 		return (
-			<PageShell title='New season' backHref='/seasons' navItems={globalNavItems()}>
+			<PageShell title='New season' backHref='/seasons'>
 				<EmptyState
 					title='App admins only'
 					message='Creating a season needs the app admin role. Ask whoever set up the app.'
@@ -83,7 +82,7 @@ const NewSeasonPage = () => {
 	};
 
 	return (
-		<PageShell title='New season' backHref='/seasons' navItems={globalNavItems()}>
+		<PageShell title='New season' backHref='/seasons'>
 			<div className='space-y-4 p-4'>
 				<section className='glass space-y-4 rounded-2xl p-5'>
 					<Field label='Name' hint='Something you’ll recognise, e.g. “Autumn 2026”.'>

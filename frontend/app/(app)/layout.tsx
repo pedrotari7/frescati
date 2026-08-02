@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useAuth } from '../../lib/auth';
 import Login from '../../components/Login';
 import Spinner from '../../components/Spinner';
+import { SeasonScopeProvider } from '../../components/SeasonScope';
 
 /**
  * Auth gate for every signed-in screen.
@@ -27,7 +28,8 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
 
 	if (user === undefined) return <Login />;
 
-	return <>{children}</>;
+	// Above the season route, so the tabs survive a trip to /me and back.
+	return <SeasonScopeProvider>{children}</SeasonScopeProvider>;
 };
 
 export default AppLayout;

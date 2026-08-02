@@ -2,11 +2,10 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { UsersIcon } from '@heroicons/react/24/outline';
+import { Cog6ToothIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useUsers } from '../../../../../hooks/useData';
-import { seasonNavItems } from '../../../../../components/BottomNav';
-import PageShell from '../../../../../components/PageShell';
+import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
 import Avatar from '../../../../../components/Avatar';
@@ -34,51 +33,49 @@ const MembersPage = () => {
 			.sort((a, b) => a.displayName.localeCompare(b.displayName));
 	}, [season, users]);
 
-	const navItems = seasonNavItems(seasonId, isAdmin);
-
 	if (loading) {
 		return (
-			<PageShell title='Squad' navItems={navItems}>
+			<SeasonShell title='Squad'>
 				<Skeleton />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
 	if (!season) {
 		return (
-			<PageShell title='Squad' navItems={navItems}>
+			<SeasonShell title='Squad'>
 				<EmptyState title='Season not found' />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
-	return (
-		<PageShell
-			title='Squad'
-			subtitle={`${members.length} in ${season.name}`}
-			navItems={navItems}
-			actions={
-				isAdmin ? (
-					// Styled as a link rather than wrapping a <Button>, since a
-					// <button> inside an <a> is invalid and breaks keyboard nav.
-					<Link
-						href={`/s/${seasonId}/admin/members`}
-						className='text-muted hover:text-ink shrink-0 rounded-lg px-3 py-2 text-sm font-medium hover:bg-white/5'
-					>
-						Manage
-					</Link>
-				) : undefined
-			}
+	// In the body rather than the top bar: an admin-only control up there appears
+	// on this screen and no other, which drags the tabs beside it around.
+	//
+	// Styled as a link rather than wrapping a <Button>, since a <button> inside
+	// an <a> is invalid and breaks keyboard nav.
+	const manageLink = isAdmin ? (
+		<Link
+			href={`/s/${seasonId}/admin/members`}
+			className='glass-card text-ink flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm transition-all duration-150 active:scale-[0.98]'
 		>
+			<Cog6ToothIcon className='size-4' aria-hidden='true' />
+			Manage squad
+		</Link>
+	) : null;
+
+	return (
+		<SeasonShell title='Squad' subtitle={`${members.length} in ${season.name}`}>
 			{members.length === 0 ? (
 				<EmptyState
 					icon={<UsersIcon />}
 					title='No squad yet'
 					message={
 						isAdmin
-							? 'Add players from the admin tab to build the roster.'
+							? 'Add players to build the roster.'
 							: 'An admin has not added anyone to this season yet.'
 					}
+					action={manageLink}
 				/>
 			) : (
 				<div className='p-4'>
@@ -92,13 +89,15 @@ const MembersPage = () => {
 						))}
 					</div>
 
+					{manageLink && <div className='mt-4'>{manageLink}</div>}
+
 					<p className='text-faint mt-4 px-1 text-xs leading-relaxed'>
 						Anyone signed in who isn&apos;t on this list can still put their hand up for a game — they show
 						up as an extra.
 					</p>
 				</div>
 			)}
-		</PageShell>
+		</SeasonShell>
 	);
 };
 

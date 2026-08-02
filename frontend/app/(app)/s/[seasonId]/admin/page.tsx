@@ -7,8 +7,7 @@ import type { SeasonStatus, Weekday } from '@shared/types';
 import { weekdayName } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { updateSeason } from '../../../../../lib/db/seasons';
-import { seasonNavItems } from '../../../../../components/BottomNav';
-import PageShell from '../../../../../components/PageShell';
+import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
 import Button from '../../../../../components/Button';
@@ -52,29 +51,27 @@ const SeasonAdminPage = () => {
 		});
 	}, [season]);
 
-	const navItems = seasonNavItems(seasonId, isAdmin);
-
 	if (loading) {
 		return (
-			<PageShell title='Admin' navItems={navItems}>
+			<SeasonShell title='Admin' backHref={`/s/${seasonId}`}>
 				<Skeleton />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
 	if (!season) {
 		return (
-			<PageShell title='Admin' navItems={navItems}>
+			<SeasonShell title='Admin' backHref={`/s/${seasonId}`}>
 				<EmptyState title='Season not found' />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
 	if (!isAdmin) {
 		return (
-			<PageShell title='Admin' navItems={navItems}>
+			<SeasonShell title='Admin' backHref={`/s/${seasonId}`}>
 				<EmptyState title='Admins only' message='Ask a season admin if you need something changed.' />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
@@ -103,7 +100,7 @@ const SeasonAdminPage = () => {
 	};
 
 	return (
-		<PageShell title='Admin' subtitle={season.name} navItems={navItems}>
+		<SeasonShell title='Admin' subtitle={season.name} backHref={`/s/${seasonId}`}>
 			<div className='space-y-4 p-4'>
 				<div className='grid grid-cols-2 gap-3'>
 					<Link href={`/s/${seasonId}/admin/members`} className='glass-card rounded-2xl p-4'>
@@ -231,7 +228,7 @@ const SeasonAdminPage = () => {
 					</p>
 				</section>
 			</div>
-		</PageShell>
+		</SeasonShell>
 	);
 };
 

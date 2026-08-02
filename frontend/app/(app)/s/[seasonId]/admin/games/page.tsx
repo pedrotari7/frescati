@@ -8,8 +8,7 @@ import { parseCivilDate, zonedTimeToUtc } from '@shared/datetime';
 import { useAuth } from '../../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
 import { cancelGame, createGames, createOneOffGame, deleteGame, restoreGame } from '../../../../../../lib/db/games';
-import { seasonNavItems } from '../../../../../../components/BottomNav';
-import PageShell from '../../../../../../components/PageShell';
+import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
 import Button from '../../../../../../components/Button';
@@ -41,21 +40,19 @@ const AdminGamesPage = () => {
 		}
 	}, [season, games]);
 
-	const navItems = seasonNavItems(seasonId, isAdmin);
-
 	if (loading) {
 		return (
-			<PageShell title='Games' backHref={`/s/${seasonId}/admin`} navItems={navItems}>
+			<SeasonShell title='Games' backHref={`/s/${seasonId}/admin`}>
 				<Skeleton />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
 	if (!season || !isAdmin || !user) {
 		return (
-			<PageShell title='Games' backHref={`/s/${seasonId}/admin`} navItems={navItems}>
+			<SeasonShell title='Games' backHref={`/s/${seasonId}/admin`}>
 				<EmptyState title='Admins only' />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
@@ -87,12 +84,7 @@ const AdminGamesPage = () => {
 	};
 
 	return (
-		<PageShell
-			title='Games'
-			subtitle={`${games.length} on the calendar`}
-			backHref={`/s/${seasonId}/admin`}
-			navItems={navItems}
-		>
+		<SeasonShell title='Games' subtitle={`${games.length} on the calendar`} backHref={`/s/${seasonId}/admin`}>
 			<div className='space-y-4 p-4'>
 				<section className='glass rounded-2xl p-5'>
 					<h2 className='text-ink mb-1 font-semibold'>Generate the calendar</h2>
@@ -205,7 +197,7 @@ const AdminGamesPage = () => {
 					</div>
 				</section>
 			</div>
-		</PageShell>
+		</SeasonShell>
 	);
 };
 

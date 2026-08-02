@@ -10,8 +10,7 @@ import {
 	removeSeasonAdmin,
 	removeSeasonMember,
 } from '../../../../../../lib/db/seasons';
-import { seasonNavItems } from '../../../../../../components/BottomNav';
-import PageShell from '../../../../../../components/PageShell';
+import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
 import Avatar from '../../../../../../components/Avatar';
@@ -38,21 +37,19 @@ const AdminMembersPage = () => {
 		};
 	}, [season, users, search]);
 
-	const navItems = seasonNavItems(seasonId, isAdmin);
-
 	if (loading || usersLoading) {
 		return (
-			<PageShell title='Manage squad' backHref={`/s/${seasonId}/admin`} navItems={navItems}>
+			<SeasonShell title='Manage squad' backHref={`/s/${seasonId}/admin`}>
 				<Skeleton />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
 	if (!season || !isAdmin) {
 		return (
-			<PageShell title='Manage squad' backHref={`/s/${seasonId}/admin`} navItems={navItems}>
+			<SeasonShell title='Manage squad' backHref={`/s/${seasonId}/admin`}>
 				<EmptyState title='Admins only' />
-			</PageShell>
+			</SeasonShell>
 		);
 	}
 
@@ -61,11 +58,10 @@ const AdminMembersPage = () => {
 	const isLastAdmin = (uid: string) => season.adminUids.length === 1 && season.adminUids[0] === uid;
 
 	return (
-		<PageShell
+		<SeasonShell
 			title='Manage squad'
 			subtitle={`${season.memberUids.length} in the squad`}
 			backHref={`/s/${seasonId}/admin`}
-			navItems={navItems}
 		>
 			<div className='space-y-6 p-4'>
 				<div className='relative'>
@@ -165,7 +161,7 @@ const AdminMembersPage = () => {
 					</p>
 				</section>
 			</div>
-		</PageShell>
+		</SeasonShell>
 	);
 };
 

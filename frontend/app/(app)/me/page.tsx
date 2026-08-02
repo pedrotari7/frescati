@@ -6,7 +6,8 @@ import { ArrowRightStartOnRectangleIcon, BellIcon } from '@heroicons/react/24/ou
 import { signOutOfApp, useAuth } from '../../../lib/auth';
 import { checkPushSupport, disablePush, enablePush, getPermission } from '../../../lib/push';
 import type { PushSupport } from '../../../lib/push';
-import { globalNavItems } from '../../../components/BottomNav';
+import { seasonNavItems } from '../../../components/BottomNav';
+import { useSeasonScope } from '../../../components/SeasonScope';
 import PageShell from '../../../components/PageShell';
 import Avatar from '../../../components/Avatar';
 import Button from '../../../components/Button';
@@ -15,6 +16,7 @@ import StatusPill from '../../../components/StatusPill';
 const MePage = () => {
 	const router = useRouter();
 	const { user } = useAuth();
+	const { seasonId } = useSeasonScope();
 
 	const [support, setSupport] = useState<PushSupport | null>(null);
 	const [permission, setPermission] = useState<NotificationPermission>('default');
@@ -43,8 +45,14 @@ const MePage = () => {
 
 	const pushIsOn = permission === 'granted';
 
+	// Me is a tab of the season the user came from, so the bar it was tapped on
+	// stays exactly as it was. Opened cold with no season, it's a leaf screen.
 	return (
-		<PageShell title='You' navItems={globalNavItems()}>
+		<PageShell
+			title='You'
+			navItems={seasonId ? seasonNavItems(seasonId) : undefined}
+			backHref={seasonId ? undefined : '/seasons'}
+		>
 			<div className='space-y-4 p-4'>
 				<section className='glass flex items-center gap-4 rounded-2xl p-5'>
 					<Avatar displayName={user.displayName} photoURL={user.photoURL} size='lg' />

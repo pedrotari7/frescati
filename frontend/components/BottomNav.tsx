@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { CalendarDaysIcon, Cog6ToothIcon, UserCircleIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, UserCircleIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { classNames } from '../lib/utils/reactHelper';
 import { hapticLight } from '../lib/utils/haptics';
 
@@ -13,43 +13,58 @@ export interface NavItem {
 	icon: typeof CalendarDaysIcon;
 }
 
-export const seasonNavItems = (seasonId: string, isAdmin: boolean): NavItem[] => [
+/**
+ * The only tab bar in the app: the same three destinations, in the same order,
+ * on every screen that has one.
+ *
+ * Nothing in here depends on data that arrives late, so the bar never reflows
+ * under the user's thumb once it has been painted. Admin-only tools deliberately
+ * stay out of it — they live behind the gear in the top bar, because a tab that
+ * appears the moment the season doc loads moves every tab beside it.
+ */
+export const seasonNavItems = (seasonId: string): NavItem[] => [
 	{ href: `/s/${seasonId}`, label: 'Games', icon: CalendarDaysIcon },
 	{ href: `/s/${seasonId}/members`, label: 'Squad', icon: UsersIcon },
-	...(isAdmin ? [{ href: `/s/${seasonId}/admin`, label: 'Admin', icon: Cog6ToothIcon }] : []),
 	{ href: '/me', label: 'Me', icon: UserCircleIcon },
 ];
 
-export const globalNavItems = (): NavItem[] => [
-	{ href: '/seasons', label: 'Seasons', icon: CalendarDaysIcon },
-	{ href: '/me', label: 'Me', icon: UserCircleIcon },
-];
+export const seasonAdminHref = (seasonId: string) => `/s/${seasonId}/admin`;
 
-/** Deepest matching href wins, so /s/x/admin doesn't also light up /s/x. */
-export const activeIndexFor = (items: NavItem[], pathname: string): number => {
+export const matchesHref = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+/**
+ * Deepest matching href wins, so /s/x/members doesn't also light up /s/x.
+ *
+ * `sectionHrefs` are routes that own themselves without owning a tab — the admin
+ * area. Being inside one leaves every tab unlit rather than falling back to the
+ * season root, and the top bar highlights the gear instead.
+ */
+export const activeIndexFor = (items: NavItem[], pathname: string, sectionHrefs: string[] = []): number => {
 	let best = -1;
 	let bestLength = -1;
 
-	items.forEach((item, index) => {
-		const matches = pathname === item.href || pathname.startsWith(`${item.href}/`);
-		if (matches && item.href.length > bestLength) {
+	const consider = (href: string, index: number) => {
+		if (matchesHref(pathname, href) && href.length > bestLength) {
 			best = index;
-			bestLength = item.href.length;
+			bestLength = href.length;
 		}
-	});
+	};
+
+	items.forEach((item, index) => consider(item.href, index));
+	sectionHrefs.forEach(href => consider(href, -1));
 
 	return best;
 };
 
-const BottomNav = ({ items }: { items: NavItem[] }) => {
+const BottomNav = ({ items, sectionHrefs }: { items: NavItem[]; sectionHrefs?: string[] }) => {
 	const pathname = usePathname();
-	const activeIndex = activeIndexFor(items, pathname);
+	const activeIndex = activeIndexFor(items, pathname, sectionHrefs);
 
 	const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
 	const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
 
 	// Measured rather than derived from a fraction of the width, so the pill
-	// still lines up when the Admin tab appears or disappears.
+	// lines up whatever the labels are and however wide the bar ends up.
 	useEffect(() => {
 		const update = () => {
 			const element = itemRefs.current[activeIndex];
