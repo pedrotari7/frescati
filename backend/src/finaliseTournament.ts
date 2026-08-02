@@ -1,0 +1,122 @@
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { logger } from 'firebase-functions';
+import type { Game, Season } from '../../shared/types';
+import { db, REGION } from './lib/firebase';
+import { AUTO_FINALISE_HOURS } from '../../shared/tournament';
+import { finaliseGame, replayRatingsFrom } from './lib/finalise';
+
+const isSeasonAdmin = async (seasonId: string, uid: string, isAppAdmin: boolean): Promise<boolean> => {
+	if (isAppAdmin) return true;
+
+	const snapshot = await db.doc(`seasons/${seasonId}`).get();
+
+	return ((snapshot.data() as Season | undefined)?.adminUids ?? []).includes(uid);
+};
+
+/**
+ * Confirm a night on demand.
+ *
+ * A callable rather than a flag on the game, because applying ratings is
+ * privileged work with a real failure mode — a night applied twice would rate
+ * the same result against the ratings the first pass produced — and the person
+ * tapping the button deserves to be told which of those happened. The app has
+ * no API layer and doesn't want one, but `setAppAdmin` already establishes that
+ * privileged actions arrive this way.
+ */
+export const finaliseTournament = onCall({ region: REGION }, async request => {
+	const uid = request.auth?.uid;
+	if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+
+	const { seasonId, gameId } = (request.data ?? {}) as { seasonId?: string; gameId?: string };
+	if (!seasonId || !gameId) throw new HttpsError('invalid-argument', 'Which game?');
+
+	if (!(await isSeasonAdmin(seasonId, uid, request.auth?.token?.admin === true))) {
+		throw new HttpsError('permission-denied', 'Only a season admin can confirm results.');
+	}
+
+	const outcome = await finaliseGame(seasonId, gameId, uid);
+
+	if (outcome === 'missing') throw new HttpsError('not-found', 'That game has gone.');
+	if (outcome === 'already-finalised') {
+		throw new HttpsError('failed-precondition', 'These results are already confirmed.');
+	}
+	if (outcome === 'nothing-to-rate') {
+		throw new HttpsError('failed-precondition', 'Enter at least one score before confirming.');
+	}
+
+	return { ok: true };
+});
+
+/**
+ * Confirms whatever nobody got round to confirming.
+ *
+ * Hourly, like the reminders. Without this an unconfirmed night silently never
+ * counts and somebody notices three weeks later that the ladder has not moved —
+ * which is precisely the failure an explicit-confirm-only design invites.
+ *
+ * A night with no scores at all is left alone rather than confirmed empty: it
+ * has nothing to say about anybody, and confirming it would only close the
+ * scoreboard on a game somebody might still be about to fill in.
+ */
+export const finaliseDueTournaments = onSchedule({ schedule: 'every 1 hours', region: REGION }, async () => {
+	const cutoff = new Date(Date.now() - AUTO_FINALISE_HOURS * 3600_000).toISOString();
+
+	// Games that kicked off before the cutoff and haven't been confirmed. The
+	// window's lower bound keeps this off the whole back catalogue every hour.
+	const floor = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+
+	// Filtered on status as well as kickoff so this rides the collection-group
+	// index `sendReminders` already needs, rather than asking for another one.
+	// Cancelled nights have nothing to rate anyway.
+	const games = await db
+		.collectionGroup('games')
+		.where('status', '==', 'scheduled')
+		.where('kickoff', '>=', floor)
+		.where('kickoff', '<', cutoff)
+		.get();
+
+	let finalised = 0;
+
+	for (const doc of games.docs) {
+		const game = doc.data() as Game;
+
+		if (game.resultFinalisedAt) continue;
+
+		try {
+			if ((await finaliseGame(game.seasonId, doc.id, null)) === 'finalised') finalised++;
+		} catch (error) {
+			// One wedged night must not stop the rest of the week confirming.
+			logger.error('Could not auto-confirm a night', { seasonId: game.seasonId, gameId: doc.id, error });
+		}
+	}
+
+	logger.info('Auto-confirmed nights past their window', { checked: games.size, finalised });
+});
+
+/**
+ * Replays the ladder when a confirmed score is corrected.
+ *
+ * Only fires for games that are already confirmed — before that, scores move
+ * constantly and nothing has been applied yet, so there is nothing to replay.
+ *
+ * The replay is idempotent, which is what makes it safe to run per write: an
+ * admin fixing two scorelines triggers two replays and the second simply
+ * arrives at the same answer.
+ */
+export const onMatchWrite = onDocumentWritten(
+	{ document: 'seasons/{seasonId}/games/{gameId}/matches/{order}', region: REGION },
+	async event => {
+		const { seasonId, gameId } = event.params;
+
+		const snapshot = await db.doc(`seasons/${seasonId}/games/${gameId}`).get();
+		const game = snapshot.data() as Game | undefined;
+
+		if (!game?.resultFinalisedAt) return;
+
+		logger.info('Replaying after a correction to a confirmed night', { seasonId, gameId });
+
+		await replayRatingsFrom(game.kickoffMillis ?? Date.parse(game.kickoff));
+	}
+);
