@@ -50,7 +50,7 @@ service cloud.firestore {
     // silently stop updating.
     function touchesDerivedGameFields() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['counts', 'atRisk', 'remindersSent', 'teamsGeneration']);
+        .hasAny(['counts', 'atRisk', 'remindersSent', 'teamsGeneration', 'resultFinalisedAt']);
     }
 
     // A brand new game has nobody in it, so every counter starts at zero — not
@@ -182,7 +182,8 @@ service cloud.firestore {
                       && request.resource.data.kickoffMillis is number
                       && countsStartEmpty()
                       && request.resource.data.atRisk == true
-                      && !request.resource.data.keys().hasAny(['remindersSent', 'teamsGeneration']);
+                      && !request.resource.data.keys().hasAny(['remindersSent', 'teamsGeneration',
+                                                               'resultFinalisedAt']);
 
         allow update: if isSeasonAdmin(seasonId) && !touchesDerivedGameFields();
 
@@ -202,6 +203,65 @@ service cloud.firestore {
         match /tournament/{docId} {
           allow read: if isSignedIn();
           allow write: if false;
+        }
+
+        // ── matches ──────────────────────────────────────────────────────────
+        // The scoreboard. The document id is the fixture's position in the
+        // running order, so two people scoring the same match write the same
+        // document instead of creating two — and no document at all means "not
+        // played yet", the same third state responses use.
+        //
+        // This is the only place in the app where somebody writes something
+        // that isn't theirs, which is the point: whoever has a free hand and a
+        // signal enters the score. The bound on who is `exists()` against their
+        // own response, so it is the people actually at the pitch.
+        match /matches/{order} {
+
+          function respondedToThisGame() {
+            return isSignedIn() && exists(
+              /databases/$(database)/documents/seasons/$(seasonId)/games/$(gameId)/responses/$(request.auth.uid));
+          }
+
+          // Read live off the game rather than snapshotted, so confirming the
+          // night closes the scoreboard immediately.
+          function isFinalised() {
+            return get(/databases/$(database)/documents/seasons/$(seasonId)/games/$(gameId))
+                     .data.get('resultFinalisedAt', null) != null;
+          }
+
+          // Scores are the one thing here anyone can write, so they are bounded
+          // like the response note is. Ninety-nine is far more than anybody
+          // scores and far short of somewhere to park a number as a payload.
+          function matchShapeOk() {
+            return request.resource.data.keys().hasOnly(
+                     ['order', 'teamA', 'teamB', 'scoreA', 'scoreB', 'updatedBy', 'updatedAt'])
+                   && request.resource.data.order is int
+                   && request.resource.data.order >= 0
+                   && request.resource.data.teamA is int
+                   && request.resource.data.teamB is int
+                   && request.resource.data.teamA >= 0 && request.resource.data.teamA < 4
+                   && request.resource.data.teamB >= 0 && request.resource.data.teamB < 4
+                   && request.resource.data.teamA != request.resource.data.teamB
+                   && request.resource.data.scoreA is int
+                   && request.resource.data.scoreB is int
+                   && request.resource.data.scoreA >= 0 && request.resource.data.scoreA <= 99
+                   && request.resource.data.scoreB >= 0 && request.resource.data.scoreB <= 99
+                   // Signed, so a correction has a face on it.
+                   && request.resource.data.updatedBy == request.auth.uid
+                   && request.resource.data.updatedAt is string
+                   && request.resource.data.updatedAt.size() <= 40;
+          }
+
+          allow read: if isSignedIn();
+
+          // A season admin keeps writing after the night is confirmed — that is
+          // what makes a correction possible at all, and the rating replay is
+          // built to follow one.
+          allow create, update: if matchShapeOk()
+                                && (isSeasonAdmin(seasonId)
+                                    || (respondedToThisGame() && !isFinalised()));
+
+          allow delete: if isSeasonAdmin(seasonId);
         }
 
         // ── responses ────────────────────────────────────────────────────────
