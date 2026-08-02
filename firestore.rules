@@ -354,6 +354,20 @@ service cloud.firestore {
       }
     }
 
+    // ── rating ledger ────────────────────────────────────────────────────────
+    // One entry per rated night, holding the exact rating every player carried
+    // into it. Top-level rather than under the season because ratings are
+    // global: a replay has to walk every rated game in kickoff order, and there
+    // is nothing season-scoped to iterate.
+    //
+    // Written only by the finalise functions. This is the undo history for the
+    // whole ladder — anyone able to edit it could rewrite everybody's rating by
+    // forging what theirs used to be, and the replay would faithfully apply it.
+    match /ratingLedger/{gameId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     // Enables the collection-group query the app uses to load "my answers
     // across every game" in a single listener. Read-only: writes still have to
     // go through the nested rule above, which validates role and ownership.

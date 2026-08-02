@@ -290,6 +290,50 @@ export interface TournamentMatch {
 	updatedAt: string;
 }
 
+/** What one night did to one player's rating. */
+export interface RatingDelta {
+	uid: string;
+	before: number;
+	after: number;
+	delta: number;
+}
+
+/**
+ * A confirmed night, at `seasons/{id}/games/{id}/tournament/result`.
+ *
+ * Written only by the finalise functions. Holds the table and the rating
+ * movement as they stood when confirmed, so the screen never has to recompute
+ * a past night from ratings that have since moved on.
+ */
+export interface TournamentResult {
+	standings: TeamStanding[];
+	changes: RatingDelta[];
+	finalisedAt: string;
+	/** The admin who confirmed it, or `null` when the 24-hour sweep did. */
+	finalisedBy: string | null;
+}
+
+/**
+ * One night's rating movement, at `ratingLedger/{gameId}`.
+ *
+ * Top-level rather than under the season, because ratings are global and a
+ * replay has to walk every rated game in kickoff order regardless of which
+ * season it belonged to — there is nothing season-scoped to iterate.
+ *
+ * `before` holds the exact rating each player carried into the night, `null`
+ * where they had none at all. That is what makes a rewind exact: restoring a
+ * stored document beats recomputing what a rating "must have been".
+ */
+export interface RatingLedgerEntry {
+	seasonId: string;
+	gameId: string;
+	kickoff: string;
+	kickoffMillis: number;
+	finalisedAt: string;
+	before: Record<string, PlayerRating | null>;
+	after: Record<string, PlayerRating>;
+}
+
 /** One row of the table. */
 export interface TeamStanding {
 	team: number;

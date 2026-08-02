@@ -614,9 +614,7 @@ describe('the generated lineup', () => {
 	it('stops anyone editing a lineup that already exists', async () => {
 		await seedTeams();
 
-		await assertFails(
-			updateDoc(doc(authed(SEASON_ADMIN), teamsDoc()), { teams: [{ index: 0, uids: [MEMBER] }] })
-		);
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), teamsDoc()), { teams: [{ index: 0, uids: [MEMBER] }] }));
 	});
 
 	it('stops anyone deleting a lineup', async () => {
@@ -671,9 +669,7 @@ describe('the scoreboard', () => {
 	});
 
 	it('blocks anonymous writes', async () => {
-		await assertFails(
-			setDoc(doc(testEnv.unauthenticatedContext().firestore(), matchDoc(0)), aScore('nobody'))
-		);
+		await assertFails(setDoc(doc(testEnv.unauthenticatedContext().firestore(), matchDoc(0)), aScore('nobody')));
 	});
 
 	it('lets a season admin score without having answered', async () => {
@@ -761,6 +757,63 @@ describe('the scoreboard', () => {
 
 	it('stops even an admin hand-editing resultFinalisedAt on the game', async () => {
 		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { resultFinalisedAt: 'now' }));
+	});
+});
+
+describe('the rating ledger', () => {
+	const ledgerDoc = () => `ratingLedger/${GAME}`;
+
+	const anEntry = () => ({
+		seasonId: SEASON,
+		gameId: GAME,
+		kickoff: '2026-09-01T17:00:00.000Z',
+		kickoffMillis: Date.parse('2026-09-01T17:00:00.000Z'),
+		finalisedAt: '2026-09-02T17:00:00.000Z',
+		before: { [MEMBER]: { elo: 1000, games: 4, updatedAt: '2026-08-25T17:00:00.000Z' } },
+		after: { [MEMBER]: { elo: 1030, games: 5, updatedAt: '2026-09-02T17:00:00.000Z' } },
+	});
+
+	const seedLedger = async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), ledgerDoc()), anEntry());
+		});
+	};
+
+	it('lets any signed-in user read the ledger', async () => {
+		await seedLedger();
+
+		await assertSucceeds(getDoc(doc(authed(MEMBER), ledgerDoc())));
+	});
+
+	// This is the undo history for the whole ladder. Anyone able to edit it
+	// could rewrite everybody's rating by forging what theirs used to be, and
+	// the replay would faithfully apply the forgery.
+	it('stops a player writing the ledger', async () => {
+		await assertFails(setDoc(doc(authed(MEMBER), ledgerDoc()), anEntry()));
+	});
+
+	it('stops a season admin writing the ledger', async () => {
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), ledgerDoc()), anEntry()));
+	});
+
+	it('stops an app admin writing the ledger', async () => {
+		await assertFails(setDoc(doc(authed(APP_ADMIN, { admin: true }), ledgerDoc()), anEntry()));
+	});
+
+	it('stops anyone rewriting what their rating used to be', async () => {
+		await seedLedger();
+
+		await assertFails(
+			updateDoc(doc(authed(MEMBER), ledgerDoc()), {
+				before: { [MEMBER]: { elo: 200, games: 4, updatedAt: '2026-08-25T17:00:00.000Z' } },
+			})
+		);
+	});
+
+	it('stops anyone deleting a ledger entry', async () => {
+		await seedLedger();
+
+		await assertFails(deleteDoc(doc(authed(SEASON_ADMIN), ledgerDoc())));
 	});
 });
 
@@ -902,9 +955,7 @@ describe('responses', () => {
 // otherwise still land. These lock it down for real.
 describe('the response deadline', () => {
 	it('stops a member answering once the deadline has passed', async () => {
-		await assertFails(
-			setDoc(doc(authed(MEMBER), lockedResponseDoc(MEMBER)), aResponse(MEMBER, 'member'))
-		);
+		await assertFails(setDoc(doc(authed(MEMBER), lockedResponseDoc(MEMBER)), aResponse(MEMBER, 'member')));
 	});
 
 	it('stops an extra answering once the deadline has passed', async () => {
@@ -930,9 +981,7 @@ describe('the response deadline', () => {
 	// Somebody drops out an hour before kickoff and rings the organiser. That has
 	// to remain fixable, which is what the admin `write` rule is for.
 	it('still lets a season admin fix a response after the deadline', async () => {
-		await assertSucceeds(
-			setDoc(doc(authed(SEASON_ADMIN), lockedResponseDoc(MEMBER)), aResponse(MEMBER, 'member'))
-		);
+		await assertSucceeds(setDoc(doc(authed(SEASON_ADMIN), lockedResponseDoc(MEMBER)), aResponse(MEMBER, 'member')));
 	});
 
 	it('leaves a game answerable while it is still outside the deadline', async () => {

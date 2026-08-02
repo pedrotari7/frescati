@@ -11,6 +11,16 @@
 export const MIN_TOURNAMENT_PLAYERS = 8;
 
 /**
+ * Hours after kickoff at which an unconfirmed night confirms itself.
+ *
+ * Lives here rather than in the function that acts on it because the screen has
+ * to promise it — "nothing counts until this is confirmed" is only reassuring
+ * if the app can say when that happens, and a number that drifted between the
+ * promise and the sweep would be worse than not mentioning it.
+ */
+export const AUTO_FINALISE_HOURS = 24;
+
+/**
  * Never more than four teams, however many turn up. Above sixteen the squads
  * just get deeper: a fifth team would mean ten round-robin matches, which does
  * not fit inside ninety minutes on one pitch.
