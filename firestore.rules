@@ -237,6 +237,24 @@ service cloud.firestore {
                      ['order', 'teamA', 'teamB', 'scoreA', 'scoreB', 'updatedBy', 'updatedAt'])
                    && request.resource.data.order is int
                    && request.resource.data.order >= 0
+                   // The document id IS the fixture's place in the running
+                   // order — that is what makes two people scoring the same
+                   // match write one document instead of two. Nothing tied the
+                   // two together, so a score could be filed under an id
+                   // nothing draws and still count in full towards the table
+                   // and towards everyone's rating, invisibly: the screen only
+                   // ever renders the fixtures the rotation produces.
+                   //
+                   // `int()` errors on an id that is not a number, and an error
+                   // denies, so this also turns away `matches/whatever`.
+                   && request.resource.data.order == int(order)
+                   // No rotation runs past six matches — see `ROTATIONS` in
+                   // shared/tournament.ts. Mirrored here the same way the
+                   // four-team ceiling below is: a rule cannot read the lineup
+                   // to learn tonight's real fixture count, so it bounds the
+                   // worst case and `selectPlayedMatches` does the exact check
+                   // on the way back out.
+                   && request.resource.data.order < 6
                    && request.resource.data.teamA is int
                    && request.resource.data.teamB is int
                    && request.resource.data.teamA >= 0 && request.resource.data.teamA < 4

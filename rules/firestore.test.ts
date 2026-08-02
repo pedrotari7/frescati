@@ -729,6 +729,48 @@ describe('the scoreboard', () => {
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { junk: 'y'.repeat(50_000) })));
 	});
 
+	// The id is the fixture's place in the running order, and the table and
+	// every rating on the night are built from whatever this collection holds.
+	// Unbound, a score could be filed under an id the screen never draws and
+	// still count in full — which is a way to move the ladder that leaves
+	// nothing on screen to explain it.
+	it('stops a score being filed under an id that disagrees with its order', async () => {
+		await respond(MEMBER, 'member');
+
+		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { order: 5 })));
+	});
+
+	it('stops a match invented at an order no rotation reaches', async () => {
+		await respond(MEMBER, 'member');
+
+		// Six matches is the longest night there is.
+		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(6)), aScore(MEMBER, { order: 6 })));
+		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(40)), aScore(MEMBER, { order: 40 })));
+	});
+
+	it('stops a match at an id that is not a number at all', async () => {
+		await respond(MEMBER, 'member');
+
+		await assertFails(
+			setDoc(doc(authed(MEMBER), `seasons/${SEASON}/games/${GAME}/matches/not-a-number`), aScore(MEMBER))
+		);
+	});
+
+	// Not exempt: a season admin is the one person who can still write here
+	// after the night is confirmed, which is when a forged order would be
+	// hardest to notice and would trigger a replay of the whole ladder.
+	it('holds a season admin to the same id', async () => {
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), matchDoc(0)), aScore(SEASON_ADMIN, { order: 3 })));
+	});
+
+	it('accepts every order a six-match night actually uses', async () => {
+		await respond(MEMBER, 'member');
+
+		for (const order of [0, 1, 2, 3, 4, 5]) {
+			await assertSucceeds(setDoc(doc(authed(MEMBER), matchDoc(order)), aScore(MEMBER, { order })));
+		}
+	});
+
 	it('closes the scoreboard to players once the night is confirmed', async () => {
 		await respond(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));

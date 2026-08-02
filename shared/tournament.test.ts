@@ -6,6 +6,7 @@ import {
 	getSquadSizes,
 	getTeamCount,
 	MAX_TEAMS,
+	selectPlayedMatches,
 } from './tournament';
 
 describe('getTeamCount', () => {
@@ -141,5 +142,64 @@ describe('describeSquads', () => {
 
 	it('has nothing to say about an empty night', () => {
 		expect(describeSquads([])).toBeNull();
+	});
+});
+
+describe('selectPlayedMatches', () => {
+	const aMatch = (order: number, teamA: number, teamB: number, overrides: Record<string, unknown> = {}) => ({
+		order,
+		teamA,
+		teamB,
+		scoreA: 2,
+		scoreB: 1,
+		updatedBy: 'someone',
+		updatedAt: '2026-09-01T19:30:00.000Z',
+		...overrides,
+	});
+
+	/** A full night, scored exactly as the rotation ran it. */
+	const asPlayed = (teamCount: number) =>
+		getFixtures(teamCount).map(fixture => aMatch(fixture.order, fixture.teamA, fixture.teamB));
+
+	it('keeps every fixture a real night produces', () => {
+		expect(selectPlayedMatches(4, asPlayed(4))).toHaveLength(6);
+		expect(selectPlayedMatches(2, asPlayed(2))).toHaveLength(3);
+	});
+
+	// The reason this exists. Anybody holding a response on the game can write
+	// to the scoreboard, and a match at an order nothing renders still moved
+	// every rating on the night.
+	it('drops a match at an order the night never reaches', () => {
+		expect(selectPlayedMatches(2, [aMatch(0, 0, 1), aMatch(40, 0, 1)])).toEqual([aMatch(0, 0, 1)]);
+	});
+
+	it('drops a match between two teams that fixture never puts together', () => {
+		// A four-team night opens 0v1, not 0v3.
+		expect(selectPlayedMatches(4, [aMatch(0, 0, 3)])).toEqual([]);
+	});
+
+	// A reshuffle re-picks the rotation under any score already entered, so
+	// almost nothing survives being rebuilt from four teams into three.
+	it('drops what a lineup rebuilt underneath it stranded', () => {
+		expect(selectPlayedMatches(3, asPlayed(4)).map(match => match.order)).toEqual([0]);
+	});
+
+	it('has nothing to keep for a headcount with no tournament in it', () => {
+		expect(selectPlayedMatches(0, [aMatch(0, 0, 1)])).toEqual([]);
+	});
+
+	it('returns them in the order they were played', () => {
+		expect(
+			selectPlayedMatches(3, [aMatch(2, 2, 0), aMatch(0, 0, 1), aMatch(1, 1, 2)]).map(match => match.order)
+		).toEqual([0, 1, 2]);
+	});
+
+	// Only reachable for documents written before the id was bound to the order.
+	it('keeps the later of two documents claiming one fixture', () => {
+		const early = aMatch(0, 0, 1, { updatedAt: '2026-09-01T19:00:00.000Z', scoreA: 1 });
+		const late = aMatch(0, 0, 1, { updatedAt: '2026-09-01T20:00:00.000Z', scoreA: 9 });
+
+		expect(selectPlayedMatches(2, [late, early])).toEqual([late]);
+		expect(selectPlayedMatches(2, [early, late])).toEqual([late]);
 	});
 });

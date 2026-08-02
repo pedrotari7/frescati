@@ -13,6 +13,7 @@ import type {
 import type { RatingInput } from '../../../shared/rating';
 import { applyRatingChange, getRatingChanges, getSeedElo } from '../../../shared/rating';
 import { getPositions, getStandings } from '../../../shared/standings';
+import { selectPlayedMatches } from '../../../shared/tournament';
 import { db } from './firebase';
 import { getGame, getSeason } from './data';
 
@@ -75,7 +76,16 @@ export const computeGameRatings = async (
 	if (!teamsSnap.exists) return null;
 
 	const lineup = teamsSnap.data() as TournamentTeams;
-	const matches = matchesSnap.docs.map(doc => doc.data() as TournamentMatch);
+
+	// Filtered rather than taken as read: anybody holding a response on the game
+	// may write here, so the collection is not by itself a description of what
+	// was played. Everything below — the table, the positions, every rating
+	// change and the ledger entry that has to be able to undo them — is built
+	// from whatever survives this.
+	const matches = selectPlayedMatches(
+		lineup.teams.length,
+		matchesSnap.docs.map(doc => doc.data() as TournamentMatch)
+	);
 
 	// A night with no scores is not a nil-all draw for everybody, it is a night
 	// that produced no information — so it moves nothing, rather than paying

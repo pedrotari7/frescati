@@ -7,6 +7,8 @@
  * looks like.
  */
 
+import type { TournamentMatch } from './types';
+
 /** Fewer than this and there is no tournament — the same floor a game has. */
 export const MIN_TOURNAMENT_PLAYERS = 8;
 
@@ -112,6 +114,51 @@ const ROTATIONS: Record<number, [number, number][]> = {
 
 export const getFixtures = (teamCount: number): Fixture[] =>
 	(ROTATIONS[teamCount] ?? []).map(([teamA, teamB], order) => ({ order, teamA, teamB }));
+
+/**
+ * The matches that actually belong to this night.
+ *
+ * The scoreboard is the one thing in the app anybody at the pitch may write, so
+ * what comes back from it is not automatically part of the night. A document at
+ * an `order` no rotation reaches, or between two teams that fixture never puts
+ * together, describes a match that was never on the card — and because the
+ * screen only ever draws `getFixtures`, such a document counted towards the
+ * table and towards everyone's rating without appearing anywhere that could
+ * explain why.
+ *
+ * Security rules bind a match's document id to its `order`, which is what stops
+ * two documents claiming one fixture. They cannot do the rest: a rule has no
+ * cheap way to know how many teams a night split into, let alone which pairs
+ * that split's rotation produces. So this is the real check, and both the screen
+ * and the function that turns a scoreboard into ratings run it before reading a
+ * single score.
+ *
+ * It also drops what a reshuffle stranded. Re-picking the teams rewrites the
+ * rotation under any score already entered, and a match against a pairing that
+ * no longer exists is a record of a lineup that doesn't either — the same
+ * reasoning that already made `getStandings` ignore a match naming a team that
+ * has gone, carried to the subtler case where both teams still exist but never
+ * met.
+ */
+export const selectPlayedMatches = (teamCount: number, matches: TournamentMatch[]): TournamentMatch[] => {
+	const fixtures = new Map(getFixtures(teamCount).map(fixture => [fixture.order, fixture]));
+	const played = new Map<number, TournamentMatch>();
+
+	for (const match of matches) {
+		const fixture = fixtures.get(match.order);
+
+		if (!fixture || fixture.teamA !== match.teamA || fixture.teamB !== match.teamB) continue;
+
+		// Only reachable for documents written before the id was bound to the
+		// order. Neither is the more authoritative, so the later one stands.
+		const claimed = played.get(match.order);
+		if (claimed && claimed.updatedAt > match.updatedAt) continue;
+
+		played.set(match.order, match);
+	}
+
+	return [...played.values()].sort((a, b) => a.order - b.order);
+};
 
 export interface ScheduleFit {
 	matchCount: number;
