@@ -34,6 +34,9 @@ seasons/{seasonId}                           slot, venue, minPlayers, balance, m
 seasons/{seasonId}/games/{gameId}            kickoff, status, counts (function-owned), atRisk
 seasons/{seasonId}/games/{gameId}/responses/{uid}   status: 'in'|'out', role: 'member'|'extra'
 seasons/{seasonId}/games/{gameId}/tournament/teams  generated lineup (function-owned)
+seasons/{seasonId}/games/{gameId}/tournament/result confirmed table + rating deltas (function-owned)
+seasons/{seasonId}/games/{gameId}/matches/{order}   one scoreline; doc id is the fixture order
+ratingLedger/{gameId}                        one entry per rated night (function-owned)
 ```
 
 **No response document at all means "no response"** — that is a real third state, not a default. Never write a placeholder response doc.
@@ -47,6 +50,9 @@ Nights of 8+ split into 2, 3 or 4 teams (`shared/tournament.ts`) and play a gene
 - **Ratings** are a global career Elo on `users/{uid}.rating`, shown as 0–100 via a fixed mapping (`shared/rating.ts`). A rating moves on how a team finished *versus how it was expected to*, not on raw position — with a working balancer, raw position is nearly noise. Unrated players seed at the live average of the season's rated members.
 - **Teams** are picked by the pure, seeded `pickTeams` in `shared/optimizer.ts` and written **only** by the `rebuildTeams` function. Rules reject every client write to the teams doc — an admin reshuffles by bumping `reshuffleCount` on the game, never by writing a lineup.
 - Rebuilds are **debounced through Cloud Tasks**: a response write bumps `teamsGeneration`, queues a task carrying it, and the handler drops itself if the generation has moved on. Kept out of `onResponseWrite` deliberately — the optimizer is the one part of the app whose cost grows with turnout.
+- **Scores** live at `matches/{order}` where the id is the fixture's place in the running order, so two people scoring the same match write the same document. **No match document means "not played"** — same third state as a response, and for the same reason.
+- Anyone holding a response on the game can write a score. Confirming the night (`resultFinalisedAt`) closes it to everyone but a season admin, whose correction triggers a **replay**: `replayRatingsFrom` rewinds the ledger latest-first and replays it in kickoff order. Adjusting only the corrected game would be wrong, because every game after it was rated against the ratings that game produced.
+- Ratings apply on an admin's Confirm, or automatically `AUTO_FINALISE_HOURS` after kickoff via `finaliseDueTournaments`.
 
 ## Members vs extras
 
