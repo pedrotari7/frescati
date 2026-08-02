@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions';
 import { db, REGION } from './lib/firebase';
 import { getSeason } from './lib/data';
 import { recountGame } from './lib/recount';
+import { enqueueTeamRebuild } from './lib/teams';
 
 /**
  * Keeps `counts` and `atRisk` on the game document in step with its responses.
@@ -37,8 +38,15 @@ export const onResponseWrite = onDocumentWritten(
 			return;
 		}
 
-		const counts = await recountGame(db.doc(`seasons/${seasonId}/games/${gameId}`), season);
+		const result = await recountGame(db.doc(`seasons/${seasonId}/games/${gameId}`), season);
 
-		if (counts) logger.debug('Recounted game', { seasonId, gameId, playing: counts.playing });
+		if (!result) return;
+
+		logger.debug('Recounted game', { seasonId, gameId, playing: result.counts.playing });
+
+		// Queued rather than done here: whoever just answered is waiting on the
+		// headcount, not on the team sheet, and the optimiser is the one part of
+		// this that gets slower the better the turnout.
+		await enqueueTeamRebuild({ seasonId, gameId, generation: result.teamsGeneration });
 	}
 );

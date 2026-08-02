@@ -66,8 +66,8 @@ const main = async () => {
 
 		for (const gameDoc of gamesSnap.docs) {
 			try {
-				const counts = await recountGame(gameDoc.ref, season, { repairRoles: true });
-				if (counts) games++;
+				const result = await recountGame(gameDoc.ref, season, { repairRoles: true });
+				if (result) games++;
 			} catch (error) {
 				failed++;
 				console.error(`  failed ${gameDoc.ref.path}:`, error);

@@ -5,6 +5,7 @@ import { formatGameWhen } from '../../shared/format';
 import { REGION } from './lib/firebase';
 import { getResponses, getSeason, getSilentMembers, getUidsWhoSaidIn } from './lib/data';
 import { sendPush } from './lib/push';
+import { enqueueTeamRebuild } from './lib/teams';
 
 /**
  * Tells people when something about a game changes under them.
@@ -22,6 +23,21 @@ export const onGameWrite = onDocumentWritten(
 		if (!before || !after) return;
 
 		const { seasonId, gameId } = event.params;
+
+		// An admin hitting Reshuffle, or moving this game's balance levers. Both
+		// change the lineup without touching the pool, so `onResponseWrite`
+		// never sees them.
+		//
+		// Queued against the generation as it already stands rather than bumping
+		// it: a bump would be a write to this very document, and this trigger
+		// deliberately never writes the game it fires on.
+		if (
+			before.reshuffleCount !== after.reshuffleCount ||
+			JSON.stringify(before.balance) !== JSON.stringify(after.balance)
+		) {
+			await enqueueTeamRebuild({ seasonId, gameId, generation: after.teamsGeneration ?? 0 });
+		}
+
 		const season = await getSeason(seasonId);
 		if (!season) return;
 

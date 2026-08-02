@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions';
 import type { Season } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
 import { recountGame } from './lib/recount';
+import { enqueueTeamRebuild } from './lib/teams';
 
 const sameMembers = (before: string[] = [], after: string[] = []): boolean =>
 	before.length === after.length && [...before].sort().join() === [...after].sort().join();
@@ -45,8 +46,15 @@ export const onSeasonWrite = onDocumentWritten({ document: 'seasons/{seasonId}',
 
 	for (const gameDoc of gamesSnap.docs) {
 		try {
-			await recountGame(gameDoc.ref, season, { repairRoles: true });
+			const result = await recountGame(gameDoc.ref, season, { repairRoles: true });
 			repaired++;
+
+			// A roster change moves who is a member and who is an extra, which
+			// moves who is eligible for a team — so the lineups need re-picking
+			// too, not just the counters.
+			if (result) {
+				await enqueueTeamRebuild({ seasonId, gameId: gameDoc.id, generation: result.teamsGeneration });
+			}
 		} catch (error) {
 			// One wedged game must not strand the rest of the calendar with a
 			// roster that no longer matches the squad.

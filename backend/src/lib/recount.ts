@@ -21,12 +21,18 @@ import { db } from './firebase';
  * Roles are resolved from the document id rather than the `uid` field: the id
  * is the uid by construction, whereas the field is just data a season admin
  * could have written anything into.
+ *
+ * `teamsGeneration` is bumped in the same write. Anything that moves the
+ * counters moves who is playing, and therefore invalidates the teams — doing it
+ * here rather than in a second transaction keeps the counters and the staleness
+ * marker from ever disagreeing, which is what lets a queued rebuild trust the
+ * generation it carries.
  */
 export const recountGame = async (
 	gameRef: DocumentReference,
 	season: Season,
 	{ repairRoles = false }: { repairRoles?: boolean } = {}
-): Promise<GameCounts | null> =>
+): Promise<{ counts: GameCounts; teamsGeneration: number } | null> =>
 	db.runTransaction(async transaction => {
 		const gameSnap = await transaction.get(gameRef);
 
@@ -49,9 +55,11 @@ export const recountGame = async (
 		});
 
 		const counts = tallyResponses(responses);
-		const minimum = getMinPlayers(gameSnap.data() as { minPlayers?: number }, season);
+		const game = gameSnap.data() as { minPlayers?: number; teamsGeneration?: number };
+		const minimum = getMinPlayers(game, season);
+		const teamsGeneration = (game.teamsGeneration ?? 0) + 1;
 
-		transaction.update(gameRef, { counts, atRisk: counts.playing < minimum });
+		transaction.update(gameRef, { counts, atRisk: counts.playing < minimum, teamsGeneration });
 
-		return counts;
+		return { counts, teamsGeneration };
 	});
