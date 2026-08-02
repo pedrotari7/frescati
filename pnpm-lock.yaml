@@ -44,6 +44,9 @@ importers:
 
   backend:
     dependencies:
+      '@firebase/app':
+        specifier: 0.14.12
+        version: 0.14.12
       firebase-admin:
         specifier: 13.10.0
         version: 13.10.0

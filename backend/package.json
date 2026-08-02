@@ -17,6 +17,7 @@
 		"whoami": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/whoami.ts"
 	},
 	"dependencies": {
+		"@firebase/app": "0.14.12",
 		"firebase-admin": "13.10.0",
 		"firebase-functions": "7.2.5"
 	},
