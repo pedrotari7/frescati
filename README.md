@@ -56,6 +56,33 @@ Project: **`footballfrescati`**.
 
     A service account key works too, via `GOOGLE_APPLICATION_CREDENTIALS`, but ADC avoids putting a key file on disk.
 
+8. Wire up GitHub Actions — without this, the `deploy` job in `ci.yml` fails on your first push to `main`:
+
+    - **Repo variables** (Settings → Secrets and variables → Actions → **Variables**): the same `NEXT_PUBLIC_FIREBASE_*` keys as `frontend/.env.local` (all except `VAPID_KEY`) — `frontend.yml` needs them to build the frontend in CI.
+    - **Repo secret** (Settings → Secrets and variables → Actions → **Secrets**): `GCP_SA_KEY`, the JSON key of a service account that can deploy functions and rules:
+
+        ```sh
+        PROJECT=footballfrescati
+        SA_NAME=github-actions-deploy
+        SA_EMAIL="${SA_NAME}@${PROJECT}.iam.gserviceaccount.com"
+
+        gcloud iam service-accounts create $SA_NAME --project=$PROJECT \
+          --display-name="GitHub Actions deploy"
+
+        for ROLE in roles/firebase.admin roles/cloudfunctions.admin roles/run.admin \
+          roles/cloudbuild.builds.editor roles/artifactregistry.writer \
+          roles/iam.serviceAccountUser roles/storage.admin
+        do
+          gcloud projects add-iam-policy-binding $PROJECT \
+            --member="serviceAccount:${SA_EMAIL}" --role="$ROLE"
+        done
+
+        gcloud iam service-accounts keys create sa-key.json --project=$PROJECT \
+          --iam-account=$SA_EMAIL
+        ```
+
+        Paste `sa-key.json`'s contents into the `GCP_SA_KEY` secret, then delete the local file — gen2 functions deploy through Cloud Build, Artifact Registry and Cloud Run, so `firebase.admin` alone isn't enough.
+
 ## Commands
 
 |  |  |
@@ -75,8 +102,8 @@ Set `NEXT_PUBLIC_USE_EMULATORS=1` in `.env.local` to point the app at the local 
 
 ## Deployment
 
-- **Frontend** → Vercel git integration. Set the `NEXT_PUBLIC_FIREBASE_*` vars in the Vercel project. Root directory `frontend`, install command run from the repo root.
-- **Functions and rules** → GitHub Actions on push to `main` (`.github/workflows/ci.yml`), which needs a `GCP_SA_KEY` repo secret.
+- **Frontend** → Vercel git integration. Set the same `NEXT_PUBLIC_FIREBASE_*` vars (see `frontend/.env.local.example`) in the Vercel project's Environment Variables. Root directory `frontend`, install command run from the repo root.
+- **Functions and rules** → GitHub Actions on push to `main` (`.github/workflows/ci.yml`) — see setup step 8 above for the repo variables and `GCP_SA_KEY` secret it needs.
 
 ## Notes for future work
 
