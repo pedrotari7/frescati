@@ -82,8 +82,8 @@ const LeaderboardPage = () => {
 						title='Nothing to show yet'
 						message={
 							tab === 'season'
-								? 'The table fills in as nights get confirmed.'
-								: 'Ratings appear once somebody has played a confirmed night.'
+								? 'The table fills in as games get confirmed.'
+								: 'Ratings appear once somebody has played a confirmed game.'
 						}
 					/>
 				) : (
@@ -136,7 +136,7 @@ const LeaderboardPage = () => {
 
 				<p className='text-faint px-1 text-xs'>
 					{tab === 'season'
-						? 'Ordered on nights won, then on how much rating you gained — who had a good season, rather than who is best.'
+						? 'Ordered on games won, then on how much rating you gained — who had a good season, rather than who is best.'
 						: 'Your rating follows you across every season. It moves on how your team did against how it was expected to, so beating a stronger side is worth more.'}
 				</p>
 			</div>

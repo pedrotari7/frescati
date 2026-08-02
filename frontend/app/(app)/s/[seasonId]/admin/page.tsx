@@ -273,7 +273,7 @@ const SeasonAdminPage = () => {
 						</p>
 
 						<div className='space-y-4'>
-							<Field label='Match length' hint='Minutes per match. Six matches is a normal night.'>
+							<Field label='Match length' hint='Minutes per match. Six matches is a normal game.'>
 								<TextInput
 									type='number'
 									inputMode='numeric'
