@@ -61,8 +61,14 @@ self.addEventListener('fetch', event => {
 				cached =>
 					cached ||
 					fetch(request).then(response => {
-						const copy = response.clone();
-						caches.open(STATIC_CACHE).then(cache => cache.put(request, copy));
+						// Only cache a real answer. Cache-first means a 404 or a
+						// 502 caught mid-deploy would otherwise be served from
+						// the cache forever, wedging that browser on a chunk
+						// that never loads until CACHE_VERSION moves.
+						if (response.ok) {
+							const copy = response.clone();
+							caches.open(STATIC_CACHE).then(cache => cache.put(request, copy));
+						}
 						return response;
 					})
 			)
@@ -76,8 +82,11 @@ self.addEventListener('fetch', event => {
 		event.respondWith(
 			fetch(request)
 				.then(response => {
-					const copy = response.clone();
-					caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
+					// An error page is not a page worth serving offline later.
+					if (response.ok) {
+						const copy = response.clone();
+						caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
+					}
 					return response;
 				})
 				.catch(() => caches.match(request).then(cached => cached || caches.match(OFFLINE_URL)))
@@ -90,8 +99,10 @@ self.addEventListener('fetch', event => {
 		caches.match(request).then(cached => {
 			const network = fetch(request)
 				.then(response => {
-					const copy = response.clone();
-					caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
+					if (response.ok) {
+						const copy = response.clone();
+						caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
+					}
 					return response;
 				})
 				.catch(() => cached);
