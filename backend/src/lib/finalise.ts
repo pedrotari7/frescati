@@ -35,6 +35,7 @@ interface GameRatings {
 	changes: TournamentResult['changes'];
 	before: Record<string, PlayerRating | null>;
 	after: Record<string, PlayerRating>;
+	positions: Record<string, number>;
 }
 
 const getProfiles = async (uids: string[]): Promise<Map<string, AppUser>> => {
@@ -97,7 +98,8 @@ export const computeGameRatings = async (
 		team.uids.map(uid => ({ uid, rating: profiles.get(uid)?.rating, team: team.index }))
 	);
 
-	const changes = getRatingChanges(players, getPositions(standings), seedElo);
+	const positions = getPositions(standings);
+	const changes = getRatingChanges(players, positions, seedElo);
 
 	return {
 		standings,
@@ -106,6 +108,7 @@ export const computeGameRatings = async (
 		after: Object.fromEntries(
 			changes.map(change => [change.uid, applyRatingChange(profiles.get(change.uid)?.rating, change, at)])
 		),
+		positions: Object.fromEntries(players.map(player => [player.uid, positions[player.team]])),
 	};
 };
 
@@ -142,6 +145,7 @@ const commitGameRatings = async (
 		finalisedAt,
 		before: ratings.before,
 		after: ratings.after,
+		positions: ratings.positions,
 	};
 
 	await commitAll([

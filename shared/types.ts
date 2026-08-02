@@ -332,6 +332,15 @@ export interface RatingLedgerEntry {
 	finalisedAt: string;
 	before: Record<string, PlayerRating | null>;
 	after: Record<string, PlayerRating>;
+	/**
+	 * Where each player's team finished, 0-indexed and sharing on a tie.
+	 *
+	 * Here as well as in the result document so a season table is one query
+	 * against this collection rather than two reads per game across the whole
+	 * calendar — and it is genuinely part of what the night did to a player,
+	 * which is what this entry records.
+	 */
+	positions: Record<string, number>;
 }
 
 /** One row of the table. */
