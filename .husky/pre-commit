@@ -1,5 +1,10 @@
 #!/usr/bin/env sh
 
+# The shell may export NPM_CONFIG_REGISTRY pointing at a private registry
+# (e.g. a corporate artifactory), which overrides .npmrc. Force the public
+# registry here so hook-triggered installs don't depend on the caller's env.
+export NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
+
 # Only run the checks relevant to what's actually being committed:
 # - frontend/-only changes -> frontend checks
 # - backend/-only changes  -> backend checks
