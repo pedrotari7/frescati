@@ -7,6 +7,7 @@ import ToastProvider from '../components/Toast';
 import ConfirmProvider from '../components/ConfirmDialog';
 import ServiceWorkerRegistrar from '../components/ServiceWorkerRegistrar';
 import PwaInstallPrompt from '../components/PwaInstallPrompt';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
 	title: 'Frescati',
@@ -48,6 +49,7 @@ const RootLayout = ({ children }: { children: ReactNode }) => (
 				</AuthProvider>
 			</ErrorBoundary>
 			<ServiceWorkerRegistrar />
+			<Analytics />
 		</body>
 	</html>
 );
