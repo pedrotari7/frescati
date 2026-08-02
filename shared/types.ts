@@ -183,6 +183,14 @@ export interface Game {
 	 */
 	teamsGeneration?: number;
 	/**
+	 * When the night's results were confirmed and the ratings applied. Set, the
+	 * scoreboard is closed to everyone but a season admin — whose correction
+	 * replays every rated game from here forward.
+	 *
+	 * Written only by the functions; client writes are rejected.
+	 */
+	resultFinalisedAt?: string;
+	/**
 	 * Bumped by an admin tapping Reshuffle. Feeds the optimizer's seed, so the
 	 * same pool re-rolls into a different — equally balanced — split. Admin
 	 * writable, unlike `teamsGeneration`.
@@ -253,6 +261,52 @@ export interface TournamentTeams {
 	/** The `Game.teamsGeneration` this was built from. */
 	generation: number;
 	builtAt: string;
+}
+
+/**
+ * One played match, at `seasons/{id}/games/{id}/matches/{order}`.
+ *
+ * The document id **is** the fixture's position in the running order, so there
+ * is nothing to generate and two people scoring the same match cannot create
+ * two documents for it.
+ *
+ * **No match document at all means "not played yet"** — the same third state
+ * responses use, and for the same reason: an unplayed match and a 0–0 draw are
+ * different things, and a placeholder would make the standings claim a night
+ * had been played before anybody kicked off.
+ *
+ * `teamA` and `teamB` are stored rather than re-derived from the fixture list,
+ * so a lineup rebuilt after a score was entered can never silently reinterpret
+ * it as a different match.
+ */
+export interface TournamentMatch {
+	order: number;
+	teamA: number;
+	teamB: number;
+	scoreA: number;
+	scoreB: number;
+	/** Who last touched it. Shown on the scoreboard so corrections have a face. */
+	updatedBy: string;
+	updatedAt: string;
+}
+
+/** One row of the table. */
+export interface TeamStanding {
+	team: number;
+	played: number;
+	won: number;
+	drawn: number;
+	lost: number;
+	goalsFor: number;
+	goalsAgainst: number;
+	goalDifference: number;
+	points: number;
+	/**
+	 * 0-indexed finishing place. Teams that cannot be separated by any
+	 * tie-break share a position, and `getActualWins` splits the rating between
+	 * the places that tie covers rather than inventing a winner.
+	 */
+	position: number;
 }
 
 export const EMPTY_COUNTS: GameCounts = {
