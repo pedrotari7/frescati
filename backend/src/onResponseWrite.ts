@@ -1,9 +1,8 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
-import type { GameResponse } from '../../shared/types';
-import { getMinPlayers, tallyResponses } from '../../shared/game';
 import { db, REGION } from './lib/firebase';
 import { getSeason } from './lib/data';
+import { recountGame } from './lib/recount';
 
 /**
  * Keeps `counts` and `atRisk` on the game document in step with its responses.
@@ -38,22 +37,7 @@ export const onResponseWrite = onDocumentWritten(
 			return;
 		}
 
-		const gameRef = db.doc(`seasons/${seasonId}/games/${gameId}`);
-
-		const counts = await db.runTransaction(async transaction => {
-			const gameSnap = await transaction.get(gameRef);
-
-			// The game can be deleted while a response write is in flight.
-			if (!gameSnap.exists) return null;
-
-			const responsesSnap = await transaction.get(gameRef.collection('responses'));
-			const tallied = tallyResponses(responsesSnap.docs.map(doc => doc.data() as GameResponse));
-			const minimum = getMinPlayers(gameSnap.data() as { minPlayers?: number }, season);
-
-			transaction.update(gameRef, { counts: tallied, atRisk: tallied.playing < minimum });
-
-			return tallied;
-		});
+		const counts = await recountGame(db.doc(`seasons/${seasonId}/games/${gameId}`), season);
 
 		if (counts) logger.debug('Recounted game', { seasonId, gameId, playing: counts.playing });
 	}
