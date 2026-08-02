@@ -3,24 +3,30 @@
 import { use, useMemo } from 'react';
 import { ArrowPathIcon, ExclamationTriangleIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { describeSquads, getFixtures, getScheduleFit, getSideSize, MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
+import { getStandings } from '@shared/standings';
 import { formatGameDateLong } from '@shared/format';
 import { useSeasonContext } from '../../../../../../../components/SeasonProvider';
-import { useTournamentTeams, useUsers } from '../../../../../../../hooks/useData';
+import { useMatches, useTournamentTeams, useUsers } from '../../../../../../../hooks/useData';
+import { useMyResponses } from '../../../../../../../hooks/useMyResponses';
 import { useWrite } from '../../../../../../../hooks/useWrite';
 import { useAuth } from '../../../../../../../lib/auth';
-import { reshuffleTeams } from '../../../../../../../lib/db/tournament';
+import { clearMatchScore, reshuffleTeams, setMatchScore } from '../../../../../../../lib/db/tournament';
 import SeasonShell from '../../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../../components/EmptyState';
 import Button from '../../../../../../../components/Button';
 import StatusPill from '../../../../../../../components/StatusPill';
-import TeamCard, { teamName } from '../../../../../../../components/TeamCard';
+import TeamCard from '../../../../../../../components/TeamCard';
+import MatchScore from '../../../../../../../components/MatchScore';
+import StandingsTable from '../../../../../../../components/StandingsTable';
 
 const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { seasonId, gameId } = use(params);
 	const { season, games, loading, isAdmin } = useSeasonContext();
 	const { teams: lineup, loading: teamsLoading } = useTournamentTeams(seasonId, gameId);
+	const { matches } = useMatches(seasonId, gameId);
 	const { users } = useUsers();
+	const { myResponses } = useMyResponses();
 	const { user } = useAuth();
 	const write = useWrite();
 
@@ -71,6 +77,19 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const squadSizes = lineup.teams.map(team => team.uids.length);
 	const fixtures = getFixtures(lineup.teams.length);
 	const fit = getScheduleFit(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
+
+	const matchesByOrder = new Map(matches.map(match => [match.order, match]));
+	const standings = getStandings(lineup.teams.length, matches);
+	const played = matches.length;
+
+	// Anyone who answered the game can keep the score — that is the point, so
+	// whoever has a free hand does it. Confirming the night closes it to
+	// everyone but an admin, whose correction replays the ratings.
+	const finalised = !!game.resultFinalisedAt;
+	const canScore = (isAdmin || !!myResponses[gameId]) && (isAdmin || !finalised);
+
+	// Only worth explaining when it is actually happening.
+	const unequal = new Set(standings.map(row => row.played)).size > 1;
 
 	return (
 		<SeasonShell title='Teams' subtitle={subtitle} backHref={backHref}>
@@ -126,22 +145,48 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 				</div>
 
 				<section className='glass rounded-3xl p-5'>
-					<h2 className='text-ink mb-3 text-sm font-semibold'>Running order</h2>
+					<div className='mb-3 flex items-baseline justify-between gap-2'>
+						<h2 className='text-ink text-sm font-semibold'>Scoreboard</h2>
+						{finalised && <StatusPill tone='neutral'>Confirmed</StatusPill>}
+					</div>
+
+					{!canScore && !finalised && (
+						<p className='text-faint mb-3 text-xs'>Say you&apos;re in and you can keep the score too.</p>
+					)}
 
 					<ol className='space-y-2'>
 						{fixtures.map(fixture => (
-							<li key={fixture.order} className='flex items-center gap-3 text-sm'>
-								<span className='text-faint w-5 shrink-0 tabular-nums'>{fixture.order + 1}</span>
-								<span className='text-ink'>
-									{teamName(fixture.teamA)} v {teamName(fixture.teamB)}
-								</span>
-								<span className='text-faint ml-auto text-xs'>
-									{getSideSize(squadSizes[fixture.teamA], squadSizes[fixture.teamB])} a side
-								</span>
-							</li>
+							<MatchScore
+								key={fixture.order}
+								fixture={fixture}
+								match={matchesByOrder.get(fixture.order)}
+								sideSize={getSideSize(squadSizes[fixture.teamA], squadSizes[fixture.teamB])}
+								canScore={canScore}
+								onScore={async (scoreA, scoreB) => {
+									if (!user) return;
+
+									await write(
+										() => setMatchScore(seasonId, gameId, fixture, scoreA, scoreB, user.uid),
+										"Couldn't save that score."
+									);
+								}}
+								onClear={async () => {
+									await write(
+										() => clearMatchScore(seasonId, gameId, fixture.order),
+										"Couldn't clear that score."
+									);
+								}}
+							/>
 						))}
 					</ol>
 				</section>
+
+				{played > 0 && (
+					<section className='glass rounded-3xl p-5'>
+						<h2 className='text-ink mb-3 text-sm font-semibold'>Table</h2>
+						<StandingsTable standings={standings} unequal={unequal} />
+					</section>
+				)}
 			</div>
 		</SeasonShell>
 	);

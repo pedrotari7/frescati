@@ -1,7 +1,8 @@
-import { increment, onSnapshot, updateDoc } from 'firebase/firestore';
-import type { Unsubscribe } from 'firebase/firestore';
-import type { TournamentTeams } from '@shared/types';
-import { gameDoc, tournamentTeamsDoc } from './paths';
+import { deleteDoc, increment, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import type { DocumentData, Unsubscribe } from 'firebase/firestore';
+import type { Fixture } from '@shared/tournament';
+import type { TournamentMatch, TournamentTeams } from '@shared/types';
+import { gameDoc, matchDoc, matchesCol, tournamentTeamsDoc } from './paths';
 
 export const subscribeToTeams = (
 	seasonId: string,
@@ -28,3 +29,48 @@ export const subscribeToTeams = (
  */
 export const reshuffleTeams = (seasonId: string, gameId: string) =>
 	updateDoc(gameDoc(seasonId, gameId), { reshuffleCount: increment(1) });
+
+export const subscribeToMatches = (
+	seasonId: string,
+	gameId: string,
+	onChange: (matches: TournamentMatch[]) => void,
+	onError: (error: Error) => void
+): Unsubscribe =>
+	onSnapshot(
+		matchesCol(seasonId, gameId),
+		snapshot => onChange(snapshot.docs.map(d => d.data() as DocumentData as TournamentMatch)),
+		onError
+	);
+
+/**
+ * Record a scoreline.
+ *
+ * Writes the whole document rather than merging, and the id comes from the
+ * fixture's place in the running order — so two people scoring the same match
+ * at the same moment write the same document, and the later one wins rather
+ * than the two of them creating a duplicate nobody can reconcile.
+ *
+ * `teamA` and `teamB` are written every time so the record survives a lineup
+ * being rebuilt underneath it.
+ */
+export const setMatchScore = (
+	seasonId: string,
+	gameId: string,
+	fixture: Fixture,
+	scoreA: number,
+	scoreB: number,
+	uid: string
+): Promise<void> =>
+	setDoc(matchDoc(seasonId, gameId, fixture.order), {
+		order: fixture.order,
+		teamA: fixture.teamA,
+		teamB: fixture.teamB,
+		scoreA,
+		scoreB,
+		updatedBy: uid,
+		updatedAt: new Date().toISOString(),
+	});
+
+/** Back to "not played" — the third state is the absence of a document. */
+export const clearMatchScore = (seasonId: string, gameId: string, order: number) =>
+	deleteDoc(matchDoc(seasonId, gameId, order));

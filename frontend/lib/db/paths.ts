@@ -27,3 +27,10 @@ export const responseDoc = (seasonId: string, gameId: string, uid: string): Docu
 
 export const tournamentTeamsDoc = (seasonId: string, gameId: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'tournament', 'teams');
+
+export const matchesCol = (seasonId: string, gameId: string): CollectionReference =>
+	collection(getDb(), 'seasons', seasonId, 'games', gameId, 'matches');
+
+/** The document id is the fixture's place in the running order. */
+export const matchDoc = (seasonId: string, gameId: string, order: number): DocumentReference =>
+	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'matches', String(order));
