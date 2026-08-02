@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useMemo } from 'react';
+import { use, useCallback, useMemo } from 'react';
 import { MapPinIcon } from '@heroicons/react/24/outline';
 import { getGameLifecycle } from '@shared/game';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
@@ -8,6 +8,7 @@ import { useSeasonContext } from '../../../../../../components/SeasonProvider';
 import { useResponses, useUsers } from '../../../../../../hooks/useData';
 import { useMyResponses } from '../../../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../../../hooks/useRespond';
+import { useRespondIntent } from '../../../../../../hooks/useRespondIntent';
 import { useWrite } from '../../../../../../hooks/useWrite';
 import { setConfirmOverride } from '../../../../../../lib/db/responses';
 import SeasonShell from '../../../../../../components/SeasonShell';
@@ -29,6 +30,16 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 
 	const game = games.find(candidate => candidate.id === gameId) ?? null;
 	const usersByUid = useMemo(() => new Map(users.map(user => [user.uid, user])), [users]);
+
+	// Arriving from a notification's "I'm in" button. Runs before the early
+	// returns below so it isn't skipped while the page is still loading.
+	const lifecycleForIntent = season && game ? getGameLifecycle(game, season) : null;
+
+	useRespondIntent({
+		ready: !loading && !!season && !!game,
+		isOpen: lifecycleForIntent === 'open',
+		onRespond: useCallback(status => respond(gameId, status), [respond, gameId]),
+	});
 
 	if (loading) {
 		return (

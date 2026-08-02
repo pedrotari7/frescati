@@ -149,7 +149,13 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
 	event.notification.close();
 
-	const target = event.notification.data?.url || '/';
+	const base = event.notification.data?.url || '/';
+
+	// A worker has no Firebase auth token, so it can't write the response
+	// itself. Carry the intent in the URL instead and let the app — which is
+	// signed in — perform the write as it opens. The button was previously
+	// advertised on every notification and did nothing but open the app.
+	const target = event.action === 'in' ? `${base}${base.includes('?') ? '&' : '?'}respond=in` : base;
 
 	event.waitUntil(
 		self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
