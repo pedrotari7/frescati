@@ -19,6 +19,7 @@ import { join } from 'path';
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import { DEFAULT_NOTIFICATION_PREFS } from '../../shared/types';
 
 /**
  * Application-default credentials from `gcloud` carry no project, unlike a
@@ -56,7 +57,31 @@ const main = async () => {
 	const user = await getAuth().getUserByEmail(email);
 
 	await getAuth().setCustomUserClaims(user.uid, revoke ? {} : { admin: true });
-	await getFirestore().doc(`users/${user.uid}`).set({ isAppAdmin: !revoke }, { merge: true });
+
+	// The claim is the real grant; the Firestore field is only a display mirror.
+	// It has to be merged into a *whole* profile though: a bare `{ isAppAdmin }`
+	// doc has no `displayName`, so its owner renders as "Unknown player" in every
+	// roster, and no `uid`, which the update rule requires — so the app could
+	// never repair it either. Someone can reach here without a profile doc by
+	// signing in before the rules were deployed, or by having their first-visit
+	// write fail for any other reason.
+	const ref = getFirestore().doc(`users/${user.uid}`);
+	const existing = await ref.get();
+	const now = new Date().toISOString();
+
+	await ref.set(
+		{
+			uid: user.uid,
+			displayName: user.displayName ?? user.email?.split('@')[0] ?? 'Player',
+			email: user.email ?? '',
+			photoURL: user.photoURL ?? null,
+			createdAt: existing.get('createdAt') ?? now,
+			lastSeenAt: existing.get('lastSeenAt') ?? now,
+			isAppAdmin: !revoke,
+			notificationPrefs: existing.get('notificationPrefs') ?? DEFAULT_NOTIFICATION_PREFS,
+		},
+		{ merge: true }
+	);
 
 	console.log(`${revoke ? 'Revoked' : 'Granted'} app admin for ${email} (${user.uid}) on ${projectId}.`);
 	console.log('Takes effect on their next token refresh — the app forces one every 10 minutes.');

@@ -6,6 +6,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { GoogleAuthProvider, onIdTokenChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getDb, getFirebaseAuth } from './firebaseClient';
+import type { AppUser } from '@shared/types';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
 
 export interface AuthUser {
@@ -38,38 +39,38 @@ const toAuthUser = (firebaseUser: FirebaseUser, isAppAdmin: boolean): AuthUser =
 });
 
 /**
- * Make sure a `users/{uid}` document exists so the person shows up in the admin
- * member picker. Firebase Auth is the identity source of truth; this doc only
- * carries the profile fields other screens need to render.
+ * Make sure a `users/{uid}` document exists and holds a current profile, so the
+ * person shows up in rosters and the admin member picker. Firebase Auth is the
+ * identity source of truth; this doc only carries the fields other screens need
+ * to render.
+ *
+ * One merge covers both create and refresh, and every identity field is written
+ * every time — including `uid`, which never changes. That matters because the
+ * document can already exist in a partial state: `set-admin` promotes someone by
+ * uid and will happily leave behind a doc holding nothing but `isAppAdmin`. The
+ * update rule rejects any result without a `uid`, so a merge that assumed the
+ * field was already there would fail on every single sign-in, silently, leaving
+ * the person nameless forever.
  */
 const upsertUserDoc = async (user: AuthUser) => {
 	const ref = doc(getDb(), 'users', user.uid);
-	const existing = await getDoc(ref);
+	const existing = (await getDoc(ref)).data() as Partial<AppUser> | undefined;
+	const now = new Date().toISOString();
 
-	if (!existing.exists()) {
-		await setDoc(ref, {
+	await setDoc(
+		ref,
+		{
 			uid: user.uid,
 			displayName: user.displayName,
 			email: user.email,
 			photoURL: user.photoURL,
-			createdAt: new Date().toISOString(),
-			lastSeenAt: new Date().toISOString(),
-			// Never written from the client as `true` — rules reject that.
-			isAppAdmin: false,
-			notificationPrefs: DEFAULT_NOTIFICATION_PREFS,
-		});
-		return;
-	}
-
-	// Keep the profile fresh (people change their Google avatar) and record the
-	// visit, but leave anything the user has since edited alone.
-	await setDoc(
-		ref,
-		{
-			displayName: user.displayName,
-			email: user.email,
-			photoURL: user.photoURL,
-			lastSeenAt: new Date().toISOString(),
+			createdAt: existing?.createdAt ?? now,
+			lastSeenAt: now,
+			// Only ever echoed back, never raised: rules reject a client writing
+			// itself the badge. The admin SDK owns this field.
+			isAppAdmin: existing?.isAppAdmin ?? false,
+			// Seeded once, then left to whatever the user has since chosen.
+			notificationPrefs: existing?.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS,
 		},
 		{ merge: true }
 	);

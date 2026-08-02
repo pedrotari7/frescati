@@ -108,6 +108,63 @@ describe('users', () => {
 		await assertFails(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { isAppAdmin: true }));
 	});
 
+	// `set-admin` promotes by uid and can land before the person has ever written
+	// a profile, leaving a doc holding nothing but `isAppAdmin`. Their next
+	// sign-in has to be able to fill in the rest, or they stay nameless forever.
+	it('lets a user complete a profile that set-admin left half-written', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `users/${MEMBER}`), { isAppAdmin: true });
+		});
+
+		await assertSucceeds(
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), { uid: MEMBER, displayName: 'A' }, { merge: true })
+		);
+	});
+
+	it('lets a user fill in a profile that has no isAppAdmin field yet', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `users/${MEMBER}`), { uid: MEMBER });
+		});
+
+		await assertSucceeds(
+			setDoc(
+				doc(authed(MEMBER), `users/${MEMBER}`),
+				{ uid: MEMBER, displayName: 'A', isAppAdmin: false },
+				{ merge: true }
+			)
+		);
+	});
+
+	it('stops a user smuggling the admin badge into a half-written profile', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `users/${MEMBER}`), { uid: MEMBER });
+		});
+
+		await assertFails(
+			setDoc(
+				doc(authed(MEMBER), `users/${MEMBER}`),
+				{ uid: MEMBER, displayName: 'A', isAppAdmin: true },
+				{ merge: true }
+			)
+		);
+	});
+
+	// The bug this guards: a merge that only refreshed the display fields left a
+	// half-written doc with no `uid`, so every sign-in was denied — silently.
+	it('rejects a profile write that leaves the doc with no uid', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `users/${MEMBER}`), { isAppAdmin: true });
+		});
+
+		await assertFails(setDoc(doc(authed(MEMBER), `users/${MEMBER}`), { displayName: 'A' }, { merge: true }));
+	});
+
+	it('stops a user dropping the uid off their profile', async () => {
+		await setDoc(doc(authed(MEMBER), `users/${MEMBER}`), { uid: MEMBER, displayName: 'A', isAppAdmin: false });
+
+		await assertFails(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { uid: 'someone-else' }));
+	});
+
 	it('stops a user writing someone else’s profile', async () => {
 		await assertFails(
 			setDoc(doc(authed(EXTRA), `users/${MEMBER}`), { uid: MEMBER, displayName: 'hacked', isAppAdmin: false })

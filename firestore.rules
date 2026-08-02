@@ -55,9 +55,14 @@ service cloud.firestore {
                     && request.resource.data.uid == uid
                     && request.resource.data.isAppAdmin == false;
 
+      // Read through `get()` with a default rather than the field directly: a
+      // doc written by `set-admin` alone may not carry every field, and a
+      // missing key would make this expression error out and deny the write —
+      // permanently locking its owner out of fixing their own profile.
       allow update: if isSelf(uid)
                     && request.resource.data.uid == uid
-                    && request.resource.data.isAppAdmin == resource.data.isAppAdmin;
+                    && request.resource.data.get('isAppAdmin', false)
+                       == resource.data.get('isAppAdmin', false);
 
       allow delete: if false;
 

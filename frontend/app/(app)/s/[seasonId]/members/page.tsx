@@ -22,7 +22,15 @@ const MembersPage = () => {
 		const byUid = new Map(users.map(user => [user.uid, user]));
 
 		return season.memberUids
-			.map(uid => byUid.get(uid) ?? { uid, displayName: 'Unknown player', photoURL: null })
+			.map(uid => {
+				const user = byUid.get(uid);
+
+				return {
+					uid,
+					displayName: user?.displayName ?? 'Unknown player',
+					photoURL: user?.photoURL ?? null,
+				};
+			})
 			.sort((a, b) => a.displayName.localeCompare(b.displayName));
 	}, [season, users]);
 
