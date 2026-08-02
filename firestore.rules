@@ -76,12 +76,37 @@ service cloud.firestore {
                || request.resource.data.email == resource.data.get('email', null);
       }
 
+      // A profile is these fields and nothing else. Without an allowlist anyone
+      // could hang arbitrary payloads off their own document — it is writable by
+      // its owner and readable by everyone, which is a combination worth
+      // bounding. `email` stays listed only so legacy documents still validate;
+      // `keepsContactDetailsOut` is what stops it coming back.
+      //
+      // Read through `get()` throughout: profiles can legitimately be missing
+      // fields mid-repair, and addressing an absent key errors rather than
+      // yielding null.
+      function userShapeOk() {
+        return request.resource.data.keys().hasOnly(
+                 ['uid', 'displayName', 'photoURL', 'createdAt', 'lastSeenAt',
+                  'isAppAdmin', 'notificationPrefs', 'email'])
+               && request.resource.data.get('displayName', '') is string
+               && request.resource.data.get('displayName', '').size() <= 100
+               && request.resource.data.get('createdAt', '') is string
+               && request.resource.data.get('createdAt', '').size() <= 40
+               && request.resource.data.get('lastSeenAt', '') is string
+               && request.resource.data.get('lastSeenAt', '').size() <= 40
+               && (request.resource.data.get('photoURL', null) == null
+                   || (request.resource.data.photoURL is string
+                       && request.resource.data.photoURL.size() <= 1000));
+      }
+
       // `isAppAdmin` is a display mirror of the custom claim. Let people create
       // their own doc but never grant themselves the badge.
       allow create: if isSelf(uid)
                     && request.resource.data.uid == uid
                     && request.resource.data.isAppAdmin == false
-                    && !request.resource.data.keys().hasAny(['email']);
+                    && !request.resource.data.keys().hasAny(['email'])
+                    && userShapeOk();
 
       // Read through `get()` with a default rather than the field directly: a
       // doc written by `set-admin` alone may not carry every field, and a
@@ -91,7 +116,8 @@ service cloud.firestore {
                     && request.resource.data.uid == uid
                     && request.resource.data.get('isAppAdmin', false)
                        == resource.data.get('isAppAdmin', false)
-                    && keepsContactDetailsOut();
+                    && keepsContactDetailsOut()
+                    && userShapeOk();
 
       allow delete: if false;
 
@@ -182,6 +208,22 @@ service cloud.firestore {
             return request.resource.data.keys().hasAny(['confirmOverride']);
           }
 
+          // Anyone signed in can create one of these against any game, so this
+          // is the widest-open write in the app and the one worth bounding.
+          // `note` is the only free text; 280 characters is more than enough for
+          // "back by 7, save me a spot" and far short of a place to park a
+          // megabyte of someone else's data.
+          function responseShapeOk() {
+            return request.resource.data.keys().hasOnly(
+                     ['uid', 'status', 'role', 'respondedAt', 'updatedAt', 'note', 'confirmOverride'])
+                   && request.resource.data.get('note', '') is string
+                   && request.resource.data.get('note', '').size() <= 280
+                   && request.resource.data.get('respondedAt', '') is string
+                   && request.resource.data.get('respondedAt', '').size() <= 40
+                   && request.resource.data.get('updatedAt', '') is string
+                   && request.resource.data.get('updatedAt', '').size() <= 40;
+          }
+
           allow read: if isSignedIn();
 
           allow create: if isSelf(uid)
@@ -189,6 +231,7 @@ service cloud.firestore {
                         && request.resource.data.status in ['in', 'out']
                         && roleMatchesMembership()
                         && !setsConfirmOverride()
+                        && responseShapeOk()
                         && responsesOpen(gameData());
 
           // Changing your mind is allowed right up to the deadline. Past it the
@@ -205,6 +248,7 @@ service cloud.firestore {
                            == resource.data.get('respondedAt', null)
                         && request.resource.data.get('confirmOverride', null)
                            == resource.data.get('confirmOverride', null)
+                        && responseShapeOk()
                         && responsesOpen(gameData());
 
           allow delete: if isSelf(uid) && responsesOpen(gameData());

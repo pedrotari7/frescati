@@ -253,6 +253,27 @@ describe('users', () => {
 		await assertFails(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { email: 'someone.else@example.com' }));
 	});
 
+	it('rejects fields the profile schema does not have', async () => {
+		await assertFails(
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				junk: 'y'.repeat(50_000),
+			})
+		);
+	});
+
+	it('rejects a display name nobody could have typed', async () => {
+		await assertFails(
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A'.repeat(101),
+				isAppAdmin: false,
+			})
+		);
+	});
+
 	it('keeps push tokens private to their owner', async () => {
 		await assertSucceeds(
 			setDoc(doc(authed(MEMBER), `users/${MEMBER}/pushTokens/tok`), { token: 'tok', createdAt: 'now' })
@@ -536,6 +557,29 @@ describe('responses', () => {
 		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member'));
 
 		await assertFails(deleteDoc(doc(authed(EXTRA), responseDoc(MEMBER))));
+	});
+
+	// Any signed-in person can create one of these against any game, which makes
+	// it the widest-open write in the app.
+	it('rejects a note long enough to be a payload rather than a note', async () => {
+		await assertFails(
+			setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), aResponse(EXTRA, 'extra', { note: 'x'.repeat(281) }))
+		);
+	});
+
+	it('accepts a note somebody would actually write', async () => {
+		await assertSucceeds(
+			setDoc(
+				doc(authed(EXTRA), responseDoc(EXTRA)),
+				aResponse(EXTRA, 'extra', { note: 'Back by 7, save me a spot' })
+			)
+		);
+	});
+
+	it('rejects fields the response schema does not have', async () => {
+		await assertFails(
+			setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), aResponse(EXTRA, 'extra', { junk: 'y'.repeat(50_000) }))
+		);
 	});
 
 	it('lets everyone see who is playing', async () => {
