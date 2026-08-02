@@ -36,9 +36,11 @@ jobs:
     with:
       isRules: ${{ needs.changes.outputs.rules }}
 
-  # Deploys functions and rules together, so it must wait on both suites.
+  # Deploys functions and rules together, so it must wait on both suites — and
+  # on `shared`, whose code is compiled into the functions being deployed. Left
+  # out, a red shared suite still shipped the backend that embeds it.
   deploy:
-    needs: [changes, backend, rules]
+    needs: [changes, shared, backend, rules]
     if: >-
       ${{ always() && !failure() && !cancelled()
       && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.rules == 'true') }}
