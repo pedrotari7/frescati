@@ -17,7 +17,8 @@
 		"backfill-kickoff-millis": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillKickoffMillis.ts",
 		"strip-user-emails": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/stripUserEmails.ts",
 		"recount-games": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/recountGames.ts",
-		"whoami": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/whoami.ts"
+		"whoami": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/whoami.ts",
+		"prune-orphans": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/pruneOrphans.ts"
 	},
 	"dependencies": {
 		"@firebase/app": "0.14.12",
