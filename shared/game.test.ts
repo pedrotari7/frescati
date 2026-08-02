@@ -7,6 +7,7 @@ import {
 	getResponseDeadline,
 	getRole,
 	isConfirmed,
+	parseReminderHours,
 	sortResponses,
 	tallyResponses,
 } from './game';
@@ -206,5 +207,32 @@ describe('tallyResponses', () => {
 
 		expect(counts.extrasConfirmed).toBe(0);
 		expect(counts.playing).toBe(0);
+	});
+});
+
+describe('parseReminderHours', () => {
+	it('reads a list as typed', () => {
+		expect(parseReminderHours('72, 24')).toEqual([72, 24]);
+	});
+
+	it('sorts descending whatever order they were typed in', () => {
+		expect(parseReminderHours('24,72,48')).toEqual([72, 48, 24]);
+	});
+
+	it('drops duplicates', () => {
+		expect(parseReminderHours('24, 24, 72')).toEqual([72, 24]);
+	});
+
+	// Typed into a free-text field, so a trailing comma must not fail the save.
+	it('ignores empty and junk entries', () => {
+		expect(parseReminderHours('72, , 24, soon,')).toEqual([72, 24]);
+	});
+
+	it('ignores zero and negative windows', () => {
+		expect(parseReminderHours('0, -5, 24')).toEqual([24]);
+	});
+
+	it('reads an empty field as no reminders', () => {
+		expect(parseReminderHours('')).toEqual([]);
 	});
 });

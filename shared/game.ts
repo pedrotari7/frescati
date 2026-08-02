@@ -127,3 +127,20 @@ export const tallyResponses = (responses: Pick<GameResponse, 'status' | 'role' |
 
 	return counts;
 };
+
+/**
+ * Parse a reminder-window list as typed, e.g. `"72, 24"` into `[72, 24]`.
+ *
+ * Anything that isn't a positive number is dropped rather than rejected — this
+ * is read from a free-text field, and a trailing comma shouldn't fail a save.
+ * Sorted descending and de-duplicated so the stored value is canonical
+ * regardless of what order somebody typed.
+ */
+export const parseReminderHours = (input: string): number[] => [
+	...new Set(
+		input
+			.split(',')
+			.map(part => Number(part.trim()))
+			.filter(hours => Number.isFinite(hours) && hours > 0)
+	),
+].sort((a, b) => b - a);

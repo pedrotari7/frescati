@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { CalendarDaysIcon, UsersIcon } from '@heroicons/react/24/outline';
 import type { SeasonStatus, Weekday } from '@shared/types';
 import { weekdayName } from '@shared/format';
+import { parseReminderHours } from '@shared/game';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useWrite } from '../../../../../hooks/useWrite';
 import { updateSeason } from '../../../../../lib/db/seasons';
@@ -30,6 +31,7 @@ const SeasonAdminPage = () => {
 		endDate: '',
 		minPlayers: 10,
 		responseDeadlineHours: 24,
+		reminderHours: '72, 24',
 	});
 	const [saved, setSaved] = useState(false);
 
@@ -50,6 +52,7 @@ const SeasonAdminPage = () => {
 			endDate: season.endDate,
 			minPlayers: season.minPlayers,
 			responseDeadlineHours: season.responseDeadlineHours,
+			reminderHours: (season.reminderHours ?? []).join(', '),
 		});
 	}, [season]);
 
@@ -99,6 +102,7 @@ const SeasonAdminPage = () => {
 					endDate: form.endDate,
 					minPlayers: Number(form.minPlayers),
 					responseDeadlineHours: Number(form.responseDeadlineHours),
+					reminderHours: parseReminderHours(form.reminderHours),
 				}),
 			"Couldn't save the season settings."
 		);
@@ -225,6 +229,18 @@ const SeasonAdminPage = () => {
 							inputMode='numeric'
 							value={form.responseDeadlineHours}
 							onChange={e => setForm({ ...form, responseDeadlineHours: Number(e.target.value) })}
+						/>
+					</Field>
+
+					<Field
+						label='Remind at'
+						hint='Hours before kick-off, comma separated. Only members who haven’t answered get nudged. Leave empty for no reminders.'
+					>
+						<TextInput
+							value={form.reminderHours}
+							onChange={e => setForm({ ...form, reminderHours: e.target.value })}
+							placeholder='72, 24'
+							inputMode='numeric'
 						/>
 					</Field>
 
