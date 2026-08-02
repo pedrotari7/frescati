@@ -48,6 +48,17 @@ service cloud.firestore {
         .hasAny(['counts', 'atRisk', 'remindersSent']);
     }
 
+    // A brand new game has nobody in it, so every counter starts at zero — not
+    // just `playing`. `values().hasOnly([0])` says "every value in this map is
+    // 0", and the key check stops a short map slipping through with the missing
+    // counters simply absent.
+    function countsStartEmpty() {
+      return request.resource.data.counts.keys()
+               .hasOnly(['membersIn', 'membersOut', 'extrasIn', 'extrasOut', 'extrasConfirmed', 'playing'])
+             && request.resource.data.counts.keys().size() == 6
+             && request.resource.data.counts.values().hasOnly([0]);
+    }
+
     // ── users ────────────────────────────────────────────────────────────────
     // Readable by anyone signed in: the admin member-picker and every roster
     // needs names and avatars. This app has no private user data.
@@ -103,11 +114,17 @@ service cloud.firestore {
         // silently never lock. Its agreement with `kickoff` can't be checked
         // here — rules can't parse ISO 8601 — but only season admins get this
         // far, and they can already set kickoff to whatever they like.
+        //
+        // Create has to be as strict as update about the function-owned fields.
+        // Checking only `playing` left the other five counters free to be
+        // seeded, and `remindersSent` could be pre-filled to silence every
+        // reminder the game would ever send.
         allow create: if isSeasonAdmin(seasonId)
                       && request.resource.data.seasonId == seasonId
                       && request.resource.data.kickoffMillis is number
-                      && request.resource.data.counts.playing == 0
-                      && request.resource.data.atRisk == true;
+                      && countsStartEmpty()
+                      && request.resource.data.atRisk == true
+                      && !request.resource.data.keys().hasAny(['remindersSent']);
 
         allow update: if isSeasonAdmin(seasonId) && !touchesDerivedGameFields();
 

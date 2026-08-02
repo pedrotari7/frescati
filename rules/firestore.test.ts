@@ -306,6 +306,37 @@ describe('games', () => {
 		);
 	});
 
+	// Create used to check only `playing`, so the other five counters could be
+	// seeded with anything and the roster would show a headcount nobody gave.
+	it('stops a game being created with a non-playing counter seeded', async () => {
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), `seasons/${SEASON}/games/new`), {
+				...aGame('2026-09-08T17:00:00.000Z', '2026-09-08T18:30:00.000Z'),
+				counts: { membersIn: 99, membersOut: 0, extrasIn: 0, extrasOut: 0, extrasConfirmed: 0, playing: 0 },
+			})
+		);
+	});
+
+	it('stops a game being created with counters missing entirely', async () => {
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), `seasons/${SEASON}/games/new`), {
+				...aGame('2026-09-08T17:00:00.000Z', '2026-09-08T18:30:00.000Z'),
+				counts: { playing: 0 },
+			})
+		);
+	});
+
+	// Pre-filling this would silence every reminder the game was ever going to
+	// send, without touching a field the update rule guards.
+	it('stops a game being created with remindersSent already filled in', async () => {
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), `seasons/${SEASON}/games/new`), {
+				...aGame('2026-09-08T17:00:00.000Z', '2026-09-08T18:30:00.000Z'),
+				remindersSent: [72, 24],
+			})
+		);
+	});
+
 	it('stops a game being created with no kickoffMillis to enforce the deadline against', async () => {
 		await assertFails(
 			setDoc(doc(authed(SEASON_ADMIN), `seasons/${SEASON}/games/new`), {
