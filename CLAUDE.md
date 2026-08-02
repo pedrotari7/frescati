@@ -28,16 +28,25 @@ Mobile-first PWA for running a recurring football group. A **season** defines a 
 ## Data model
 
 ```
-users/{uid}                                  profile + notificationPrefs
+users/{uid}                                  profile + notificationPrefs + rating (function-owned)
 users/{uid}/pushTokens/{token}               FCM registration tokens
-seasons/{seasonId}                           slot, venue, minPlayers, memberUids[], adminUids[]
+seasons/{seasonId}                           slot, venue, minPlayers, balance, memberUids[], adminUids[]
 seasons/{seasonId}/games/{gameId}            kickoff, status, counts (function-owned), atRisk
 seasons/{seasonId}/games/{gameId}/responses/{uid}   status: 'in'|'out', role: 'member'|'extra'
+seasons/{seasonId}/games/{gameId}/tournament/teams  generated lineup (function-owned)
 ```
 
 **No response document at all means "no response"** — that is a real third state, not a default. Never write a placeholder response doc.
 
 `counts` and `atRisk` on the game doc are written **only** by the `onResponseWrite` Cloud Function. Security rules reject client writes to them. Don't compute them on the client.
+
+## Tournaments
+
+Nights of 8+ split into 2, 3 or 4 teams (`shared/tournament.ts`) and play a generated round robin. Squads differ by at most one player; the on-pitch side size is the smaller of the two squads meeting, with the larger rotating a sub through.
+
+- **Ratings** are a global career Elo on `users/{uid}.rating`, shown as 0–100 via a fixed mapping (`shared/rating.ts`). A rating moves on how a team finished *versus how it was expected to*, not on raw position — with a working balancer, raw position is nearly noise. Unrated players seed at the live average of the season's rated members.
+- **Teams** are picked by the pure, seeded `pickTeams` in `shared/optimizer.ts` and written **only** by the `rebuildTeams` function. Rules reject every client write to the teams doc — an admin reshuffles by bumping `reshuffleCount` on the game, never by writing a lineup.
+- Rebuilds are **debounced through Cloud Tasks**: a response write bumps `teamsGeneration`, queues a task carrying it, and the handler drops itself if the generation has moved on. Kept out of `onResponseWrite` deliberately — the optimizer is the one part of the app whose cost grows with turnout.
 
 ## Members vs extras
 
