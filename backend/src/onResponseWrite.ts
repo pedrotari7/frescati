@@ -1,8 +1,9 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
+import type { GameResponse } from '../../shared/types';
 import { getMinPlayers, tallyResponses } from '../../shared/game';
 import { db, REGION } from './lib/firebase';
-import { getResponses, getSeason } from './lib/data';
+import { getSeason } from './lib/data';
 
 /**
  * Keeps `counts` and `atRisk` on the game document in step with its responses.
@@ -12,15 +13,25 @@ import { getResponses, getSeason } from './lib/data';
  * is the only thing that may write them.
  *
  * Recomputes from scratch rather than incrementing: a full re-tally of ~30
- * documents is cheap and can't drift, whereas a delta that gets applied twice
- * (retries happen) silently corrupts the count.
+ * documents is cheap, whereas a delta applied twice — retries happen — silently
+ * corrupts the count.
+ *
+ * The re-tally runs inside a transaction because recomputing is not on its own
+ * enough. Two people tapping "I'm in" at the same moment produce two
+ * invocations that both read the responses and both write `counts`; whichever
+ * lands second wins, and if it read first it writes a total that is already one
+ * short. The count then stays wrong until somebody else happens to respond. A
+ * transaction puts the read and the write in the same optimistic unit, so the
+ * loser retries against fresh data instead of overwriting the winner.
  */
 export const onResponseWrite = onDocumentWritten(
 	{ document: 'seasons/{seasonId}/games/{gameId}/responses/{uid}', region: REGION },
 	async event => {
 		const { seasonId, gameId } = event.params;
 
-		const [season, responses] = await Promise.all([getSeason(seasonId), getResponses(seasonId, gameId)]);
+		// Read outside the transaction: the season isn't part of the contended
+		// state, and enrolling it would make every roster edit abort a recount.
+		const season = await getSeason(seasonId);
 
 		if (!season) {
 			logger.warn('Response written under a season that no longer exists', { seasonId, gameId });
@@ -28,19 +39,22 @@ export const onResponseWrite = onDocumentWritten(
 		}
 
 		const gameRef = db.doc(`seasons/${seasonId}/games/${gameId}`);
-		const gameSnap = await gameRef.get();
 
-		// The game can be deleted while a response write is in flight.
-		if (!gameSnap.exists) return;
+		const counts = await db.runTransaction(async transaction => {
+			const gameSnap = await transaction.get(gameRef);
 
-		const counts = tallyResponses(responses);
-		const minimum = getMinPlayers(gameSnap.data() as { minPlayers?: number }, season);
+			// The game can be deleted while a response write is in flight.
+			if (!gameSnap.exists) return null;
 
-		await gameRef.update({
-			counts,
-			atRisk: counts.playing < minimum,
+			const responsesSnap = await transaction.get(gameRef.collection('responses'));
+			const tallied = tallyResponses(responsesSnap.docs.map(doc => doc.data() as GameResponse));
+			const minimum = getMinPlayers(gameSnap.data() as { minPlayers?: number }, season);
+
+			transaction.update(gameRef, { counts: tallied, atRisk: tallied.playing < minimum });
+
+			return tallied;
 		});
 
-		logger.debug('Recounted game', { seasonId, gameId, playing: counts.playing, minimum });
+		if (counts) logger.debug('Recounted game', { seasonId, gameId, playing: counts.playing });
 	}
 );
