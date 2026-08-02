@@ -88,6 +88,30 @@ export const createOneOffGame = async (
 	await batch.commit();
 };
 
+/**
+ * Re-snapshots `venue` onto every game that hasn't kicked off yet, so an admin
+ * correcting the season's venue doesn't leave the whole calendar pointing at
+ * the old address. Games already played are left alone — same reasoning as
+ * `onSeasonWrite`'s roster repair: a finished game's venue is a record of
+ * where it happened, not a mirror of the season's current settings.
+ */
+export const updateVenueForUpcomingGames = async (seasonId: string, games: Game[], venue: Venue): Promise<number> => {
+	const now = Date.now();
+	const upcoming = games.filter(game => game.kickoffMillis >= now);
+
+	if (upcoming.length === 0) return 0;
+
+	const batch = writeBatch(getDb());
+
+	for (const game of upcoming) {
+		batch.update(gameDoc(seasonId, game.id), { venue });
+	}
+
+	await batch.commit();
+
+	return upcoming.length;
+};
+
 export const cancelGame = (seasonId: string, gameId: string, reason: string) =>
 	updateDoc(gameDoc(seasonId, gameId), { status: 'cancelled', cancelledReason: reason });
 

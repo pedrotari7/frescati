@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDaysIcon, UsersIcon } from '@heroicons/react/24/outline';
-import type { SeasonStatus, Weekday } from '@shared/types';
+import type { SeasonStatus, Venue, Weekday } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
 import { weekdayName } from '@shared/format';
 import { parseReminderHours } from '@shared/game';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useWrite } from '../../../../../hooks/useWrite';
 import { updateSeason } from '../../../../../lib/db/seasons';
+import { updateVenueForUpcomingGames } from '../../../../../lib/db/games';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
@@ -17,7 +18,7 @@ import Button from '../../../../../components/Button';
 import { Field, RangeInput, Select, TextInput } from '../../../../../components/Field';
 
 const SeasonAdminPage = () => {
-	const { seasonId, season, loading, isAdmin } = useSeasonContext();
+	const { seasonId, season, games, loading, isAdmin } = useSeasonContext();
 	const write = useWrite();
 
 	const [form, setForm] = useState({
@@ -96,37 +97,42 @@ const SeasonAdminPage = () => {
 	}
 
 	const handleSave = async () => {
+		const venue: Venue = {
+			name: form.venueName.trim(),
+			...(form.venueAddress.trim() ? { address: form.venueAddress.trim() } : {}),
+		};
+		const venueChanged = venue.name !== season.venue.name || (venue.address ?? '') !== (season.venue.address ?? '');
+
 		// Only claim it saved if it did — this used to say "Saved" whether or not
 		// the write was accepted.
-		const ok = await write(
-			() =>
-				updateSeason(seasonId, {
-					name: form.name.trim(),
-					status: form.status,
-					venue: {
-						name: form.venueName.trim(),
-						...(form.venueAddress.trim() ? { address: form.venueAddress.trim() } : {}),
-					},
-					slot: {
-						weekday: form.weekday,
-						time: form.time,
-						durationMinutes: Number(form.durationMinutes),
-						timezone: season.slot.timezone,
-					},
-					startDate: form.startDate,
-					endDate: form.endDate,
-					minPlayers: Number(form.minPlayers),
-					responseDeadlineHours: Number(form.responseDeadlineHours),
-					reminderHours: parseReminderHours(form.reminderHours),
-					balance: {
-						matchMinutes: Number(form.matchMinutes),
-						randomness: Number(form.randomness) / 100,
-						repeatPenalty: Number(form.repeatPenalty) / 100,
-						repeatLookback: Number(form.repeatLookback),
-					},
-				}),
-			"Couldn't save the season settings."
-		);
+		const ok = await write(async () => {
+			await updateSeason(seasonId, {
+				name: form.name.trim(),
+				status: form.status,
+				venue,
+				slot: {
+					weekday: form.weekday,
+					time: form.time,
+					durationMinutes: Number(form.durationMinutes),
+					timezone: season.slot.timezone,
+				},
+				startDate: form.startDate,
+				endDate: form.endDate,
+				minPlayers: Number(form.minPlayers),
+				responseDeadlineHours: Number(form.responseDeadlineHours),
+				reminderHours: parseReminderHours(form.reminderHours),
+				balance: {
+					matchMinutes: Number(form.matchMinutes),
+					randomness: Number(form.randomness) / 100,
+					repeatPenalty: Number(form.repeatPenalty) / 100,
+					repeatLookback: Number(form.repeatLookback),
+				},
+			});
+
+			if (venueChanged) {
+				await updateVenueForUpcomingGames(seasonId, games, venue);
+			}
+		}, "Couldn't save the season settings.");
 
 		if (!ok) return;
 
