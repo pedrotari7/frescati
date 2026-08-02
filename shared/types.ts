@@ -135,10 +135,10 @@ export interface GameResponse {
 	/** Snapshotted at write time; security rules check it against real membership. */
 	role: PlayerRole;
 	/**
-	 * Season-admin override of an extra's spot. Absent means auto-confirmed —
-	 * confirmation is *derived* (see `isConfirmed`) rather than stored, so no
-	 * trigger has to write back to the document it fires on.
-	 * Writable only by season admins.
+	 * A season admin's decision on whether this extra holds a spot. Absent means
+	 * undecided, which counts as *not* holding one — see `isConfirmed`.
+	 * Confirmation stays derived rather than stored so no trigger has to write
+	 * back to the document it fires on. Writable only by season admins.
 	 */
 	confirmOverride?: boolean;
 	respondedAt: string;

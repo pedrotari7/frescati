@@ -128,8 +128,12 @@ describe('isConfirmed', () => {
 		expect(isConfirmed({ role: 'member', confirmOverride: false })).toBe(true);
 	});
 
-	it('confirms extras by default', () => {
-		expect(isConfirmed({ role: 'extra' })).toBe(true);
+	it('leaves an extra unconfirmed until an admin says otherwise', () => {
+		expect(isConfirmed({ role: 'extra' })).toBe(false);
+	});
+
+	it('confirms an extra an admin has waved through', () => {
+		expect(isConfirmed({ role: 'extra', confirmOverride: true })).toBe(true);
 	});
 
 	it('respects an admin dropping an extra', () => {
@@ -140,10 +144,10 @@ describe('isConfirmed', () => {
 describe('sortResponses', () => {
 	it('puts members first, then confirmed extras, then by signup time', () => {
 		const sorted = sortResponses([
-			response({ uid: 'extra-late', respondedAt: '2026-08-30T12:00:00.000Z' }),
+			response({ uid: 'extra-late', confirmOverride: true, respondedAt: '2026-08-30T12:00:00.000Z' }),
 			response({ uid: 'extra-dropped', confirmOverride: false }),
 			response({ uid: 'member-b', role: 'member', respondedAt: '2026-08-30T11:00:00.000Z' }),
-			response({ uid: 'extra-early', respondedAt: '2026-08-30T09:00:00.000Z' }),
+			response({ uid: 'extra-early', confirmOverride: true, respondedAt: '2026-08-30T09:00:00.000Z' }),
 			response({ uid: 'member-a', role: 'member', respondedAt: '2026-08-30T08:00:00.000Z' }),
 		]);
 
@@ -174,7 +178,7 @@ describe('tallyResponses', () => {
 			response({ role: 'member', status: 'in' }),
 			response({ role: 'member', status: 'in' }),
 			response({ role: 'member', status: 'out' }),
-			response({ role: 'extra', status: 'in' }),
+			response({ role: 'extra', status: 'in', confirmOverride: true }),
 			response({ role: 'extra', status: 'in', confirmOverride: false }),
 			response({ role: 'extra', status: 'out' }),
 		]);
@@ -187,6 +191,14 @@ describe('tallyResponses', () => {
 			extrasConfirmed: 1,
 			playing: 3,
 		});
+	});
+
+	it('excludes an extra nobody has confirmed yet', () => {
+		const counts = tallyResponses([response({ role: 'extra', status: 'in' })]);
+
+		expect(counts.extrasIn).toBe(1);
+		expect(counts.extrasConfirmed).toBe(0);
+		expect(counts.playing).toBe(0);
 	});
 
 	it('excludes an extra who said out even if confirmed', () => {

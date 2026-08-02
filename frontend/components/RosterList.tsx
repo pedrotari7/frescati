@@ -134,13 +134,13 @@ const RosterList = ({
 						return confirmed ? (
 							<StatusPill tone='extra'>Extra</StatusPill>
 						) : (
-							<StatusPill tone='neutral'>Not needed</StatusPill>
+							<StatusPill tone='neutral'>Awaiting a spot</StatusPill>
 						);
 					}
 
 					return (
 						<Button size='sm' variant='ghost' onClick={() => onToggleExtra(entry.uid, !confirmed)}>
-							{confirmed ? 'Drop' : 'Add back'}
+							{confirmed ? 'Drop' : 'Give a spot'}
 						</Button>
 					);
 				}}

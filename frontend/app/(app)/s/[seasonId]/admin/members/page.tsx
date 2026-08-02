@@ -157,7 +157,8 @@ const AdminMembersPage = () => {
 
 					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
 						People appear here once they&apos;ve signed in at least once. Anyone not in the squad can still
-						join individual games as an extra.
+						put their hand up for individual games as an extra, but they only count towards the headcount
+						once you give them a spot on the game screen.
 					</p>
 				</section>
 			</div>

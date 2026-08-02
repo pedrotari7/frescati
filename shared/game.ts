@@ -65,11 +65,17 @@ export const getRole = (uid: string, season: Pick<Season, 'memberUids'>): Player
 	season.memberUids.includes(uid) ? 'member' : 'extra';
 
 /**
- * Whether a response holds a spot. Members always do. Extras do by default —
- * there is no cap — until a season admin says otherwise.
+ * Whether a response holds a spot. Members always do. An extra holds one only
+ * once a season admin has said so.
+ *
+ * Extras used to be confirmed by default, which meant anyone who could sign in
+ * — and anyone with a Google account can — counted toward the headcount the
+ * moment they tapped In. That let a stranger push a game over its minimum and
+ * suppress the "short of players" nudge the squad relies on. Putting them
+ * behind an admin nod costs one tap per genuine guest and closes it.
  */
 export const isConfirmed = (response: Pick<GameResponse, 'role' | 'confirmOverride'>): boolean =>
-	response.role === 'member' || (response.confirmOverride ?? true);
+	response.role === 'member' || response.confirmOverride === true;
 
 /**
  * Roster order: members first, then extras. Within each group, confirmed before

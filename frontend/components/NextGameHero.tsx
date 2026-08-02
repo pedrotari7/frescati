@@ -84,7 +84,8 @@ const NextGameHero = ({
 
 						{isExtra && lifecycle === 'open' && (
 							<p className='text-extra mt-3 text-center text-xs'>
-								You&apos;re not in the squad for this season, so you&apos;ll be listed as an extra.
+								You&apos;re not in the squad for this season, so you&apos;ll be listed as an extra — an
+								admin confirms your spot before you count towards the headcount.
 							</p>
 						)}
 					</>
