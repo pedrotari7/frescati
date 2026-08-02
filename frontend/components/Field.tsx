@@ -22,3 +22,27 @@ export const Select = ({ className = '', children, ...rest }: SelectHTMLAttribut
 		{children}
 	</select>
 );
+
+/**
+ * A slider for the settings that are a feel rather than a figure.
+ *
+ * Shows its own value, because a range control with no readout is guesswork —
+ * and these are the ones an admin nudges and re-reads a week later to work out
+ * what they did.
+ */
+export const RangeInput = ({
+	value,
+	valueLabel,
+	className = '',
+	...rest
+}: { valueLabel?: string } & InputHTMLAttributes<HTMLInputElement>) => (
+	<div className='flex items-center gap-3'>
+		<input
+			type='range'
+			value={value}
+			className={classNames('accent-brand h-11 min-w-0 flex-1 cursor-pointer', className)}
+			{...rest}
+		/>
+		<span className='text-muted w-10 shrink-0 text-right text-sm tabular-nums'>{valueLabel ?? value}</span>
+	</div>
+);

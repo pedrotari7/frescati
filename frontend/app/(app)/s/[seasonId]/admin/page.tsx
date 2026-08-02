@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDaysIcon, UsersIcon } from '@heroicons/react/24/outline';
 import type { SeasonStatus, Weekday } from '@shared/types';
+import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
 import { weekdayName } from '@shared/format';
 import { parseReminderHours } from '@shared/game';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
@@ -13,7 +14,7 @@ import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
 import Button from '../../../../../components/Button';
-import { Field, Select, TextInput } from '../../../../../components/Field';
+import { Field, RangeInput, Select, TextInput } from '../../../../../components/Field';
 
 const SeasonAdminPage = () => {
 	const { seasonId, season, loading, isAdmin } = useSeasonContext();
@@ -32,8 +33,18 @@ const SeasonAdminPage = () => {
 		minPlayers: 10,
 		responseDeadlineHours: 24,
 		reminderHours: '72, 24',
+		matchMinutes: DEFAULT_BALANCE_SETTINGS.matchMinutes,
+		// Held as percentages because that is what the sliders speak; converted
+		// back to the stored 0–1 on save.
+		randomness: DEFAULT_BALANCE_SETTINGS.randomness * 100,
+		repeatPenalty: DEFAULT_BALANCE_SETTINGS.repeatPenalty * 100,
+		repeatLookback: DEFAULT_BALANCE_SETTINGS.repeatLookback,
 	});
 	const [saved, setSaved] = useState(false);
+
+	// Seasons created before teams existed carry no levers at all, so the
+	// defaults stand in rather than the form seeding itself with zeroes.
+	const balance = useMemo(() => ({ ...DEFAULT_BALANCE_SETTINGS, ...season?.balance }), [season]);
 
 	// Seed the form once the season arrives, and re-seed if someone else edits
 	// it — the subscription keeps this screen live for every admin at once.
@@ -53,8 +64,12 @@ const SeasonAdminPage = () => {
 			minPlayers: season.minPlayers,
 			responseDeadlineHours: season.responseDeadlineHours,
 			reminderHours: (season.reminderHours ?? []).join(', '),
+			matchMinutes: balance.matchMinutes,
+			randomness: Math.round(balance.randomness * 100),
+			repeatPenalty: Math.round(balance.repeatPenalty * 100),
+			repeatLookback: balance.repeatLookback,
 		});
-	}, [season]);
+	}, [season, balance]);
 
 	if (loading) {
 		return (
@@ -103,6 +118,12 @@ const SeasonAdminPage = () => {
 					minPlayers: Number(form.minPlayers),
 					responseDeadlineHours: Number(form.responseDeadlineHours),
 					reminderHours: parseReminderHours(form.reminderHours),
+					balance: {
+						matchMinutes: Number(form.matchMinutes),
+						randomness: Number(form.randomness) / 100,
+						repeatPenalty: Number(form.repeatPenalty) / 100,
+						repeatLookback: Number(form.repeatLookback),
+					},
 				}),
 			"Couldn't save the season settings."
 		);
@@ -204,7 +225,7 @@ const SeasonAdminPage = () => {
 					</div>
 
 					<div className='grid grid-cols-2 gap-3'>
-						<Field label='Minutes' hint='Match length.'>
+						<Field label='Slot' hint='Minutes the pitch is booked.'>
 							<TextInput
 								type='number'
 								inputMode='numeric'
@@ -243,6 +264,62 @@ const SeasonAdminPage = () => {
 							inputMode='numeric'
 						/>
 					</Field>
+
+					<div className='border-t border-white/8 pt-4'>
+						<h3 className='text-ink mb-1 text-sm font-semibold'>Team selection</h3>
+						<p className='text-faint mb-4 text-xs'>
+							Teams are picked automatically from who is in and re-picked whenever somebody changes their
+							answer. These change how.
+						</p>
+
+						<div className='space-y-4'>
+							<Field label='Match length' hint='Minutes per match. Six matches is a normal night.'>
+								<TextInput
+									type='number'
+									inputMode='numeric'
+									value={form.matchMinutes}
+									onChange={e => setForm({ ...form, matchMinutes: Number(e.target.value) })}
+								/>
+							</Field>
+
+							<Field
+								label='Variety'
+								hint='At zero the same players get the same teams every week. Higher accepts slightly less even sides in exchange for a fresh mix.'
+							>
+								<RangeInput
+									min={0}
+									max={100}
+									step={5}
+									value={form.randomness}
+									valueLabel={`${form.randomness}%`}
+									onChange={e => setForm({ ...form, randomness: Number(e.target.value) })}
+								/>
+							</Field>
+
+							<Field
+								label='Split up regulars'
+								hint='How hard to avoid pairing players who were teammates recently.'
+							>
+								<RangeInput
+									min={0}
+									max={100}
+									step={5}
+									value={form.repeatPenalty}
+									valueLabel={`${form.repeatPenalty}%`}
+									onChange={e => setForm({ ...form, repeatPenalty: Number(e.target.value) })}
+								/>
+							</Field>
+
+							<Field label='Looking back' hint='How many past games count as recent.'>
+								<TextInput
+									type='number'
+									inputMode='numeric'
+									value={form.repeatLookback}
+									onChange={e => setForm({ ...form, repeatLookback: Number(e.target.value) })}
+								/>
+							</Field>
+						</div>
+					</div>
 
 					<Button variant='primary' fullWidth onClick={handleSave}>
 						{saved ? 'Saved' : 'Save settings'}
