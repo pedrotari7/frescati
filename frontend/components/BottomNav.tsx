@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { CalendarDaysIcon, UserCircleIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, TrophyIcon, UserCircleIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { classNames } from '../lib/utils/reactHelper';
 import { hapticLight } from '../lib/utils/haptics';
 
@@ -14,17 +14,20 @@ export interface NavItem {
 }
 
 /**
- * The only tab bar in the app: the same three destinations, in the same order,
+ * The only tab bar in the app: the same four destinations, in the same order,
  * on every screen that has one.
  *
  * Nothing in here depends on data that arrives late, so the bar never reflows
- * under the user's thumb once it has been painted. Admin-only tools deliberately
- * stay out of it — they live behind the gear in the top bar, because a tab that
- * appears the moment the season doc loads moves every tab beside it.
+ * under the user's thumb once it has been painted. That is also why Table is a
+ * tab even before a single night has been confirmed — a tab that appeared once
+ * results existed would move every tab beside it, and the empty state can
+ * explain itself. Admin-only tools stay out for the same reason, behind the
+ * gear in the top bar.
  */
 export const seasonNavItems = (seasonId: string): NavItem[] => [
 	{ href: `/s/${seasonId}`, label: 'Games', icon: CalendarDaysIcon },
 	{ href: `/s/${seasonId}/members`, label: 'Squad', icon: UsersIcon },
+	{ href: `/s/${seasonId}/table`, label: 'Table', icon: TrophyIcon },
 	{ href: '/me', label: 'Me', icon: UserCircleIcon },
 ];
 

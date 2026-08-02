@@ -5,6 +5,7 @@ import type {
 	Game,
 	GameResponse,
 	Season,
+	RatingLedgerEntry,
 	TournamentMatch,
 	TournamentResult,
 	TournamentTeams,
@@ -12,7 +13,7 @@ import type {
 import { subscribeToSeason, subscribeToSeasons } from '../lib/db/seasons';
 import { subscribeToGame, subscribeToGames } from '../lib/db/games';
 import { subscribeToResponses } from '../lib/db/responses';
-import { subscribeToMatches, subscribeToResult, subscribeToTeams } from '../lib/db/tournament';
+import { subscribeToMatches, subscribeToResult, subscribeToSeasonLedger, subscribeToTeams } from '../lib/db/tournament';
 import { subscribeToUser, subscribeToUsers } from '../lib/db/users';
 import { useFirestoreSubscription } from './useFirestoreSubscription';
 
@@ -21,6 +22,7 @@ const NO_GAMES: Game[] = [];
 const NO_RESPONSES: GameResponse[] = [];
 const NO_USERS: AppUser[] = [];
 const NO_MATCHES: TournamentMatch[] = [];
+const NO_LEDGER: RatingLedgerEntry[] = [];
 
 export const useSeasons = () => {
 	const { data, loading, error } = useFirestoreSubscription<Season[]>(
@@ -110,6 +112,16 @@ export const useTournamentResult = (seasonId: string | null, gameId: string | nu
 	);
 
 	return { result: data, loading, error };
+};
+
+export const useSeasonLedger = (seasonId: string | null) => {
+	const { data, loading, error } = useFirestoreSubscription<RatingLedgerEntry[]>(
+		NO_LEDGER,
+		seasonId ? (onChange, onError) => subscribeToSeasonLedger(seasonId, onChange, onError) : null,
+		[seasonId]
+	);
+
+	return { entries: data, loading, error };
 };
 
 export const useUser = (uid: string | null) => {

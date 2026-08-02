@@ -28,6 +28,9 @@ export const responseDoc = (seasonId: string, gameId: string, uid: string): Docu
 export const tournamentTeamsDoc = (seasonId: string, gameId: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'tournament', 'teams');
 
+/** Top-level: ratings are global, so a replay walks this regardless of season. */
+export const ratingLedgerCol = (): CollectionReference => collection(getDb(), 'ratingLedger');
+
 export const tournamentResultDoc = (seasonId: string, gameId: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'tournament', 'result');
 

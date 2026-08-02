@@ -1,10 +1,10 @@
-import { deleteDoc, increment, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, increment, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import type { Fixture } from '@shared/tournament';
-import type { TournamentMatch, TournamentResult, TournamentTeams } from '@shared/types';
+import type { RatingLedgerEntry, TournamentMatch, TournamentResult, TournamentTeams } from '@shared/types';
 import { getFunctionsClient } from '../firebaseClient';
-import { gameDoc, matchDoc, matchesCol, tournamentResultDoc, tournamentTeamsDoc } from './paths';
+import { gameDoc, matchDoc, matchesCol, ratingLedgerCol, tournamentResultDoc, tournamentTeamsDoc } from './paths';
 
 export const subscribeToTeams = (
 	seasonId: string,
@@ -76,6 +76,24 @@ export const setMatchScore = (
 /** Back to "not played" — the third state is the absence of a document. */
 export const clearMatchScore = (seasonId: string, gameId: string, order: number) =>
 	deleteDoc(matchDoc(seasonId, gameId, order));
+
+/**
+ * Every rated night in one season.
+ *
+ * The ledger is queried rather than each game's result document because it is
+ * one read instead of two per game across a whole calendar, and it already
+ * carries where each player finished.
+ */
+export const subscribeToSeasonLedger = (
+	seasonId: string,
+	onChange: (entries: RatingLedgerEntry[]) => void,
+	onError: (error: Error) => void
+): Unsubscribe =>
+	onSnapshot(
+		query(ratingLedgerCol(), where('seasonId', '==', seasonId)),
+		snapshot => onChange(snapshot.docs.map(d => d.data() as RatingLedgerEntry)),
+		onError
+	);
 
 export const subscribeToResult = (
 	seasonId: string,
