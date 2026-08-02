@@ -384,6 +384,38 @@ describe('responses', () => {
 		await assertSucceeds(updateDoc(doc(authed(MEMBER), responseDoc(MEMBER)), { status: 'out' }));
 	});
 
+	// `respondedAt` decides which extras a season admin sees first, so it has to
+	// be as unforgeable as `role` is.
+	it('stops an extra backdating respondedAt to jump the queue', async () => {
+		await setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), aResponse(EXTRA, 'extra'));
+
+		await assertFails(
+			updateDoc(doc(authed(EXTRA), responseDoc(EXTRA)), { respondedAt: '1999-01-01T00:00:00.000Z' })
+		);
+	});
+
+	it('stops respondedAt moving even on an otherwise valid answer change', async () => {
+		await setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), aResponse(EXTRA, 'extra'));
+
+		await assertFails(
+			setDoc(
+				doc(authed(EXTRA), responseDoc(EXTRA)),
+				aResponse(EXTRA, 'extra', { status: 'out', respondedAt: '1999-01-01T00:00:00.000Z' })
+			)
+		);
+	});
+
+	it('lets a player change their mind while respondedAt stays put', async () => {
+		await setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), aResponse(EXTRA, 'extra'));
+
+		await assertSucceeds(
+			setDoc(
+				doc(authed(EXTRA), responseDoc(EXTRA)),
+				aResponse(EXTRA, 'extra', { status: 'out', updatedAt: '2026-08-31T10:00:00.000Z' })
+			)
+		);
+	});
+
 	it('stops a player smuggling in confirmOverride on update', async () => {
 		await setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), aResponse(EXTRA, 'extra'));
 

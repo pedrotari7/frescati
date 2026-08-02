@@ -164,10 +164,15 @@ service cloud.firestore {
           // Changing your mind is allowed right up to the deadline. Past it the
           // headcount is what the organiser is acting on, so only a season admin
           // can still move it — see the admin `write` below.
+          // `respondedAt` is the extras queue order, so it is written once and
+          // then frozen. Without this an extra could backdate themselves ahead
+          // of everyone who signed up before them.
           allow update: if isSelf(uid)
                         && request.resource.data.uid == uid
                         && request.resource.data.status in ['in', 'out']
                         && roleMatchesMembership()
+                        && request.resource.data.get('respondedAt', null)
+                           == resource.data.get('respondedAt', null)
                         && request.resource.data.get('confirmOverride', null)
                            == resource.data.get('confirmOverride', null)
                         && responsesOpen(gameData());

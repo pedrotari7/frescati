@@ -1,4 +1,4 @@
-import { deleteDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { GameResponse, PlayerRole, ResponseStatus } from '@shared/types';
 import { responseDoc, responsesCol } from './paths';
@@ -23,6 +23,12 @@ export const subscribeToResponses = (
  *
  * Writes the whole document rather than merging: a response is small and
  * self-contained, and a full write keeps `updatedAt` honest.
+ *
+ * `existing` is an optimisation, not a requirement. When the caller doesn't
+ * have it — someone taps In before the collection-group listener has caught up
+ * — it is read back rather than assumed absent. Guessing wrong would resend a
+ * fresh `respondedAt` over a document that already has one, which the rules
+ * reject outright to stop extras backdating their way up the queue.
  */
 export const setResponse = async (
 	seasonId: string,
@@ -32,18 +38,20 @@ export const setResponse = async (
 	role: PlayerRole,
 	existing?: GameResponse
 ): Promise<void> => {
+	const ref = responseDoc(seasonId, gameId, uid);
+	const current = existing ?? ((await getDoc(ref)).data() as GameResponse | undefined);
 	const now = new Date().toISOString();
 
-	await setDoc(responseDoc(seasonId, gameId, uid), {
+	await setDoc(ref, {
 		uid,
 		status,
 		role,
 		// Keep the original signup time so changing your mind doesn't send an
-		// extra to the back of the queue.
-		respondedAt: existing?.respondedAt ?? now,
+		// extra to the back of the queue. Frozen by the rules once written.
+		respondedAt: current?.respondedAt ?? now,
 		updatedAt: now,
 		// Only a season admin may write this, so preserve rather than resend it.
-		...(existing?.confirmOverride === undefined ? {} : { confirmOverride: existing.confirmOverride }),
+		...(current?.confirmOverride === undefined ? {} : { confirmOverride: current.confirmOverride }),
 	});
 };
 
