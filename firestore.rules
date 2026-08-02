@@ -21,8 +21,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    // Read the claim with a default: most people don't carry `admin` at all, and
+    // addressing a missing key directly *errors* rather than evaluating false.
+    // Today that error is masked — `isSeasonAdmin` ORs this with a membership
+    // check, and Firestore's `||` tolerates one side erroring when the other is
+    // true — but anywhere this stands alone the error would deny the write.
     function isAppAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
     }
 
     function seasonData(seasonId) {

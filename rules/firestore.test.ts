@@ -225,6 +225,26 @@ describe('seasons', () => {
 	it('stops a season being left with no admins', async () => {
 		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { adminUids: [] }));
 	});
+
+	// A missing custom claim must read as false, not blow up the expression. The
+	// season admin below carries no claims at all, so `isAppAdmin` is evaluated
+	// against a token that has no `admin` key on either of these paths.
+	it('treats a missing admin claim as false rather than erroring', async () => {
+		await assertFails(
+			setDoc(doc(authed(MEMBER), 'seasons/new'), { name: 'Spring', memberUids: [], adminUids: [MEMBER] })
+		);
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { name: 'Renamed' }));
+	});
+
+	it('treats an unrelated custom claim as not being an app admin', async () => {
+		await assertFails(
+			setDoc(doc(authed('claims-but-not-admin', { somethingElse: true }), 'seasons/new'), {
+				name: 'Spring',
+				memberUids: [],
+				adminUids: ['claims-but-not-admin'],
+			})
+		);
+	});
 });
 
 describe('games', () => {
