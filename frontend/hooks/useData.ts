@@ -1,9 +1,10 @@
 'use client';
 
-import type { AppUser, Game, GameResponse, Season } from '@shared/types';
+import type { AppUser, Game, GameResponse, Season, TournamentTeams } from '@shared/types';
 import { subscribeToSeason, subscribeToSeasons } from '../lib/db/seasons';
 import { subscribeToGame, subscribeToGames } from '../lib/db/games';
 import { subscribeToResponses } from '../lib/db/responses';
+import { subscribeToTeams } from '../lib/db/tournament';
 import { subscribeToUser, subscribeToUsers } from '../lib/db/users';
 import { useFirestoreSubscription } from './useFirestoreSubscription';
 
@@ -70,6 +71,16 @@ export const useUsers = () => {
 	);
 
 	return { users: data, loading, error };
+};
+
+export const useTournamentTeams = (seasonId: string | null, gameId: string | null) => {
+	const { data, loading, error } = useFirestoreSubscription<TournamentTeams | null>(
+		null,
+		seasonId && gameId ? (onChange, onError) => subscribeToTeams(seasonId, gameId, onChange, onError) : null,
+		[seasonId, gameId]
+	);
+
+	return { teams: data, loading, error };
 };
 
 export const useUser = (uid: string | null) => {

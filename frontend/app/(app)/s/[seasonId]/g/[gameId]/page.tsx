@@ -1,8 +1,10 @@
 'use client';
 
 import { use, useCallback, useMemo } from 'react';
-import { MapPinIcon } from '@heroicons/react/24/outline';
-import { getGameLifecycle } from '@shared/game';
+import Link from 'next/link';
+import { ChevronRightIcon, MapPinIcon, TrophyIcon } from '@heroicons/react/24/outline';
+import { getFormat, getGameLifecycle } from '@shared/game';
+import { MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
 import { useResponses, useUsers } from '../../../../../../hooks/useData';
@@ -101,6 +103,19 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 						</div>
 					)}
 				</section>
+
+				{lifecycle !== 'cancelled' && game.counts.playing >= MIN_TOURNAMENT_PLAYERS && (
+					<Link href={`/s/${seasonId}/g/${gameId}/tournament`} className='glass-card block rounded-2xl p-4'>
+						<div className='flex items-center gap-3'>
+							<TrophyIcon className='text-brand size-5 shrink-0' aria-hidden='true' />
+							<div className='min-w-0 flex-1'>
+								<p className='text-ink text-sm font-semibold'>Teams</p>
+								<p className='text-faint text-xs'>{getFormat(game.counts.playing)}</p>
+							</div>
+							<ChevronRightIcon className='text-faint size-4 shrink-0' aria-hidden='true' />
+						</div>
+					</Link>
+				)}
 
 				<RosterList
 					memberUids={season.memberUids}

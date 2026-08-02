@@ -27,6 +27,16 @@
 	--color-pending: #fbbf24;
 	--color-extra: #60a5fa;
 
+	/*
+	 * Bibs. A team's identity on the night, deliberately none of the four above
+	 * — a squad tinted the same green as "in" reads as a status, not a side.
+	 * Four is the ceiling, so there are four.
+	 */
+	--color-team-a: #22d3ee;
+	--color-team-b: #a78bfa;
+	--color-team-c: #fb923c;
+	--color-team-d: #e879f9;
+
 	--font-sans:
 		ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
 
