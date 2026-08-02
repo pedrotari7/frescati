@@ -1,8 +1,10 @@
 import { deleteDoc, increment, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import type { Fixture } from '@shared/tournament';
-import type { TournamentMatch, TournamentTeams } from '@shared/types';
-import { gameDoc, matchDoc, matchesCol, tournamentTeamsDoc } from './paths';
+import type { TournamentMatch, TournamentResult, TournamentTeams } from '@shared/types';
+import { getFunctionsClient } from '../firebaseClient';
+import { gameDoc, matchDoc, matchesCol, tournamentResultDoc, tournamentTeamsDoc } from './paths';
 
 export const subscribeToTeams = (
 	seasonId: string,
@@ -74,3 +76,33 @@ export const setMatchScore = (
 /** Back to "not played" — the third state is the absence of a document. */
 export const clearMatchScore = (seasonId: string, gameId: string, order: number) =>
 	deleteDoc(matchDoc(seasonId, gameId, order));
+
+export const subscribeToResult = (
+	seasonId: string,
+	gameId: string,
+	onChange: (result: TournamentResult | null) => void,
+	onError: (error: Error) => void
+): Unsubscribe =>
+	onSnapshot(
+		tournamentResultDoc(seasonId, gameId),
+		snapshot => onChange(snapshot.exists() ? (snapshot.data() as TournamentResult) : null),
+		onError
+	);
+
+/**
+ * Confirm the night and apply the ratings.
+ *
+ * A callable because rules cannot express this: it reads every player's current
+ * rating, writes them all back and leaves a ledger entry, and applying it twice
+ * would rate the same result against the ratings the first pass produced. The
+ * function refuses that second application — and says so, which is why this
+ * returns rather than silently succeeding.
+ */
+export const finaliseTournament = async (seasonId: string, gameId: string): Promise<void> => {
+	const call = httpsCallable<{ seasonId: string; gameId: string }, { ok: boolean }>(
+		getFunctionsClient(),
+		'finaliseTournament'
+	);
+
+	await call({ seasonId, gameId });
+};

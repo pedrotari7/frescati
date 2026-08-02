@@ -1,10 +1,18 @@
 'use client';
 
-import type { AppUser, Game, GameResponse, Season, TournamentMatch, TournamentTeams } from '@shared/types';
+import type {
+	AppUser,
+	Game,
+	GameResponse,
+	Season,
+	TournamentMatch,
+	TournamentResult,
+	TournamentTeams,
+} from '@shared/types';
 import { subscribeToSeason, subscribeToSeasons } from '../lib/db/seasons';
 import { subscribeToGame, subscribeToGames } from '../lib/db/games';
 import { subscribeToResponses } from '../lib/db/responses';
-import { subscribeToMatches, subscribeToTeams } from '../lib/db/tournament';
+import { subscribeToMatches, subscribeToResult, subscribeToTeams } from '../lib/db/tournament';
 import { subscribeToUser, subscribeToUsers } from '../lib/db/users';
 import { useFirestoreSubscription } from './useFirestoreSubscription';
 
@@ -92,6 +100,16 @@ export const useMatches = (seasonId: string | null, gameId: string | null) => {
 	);
 
 	return { matches: data, loading, error };
+};
+
+export const useTournamentResult = (seasonId: string | null, gameId: string | null) => {
+	const { data, loading, error } = useFirestoreSubscription<TournamentResult | null>(
+		null,
+		seasonId && gameId ? (onChange, onError) => subscribeToResult(seasonId, gameId, onChange, onError) : null,
+		[seasonId, gameId]
+	);
+
+	return { result: data, loading, error };
 };
 
 export const useUser = (uid: string | null) => {

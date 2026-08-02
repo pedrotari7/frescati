@@ -28,6 +28,9 @@ export const responseDoc = (seasonId: string, gameId: string, uid: string): Docu
 export const tournamentTeamsDoc = (seasonId: string, gameId: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'tournament', 'teams');
 
+export const tournamentResultDoc = (seasonId: string, gameId: string): DocumentReference =>
+	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'tournament', 'result');
+
 export const matchesCol = (seasonId: string, gameId: string): CollectionReference =>
 	collection(getDb(), 'seasons', seasonId, 'games', gameId, 'matches');
 

@@ -1,16 +1,28 @@
 'use client';
 
 import { use, useMemo } from 'react';
-import { ArrowPathIcon, ExclamationTriangleIcon, UsersIcon } from '@heroicons/react/24/outline';
-import { describeSquads, getFixtures, getScheduleFit, getSideSize, MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
+import { ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, UsersIcon } from '@heroicons/react/24/outline';
+import {
+	AUTO_FINALISE_HOURS,
+	describeSquads,
+	getFixtures,
+	getScheduleFit,
+	getSideSize,
+	MIN_TOURNAMENT_PLAYERS,
+} from '@shared/tournament';
 import { getStandings } from '@shared/standings';
-import { formatGameDateLong } from '@shared/format';
+import { formatGameDateLong, formatRelative } from '@shared/format';
 import { useSeasonContext } from '../../../../../../../components/SeasonProvider';
-import { useMatches, useTournamentTeams, useUsers } from '../../../../../../../hooks/useData';
+import { useMatches, useTournamentResult, useTournamentTeams, useUsers } from '../../../../../../../hooks/useData';
 import { useMyResponses } from '../../../../../../../hooks/useMyResponses';
 import { useWrite } from '../../../../../../../hooks/useWrite';
 import { useAuth } from '../../../../../../../lib/auth';
-import { clearMatchScore, reshuffleTeams, setMatchScore } from '../../../../../../../lib/db/tournament';
+import {
+	clearMatchScore,
+	finaliseTournament,
+	reshuffleTeams,
+	setMatchScore,
+} from '../../../../../../../lib/db/tournament';
 import SeasonShell from '../../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../../components/EmptyState';
@@ -25,6 +37,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const { season, games, loading, isAdmin } = useSeasonContext();
 	const { teams: lineup, loading: teamsLoading } = useTournamentTeams(seasonId, gameId);
 	const { matches } = useMatches(seasonId, gameId);
+	const { result } = useTournamentResult(seasonId, gameId);
 	const { users } = useUsers();
 	const { myResponses } = useMyResponses();
 	const { user } = useAuth();
@@ -79,8 +92,13 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const fit = getScheduleFit(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
 
 	const matchesByOrder = new Map(matches.map(match => [match.order, match]));
-	const standings = getStandings(lineup.teams.length, matches);
 	const played = matches.length;
+
+	// Once confirmed the table comes from the result document rather than being
+	// recomputed, so a past night keeps reading the way it was decided even if
+	// somebody later clears a score.
+	const standings = result?.standings ?? getStandings(lineup.teams.length, matches);
+	const deltas = result ? new Map(result.changes.map(change => [change.uid, change.delta])) : undefined;
 
 	// Anyone who answered the game can keep the score — that is the point, so
 	// whoever has a free hand does it. Confirming the night closes it to
@@ -140,6 +158,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 							usersByUid={usersByUid}
 							sideSize={Math.min(...squadSizes)}
 							highlightUid={user?.uid}
+							deltas={deltas}
 						/>
 					))}
 				</div>
@@ -181,10 +200,40 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					</ol>
 				</section>
 
-				{played > 0 && (
+				{(played > 0 || finalised) && (
 					<section className='glass rounded-3xl p-5'>
 						<h2 className='text-ink mb-3 text-sm font-semibold'>Table</h2>
 						<StandingsTable standings={standings} unequal={unequal} />
+
+						{finalised ? (
+							<p className='text-faint mt-4 text-xs'>
+								Confirmed {formatRelative(game.resultFinalisedAt!)}. Ratings have been applied — a
+								season admin correcting a score from here will work them out again.
+							</p>
+						) : (
+							<>
+								<p className='text-faint mt-4 text-xs'>
+									Nothing counts towards anyone&apos;s rating until this is confirmed, which happens
+									on its own {AUTO_FINALISE_HOURS} hours after kick-off.
+								</p>
+
+								{isAdmin && (
+									<Button
+										variant='primary'
+										className='mt-3'
+										onClick={async () => {
+											await write(
+												() => finaliseTournament(seasonId, gameId),
+												"Couldn't confirm the results."
+											);
+										}}
+									>
+										<CheckCircleIcon className='size-4' aria-hidden='true' />
+										Confirm results
+									</Button>
+								)}
+							</>
+						)}
 					</section>
 				)}
 			</div>

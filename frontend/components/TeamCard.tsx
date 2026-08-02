@@ -1,7 +1,7 @@
 'use client';
 
 import type { AppUser, TournamentTeam } from '@shared/types';
-import { toDisplayRating } from '@shared/rating';
+import { BASE_ELO, toDisplayRating } from '@shared/rating';
 import { shortName } from '@shared/format';
 import Avatar from './Avatar';
 import { classNames } from '../lib/utils/reactHelper';
@@ -17,6 +17,27 @@ const TEAM_STYLES = [
 export const teamName = (index: number): string => TEAM_STYLES[index]?.name ?? `${index + 1}`;
 
 /**
+ * What tonight did to somebody's rating.
+ *
+ * Rendered on the displayed 0–100 scale rather than in Elo, so it agrees with
+ * the number next to it — a night worth 30 Elo reads as +6, and a player whose
+ * change rounds to nothing shows nothing rather than a misleading `+0`.
+ */
+const movement = (delta: number | undefined) => {
+	if (delta === undefined) return null;
+
+	const shown = toDisplayRating(BASE_ELO + delta) - 50;
+	if (shown === 0) return null;
+
+	return (
+		<span className={classNames('text-[11px] font-semibold tabular-nums', shown > 0 ? 'text-in' : 'text-out')}>
+			{shown > 0 ? '+' : ''}
+			{shown}
+		</span>
+	);
+};
+
+/**
  * One squad's team sheet.
  *
  * `sideSize` is how many of them are on the pitch at once. When the squad is
@@ -30,12 +51,15 @@ const TeamCard = ({
 	usersByUid,
 	sideSize,
 	highlightUid,
+	deltas,
 }: {
 	team: TournamentTeam;
 	elos: Record<string, number>;
 	usersByUid: Map<string, AppUser>;
 	sideSize: number;
 	highlightUid?: string | null;
+	/** Rating movement per uid, once the night has been confirmed. */
+	deltas?: Map<string, number>;
 }) => {
 	const style = TEAM_STYLES[team.index] ?? TEAM_STYLES[0];
 	const average = team.uids.reduce((total, uid) => total + (elos[uid] ?? 0), 0) / Math.max(1, team.uids.length);
@@ -76,6 +100,7 @@ const TeamCard = ({
 							<span className='text-ink min-w-0 flex-1 truncate text-sm'>
 								{shortName(user?.displayName ?? 'Unknown player')}
 							</span>
+							{movement(deltas?.get(uid))}
 							<span className='text-faint text-xs tabular-nums'>{toDisplayRating(elos[uid] ?? 0)}</span>
 						</li>
 					);
