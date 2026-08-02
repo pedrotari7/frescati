@@ -67,6 +67,11 @@ const getRecentSquads = async (seasonId: string, kickoff: string, lookback: numb
 		.limit(lookback)
 		.get();
 
+	// `getAll` throws when handed nothing, which is exactly what the very first
+	// game of a season produces — so without this the one night that has no
+	// history to avoid repeating is the one night that never gets a lineup.
+	if (games.empty) return [];
+
 	const lineups = await db.getAll(...games.docs.map(game => game.ref.collection('tournament').doc('teams')));
 
 	return lineups

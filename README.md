@@ -87,11 +87,13 @@ Project: **`footballfrescati`**.
 
 |  |  |
 | --- | --- |
-| `pnpm dev` | frontend dev server |
+| `pnpm dev:seeded` | **the whole local stack in one command** — emulators, seeded data, dev server |
+| `pnpm dev:live` | dev server against the real Firebase project |
+| `pnpm dev` | dev server against whatever `frontend/.env.local` says |
 | `pnpm test` | pure domain tests (`shared/`) |
 | `pnpm test:rules` | security rules against the Firestore emulator — **run after any `firestore.rules` change** |
-| `pnpm emulators` | Auth + Firestore + Functions emulators |
-| `pnpm seed` | fill the running emulators with a scenario — see below |
+| `pnpm emulators` | Auth + Firestore + Functions emulators, on their own |
+| `pnpm seed` | fill already-running emulators with a scenario — see below |
 | `pnpm build` / `pnpm lint` | both workspaces |
 | `pnpm deploy:functions` | deploy Cloud Functions |
 | `pnpm --filter backend set-admin <email>` | grant the app-admin claim (`--revoke` to remove) |
@@ -108,21 +110,28 @@ Each takes `--dry-run` (except `recount-games`) and is safe to run twice.
 | `pnpm --filter backend recount-games` | recompute `counts` and repair drifted `role`s across every game |
 | `pnpm --filter backend prune-orphans` | delete responses and games left behind by deletions that predate the cascade triggers |
 
-Emulator commands need JDK 21: `JAVA_HOME=/usr/local/opt/openjdk@21 pnpm test:rules`.
+Anything touching the emulators needs a JDK 21+, which `scripts/emulators.sh` goes and finds — no `JAVA_HOME` prefix required.
+
+Every command above is a **root** script: run it from the repo root, or `pnpm -w <script>` from anywhere in the workspace. From inside `frontend/` or `backend/` you get `Command "dev:seeded" not found`.
 
 ## Local development against seeded data
 
-Nothing is mocked. The emulators run the real rules and the real triggers; `pnpm seed` just gives them a past — thirty players, a few seasons, a season's worth of confirmed results, and a fixture list that reaches every state a game screen can be in. A screen that works against a seed works against production.
+Nothing is mocked. The emulators run the real rules and the real triggers; the seed just gives them a past — thirty players, a few seasons, a season's worth of confirmed results, and a fixture list that reaches every state a game screen can be in. A screen that works against a seed works against production.
 
 ```sh
-NEXT_PUBLIC_USE_EMULATORS=1     # in frontend/.env.local
-
-JAVA_HOME=/usr/local/opt/openjdk@21 pnpm emulators   # one terminal, leave it running
-pnpm seed                                            # another
-pnpm dev
+pnpm dev:seeded                 # emulators + seed + dev server, one terminal
+SCENARIO=big pnpm dev:seeded    # a different scenario
 ```
 
-All three are root scripts — run them from the repo root, or `pnpm -w <script>` from anywhere in the workspace. `pnpm emulators` from inside `frontend/` or `backend/` fails with `Command "emulators" not found`.
+Ctrl-C stops the lot. Nothing to configure: `dev:seeded` sets `NEXT_PUBLIC_USE_EMULATORS` for the dev server it starts, so `frontend/.env.local` does not need touching and the flag is not left switched on afterwards — which matters, because an app pointed at emulators that aren't running looks broken in a way that takes a minute to spot. `pnpm dev:live` is the same guarantee in the other direction.
+
+The two-terminal form is still there when you want the emulators to outlive the dev server, or to re-seed without restarting anything:
+
+```sh
+pnpm emulators                  # one terminal, leave it running
+pnpm seed                       # another, as often as you like
+NEXT_PUBLIC_USE_EMULATORS=1 pnpm dev
+```
 
 Then tap the flask in the bottom-right of the app and pick somebody. That switcher only exists when `NEXT_PUBLIC_USE_EMULATORS=1`, and it signs in without Google: the Auth emulator accepts an unsigned identity, and the seeder imports a matching provider link for every player, so you land on the uid the seeded data is actually about. Two taps to go from app admin to season admin to a member to a stranger who has never signed in.
 

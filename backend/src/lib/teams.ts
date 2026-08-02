@@ -61,7 +61,14 @@ const isEmulated = (): boolean => process.env.FUNCTIONS_EMULATOR === 'true';
 export const enqueueTeamRebuild = async (task: TeamRebuildTask): Promise<void> => {
 	if (isEmulated()) {
 		setTimeout(() => {
-			runTeamRebuild(task).catch(error => logger.warn('Local team rebuild failed', { ...task, error }));
+			// `{ error }` alone serialises an Error as `{}`, which is how a real
+			// bug in here spent a while looking like an empty warning.
+			runTeamRebuild(task).catch(error =>
+				logger.warn('Local team rebuild failed', {
+					...task,
+					error: error instanceof Error ? error.stack : error,
+				})
+			);
 		}, EMULATOR_DEBOUNCE_SECONDS * 1000);
 
 		return;

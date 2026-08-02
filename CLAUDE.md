@@ -11,6 +11,7 @@ Mobile-first PWA for running a recurring football group. A **season** defines a 
 ## Running the app
 
 - Do not start a dev server or run the app yourself. If you need to verify behavior, ask the user to check it (the user typically already has it running locally).
+- `pnpm dev:seeded` is the whole local stack in one command (emulators + seed + dev server); `pnpm dev:live` is the same against the real project. Both set `NEXT_PUBLIC_USE_EMULATORS` themselves, so `frontend/.env.local` should be left alone.
 - Local data comes from `pnpm seed`, which fills the running emulators from a scenario in `backend/scripts/seed/scenarios.ts`. Nothing is mocked — real rules, real triggers. Adding a case worth looking at means adding a season or a `pins` entry there, not writing Firestore by hand.
 - The seeder derives everything it can from `shared/` (`tallyResponses`, `pickTeams`, `getStandings`, `getRatingChanges`) so seeded data is exactly what the functions would have produced. Only scorelines are invented. Keep it that way — a hand-written rating column disagrees with the first replay.
 - Seeded seasons carry a per-run id suffix. Deleting a season fires a cascade that can still be running a minute later, and stable ids meant it deleted the next seed's data.
@@ -19,7 +20,7 @@ Mobile-first PWA for running a recurring football group. A **season** defines a 
 ## Local environment gotchas
 
 - The shell exports an `npm_config_registry` pointing at Spotify's artifactory, which overrides `.npmrc`. Prefix installs with `npm_config_registry=https://registry.npmjs.org/`.
-- `firebase-tools` needs **JDK 21+** for the emulators, but the default `java` on this machine is 17. Run emulator commands with `JAVA_HOME=/usr/local/opt/openjdk@21`.
+- `firebase-tools` needs **JDK 21+** and the default `java` here is 17. `scripts/emulators.sh` finds a newer one, and every emulator script goes through it — so no `JAVA_HOME` prefix is needed. A raw `firebase emulators:*` still does.
 - `pnpm test` runs the pure `shared/` suites. `pnpm test:rules` runs the Firestore rules suite against the emulator — run it after **any** change to `firestore.rules`.
 
 ## Architecture
