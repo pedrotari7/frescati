@@ -1,7 +1,7 @@
-import { onSnapshot } from 'firebase/firestore';
+import { onSnapshot, updateDoc } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
-import type { AppUser } from '@shared/types';
-import { usersCol } from './paths';
+import type { AppUser, NotificationPrefs } from '@shared/types';
+import { userDoc, usersCol } from './paths';
 
 /** The document id *is* the uid — trust it over a field that could be missing. */
 const toUser = (id: string, data: DocumentData): AppUser => ({ ...(data as AppUser), uid: id });
@@ -23,3 +23,22 @@ export const subscribeToUsers = (onChange: (users: AppUser[]) => void, onError: 
 		snapshot => onChange(snapshot.docs.map(d => toUser(d.id, d.data())).sort(byDisplayName)),
 		onError
 	);
+
+/** One person, live. Used for the signed-in user's own notification settings. */
+export const subscribeToUser = (
+	uid: string,
+	onChange: (user: AppUser | null) => void,
+	onError: (error: Error) => void
+): Unsubscribe =>
+	onSnapshot(
+		userDoc(uid),
+		snapshot => onChange(snapshot.exists() ? toUser(snapshot.id, snapshot.data()) : null),
+		onError
+	);
+
+/**
+ * Which kinds of notification this person wants. Honoured by `sendPush` on the
+ * backend, which skips anyone who has switched a kind off.
+ */
+export const setNotificationPrefs = (uid: string, notificationPrefs: NotificationPrefs) =>
+	updateDoc(userDoc(uid), { notificationPrefs });

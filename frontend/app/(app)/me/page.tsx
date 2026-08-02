@@ -6,6 +6,11 @@ import { ArrowRightStartOnRectangleIcon, BellIcon } from '@heroicons/react/24/ou
 import { signOutOfApp, useAuth } from '../../../lib/auth';
 import { checkPushSupport, disablePush, enablePush, isPushEnabled } from '../../../lib/push';
 import type { PushSupport } from '../../../lib/push';
+import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
+import { useUser } from '../../../hooks/useData';
+import { useWrite } from '../../../hooks/useWrite';
+import { setNotificationPrefs } from '../../../lib/db/users';
+import Toggle from '../../../components/Toggle';
 import { seasonNavItems } from '../../../components/BottomNav';
 import { useSeasonScope } from '../../../components/SeasonScope';
 import PageShell from '../../../components/PageShell';
@@ -17,6 +22,7 @@ const MePage = () => {
 	const router = useRouter();
 	const { user } = useAuth();
 	const { seasonId } = useSeasonScope();
+	const write = useWrite();
 
 	const [support, setSupport] = useState<PushSupport | null>(null);
 	// `null` while we're still asking. Reflects whether this device holds a
@@ -25,6 +31,11 @@ const MePage = () => {
 	const [enabled, setEnabled] = useState<boolean | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
 	const uid = user?.uid;
+
+	// The stored preferences, which apply to the account rather than this
+	// device — the backend checks them before sending anything.
+	const { user: profile } = useUser(uid ?? null);
+	const prefs = profile?.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS;
 
 	useEffect(() => {
 		checkPushSupport().then(setSupport);
@@ -117,6 +128,38 @@ const MePage = () => {
 						))}
 
 					{message && <p className='text-muted mt-3 text-xs'>{message}</p>}
+
+					{/* Separate from the per-device switch above: these say which
+					    kinds you want at all, on every device you've registered. */}
+					<div className='mt-4 divide-y divide-white/5 border-t border-white/5 pt-1'>
+						<Toggle
+							label='Reminders'
+							description="Before a game you haven't answered yet."
+							checked={prefs.reminders}
+							disabled={!uid}
+							onChange={next =>
+								uid &&
+								write(
+									() => setNotificationPrefs(uid, { ...prefs, reminders: next }),
+									"Couldn't save that preference."
+								)
+							}
+						/>
+
+						<Toggle
+							label='Game changes'
+							description='Cancellations, a moved kick-off, or a game short of players.'
+							checked={prefs.gameChanges}
+							disabled={!uid}
+							onChange={next =>
+								uid &&
+								write(
+									() => setNotificationPrefs(uid, { ...prefs, gameChanges: next }),
+									"Couldn't save that preference."
+								)
+							}
+						/>
+					</div>
 				</section>
 
 				<section className='glass rounded-2xl p-5'>

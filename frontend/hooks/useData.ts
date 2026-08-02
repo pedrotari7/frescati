@@ -4,7 +4,7 @@ import type { AppUser, Game, GameResponse, Season } from '@shared/types';
 import { subscribeToSeason, subscribeToSeasons } from '../lib/db/seasons';
 import { subscribeToGame, subscribeToGames } from '../lib/db/games';
 import { subscribeToResponses } from '../lib/db/responses';
-import { subscribeToUsers } from '../lib/db/users';
+import { subscribeToUser, subscribeToUsers } from '../lib/db/users';
 import { useFirestoreSubscription } from './useFirestoreSubscription';
 
 const NO_SEASONS: Season[] = [];
@@ -70,4 +70,14 @@ export const useUsers = () => {
 	);
 
 	return { users: data, loading, error };
+};
+
+export const useUser = (uid: string | null) => {
+	const { data, loading, error } = useFirestoreSubscription<AppUser | null>(
+		null,
+		uid ? (onChange, onError) => subscribeToUser(uid, onChange, onError) : null,
+		[uid]
+	);
+
+	return { user: data, loading, error };
 };
