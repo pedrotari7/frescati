@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../lib/auth';
 import Avatar from './Avatar';
+import { activeIndexFor } from './BottomNav';
 import type { NavItem } from './BottomNav';
 import { classNames } from '../lib/utils/reactHelper';
 
@@ -26,6 +27,7 @@ const TopBar = ({
 	const router = useRouter();
 	const pathname = usePathname();
 	const { user } = useAuth();
+	const activeIndex = activeIndexFor(navItems, pathname);
 
 	return (
 		<header className='pt-safe glass fixed inset-x-0 top-0 z-30 border-x-0 border-t-0'>
@@ -48,8 +50,8 @@ const TopBar = ({
 
 				{/* On desktop the bottom nav is hidden, so the tabs live up here. */}
 				<nav className='hidden items-center gap-1 lg:flex'>
-					{navItems.map(item => {
-						const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+					{navItems.map((item, index) => {
+						const isActive = index === activeIndex;
 
 						return (
 							<Link

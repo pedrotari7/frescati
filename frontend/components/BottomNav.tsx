@@ -26,7 +26,7 @@ export const globalNavItems = (): NavItem[] => [
 ];
 
 /** Deepest matching href wins, so /s/x/admin doesn't also light up /s/x. */
-const activeIndexFor = (items: NavItem[], pathname: string): number => {
+export const activeIndexFor = (items: NavItem[], pathname: string): number => {
 	let best = -1;
 	let bestLength = -1;
 
