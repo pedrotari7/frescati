@@ -57,7 +57,6 @@ Project: **`footballfrescati`**.
     A service account key works too, via `GOOGLE_APPLICATION_CREDENTIALS`, but ADC avoids putting a key file on disk.
 
 8. Wire up GitHub Actions — without this, the `deploy` job in `ci.yml` fails on your first push to `main`:
-
     - **Repo variables** (Settings → Secrets and variables → Actions → **Variables**): the same `NEXT_PUBLIC_FIREBASE_*` keys as `frontend/.env.local` (all except `VAPID_KEY`) — `frontend.yml` needs them to build the frontend in CI.
     - **Repo secret** (Settings → Secrets and variables → Actions → **Secrets**): `GCP_SA_KEY`, the JSON key of a service account that can deploy functions and rules:
 
@@ -92,6 +91,7 @@ Project: **`footballfrescati`**.
 | `pnpm test` | pure domain tests (`shared/`) |
 | `pnpm test:rules` | security rules against the Firestore emulator — **run after any `firestore.rules` change** |
 | `pnpm emulators` | Auth + Firestore + Functions emulators |
+| `pnpm seed` | fill the running emulators with a scenario — see below |
 | `pnpm build` / `pnpm lint` | both workspaces |
 | `pnpm deploy:functions` | deploy Cloud Functions |
 | `pnpm --filter backend set-admin <email>` | grant the app-admin claim (`--revoke` to remove) |
@@ -101,7 +101,7 @@ Project: **`footballfrescati`**.
 
 Each takes `--dry-run` (except `recount-games`) and is safe to run twice.
 
-| | |
+|  |  |
 | --- | --- |
 | `pnpm --filter backend backfill-kickoff-millis` | fill in `kickoffMillis` on games written before it existed — **the response deadline is not enforced on a game without it** |
 | `pnpm --filter backend strip-user-emails` | remove `email` from profiles written before it moved out of Firestore |
@@ -109,6 +109,44 @@ Each takes `--dry-run` (except `recount-games`) and is safe to run twice.
 | `pnpm --filter backend prune-orphans` | delete responses and games left behind by deletions that predate the cascade triggers |
 
 Emulator commands need JDK 21: `JAVA_HOME=/usr/local/opt/openjdk@21 pnpm test:rules`.
+
+## Local development against seeded data
+
+Nothing is mocked. The emulators run the real rules and the real triggers; `pnpm seed` just gives them a past — thirty players, a few seasons, a season's worth of confirmed results, and a fixture list that reaches every state a game screen can be in. A screen that works against a seed works against production.
+
+```sh
+NEXT_PUBLIC_USE_EMULATORS=1     # in frontend/.env.local
+
+JAVA_HOME=/usr/local/opt/openjdk@21 pnpm emulators   # one terminal, leave it running
+pnpm seed                                            # another
+pnpm dev
+```
+
+All three are root scripts — run them from the repo root, or `pnpm -w <script>` from anywhere in the workspace. `pnpm emulators` from inside `frontend/` or `backend/` fails with `Command "emulators" not found`.
+
+Then tap the flask in the bottom-right of the app and pick somebody. That switcher only exists when `NEXT_PUBLIC_USE_EMULATORS=1`, and it signs in without Google: the Auth emulator accepts an unsigned identity, and the seeder imports a matching provider link for every player, so you land on the uid the seeded data is actually about. Two taps to go from app admin to season admin to a member to a stranger who has never signed in.
+
+|                              |                                                                      |
+| ---------------------------- | -------------------------------------------------------------------- |
+| `pnpm seed`                  | the `full` scenario — three seasons, a full ladder, every game state |
+| `pnpm seed --scenario=big`   | 26 members, four-team nights, a season of history                    |
+| `pnpm seed --scenario=fresh` | day one: no history, no ratings, every empty state                   |
+| `pnpm seed --list`           | what else is there                                                   |
+| `pnpm seed --keep`           | seed alongside what's already there instead of wiping                |
+| `pnpm seed --origin=…`       | if the app isn't on `localhost:3000` (avatars are served from it)    |
+
+Scenarios live in `backend/scripts/seed/scenarios.ts` and are declarative — a season is an entry in a list, and a night that should be cancelled, at risk, played-but-unconfirmed or answered by nobody is a line in its `pins`. Everything is positioned relative to today, so a seed is as useful in six months as it is now.
+
+The seeder never invents anything the app could work out for itself: counts come from `tallyResponses`, lineups from `pickTeams`, tables from `getStandings` and ratings from `getRatingChanges` — the same code the Cloud Functions run. Only the scorelines are made up, rolled from a hidden per-player strength that never reaches Firestore. So the seeded ladder is one the app could genuinely have produced, and replaying it reproduces it exactly.
+
+`pnpm seed` writes `frontend/public/dev-users.json` and `frontend/public/dev-avatars/`; both are gitignored.
+
+### What the emulators can't do
+
+- **Cloud Tasks has no emulator.** `rebuildTeams` is normally queued; locally the same work runs in-process a couple of seconds after a response instead, so teams really do rebuild when you answer. See `enqueueTeamRebuild`.
+- **Scheduled functions never fire** — the emulator skips them without pubsub. `finaliseDueTournaments` and `sendReminders` therefore do nothing locally; confirming a night by hand still works, since that path is a callable.
+- **Push goes nowhere.** FCM is not emulated.
+- Seeding while the Functions emulator is up sets off a few hundred triggers. The seeder waits them out and has the last word — which is why `pnpm seed` takes about thirty seconds with functions running and about five without.
 
 Set `NEXT_PUBLIC_USE_EMULATORS=1` in `.env.local` to point the app at the local emulators.
 

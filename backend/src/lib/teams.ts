@@ -1,6 +1,8 @@
 import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions';
 import { REGION } from './firebase';
+import { runTeamRebuild } from './rebuild';
+import type { TeamRebuildTask } from './rebuild';
 
 /**
  * Queueing for the debounced team rebuild.
@@ -18,6 +20,8 @@ import { REGION } from './firebase';
 
 export const TEAM_REBUILD_QUEUE = 'rebuildTeams';
 
+export type { TeamRebuildTask };
+
 /**
  * Queues are addressed by resource name, and the region has to be part of it —
  * `taskQueue`'s second argument is an extension id, not a location, so passing
@@ -32,22 +36,37 @@ const queueName = `locations/${REGION}/functions/${TEAM_REBUILD_QUEUE}`;
  */
 const DEBOUNCE_SECONDS = 10;
 
-export interface TeamRebuildTask {
-	seasonId: string;
-	gameId: string;
-	/** The `Game.teamsGeneration` this rebuild was queued for. */
-	generation: number;
-}
+/**
+ * Shorter locally. The debounce still collapses a burst of taps, but nobody
+ * testing a change wants to sit and count to ten every time they answer.
+ */
+const EMULATOR_DEBOUNCE_SECONDS = 2;
+
+const isEmulated = (): boolean => process.env.FUNCTIONS_EMULATOR === 'true';
 
 /**
  * Queue a rebuild.
  *
  * Never throws: a lineup that rebuilds late is a nuisance, whereas a throw here
- * would fail the response trigger and take the headcount down with it. Cloud
- * Tasks also has no emulator, so this fails locally on every single write and
- * must not make the app unusable when it does.
+ * would fail the response trigger and take the headcount down with it.
+ *
+ * **Cloud Tasks has no emulator.** Left alone, every local rebuild would fail
+ * to queue and the teams screen would stay empty however many people answered —
+ * which makes the whole tournament half of the app untestable against a local
+ * database. So locally the same work runs in-process on the same kind of delay.
+ * A timer rather than a queue means a rebuild is lost if the emulator restarts
+ * mid-debounce; the next answer queues another, and it is a development
+ * database.
  */
 export const enqueueTeamRebuild = async (task: TeamRebuildTask): Promise<void> => {
+	if (isEmulated()) {
+		setTimeout(() => {
+			runTeamRebuild(task).catch(error => logger.warn('Local team rebuild failed', { ...task, error }));
+		}, EMULATOR_DEBOUNCE_SECONDS * 1000);
+
+		return;
+	}
+
 	try {
 		await getFunctions()
 			.taskQueue<TeamRebuildTask>(queueName)

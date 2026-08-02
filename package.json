@@ -13,6 +13,7 @@
 		"test:watch": "jest --watch",
 		"test:rules": "firebase emulators:exec --only firestore --project demo-frescati \"jest --config rules/jest.config.ts\"",
 		"emulators": "firebase emulators:start",
+		"seed": "pnpm --filter backend seed",
 		"firebase": "firebase",
 		"deploy:rules": "firebase deploy --only firestore:rules",
 		"deploy:functions": "firebase deploy --only functions",

@@ -1,0 +1,346 @@
+/**
+ * What a seeded database looks like.
+ *
+ * A scenario is a declaration, not a script: it says which seasons exist, who
+ * is in them and which nights are unusual, and `write.ts` turns that into the
+ * documents the app would hold if those things had actually happened. The point
+ * of the split is that adding a case you want to look at — a night nobody
+ * answered, a season with one member — is an entry in a list here, not a new
+ * pile of Firestore writes.
+ *
+ * Everything is positioned relative to *today*, so a seed is as useful in six
+ * months as it is now. Weeks are the unit because the slot repeats weekly.
+ */
+
+import type { BalanceSettings, GameStatus, SeasonSlot, SeasonStatus, Venue } from '../../../shared/types';
+
+/** A night that differs from the ordinary run of the season. */
+export interface GamePin {
+	status?: GameStatus;
+	cancelledReason?: string;
+	note?: string;
+	/** Force the confirmed headcount instead of rolling one from the band. */
+	playing?: number;
+	/**
+	 * `full` — everyone has an opinion; `partial` — some members still silent;
+	 * `none` — nobody has answered at all.
+	 */
+	responses?: 'full' | 'partial' | 'none';
+	/**
+	 * `confirmed` — scored and rated; `scored` — scores in but nobody has hit
+	 * Confirm; `unplayed` — no scores.
+	 */
+	outcome?: 'unplayed' | 'scored' | 'confirmed';
+	minPlayers?: number;
+	oneOff?: boolean;
+	venue?: Venue;
+	reshuffleCount?: number;
+	balance?: Partial<BalanceSettings>;
+}
+
+export interface SeasonPlan {
+	id: string;
+	/** Left out to derive one from the start date, e.g. `Spring 2026`. */
+	name?: string;
+	status: SeasonStatus;
+	venue: Venue;
+	slot: SeasonSlot;
+	minPlayers: number;
+	responseDeadlineHours: number;
+	reminderHours: number[];
+	balance?: BalanceSettings;
+	/** Cast keys. */
+	memberKeys: string[];
+	adminKeys: string[];
+	/** Cast keys who aren't members but put their hand up for this season. */
+	extraKeys: string[];
+	/** Weeks either side of today. Negative is the past. */
+	startWeeks: number;
+	endWeeks: number;
+	/** Confirmed headcount band for an ordinary night, inclusive. */
+	turnout: [number, number];
+	/** `empty` leaves every past night unplayed — a season with no ladder yet. */
+	history: 'played' | 'empty';
+	/** Keyed by offset from the next upcoming game: `0` is next, `-1` is last. */
+	pins?: Record<number, GamePin>;
+}
+
+export interface Scenario {
+	summary: string;
+	/** Cast keys granted the global `admin` claim. */
+	appAdminKeys: string[];
+	/**
+	 * Cast keys given an account but no profile and no season — what a stranger
+	 * who just signed in with Google actually looks like.
+	 */
+	newcomerKeys: string[];
+	seasons: SeasonPlan[];
+}
+
+const STOCKHOLM = 'Europe/Stockholm';
+
+const FRESCATI: Venue = {
+	name: 'Frescati IP',
+	address: 'Frescativägen 12, Stockholm',
+	mapsUrl: 'https://maps.google.com/?q=Frescati+IP',
+};
+
+const KRISTINEBERG: Venue = {
+	name: 'Kristinebergs BP',
+	address: 'Nordenflychtsvägen 60, Stockholm',
+	mapsUrl: 'https://maps.google.com/?q=Kristinebergs+bollplan',
+};
+
+const ZINKENSDAMM: Venue = {
+	name: 'Zinkensdamms IP',
+	address: 'Ringvägen 12, Stockholm',
+	mapsUrl: 'https://maps.google.com/?q=Zinkensdamms+IP',
+};
+
+const GUBBANGEN: Venue = { name: 'Gubbängens IP', address: 'Gubbängstorget 117, Stockholm' };
+
+const tuesdayEvening: SeasonSlot = { weekday: 2, time: '19:00', durationMinutes: 90, timezone: STOCKHOLM };
+const thursdayEvening: SeasonSlot = { weekday: 4, time: '20:00', durationMinutes: 90, timezone: STOCKHOLM };
+const sundayMorning: SeasonSlot = { weekday: 0, time: '10:00', durationMinutes: 75, timezone: STOCKHOLM };
+
+/**
+ * The everyday scenario: a group with a couple of years behind it, one season
+ * running now, one about to start, and a Sunday offshoot that shares half its
+ * players. Enough history for the ladder to mean something, and enough oddity
+ * in the fixtures to reach every state a game screen can be in.
+ */
+const full: Scenario = {
+	summary: 'Three seasons, a full ladder, and a fixture list covering every game state',
+	appAdminKeys: ['pedro'],
+	newcomerKeys: ['zoe'],
+	seasons: [
+		{
+			id: 'season-previous',
+			status: 'archived',
+			venue: FRESCATI,
+			slot: tuesdayEvening,
+			minPlayers: 10,
+			responseDeadlineHours: 3,
+			reminderHours: [48, 6],
+			memberKeys: [
+				'pedro',
+				'anna',
+				'mateo',
+				'johan',
+				'yara',
+				'viktor',
+				'sofia',
+				'dimitri',
+				'elena',
+				'omar',
+				'lukas',
+				'nina',
+				'tobias',
+				'priya',
+			],
+			adminKeys: ['pedro', 'anna'],
+			extraKeys: ['marcus', 'hanna'],
+			startWeeks: -30,
+			endWeeks: -16,
+			turnout: [10, 14],
+			history: 'played',
+			pins: {
+				[-20]: { status: 'cancelled', cancelledReason: 'Pitch frozen solid' },
+			},
+		},
+		{
+			id: 'season-current',
+			status: 'active',
+			venue: FRESCATI,
+			slot: tuesdayEvening,
+			minPlayers: 10,
+			responseDeadlineHours: 3,
+			reminderHours: [48, 6],
+			balance: { randomness: 0.3, repeatPenalty: 0.45, repeatLookback: 4, matchMinutes: 12 },
+			memberKeys: [
+				'pedro',
+				'anna',
+				'mateo',
+				'johan',
+				'yara',
+				'viktor',
+				'sofia',
+				'dimitri',
+				'elena',
+				'omar',
+				'lukas',
+				'nina',
+				'tobias',
+				'priya',
+				'marcus',
+				'hanna',
+				'rafael',
+				'ingrid',
+			],
+			adminKeys: ['pedro', 'anna'],
+			extraKeys: ['kwame', 'linnea', 'samir', 'greta', 'andrei', 'maja'],
+			startWeeks: -12,
+			endWeeks: 10,
+			turnout: [12, 17],
+			history: 'played',
+			pins: {
+				// Played, scored, and waiting on somebody to hit Confirm — the
+				// state the auto-confirm sweep exists for.
+				[-1]: { outcome: 'scored', note: 'Floodlight on pitch B was out, played the far end' },
+				// The night everyone is actually looking at.
+				[0]: { responses: 'partial', playing: 15, reshuffleCount: 1 },
+				[1]: { responses: 'partial', playing: 7, note: 'Half the squad is away for the long weekend' },
+				[2]: { status: 'cancelled', cancelledReason: 'Pitch double-booked with a youth tournament' },
+				[3]: {
+					oneOff: true,
+					venue: ZINKENSDAMM,
+					note: 'One-off at Zinkensdamm while Frescati is resurfaced',
+					responses: 'partial',
+					playing: 11,
+					minPlayers: 8,
+				},
+				// Deliberately left alone: the empty state a game gets the day it
+				// is generated.
+				[4]: { responses: 'none' },
+				[5]: { responses: 'none' },
+			},
+		},
+		{
+			id: 'season-sunday',
+			name: 'Sunday Kickabout',
+			status: 'active',
+			venue: KRISTINEBERG,
+			slot: sundayMorning,
+			minPlayers: 8,
+			responseDeadlineHours: 12,
+			reminderHours: [24],
+			balance: { randomness: 0.5, repeatPenalty: 0.2, repeatLookback: 3, matchMinutes: 10 },
+			memberKeys: ['yara', 'sofia', 'elena', 'nina', 'priya', 'hanna', 'linnea', 'greta', 'maja', 'astrid'],
+			adminKeys: ['yara'],
+			extraKeys: ['claudia', 'wilma'],
+			startWeeks: -6,
+			endWeeks: 12,
+			turnout: [8, 11],
+			history: 'played',
+			pins: {
+				[0]: { responses: 'partial', playing: 9 },
+				[1]: { responses: 'none' },
+			},
+		},
+		{
+			id: 'season-draft',
+			status: 'draft',
+			venue: GUBBANGEN,
+			slot: thursdayEvening,
+			minPlayers: 12,
+			responseDeadlineHours: 6,
+			reminderHours: [72, 24],
+			memberKeys: ['pedro', 'anna', 'rafael', 'omar', 'noah'],
+			adminKeys: ['pedro'],
+			extraKeys: [],
+			startWeeks: 8,
+			endWeeks: 24,
+			turnout: [0, 0],
+			// A draft season has not generated its calendar yet — that is the
+			// button an admin is about to press.
+			history: 'empty',
+		},
+	],
+};
+
+/**
+ * A big turnout every week. Four teams, deep squads and a long ladder — what
+ * the optimizer and the tournament screens look like under load.
+ */
+const big: Scenario = {
+	summary: 'One large season: 26 members, four-team nights, a season of history',
+	appAdminKeys: ['pedro'],
+	newcomerKeys: ['zoe'],
+	seasons: [
+		{
+			id: 'season-big',
+			status: 'active',
+			venue: FRESCATI,
+			slot: tuesdayEvening,
+			minPlayers: 16,
+			responseDeadlineHours: 4,
+			reminderHours: [72, 24, 4],
+			balance: { randomness: 0.2, repeatPenalty: 0.6, repeatLookback: 6, matchMinutes: 10 },
+			memberKeys: [
+				'pedro',
+				'anna',
+				'mateo',
+				'johan',
+				'yara',
+				'viktor',
+				'sofia',
+				'dimitri',
+				'elena',
+				'omar',
+				'lukas',
+				'nina',
+				'tobias',
+				'priya',
+				'marcus',
+				'hanna',
+				'rafael',
+				'ingrid',
+				'kwame',
+				'linnea',
+				'samir',
+				'greta',
+				'andrei',
+				'maja',
+				'felipe',
+				'astrid',
+			],
+			adminKeys: ['pedro', 'rafael'],
+			extraKeys: ['tariq', 'wilma', 'noah', 'claudia', 'erik'],
+			startWeeks: -20,
+			endWeeks: 12,
+			turnout: [18, 24],
+			history: 'played',
+			pins: {
+				[-1]: { outcome: 'scored' },
+				[0]: { responses: 'partial', playing: 21 },
+				[1]: { responses: 'none' },
+			},
+		},
+	],
+};
+
+/**
+ * Day one. One season, nobody has answered anything, nobody has a rating —
+ * every empty state in the app at once, which is the hardest thing to reach on
+ * a database that has been used.
+ */
+const fresh: Scenario = {
+	summary: 'A brand-new group: one season, no history, no ratings, every empty state',
+	appAdminKeys: ['pedro'],
+	newcomerKeys: ['zoe', 'erik'],
+	seasons: [
+		{
+			id: 'season-new',
+			status: 'active',
+			venue: KRISTINEBERG,
+			slot: thursdayEvening,
+			minPlayers: 10,
+			responseDeadlineHours: 3,
+			reminderHours: [48, 6],
+			memberKeys: ['pedro', 'anna', 'mateo', 'johan', 'yara', 'viktor', 'sofia', 'dimitri', 'elena', 'omar'],
+			adminKeys: ['pedro'],
+			extraKeys: ['nina'],
+			startWeeks: -1,
+			endWeeks: 14,
+			turnout: [0, 0],
+			history: 'empty',
+			pins: {
+				[0]: { responses: 'partial', playing: 4 },
+			},
+		},
+	],
+};
+
+export const SCENARIOS: Record<string, Scenario> = { full, big, fresh };
+
+export const DEFAULT_SCENARIO = 'full';

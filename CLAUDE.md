@@ -11,6 +11,10 @@ Mobile-first PWA for running a recurring football group. A **season** defines a 
 ## Running the app
 
 - Do not start a dev server or run the app yourself. If you need to verify behavior, ask the user to check it (the user typically already has it running locally).
+- Local data comes from `pnpm seed`, which fills the running emulators from a scenario in `backend/scripts/seed/scenarios.ts`. Nothing is mocked — real rules, real triggers. Adding a case worth looking at means adding a season or a `pins` entry there, not writing Firestore by hand.
+- The seeder derives everything it can from `shared/` (`tallyResponses`, `pickTeams`, `getStandings`, `getRatingChanges`) so seeded data is exactly what the functions would have produced. Only scorelines are invented. Keep it that way — a hand-written rating column disagrees with the first replay.
+- Seeded seasons carry a per-run id suffix. Deleting a season fires a cascade that can still be running a minute later, and stable ids meant it deleted the next seed's data.
+- `NEXT_PUBLIC_USE_EMULATORS=1` also turns on the dev user switcher (`DevUserSwitcher`), which signs in as any seeded player without Google.
 
 ## Local environment gotchas
 
@@ -47,9 +51,9 @@ ratingLedger/{gameId}                        one entry per rated night (function
 
 Nights of 8+ split into 2, 3 or 4 teams (`shared/tournament.ts`) and play a generated round robin. Squads differ by at most one player; the on-pitch side size is the smaller of the two squads meeting, with the larger rotating a sub through.
 
-- **Ratings** are a global career Elo on `users/{uid}.rating`, shown as 0–100 via a fixed mapping (`shared/rating.ts`). A rating moves on how a team finished *versus how it was expected to*, not on raw position — with a working balancer, raw position is nearly noise. Unrated players seed at the live average of the season's rated members.
+- **Ratings** are a global career Elo on `users/{uid}.rating`, shown as 0–100 via a fixed mapping (`shared/rating.ts`). A rating moves on how a team finished _versus how it was expected to_, not on raw position — with a working balancer, raw position is nearly noise. Unrated players seed at the live average of the season's rated members.
 - **Teams** are picked by the pure, seeded `pickTeams` in `shared/optimizer.ts` and written **only** by the `rebuildTeams` function. Rules reject every client write to the teams doc — an admin reshuffles by bumping `reshuffleCount` on the game, never by writing a lineup.
-- Rebuilds are **debounced through Cloud Tasks**: a response write bumps `teamsGeneration`, queues a task carrying it, and the handler drops itself if the generation has moved on. Kept out of `onResponseWrite` deliberately — the optimizer is the one part of the app whose cost grows with turnout.
+- Rebuilds are **debounced through Cloud Tasks**: a response write bumps `teamsGeneration`, queues a task carrying it, and the handler drops itself if the generation has moved on. Kept out of `onResponseWrite` deliberately — the optimizer is the one part of the app whose cost grows with turnout. Cloud Tasks has no emulator, so locally `enqueueTeamRebuild` runs `runTeamRebuild` in-process instead. A confirmed night's lineup is never rebuilt — the ledger was computed against it and a replay reads it back.
 - **Scores** live at `matches/{order}` where the id is the fixture's place in the running order, so two people scoring the same match write the same document. **No match document means "not played"** — same third state as a response, and for the same reason.
 - Anyone holding a response on the game can write a score. Confirming the night (`resultFinalisedAt`) closes it to everyone but a season admin, whose correction triggers a **replay**: `replayRatingsFrom` rewinds the ledger latest-first and replays it in kickoff order. Adjusting only the corrected game would be wrong, because every game after it was rated against the ratings that game produced.
 - Ratings apply on an admin's Confirm, or automatically `AUTO_FINALISE_HOURS` after kickoff via `finaliseDueTournaments`.

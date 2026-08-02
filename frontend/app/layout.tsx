@@ -7,6 +7,7 @@ import ToastProvider from '../components/Toast';
 import ConfirmProvider from '../components/ConfirmDialog';
 import ServiceWorkerRegistrar from '../components/ServiceWorkerRegistrar';
 import PwaInstallPrompt from '../components/PwaInstallPrompt';
+import DevUserSwitcher from '../components/DevUserSwitcher';
 import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
@@ -44,6 +45,8 @@ const RootLayout = ({ children }: { children: ReactNode }) => (
 						<ConfirmProvider>
 							{children}
 							<PwaInstallPrompt />
+							{/* Renders nothing unless the app is on the emulators. */}
+							<DevUserSwitcher />
 						</ConfirmProvider>
 					</ToastProvider>
 				</AuthProvider>

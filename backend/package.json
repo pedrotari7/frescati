@@ -13,6 +13,7 @@
 		"watch": "tsc --watch --preserveWatchOutput",
 		"serve": "pnpm build && firebase emulators:start --only functions,firestore",
 		"logs": "firebase functions:log",
+		"seed": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/seed.ts",
 		"set-admin": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/setAdmin.ts",
 		"backfill-kickoff-millis": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillKickoffMillis.ts",
 		"strip-user-emails": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/stripUserEmails.ts",

@@ -33,3 +33,7 @@ coverage/
 # editors / os
 .DS_Store
 *.swp
+
+# seeded local fixtures (pnpm seed)
+frontend/public/dev-users.json
+frontend/public/dev-avatars/
