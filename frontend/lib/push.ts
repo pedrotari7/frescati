@@ -1,4 +1,4 @@
-import { deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { app } from './firebaseClient';
 import { pushTokensCol } from './db/paths';
@@ -40,6 +40,31 @@ export const getPermission = (): NotificationPermission =>
 	typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'denied';
 
 /**
+ * Whether *this device* will actually receive anything.
+ *
+ * Not the same question as `Notification.permission`. Turning notifications off
+ * deletes the registration token but leaves browser permission granted — a
+ * screen keyed on permission alone therefore still reads "on" immediately after
+ * you turn it off, which looks exactly like the button having failed. The
+ * registered token is the thing the backend sends to, so it is the thing to ask
+ * about.
+ */
+export const isPushEnabled = async (uid: string): Promise<boolean> => {
+	if (!VAPID_KEY || getPermission() !== 'granted') return false;
+	if ((await checkPushSupport()) !== 'supported') return false;
+
+	const registration = await navigator.serviceWorker.ready;
+	const token = await getToken(getMessaging(app), {
+		vapidKey: VAPID_KEY,
+		serviceWorkerRegistration: registration,
+	}).catch(() => null);
+
+	if (!token) return false;
+
+	return (await getDoc(doc(pushTokensCol(uid), token))).exists();
+};
+
+/**
  * Ask for permission and register this device. Call it from a user gesture —
  * browsers reject `requestPermission` otherwise, and asking on page load is the
  * fastest way to get permanently blocked.
@@ -78,6 +103,8 @@ export const enablePush = async (uid: string): Promise<{ ok: boolean; reason?: s
 };
 
 export const disablePush = async (uid: string): Promise<void> => {
+	if (!VAPID_KEY) return;
+
 	const messaging = getMessaging(app);
 	const registration = await navigator.serviceWorker.ready;
 

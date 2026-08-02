@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRightStartOnRectangleIcon, BellIcon } from '@heroicons/react/24/outline';
 import { signOutOfApp, useAuth } from '../../../lib/auth';
-import { checkPushSupport, disablePush, enablePush, getPermission } from '../../../lib/push';
+import { checkPushSupport, disablePush, enablePush, isPushEnabled } from '../../../lib/push';
 import type { PushSupport } from '../../../lib/push';
 import { seasonNavItems } from '../../../components/BottomNav';
 import { useSeasonScope } from '../../../components/SeasonScope';
@@ -19,13 +19,29 @@ const MePage = () => {
 	const { seasonId } = useSeasonScope();
 
 	const [support, setSupport] = useState<PushSupport | null>(null);
-	const [permission, setPermission] = useState<NotificationPermission>('default');
+	// `null` while we're still asking. Reflects whether this device holds a
+	// registered token, not whether the browser has granted permission — those
+	// diverge the moment somebody turns notifications off.
+	const [enabled, setEnabled] = useState<boolean | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
+	const uid = user?.uid;
 
 	useEffect(() => {
 		checkPushSupport().then(setSupport);
-		setPermission(getPermission());
 	}, []);
+
+	useEffect(() => {
+		if (!uid) return;
+
+		let cancelled = false;
+		isPushEnabled(uid).then(on => {
+			if (!cancelled) setEnabled(on);
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [uid]);
 
 	if (!user) return null;
 
@@ -33,17 +49,16 @@ const MePage = () => {
 		setMessage(null);
 
 		const result = await enablePush(user.uid);
-		setPermission(getPermission());
+		setEnabled(result.ok);
 		setMessage(result.ok ? 'Notifications are on for this device.' : (result.reason ?? 'Something went wrong.'));
 	};
 
 	const handleDisable = async () => {
 		setMessage(null);
 		await disablePush(user.uid);
+		setEnabled(false);
 		setMessage('This device will no longer get notifications.');
 	};
-
-	const pushIsOn = permission === 'granted';
 
 	// Me is a tab of the season the user came from, so the bar it was tapped on
 	// stays exactly as it was. Opened cold with no season, it's a leaf screen.
@@ -90,7 +105,8 @@ const MePage = () => {
 					)}
 
 					{support === 'supported' &&
-						(pushIsOn ? (
+						enabled !== null &&
+						(enabled ? (
 							<Button variant='secondary' fullWidth onClick={handleDisable}>
 								Turn off on this device
 							</Button>
