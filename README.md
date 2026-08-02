@@ -71,7 +71,8 @@ Project: **`footballfrescati`**.
 
         for ROLE in roles/firebase.admin roles/cloudfunctions.admin roles/run.admin \
           roles/cloudbuild.builds.editor roles/artifactregistry.writer \
-          roles/iam.serviceAccountUser roles/storage.admin
+          roles/iam.serviceAccountUser roles/storage.admin \
+          roles/cloudtasks.admin roles/cloudscheduler.admin
         do
           gcloud projects add-iam-policy-binding $PROJECT \
             --member="serviceAccount:${SA_EMAIL}" --role="$ROLE"
@@ -81,7 +82,7 @@ Project: **`footballfrescati`**.
           --iam-account=$SA_EMAIL
         ```
 
-        Paste `sa-key.json`'s contents into the `GCP_SA_KEY` secret, then delete the local file — gen2 functions deploy through Cloud Build, Artifact Registry and Cloud Run, so `firebase.admin` alone isn't enough.
+        Paste `sa-key.json`'s contents into the `GCP_SA_KEY` secret, then delete the local file — gen2 functions deploy through Cloud Build, Artifact Registry and Cloud Run, so `firebase.admin` alone isn't enough. `cloudtasks.admin` and `cloudscheduler.admin` are needed too: `rebuildTeams` upserts its Cloud Tasks queue and `finaliseDueTournaments`/`sendReminders` upsert their Cloud Scheduler jobs on every deploy.
 
 ## Commands
 
