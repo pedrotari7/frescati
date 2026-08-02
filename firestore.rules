@@ -61,15 +61,27 @@ service cloud.firestore {
 
     // ── users ────────────────────────────────────────────────────────────────
     // Readable by anyone signed in: the admin member-picker and every roster
-    // needs names and avatars. This app has no private user data.
+    // needs names and avatars. Which is exactly why no contact details live
+    // here — a profile is a name, an avatar and a badge, nothing more.
     match /users/{uid} {
       allow read: if isSignedIn();
+
+      // Email is tolerated on an existing document but can never be added or
+      // changed, only dropped. Profiles written before it moved out still carry
+      // one, and refusing those outright would lock their owner out of signing
+      // in until `strip-user-emails` had run — a deploy-order trap. Sign-in
+      // clears the field, so they heal on their own.
+      function keepsContactDetailsOut() {
+        return !request.resource.data.keys().hasAny(['email'])
+               || request.resource.data.email == resource.data.get('email', null);
+      }
 
       // `isAppAdmin` is a display mirror of the custom claim. Let people create
       // their own doc but never grant themselves the badge.
       allow create: if isSelf(uid)
                     && request.resource.data.uid == uid
-                    && request.resource.data.isAppAdmin == false;
+                    && request.resource.data.isAppAdmin == false
+                    && !request.resource.data.keys().hasAny(['email']);
 
       // Read through `get()` with a default rather than the field directly: a
       // doc written by `set-admin` alone may not carry every field, and a
@@ -78,7 +90,8 @@ service cloud.firestore {
       allow update: if isSelf(uid)
                     && request.resource.data.uid == uid
                     && request.resource.data.get('isAppAdmin', false)
-                       == resource.data.get('isAppAdmin', false);
+                       == resource.data.get('isAppAdmin', false)
+                    && keepsContactDetailsOut();
 
       allow delete: if false;
 

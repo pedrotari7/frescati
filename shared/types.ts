@@ -35,10 +35,17 @@ export interface NotificationPrefs {
 	gameChanges: boolean;
 }
 
+/**
+ * The publicly readable half of a person. Every signed-in user can read these,
+ * because rosters and the member picker render names and avatars for uids they
+ * only ever see as strings.
+ *
+ * Deliberately holds no contact details. Email lives in Firebase Auth, which is
+ * not readable from the client at all — see `frontend/lib/auth.tsx`.
+ */
 export interface AppUser {
 	uid: string;
 	displayName: string;
-	email: string;
 	photoURL: string | null;
 	createdAt: string;
 	lastSeenAt: string;

@@ -15,6 +15,7 @@
 		"logs": "firebase functions:log",
 		"set-admin": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/setAdmin.ts",
 		"backfill-kickoff-millis": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillKickoffMillis.ts",
+		"strip-user-emails": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/stripUserEmails.ts",
 		"whoami": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/whoami.ts"
 	},
 	"dependencies": {

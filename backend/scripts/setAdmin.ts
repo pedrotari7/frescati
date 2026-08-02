@@ -18,7 +18,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { DEFAULT_NOTIFICATION_PREFS } from '../../shared/types';
 
 /**
@@ -73,7 +73,9 @@ const main = async () => {
 		{
 			uid: user.uid,
 			displayName: user.displayName ?? user.email?.split('@')[0] ?? 'Player',
-			email: user.email ?? '',
+			// No contact details in a profile every signed-in user can read.
+			// Firebase Auth is where the address lives.
+			email: FieldValue.delete(),
 			photoURL: user.photoURL ?? null,
 			createdAt: existing.get('createdAt') ?? now,
 			lastSeenAt: existing.get('lastSeenAt') ?? now,

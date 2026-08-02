@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { GoogleAuthProvider, onIdTokenChanged, signInWithPopup, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { deleteField, doc, getDoc, setDoc } from 'firebase/firestore';
 import { getDb, getFirebaseAuth } from './firebaseClient';
 import type { AppUser } from '@shared/types';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
@@ -62,7 +62,11 @@ const upsertUserDoc = async (user: AuthUser) => {
 		{
 			uid: user.uid,
 			displayName: user.displayName,
-			email: user.email,
+			// Profiles are readable by every signed-in user, so no contact details
+			// live here. Firebase Auth holds the address; this clears it off any
+			// document written back when it did, so returning users heal
+			// themselves and `strip-user-emails` only has to catch the stragglers.
+			email: deleteField(),
 			photoURL: user.photoURL,
 			createdAt: existing?.createdAt ?? now,
 			lastSeenAt: now,

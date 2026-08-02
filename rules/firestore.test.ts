@@ -2,7 +2,18 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { collectionGroup, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import {
+	collectionGroup,
+	deleteDoc,
+	deleteField,
+	doc,
+	getDoc,
+	getDocs,
+	query,
+	setDoc,
+	updateDoc,
+	where,
+} from 'firebase/firestore';
 
 const PROJECT_ID = 'demo-frescati';
 const SEASON = 'season-1';
@@ -184,6 +195,62 @@ describe('users', () => {
 		await assertFails(
 			setDoc(doc(authed(EXTRA), `users/${MEMBER}`), { uid: MEMBER, displayName: 'hacked', isAppAdmin: false })
 		);
+	});
+
+	// Every signed-in user can read every profile, so contact details must not
+	// live in one. Walking seasons for memberUids and fetching those profiles is
+	// enough to harvest the lot, which is why restricting `list` alone wouldn't
+	// have been the fix.
+	it('stops a new profile carrying an email', async () => {
+		await assertFails(
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				email: 'member.one@example.com',
+			})
+		);
+	});
+
+	it('stops an email being added to an existing profile', async () => {
+		await setDoc(doc(authed(MEMBER), `users/${MEMBER}`), { uid: MEMBER, displayName: 'A', isAppAdmin: false });
+
+		await assertFails(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { email: 'member.one@example.com' }));
+	});
+
+	// Profiles written before the field moved out still have one. Refusing those
+	// outright would deny their owner's next sign-in, so they stay writable —
+	// they just can't keep the address.
+	it('lets a legacy profile be updated, and clears the email as it goes', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				email: 'member.one@example.com',
+			});
+		});
+
+		await assertSucceeds(
+			setDoc(
+				doc(authed(MEMBER), `users/${MEMBER}`),
+				{ uid: MEMBER, displayName: 'A', email: deleteField() },
+				{ merge: true }
+			)
+		);
+	});
+
+	it('stops a legacy email being changed rather than removed', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				email: 'member.one@example.com',
+			});
+		});
+
+		await assertFails(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { email: 'someone.else@example.com' }));
 	});
 
 	it('keeps push tokens private to their owner', async () => {

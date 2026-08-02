@@ -27,9 +27,7 @@ const AdminMembersPage = () => {
 		if (!season) return { members: [], others: [] };
 
 		const term = search.trim().toLowerCase();
-		const matches = users.filter(
-			user => !term || user.displayName.toLowerCase().includes(term) || user.email.toLowerCase().includes(term)
-		);
+		const matches = users.filter(user => !term || user.displayName.toLowerCase().includes(term));
 
 		return {
 			members: matches.filter(user => season.memberUids.includes(user.uid)),
@@ -72,7 +70,7 @@ const AdminMembersPage = () => {
 					<TextInput
 						value={search}
 						onChange={e => setSearch(e.target.value)}
-						placeholder='Search people'
+						placeholder='Search by name'
 						className='pl-10'
 						type='search'
 					/>
@@ -145,7 +143,6 @@ const AdminMembersPage = () => {
 
 								<div className='min-w-0 flex-1'>
 									<p className='text-ink truncate text-sm'>{user.displayName}</p>
-									<p className='text-faint truncate text-xs'>{user.email}</p>
 								</div>
 
 								<Button size='sm' variant='primary' onClick={() => addSeasonMember(seasonId, user.uid)}>
