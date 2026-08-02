@@ -13,16 +13,19 @@ const GameRow = ({
 	game,
 	season,
 	myResponse,
+	now,
 	onRespond,
 	onClear,
 }: {
 	game: Game;
 	season: Season;
 	myResponse: GameResponse | undefined;
+	/** Passed in rather than read here, so every row on a screen agrees. */
+	now: Date;
 	onRespond: (status: ResponseStatus) => Promise<void>;
 	onClear: () => Promise<void>;
 }) => {
-	const lifecycle = getGameLifecycle(game, season);
+	const lifecycle = getGameLifecycle(game, season, now);
 	const isPast = lifecycle === 'finished';
 	const atRisk = getHeadcountState(game, season) === 'at-risk';
 	const timezone = season.slot.timezone;

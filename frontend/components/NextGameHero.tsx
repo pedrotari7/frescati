@@ -18,6 +18,7 @@ const NextGameHero = ({
 	season,
 	myResponse,
 	isExtra,
+	now,
 	onRespond,
 	onClear,
 }: {
@@ -25,10 +26,12 @@ const NextGameHero = ({
 	season: Season;
 	myResponse: GameResponse | undefined;
 	isExtra: boolean;
+	/** Passed in rather than read here, so the whole screen agrees on the time. */
+	now: Date;
 	onRespond: (status: ResponseStatus) => Promise<void>;
 	onClear: () => Promise<void>;
 }) => {
-	const lifecycle = getGameLifecycle(game, season);
+	const lifecycle = getGameLifecycle(game, season, now);
 	const timezone = season.slot.timezone;
 
 	return (

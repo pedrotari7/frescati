@@ -9,6 +9,7 @@ import { useAuth } from '../../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
 import { useWrite } from '../../../../../../hooks/useWrite';
 import { useConfirm } from '../../../../../../components/ConfirmDialog';
+import { useNow } from '../../../../../../hooks/useNow';
 import { cancelGame, createGames, createOneOffGame, deleteGame, restoreGame } from '../../../../../../lib/db/games';
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
@@ -22,6 +23,7 @@ const AdminGamesPage = () => {
 	const { seasonId, season, games, loading, isAdmin } = useSeasonContext();
 	const write = useWrite();
 	const confirm = useConfirm();
+	const now = useNow();
 
 	const [message, setMessage] = useState<string | null>(null);
 	const [oneOff, setOneOff] = useState({ date: '', time: '' });
@@ -171,7 +173,7 @@ const AdminGamesPage = () => {
 						{games.length === 0 && <p className='text-faint py-4 text-sm'>No games yet.</p>}
 
 						{games.map(game => {
-							const lifecycle = getGameLifecycle(game, season);
+							const lifecycle = getGameLifecycle(game, season, now);
 							const isCancelled = lifecycle === 'cancelled';
 
 							return (

@@ -6,6 +6,7 @@ import { getGameLifecycle } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
 import { useMyResponses } from '../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../hooks/useRespond';
+import { useNow } from '../../../../hooks/useNow';
 import SeasonShell from '../../../../components/SeasonShell';
 import Skeleton from '../../../../components/Skeleton';
 import EmptyState from '../../../../components/EmptyState';
@@ -18,11 +19,11 @@ const SeasonHomePage = () => {
 	const { myResponses } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
 	const [showPast, setShowPast] = useState(false);
+	const now = useNow();
 
 	const { next, upcoming, past } = useMemo(() => {
 		if (!season) return { next: null, upcoming: [], past: [] };
 
-		const now = new Date();
 		const notFinished = games.filter(game => getGameLifecycle(game, season, now) !== 'finished');
 		const finished = games.filter(game => getGameLifecycle(game, season, now) === 'finished').reverse();
 
@@ -31,7 +32,7 @@ const SeasonHomePage = () => {
 		const [first, ...rest] = notFinished;
 
 		return { next: first ?? null, upcoming: rest, past: finished };
-	}, [games, season]);
+	}, [games, season, now]);
 
 	if (loading) {
 		return (
@@ -58,6 +59,7 @@ const SeasonHomePage = () => {
 						season={season}
 						myResponse={myResponses[next.id]}
 						isExtra={role === 'extra'}
+						now={now}
 						onRespond={status => respond(next.id, status)}
 						onClear={() => clear(next.id)}
 					/>
@@ -85,6 +87,7 @@ const SeasonHomePage = () => {
 									game={game}
 									season={season}
 									myResponse={myResponses[game.id]}
+									now={now}
 									onRespond={status => respond(game.id, status)}
 									onClear={() => clear(game.id)}
 								/>
@@ -112,6 +115,7 @@ const SeasonHomePage = () => {
 										game={game}
 										season={season}
 										myResponse={myResponses[game.id]}
+										now={now}
 										onRespond={status => respond(game.id, status)}
 										onClear={() => clear(game.id)}
 									/>

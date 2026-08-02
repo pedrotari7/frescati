@@ -10,6 +10,7 @@ import { useMyResponses } from '../../../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../../../hooks/useRespond';
 import { useRespondIntent } from '../../../../../../hooks/useRespondIntent';
 import { useWrite } from '../../../../../../hooks/useWrite';
+import { useNow } from '../../../../../../hooks/useNow';
 import { setConfirmOverride } from '../../../../../../lib/db/responses';
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
@@ -27,13 +28,14 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const { myResponses } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
 	const write = useWrite();
+	const now = useNow();
 
 	const game = games.find(candidate => candidate.id === gameId) ?? null;
 	const usersByUid = useMemo(() => new Map(users.map(user => [user.uid, user])), [users]);
 
 	// Arriving from a notification's "I'm in" button. Runs before the early
 	// returns below so it isn't skipped while the page is still loading.
-	const lifecycleForIntent = season && game ? getGameLifecycle(game, season) : null;
+	const lifecycleForIntent = season && game ? getGameLifecycle(game, season, now) : null;
 
 	useRespondIntent({
 		ready: !loading && !!season && !!game,
@@ -57,7 +59,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 		);
 	}
 
-	const lifecycle = getGameLifecycle(game, season);
+	const lifecycle = getGameLifecycle(game, season, now);
 	const timezone = season.slot.timezone;
 
 	return (
