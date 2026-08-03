@@ -17,6 +17,15 @@ importers:
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
+      '@typescript-eslint/eslint-plugin':
+        specifier: 8.60.0
+        version: 8.60.0(@typescript-eslint/parser@8.60.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: 8.60.0
+        version: 8.60.0(eslint@8.57.1)(typescript@5.9.3)
+      eslint:
+        specifier: 8.57.1
+        version: 8.57.1
       firebase:
         specifier: 12.13.0
         version: 12.13.0
@@ -7628,8 +7637,8 @@ snapshots:
 
   '@typescript-eslint/project-service@8.60.0(typescript@5.9.3)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.60.0(typescript@5.9.3)
-      '@typescript-eslint/types': 8.60.0
+      '@typescript-eslint/tsconfig-utils': 8.65.0(typescript@5.9.3)
+      '@typescript-eslint/types': 8.65.0
       debug: 4.4.3
       typescript: 5.9.3
     transitivePeerDependencies:

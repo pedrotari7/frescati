@@ -22,7 +22,7 @@ echo "$changed_files" | grep -vE '^(frontend/|backend/)' | grep -q . && other_ch
 
 run_root() {
   echo "Running shared checks..."
-  pnpm install && pnpm test
+  pnpm install && pnpm lint:shared && pnpm test
 }
 
 run_frontend() {
