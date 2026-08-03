@@ -20,9 +20,10 @@ const NewSeasonPage = () => {
 
 	const [form, setForm] = useState({
 		name: '',
-		venueName: 'Frescati IP',
-		weekday: 2 as Weekday,
-		time: '19:00',
+		venueName: 'Frescatihallen',
+		venueAddress: 'Svante Arrhenius väg 4, 114 18 Stockholm',
+		weekday: 0 as Weekday,
+		time: '15:00',
 		durationMinutes: 90,
 		startDate: '',
 		endDate: '',
@@ -57,7 +58,10 @@ const NewSeasonPage = () => {
 				status: 'active',
 				startDate: form.startDate,
 				endDate: form.endDate,
-				venue: { name: form.venueName.trim() },
+				venue: {
+					name: form.venueName.trim(),
+					...(form.venueAddress.trim() ? { address: form.venueAddress.trim() } : {}),
+				},
 				slot: {
 					weekday: form.weekday,
 					time: form.time,
@@ -97,6 +101,13 @@ const NewSeasonPage = () => {
 						<TextInput
 							value={form.venueName}
 							onChange={e => setForm({ ...form, venueName: e.target.value })}
+						/>
+					</Field>
+
+					<Field label='Address' hint='Optional — shown on the game screen.'>
+						<TextInput
+							value={form.venueAddress}
+							onChange={e => setForm({ ...form, venueAddress: e.target.value })}
 						/>
 					</Field>
 
