@@ -13,6 +13,11 @@ interface BeforeInstallPromptEvent extends Event {
 
 const isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent);
 
+// Chrome/Firefox/Edge on iOS all run on WebKit and report "Safari" in their UA
+// too, so Safari itself has to be identified by the absence of the other
+// browsers' markers, not the presence of its own.
+const isIosSafari = () => isIos() && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
+
 const isStandalone = () =>
 	window.matchMedia('(display-mode: standalone)').matches ||
 	(window.navigator as { standalone?: boolean }).standalone === true;
@@ -28,6 +33,7 @@ const isStandalone = () =>
 const PwaInstallPrompt = () => {
 	const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
 	const [showIosHint, setShowIosHint] = useState(false);
+	const [isSafari, setIsSafari] = useState(true);
 
 	useEffect(() => {
 		if (isStandalone() || localStorage.getItem(DISMISS_KEY)) return;
@@ -41,7 +47,12 @@ const PwaInstallPrompt = () => {
 
 		// Safari never fires that event, so show the manual hint instead — but
 		// not instantly, since a banner on first paint just gets swatted away.
-		const timer = isIos() ? setTimeout(() => setShowIosHint(true), 4000) : undefined;
+		const timer = isIos()
+			? setTimeout(() => {
+					setIsSafari(isIosSafari());
+					setShowIosHint(true);
+				}, 4000)
+			: undefined;
 
 		return () => {
 			window.removeEventListener('beforeinstallprompt', onBeforeInstall);
@@ -67,7 +78,7 @@ const PwaInstallPrompt = () => {
 
 	return (
 		<div className='pb-safe animate-rise fixed inset-x-0 bottom-0 z-40 px-2 pb-20 lg:bottom-4 lg:pb-0'>
-			<div className='glass shadow-glass mx-auto flex max-w-md items-start gap-3 rounded-2xl p-4'>
+			<div className='bg-raised/95 shadow-glass border-line/60 mx-auto flex max-w-md items-start gap-3 rounded-2xl border p-4 backdrop-blur-xl'>
 				<div className='bg-brand/15 flex size-10 shrink-0 items-center justify-center rounded-xl text-xl'>
 					⚽
 				</div>
@@ -77,11 +88,16 @@ const PwaInstallPrompt = () => {
 
 					{deferred ? (
 						<p className='text-muted mt-0.5 text-xs'>Opens instantly and can send you reminders.</p>
-					) : (
+					) : isSafari ? (
 						<p className='text-muted mt-0.5 flex flex-wrap items-center gap-1 text-xs'>
 							Tap
 							<ArrowUpOnSquareIcon className='inline size-4' aria-hidden='true' />
 							Share, then &ldquo;Add to Home Screen&rdquo;. Needed for reminders on iPhone.
+						</p>
+					) : (
+						<p className='text-muted mt-0.5 text-xs'>
+							Open this page in <span className='text-ink font-medium'>Safari</span> first — iPhone only
+							installs home screen apps from Safari, not this browser.
 						</p>
 					)}
 
