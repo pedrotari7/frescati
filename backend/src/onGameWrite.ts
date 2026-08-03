@@ -4,7 +4,7 @@ import type { Game } from '../../shared/types';
 import { formatGameWhen } from '../../shared/format';
 import { REGION } from './lib/firebase';
 import { getResponses, getSeason, getSilentMembers, getUidsWhoSaidIn } from './lib/data';
-import { sendPush } from './lib/push';
+import { sendGamePush } from './lib/push';
 import { enqueueTeamRebuild } from './lib/teams';
 
 /**
@@ -49,27 +49,19 @@ export const onGameWrite = onDocumentWritten(
 			// Everyone who answered either way cared enough to want to know.
 			const affected = responses.map(response => response.uid);
 
-			const sent = await sendPush(
-				affected,
-				{
-					title: 'Game called off',
-					body: after.cancelledReason ? `${when} is off — ${after.cancelledReason}` : `${when} is off.`,
-					url,
-					tag: `game-${gameId}`,
-				},
-				'gameChanges'
-			);
+			const sent = await sendGamePush(affected, 'cancelled', {
+				when,
+				url,
+				gameId,
+				cancelledReason: after.cancelledReason,
+			});
 
 			logger.info('Notified players of a cancellation', { seasonId, gameId, sent });
 			return;
 		}
 
 		if (before.status === 'cancelled' && after.status === 'scheduled') {
-			const sent = await sendPush(
-				season.memberUids,
-				{ title: 'Game back on', body: `${when} is on again. Are you in?`, url, tag: `game-${gameId}` },
-				'gameChanges'
-			);
+			const sent = await sendGamePush(season.memberUids, 'restored', { when, url, gameId });
 
 			logger.info('Notified players a game was restored', { seasonId, gameId, sent });
 			return;
@@ -81,16 +73,7 @@ export const onGameWrite = onDocumentWritten(
 			const silent = getSilentMembers(season, responses);
 			const shortBy = Math.max(0, (after.minPlayers ?? season.minPlayers) - after.counts.playing);
 
-			const sent = await sendPush(
-				silent,
-				{
-					title: 'Short of players',
-					body: `${when} needs ${shortBy} more. Can you make it?`,
-					url,
-					tag: `game-${gameId}`,
-				},
-				'gameChanges'
-			);
+			const sent = await sendGamePush(silent, 'atRisk', { when, url, gameId, shortBy });
 
 			logger.info('Notified silent members a game is at risk', { seasonId, gameId, sent });
 			return;
@@ -98,16 +81,7 @@ export const onGameWrite = onDocumentWritten(
 
 		// Rescheduling matters to anyone who already committed.
 		if (before.kickoff !== after.kickoff && after.status === 'scheduled') {
-			const sent = await sendPush(
-				getUidsWhoSaidIn(responses),
-				{
-					title: 'Kick-off moved',
-					body: `The game has moved to ${when}.`,
-					url,
-					tag: `game-${gameId}`,
-				},
-				'gameChanges'
-			);
+			const sent = await sendGamePush(getUidsWhoSaidIn(responses), 'kickoffMoved', { when, url, gameId });
 
 			logger.info('Notified players of a reschedule', { seasonId, gameId, sent });
 		}

@@ -1,16 +1,11 @@
 import type { NotificationPrefs } from '../../../shared/types';
+import type { GameNotification, GameNotificationContext, PushPayload } from '../../../shared/notifications';
+import { NOTIFICATION_PREF, buildGamePush } from '../../../shared/notifications';
 import { db, messaging } from './firebase';
 
 export type NotificationKind = keyof NotificationPrefs;
 
-export interface PushPayload {
-	title: string;
-	body: string;
-	/** Deep link opened on tap. */
-	url: string;
-	/** Notifications sharing a tag replace each other instead of stacking. */
-	tag: string;
-}
+export type { PushPayload };
 
 /** Firebase reports these when a device has uninstalled or reset the app. */
 const DEAD_TOKEN_CODES = new Set([
@@ -77,3 +72,17 @@ export const sendPush = async (uids: string[], payload: PushPayload, kind: Notif
 
 	return response.successCount;
 };
+
+/**
+ * Send one of the app's known game notifications.
+ *
+ * The only way any of them should be sent: taking the kind rather than a
+ * payload means the copy and the preference that silences it can't be paired up
+ * wrongly, and `sendTestPush` reaches a device through exactly the same call
+ * every real trigger makes.
+ */
+export const sendGamePush = (
+	uids: string[],
+	kind: GameNotification,
+	context: GameNotificationContext
+): Promise<number> => sendPush(uids, buildGamePush(kind, context), NOTIFICATION_PREF[kind]);

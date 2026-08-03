@@ -4,7 +4,7 @@ import type { Game, Season } from '../../shared/types';
 import { formatGameWhen } from '../../shared/format';
 import { db, REGION } from './lib/firebase';
 import { getResponses, getSilentMembers } from './lib/data';
-import { sendPush } from './lib/push';
+import { sendGamePush } from './lib/push';
 
 /**
  * Nudges squad members who haven't answered yet.
@@ -75,16 +75,12 @@ const remindSeason = async (season: Season, now: number): Promise<number> => {
 			const silent = getSilentMembers(season, responses);
 
 			if (silent.length > 0) {
-				sent += await sendPush(
-					silent,
-					{
-						title: 'Are you playing?',
-						body: `${formatGameWhen(game.kickoff, season.slot.timezone)} — ${game.counts?.playing ?? 0} in so far.`,
-						url: `/s/${season.id}/g/${game.id}`,
-						tag: `game-${game.id}`,
-					},
-					'reminders'
-				);
+				sent += await sendGamePush(silent, 'reminder', {
+					when: formatGameWhen(game.kickoff, season.slot.timezone),
+					url: `/s/${season.id}/g/${game.id}`,
+					gameId: game.id,
+					playing: game.counts?.playing ?? 0,
+				});
 			}
 
 			// Record every window we've now passed, not just the one sent, so
