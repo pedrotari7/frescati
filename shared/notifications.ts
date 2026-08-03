@@ -17,12 +17,29 @@ export interface PushPayload {
 	url: string;
 	/** Notifications sharing a tag replace each other instead of stacking. */
 	tag: string;
+	/**
+	 * Whether the service worker's "I'm in" shortcut belongs on this one. Only a
+	 * game has something to say yes to; offering it on an admin notice about
+	 * somebody signing up would open the app and then silently do nothing.
+	 */
+	respondable: boolean;
 }
 
 /** The events worth interrupting somebody for. */
 export type GameNotification = 'cancelled' | 'restored' | 'atRisk' | 'kickoffMoved' | 'reminder';
 
 export const GAME_NOTIFICATIONS: GameNotification[] = ['reminder', 'atRisk', 'cancelled', 'restored', 'kickoffMoved'];
+
+/**
+ * Notifications about the app itself rather than about one game. Only app
+ * admins are sent these — there is nobody else they would mean anything to.
+ */
+export type AppNotification = 'newPlayer';
+
+const APP_NOTIFICATIONS: AppNotification[] = ['newPlayer'];
+
+/** Everything the app can send, for anywhere that has to cover all of it. */
+export const NOTIFICATIONS: (GameNotification | AppNotification)[] = [...GAME_NOTIFICATIONS, ...APP_NOTIFICATIONS];
 
 export interface GameNotificationContext {
 	/** Kick-off, already formatted in the season's timezone. */
@@ -45,12 +62,13 @@ export interface GameNotificationContext {
  * site, where a cancellation sent under `reminders` would look perfectly
  * reasonable and reach people who had switched cancellations off.
  */
-export const NOTIFICATION_PREF: Record<GameNotification, keyof NotificationPrefs> = {
+export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof NotificationPrefs> = {
 	cancelled: 'gameChanges',
 	restored: 'gameChanges',
 	atRisk: 'gameChanges',
 	kickoffMoved: 'gameChanges',
 	reminder: 'reminders',
+	newPlayer: 'newPlayers',
 };
 
 type Copy = (context: GameNotificationContext) => { title: string; body: string };
@@ -88,4 +106,31 @@ export const buildGamePush = (kind: GameNotification, context: GameNotificationC
 	// One tag per game, so three notifications about the same Tuesday replace
 	// each other on the lock screen instead of stacking up.
 	tag: `game-${context.gameId}`,
+	respondable: true,
+});
+
+export interface NewPlayerContext {
+	uid: string;
+	/**
+	 * May be empty. A profile is written in a single merge, but one can already
+	 * exist in a partial state — see `upsertUserDoc` — so this never assumes a
+	 * name is there to print.
+	 */
+	displayName: string;
+}
+
+/**
+ * Somebody has signed into the app for the first time.
+ *
+ * Sent to app admins only, so it links to the one screen that lists everybody
+ * who has ever signed in rather than to a season the newcomer isn't in yet.
+ */
+export const buildNewPlayerPush = ({ uid, displayName }: NewPlayerContext): PushPayload => ({
+	title: 'New player',
+	body: `${displayName.trim() || 'Somebody'} just signed into Frescati for the first time.`,
+	url: '/admin',
+	// Per person rather than per event: two people joining the same evening are
+	// two separate things to know about, so these must not replace each other.
+	tag: `new-player-${uid}`,
+	respondable: false,
 });

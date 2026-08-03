@@ -1,5 +1,6 @@
 import { sendTestPush } from '../src/sendTestPush';
-import { buildGamePush } from '../../shared/notifications';
+import { DEFAULT_NOTIFICATION_PREFS } from '../../shared/types';
+import { buildGamePush, buildNewPlayerPush } from '../../shared/notifications';
 import { callRequest, clearAuth, clearFirestore, getDb, writeGame, writeSeason, writeUser } from './helpers';
 
 const CALLER = 'app-admin-1';
@@ -72,8 +73,26 @@ describe('sendTestPush', () => {
 		);
 	});
 
+	// The admin notice has no game behind it, so it takes neither of the two
+	// arguments the others do — it stands the caller in as the newcomer.
+	it('sends the new-player notice as if the caller had just joined', async () => {
+		await writeUser(CALLER, { displayName: 'Pedro Alvito' });
+
+		const result = await sendTestPush.run(callRequest({ kind: 'newPlayer' }, { uid: CALLER, admin: true }));
+
+		expect(result.payload).toEqual(buildNewPlayerPush({ uid: CALLER, displayName: 'Pedro Alvito' }));
+	});
+
+	it('gates the new-player notice on its own preference', async () => {
+		await writeUser(CALLER, { notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS, newPlayers: false } });
+
+		const result = await sendTestPush.run(callRequest({ kind: 'newPlayer' }, { uid: CALLER, admin: true }));
+
+		expect(result.prefEnabled).toBe(false);
+	});
+
 	it('reports prefEnabled false when the caller has opted out of that kind', async () => {
-		await writeUser(CALLER, { notificationPrefs: { reminders: false, gameChanges: true } });
+		await writeUser(CALLER, { notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS, reminders: false } });
 
 		const result = await sendTestPush.run(callRequest({ kind: 'reminder' }, { uid: CALLER, admin: true }));
 
@@ -84,7 +103,7 @@ describe('sendTestPush', () => {
 		// Opted out, so `sendPush` short-circuits before ever calling FCM — there
 		// is no emulator for it, and this is the only way to exercise a nonzero
 		// device count without one.
-		await writeUser(CALLER, { notificationPrefs: { reminders: false, gameChanges: true } });
+		await writeUser(CALLER, { notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS, reminders: false } });
 		await getDb()
 			.doc(`users/${CALLER}/pushTokens/a-token`)
 			.set({ token: 'a-token', createdAt: new Date().toISOString(), userAgent: 'jest' });

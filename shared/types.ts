@@ -33,6 +33,13 @@ export interface SeasonSlot {
 export interface NotificationPrefs {
 	reminders: boolean;
 	gameChanges: boolean;
+	/**
+	 * Somebody signing into the app for the first time. Only app admins are ever
+	 * sent one, so this preference is only worth showing to them — but it lives
+	 * on every profile like the others, because the badge can be granted and
+	 * revoked and a preference that vanished with it would forget its setting.
+	 */
+	newPlayers: boolean;
 }
 
 /**
@@ -374,4 +381,5 @@ export const EMPTY_COUNTS: GameCounts = {
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
 	reminders: true,
 	gameChanges: true,
+	newPlayers: true,
 };

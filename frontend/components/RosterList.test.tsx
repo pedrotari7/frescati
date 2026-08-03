@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { AppUser, GameResponse } from '@shared/types';
+import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
 import RosterList, { buildRoster } from './RosterList';
 
 const user = (uid: string, displayName: string): AppUser => ({
@@ -9,7 +10,7 @@ const user = (uid: string, displayName: string): AppUser => ({
 	createdAt: '2026-01-01T00:00:00.000Z',
 	lastSeenAt: '2026-01-01T00:00:00.000Z',
 	isAppAdmin: false,
-	notificationPrefs: { reminders: true, gameChanges: true },
+	notificationPrefs: DEFAULT_NOTIFICATION_PREFS,
 });
 
 const response = (overrides: Partial<GameResponse> & Pick<GameResponse, 'uid' | 'status' | 'role'>): GameResponse => ({

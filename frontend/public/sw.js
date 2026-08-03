@@ -136,12 +136,17 @@ self.addEventListener('push', event => {
 			tag: payload.tag || 'frescati',
 			renotify: Boolean(payload.renotify),
 			data: { url: payload.url || '/' },
-			actions: payload.url
-				? [
-						{ action: 'in', title: "I'm in" },
-						{ action: 'open', title: 'Open' },
-					]
-				: [],
+			// Only a game has something to say yes to. FCM data values are
+			// strings, hence the comparison rather than a truthiness check —
+			// and an older payload without the field gets no shortcut rather
+			// than a broken one.
+			actions:
+				payload.url && payload.respondable === '1'
+					? [
+							{ action: 'in', title: "I'm in" },
+							{ action: 'open', title: 'Open' },
+						]
+					: [],
 		})
 	);
 });

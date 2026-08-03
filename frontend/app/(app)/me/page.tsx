@@ -159,6 +159,24 @@ const MePage = () => {
 								)
 							}
 						/>
+
+						{/* Nobody else is ever sent one, so showing this to them
+						    would be a switch with nothing behind it. */}
+						{user.isAppAdmin && (
+							<Toggle
+								label='New players'
+								description='When somebody signs into the app for the first time.'
+								checked={prefs.newPlayers}
+								disabled={!uid}
+								onChange={next =>
+									uid &&
+									write(
+										() => setNotificationPrefs(uid, { ...prefs, newPlayers: next }),
+										"Couldn't save that preference."
+									)
+								}
+							/>
+						)}
 					</div>
 				</section>
 

@@ -1,5 +1,6 @@
 import { getAuth } from 'firebase-admin/auth';
 import { setAppAdmin } from '../src/setAppAdmin';
+import { DEFAULT_NOTIFICATION_PREFS } from '../../shared/types';
 import { aUser, callRequest, clearAuth, clearFirestore, createAuthUser, getDb, readUser } from './helpers';
 
 const CALLER = 'app-admin-1';
@@ -79,7 +80,7 @@ describe('setAppAdmin', () => {
 					displayName: 'Old Display Name',
 					createdAt: '2020-01-01T00:00:00.000Z',
 					lastSeenAt: '2020-06-01T00:00:00.000Z',
-					notificationPrefs: { reminders: false, gameChanges: true },
+					notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS, reminders: false },
 				}),
 				email: 'legacy@example.test',
 			});
@@ -92,7 +93,7 @@ describe('setAppAdmin', () => {
 		expect(profile?.displayName).toBe('Auth Display Name');
 		expect(profile?.createdAt).toBe('2020-01-01T00:00:00.000Z');
 		expect(profile?.lastSeenAt).toBe('2020-06-01T00:00:00.000Z');
-		expect(profile?.notificationPrefs).toEqual({ reminders: false, gameChanges: true });
+		expect(profile?.notificationPrefs).toEqual({ ...DEFAULT_NOTIFICATION_PREFS, reminders: false });
 		expect(profile?.isAppAdmin).toBe(true);
 		expect(profile).not.toHaveProperty('email');
 	});

@@ -30,3 +30,18 @@ export const getSilentMembers = (season: Season, responses: GameResponse[]): str
 
 export const getUidsWhoSaidIn = (responses: GameResponse[]): string[] =>
 	responses.filter(response => response.status === 'in').map(response => response.uid);
+
+/**
+ * Everyone carrying the app-admin badge.
+ *
+ * Reads the `isAppAdmin` mirror rather than the `admin` custom claim it mirrors,
+ * which would mean paging every account in Firebase Auth. The claim stays the
+ * source of truth for *authorization* — this only decides who gets told
+ * something, and both places that grant the claim write the mirror in the same
+ * breath. A stale mirror here costs somebody a notification, not a permission.
+ */
+export const getAppAdminUids = async (): Promise<string[]> => {
+	const snapshot = await db.collection('users').where('isAppAdmin', '==', true).get();
+
+	return snapshot.docs.map(doc => doc.id);
+};

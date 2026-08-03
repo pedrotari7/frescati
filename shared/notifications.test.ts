@@ -1,5 +1,11 @@
 import type { GameNotificationContext } from './notifications';
-import { GAME_NOTIFICATIONS, NOTIFICATION_PREF, buildGamePush } from './notifications';
+import {
+	GAME_NOTIFICATIONS,
+	NOTIFICATIONS,
+	NOTIFICATION_PREF,
+	buildGamePush,
+	buildNewPlayerPush,
+} from './notifications';
 
 const CONTEXT: GameNotificationContext = {
 	when: 'Tue 1 Sep · 19:00',
@@ -77,10 +83,43 @@ describe('buildGamePush', () => {
 	});
 });
 
+describe('buildNewPlayerPush', () => {
+	it('names the person who just joined', () => {
+		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe Lindqvist' })).toMatchObject({
+			title: 'New player',
+			body: 'Zoe Lindqvist just signed into Frescati for the first time.',
+			url: '/admin',
+		});
+	});
+
+	// A profile can be created mid-repair with nothing but a uid on it, and
+	// "undefined just signed into Frescati" would reach a lock screen.
+	it('still reads as a sentence when the profile has no name yet', () => {
+		expect(buildNewPlayerPush({ uid: 'zoe', displayName: '   ' }).body).toBe(
+			'Somebody just signed into Frescati for the first time.'
+		);
+	});
+
+	// Two people joining the same evening are two things to know about, unlike
+	// three notifications about the same Tuesday.
+	it('tags per person so arrivals do not replace each other', () => {
+		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe' }).tag).not.toBe(
+			buildNewPlayerPush({ uid: 'erik', displayName: 'Erik' }).tag
+		);
+	});
+
+	// There is no game behind it, so the worker's "I'm in" shortcut would open
+	// the app and do nothing.
+	it('carries no respond shortcut', () => {
+		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe' }).respondable).toBe(false);
+		expect(buildGamePush('reminder', CONTEXT).respondable).toBe(true);
+	});
+});
+
 describe('NOTIFICATION_PREF', () => {
 	it('gates every kind behind a preference', () => {
-		for (const kind of GAME_NOTIFICATIONS) {
-			expect(['reminders', 'gameChanges']).toContain(NOTIFICATION_PREF[kind]);
+		for (const kind of NOTIFICATIONS) {
+			expect(['reminders', 'gameChanges', 'newPlayers']).toContain(NOTIFICATION_PREF[kind]);
 		}
 	});
 
@@ -88,5 +127,11 @@ describe('NOTIFICATION_PREF', () => {
 		expect(NOTIFICATION_PREF.reminder).toBe('reminders');
 		expect(NOTIFICATION_PREF.cancelled).toBe('gameChanges');
 		expect(NOTIFICATION_PREF.atRisk).toBe('gameChanges');
+	});
+
+	// Otherwise an admin switching game changes off would stop hearing about
+	// people joining, which is not what that switch says.
+	it('keeps the admin notice on its own preference', () => {
+		expect(NOTIFICATION_PREF.newPlayer).toBe('newPlayers');
 	});
 });

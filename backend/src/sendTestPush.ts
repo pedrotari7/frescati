@@ -1,8 +1,13 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import type { NotificationPrefs } from '../../shared/types';
-import type { GameNotification, GameNotificationContext } from '../../shared/notifications';
-import { GAME_NOTIFICATIONS, NOTIFICATION_PREF, buildGamePush } from '../../shared/notifications';
+import type {
+	AppNotification,
+	GameNotification,
+	GameNotificationContext,
+	PushPayload,
+} from '../../shared/notifications';
+import { NOTIFICATIONS, NOTIFICATION_PREF, buildGamePush, buildNewPlayerPush } from '../../shared/notifications';
 import { formatGameWhen } from '../../shared/format';
 import { db, REGION } from './lib/firebase';
 import { getGame, getSeason } from './lib/data';
@@ -21,12 +26,12 @@ import { sendPush } from './lib/push';
  *   - app admins only;
  *   - it always sends to `request.auth.uid`, never to a uid from the request,
  *     so it cannot be turned into a way to notify somebody else;
- *   - it builds its payload with the same `buildGamePush` every real trigger
- *     uses and sends it down the same `sendPush`, preferences and dead-token
- *     cleanup included, rather than reaching for `messaging()` itself. A debug
- *     path that skips the checks stops testing the thing it is there to test.
+ *   - it builds its payload with the same builders every real trigger uses and
+ *     sends it down the same `sendPush`, preferences and dead-token cleanup
+ *     included, rather than reaching for `messaging()` itself. A debug path
+ *     that skips the checks stops testing the thing it is there to test.
  */
-export const sendTestPush = onCall<{ kind: GameNotification; seasonId?: string; gameId?: string }>(
+export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; seasonId?: string; gameId?: string }>(
 	{ region: REGION },
 	async request => {
 		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
@@ -34,12 +39,11 @@ export const sendTestPush = onCall<{ kind: GameNotification; seasonId?: string; 
 
 		const { kind, seasonId, gameId } = request.data;
 
-		if (!GAME_NOTIFICATIONS.includes(kind)) {
+		if (!NOTIFICATIONS.includes(kind)) {
 			throw new HttpsError('invalid-argument', `Unknown notification kind: ${kind}`);
 		}
 
 		const uid = request.auth.uid;
-		const context = await buildContext(seasonId, gameId);
 
 		// Read these alongside the send so a silent result can say which of the
 		// two reasons it was. "Nothing happened" is the least useful thing a
@@ -58,7 +62,12 @@ export const sendTestPush = onCall<{ kind: GameNotification; seasonId?: string; 
 		// which is worth more than a preview it composed itself and would have
 		// to keep in step. Both the payload and the preference still come from
 		// `kind`, so they cannot be paired up wrongly.
-		const payload = buildGamePush(kind, context);
+		const payload = await buildPayload(kind, {
+			uid,
+			displayName: (userSnap.data()?.displayName as string | undefined) ?? '',
+			seasonId,
+			gameId,
+		});
 		const sent = await sendPush([uid], payload, NOTIFICATION_PREF[kind]);
 
 		logger.info('Sent a test notification', { uid, kind, sent, devices: tokensSnap.size, prefEnabled });
@@ -66,6 +75,21 @@ export const sendTestPush = onCall<{ kind: GameNotification; seasonId?: string; 
 		return { sent, devices: tokensSnap.size, prefEnabled, payload };
 	}
 );
+
+/**
+ * The payload for whichever kind was asked for.
+ *
+ * `newPlayer` stands the caller in as the newcomer — sending it as if you had
+ * just signed up yourself is the only honest way to see what an admin gets,
+ * short of creating an account to throw away.
+ */
+const buildPayload = async (
+	kind: GameNotification | AppNotification,
+	{ uid, displayName, seasonId, gameId }: { uid: string; displayName: string; seasonId?: string; gameId?: string }
+): Promise<PushPayload> =>
+	kind === 'newPlayer'
+		? buildNewPlayerPush({ uid, displayName })
+		: buildGamePush(kind, await buildContext(seasonId, gameId));
 
 /**
  * Real game if one was named, a plausible stand-in otherwise.

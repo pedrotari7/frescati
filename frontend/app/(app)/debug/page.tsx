@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { BellAlertIcon } from '@heroicons/react/24/outline';
-import type { GameNotification, PushPayload } from '@shared/notifications';
-import { GAME_NOTIFICATIONS, buildGamePush } from '@shared/notifications';
+import type { AppNotification, GameNotification, PushPayload } from '@shared/notifications';
+import { NOTIFICATIONS, buildGamePush, buildNewPlayerPush } from '@shared/notifications';
 import { formatGameWhen } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
 import { checkPushSupport, isPushEnabled } from '../../../lib/push';
@@ -36,14 +36,18 @@ import { Field, Select } from '../../../components/Field';
  * context gives the exact string, and one that starts to will still render
  * something rather than quietly drifting from what gets sent.
  */
-const titleFor = (kind: GameNotification) => buildGamePush(kind, { when: '', url: '', gameId: '' }).title;
+const titleFor = (kind: GameNotification | AppNotification) =>
+	kind === 'newPlayer'
+		? buildNewPlayerPush({ uid: '', displayName: '' }).title
+		: buildGamePush(kind, { when: '', url: '', gameId: '' }).title;
 
-const DESCRIPTIONS: Record<GameNotification, string> = {
+const DESCRIPTIONS: Record<GameNotification | AppNotification, string> = {
 	reminder: "The nudge before a game. Really goes to members who haven't answered yet.",
 	atRisk: 'Sent once, the moment a game first drops below its minimum.',
 	cancelled: 'Really goes to everyone who answered, either way.',
 	restored: 'Really goes to every member of the season.',
 	kickoffMoved: "Really goes to everyone who said they're in.",
+	newPlayer: 'Really goes to every app admin, once, when somebody first signs in. Sends as if you had just joined.',
 };
 
 const DebugPage = () => {
@@ -55,7 +59,9 @@ const DebugPage = () => {
 	const [enabled, setEnabled] = useState<boolean | null>(null);
 	const [chosenSeason, setChosenSeason] = useState<string | null>(null);
 	const [chosenGame, setChosenGame] = useState<string | null>(null);
-	const [sentPayloads, setSentPayloads] = useState<Partial<Record<GameNotification, PushPayload>>>({});
+	const [sentPayloads, setSentPayloads] = useState<Partial<Record<GameNotification | AppNotification, PushPayload>>>(
+		{}
+	);
 
 	// Fall back to the first season rather than holding the selection in an
 	// effect: the list arrives after the first render, and syncing it back into
@@ -110,7 +116,7 @@ const DebugPage = () => {
 
 	const season = seasons.find(candidate => candidate.id === seasonId) ?? null;
 
-	const send = async (kind: GameNotification) => {
+	const send = async (kind: GameNotification | AppNotification) => {
 		try {
 			const result = await sendTestPush(kind, seasonId && gameId ? { seasonId, gameId } : undefined);
 
@@ -215,7 +221,7 @@ const DebugPage = () => {
 					</p>
 
 					<div className='divide-y divide-white/5 border-t border-white/5'>
-						{GAME_NOTIFICATIONS.map(kind => {
+						{NOTIFICATIONS.map(kind => {
 							const payload = sentPayloads[kind];
 
 							return (

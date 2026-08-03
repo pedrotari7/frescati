@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions';
-import type { GameNotification, PushPayload } from '@shared/notifications';
+import type { AppNotification, GameNotification, PushPayload } from '@shared/notifications';
 import { getFunctionsClient } from '../firebaseClient';
 
 export interface TestPushResult {
@@ -21,13 +21,13 @@ export interface TestPushResult {
  * The function ignores any uid in the request and sends to the caller.
  */
 export const sendTestPush = async (
-	kind: GameNotification,
+	kind: GameNotification | AppNotification,
 	target?: { seasonId: string; gameId: string }
 ): Promise<TestPushResult> => {
-	const call = httpsCallable<{ kind: GameNotification; seasonId?: string; gameId?: string }, TestPushResult>(
-		getFunctionsClient(),
-		'sendTestPush'
-	);
+	const call = httpsCallable<
+		{ kind: GameNotification | AppNotification; seasonId?: string; gameId?: string },
+		TestPushResult
+	>(getFunctionsClient(), 'sendTestPush');
 
 	const { data } = await call({ kind, ...target });
 

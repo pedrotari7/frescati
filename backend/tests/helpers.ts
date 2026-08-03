@@ -174,6 +174,9 @@ export const snap = <T>(data: T) => ({ data: () => data });
  */
 export const paramsEvent = (params: Record<string, string>) => ({ params }) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
+export const createdEvent = (params: Record<string, string>, data: unknown) =>
+	({ params, data: snap(data) }) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+
 export const writtenEvent = (params: Record<string, string>, before: unknown, after: unknown) =>
 	({ params, data: { before: snap(before), after: snap(after) } }) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 

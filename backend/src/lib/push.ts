@@ -51,6 +51,9 @@ export const sendPush = async (uids: string[], payload: PushPayload, kind: Notif
 			body: payload.body,
 			url: payload.url,
 			tag: payload.tag,
+			// Every FCM data value is a string, so the worker reads this back as
+			// one rather than as a boolean.
+			respondable: payload.respondable ? '1' : '0',
 		},
 		webpush: {
 			// Hold undelivered messages for a day; a reminder about tomorrow is

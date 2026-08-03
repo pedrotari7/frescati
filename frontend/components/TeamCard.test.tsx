@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import type { AppUser, TournamentTeam } from '@shared/types';
+import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
 import { BASE_ELO } from '@shared/rating';
 import TeamCard, { teamName } from './TeamCard';
 
@@ -10,7 +11,7 @@ const user = (uid: string, displayName: string): AppUser => ({
 	createdAt: '2026-01-01T00:00:00.000Z',
 	lastSeenAt: '2026-01-01T00:00:00.000Z',
 	isAppAdmin: false,
-	notificationPrefs: { reminders: true, gameChanges: true },
+	notificationPrefs: DEFAULT_NOTIFICATION_PREFS,
 });
 
 const usersByUid = new Map([
