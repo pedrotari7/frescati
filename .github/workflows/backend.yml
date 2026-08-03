@@ -18,6 +18,17 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      # The Firestore/Auth emulators are a Java process and firebase-tools requires 21+.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: ${{ runner.os }}-firebase-emulators-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-firebase-emulators-
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter backend lint
       - run: pnpm --filter backend build
+      - run: pnpm test:backend

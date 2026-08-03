@@ -16,5 +16,11 @@
 		"@typescript-eslint/no-explicit-any": "warn",
 		"@typescript-eslint/consistent-type-imports": "error"
 	},
-	"ignorePatterns": ["lib/", "node_modules/"]
+	"ignorePatterns": ["lib/", "node_modules/"],
+	"overrides": [
+		{
+			"files": ["tests/**/*.ts", "jest.config.ts"],
+			"env": { "jest": true }
+		}
+	]
 }

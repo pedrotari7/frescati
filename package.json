@@ -15,6 +15,7 @@
 		"test": "jest",
 		"test:watch": "jest --watch",
 		"test:rules": "scripts/emulators.sh 'jest --config rules/jest.config.ts' --only firestore --project demo-frescati",
+		"test:backend": "scripts/emulators.sh 'jest --config backend/jest.config.ts' --only firestore,auth --project demo-frescati",
 		"emulators": "scripts/emulators.sh",
 		"seed": "pnpm --filter backend seed",
 		"firebase": "firebase",
