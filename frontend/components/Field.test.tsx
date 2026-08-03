@@ -1,0 +1,68 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { Field, RangeInput, Select, TextInput } from './Field';
+
+describe('Field', () => {
+	it('labels its child control', () => {
+		render(
+			<Field label='Venue name'>
+				<TextInput defaultValue='Frescati IP' />
+			</Field>
+		);
+
+		expect(screen.getByLabelText('Venue name')).toHaveValue('Frescati IP');
+	});
+
+	it('shows an optional hint below the control', () => {
+		render(
+			<Field label='Venue name' hint='Shown to players in the calendar'>
+				<TextInput />
+			</Field>
+		);
+
+		expect(screen.getByText('Shown to players in the calendar')).toBeInTheDocument();
+	});
+});
+
+describe('TextInput', () => {
+	it('forwards standard input props', () => {
+		const onChange = jest.fn();
+		render(<TextInput placeholder='Name' onChange={onChange} />);
+
+		fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'Alice' } });
+
+		expect(onChange).toHaveBeenCalled();
+	});
+});
+
+describe('Select', () => {
+	it('renders its options and reports a change', () => {
+		const onChange = jest.fn();
+
+		render(
+			<Select aria-label='Weekday' defaultValue='2' onChange={onChange}>
+				<option value='1'>Monday</option>
+				<option value='2'>Tuesday</option>
+			</Select>
+		);
+
+		fireEvent.change(screen.getByLabelText('Weekday'), { target: { value: '1' } });
+
+		expect(onChange).toHaveBeenCalled();
+		expect(screen.getByLabelText('Weekday')).toHaveValue('1');
+	});
+});
+
+describe('RangeInput', () => {
+	it('shows the current value as its own readout by default', () => {
+		render(<RangeInput aria-label='Randomness' value={30} readOnly />);
+
+		expect(screen.getByText('30')).toBeInTheDocument();
+	});
+
+	it('shows a custom label instead of the raw value when given one', () => {
+		render(<RangeInput aria-label='Randomness' value={30} valueLabel='30%' readOnly />);
+
+		expect(screen.getByText('30%')).toBeInTheDocument();
+		expect(screen.queryByText('30')).not.toBeInTheDocument();
+	});
+});
