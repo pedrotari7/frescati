@@ -114,7 +114,7 @@ export const DEFAULT_BALANCE_SETTINGS: BalanceSettings = {
 	randomness: 0.3,
 	repeatPenalty: 0.4,
 	repeatLookback: 4,
-	matchMinutes: 12,
+	matchMinutes: 5,
 };
 
 export interface Season {

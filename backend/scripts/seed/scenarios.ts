@@ -156,7 +156,7 @@ const full: Scenario = {
 			minPlayers: 10,
 			responseDeadlineHours: 3,
 			reminderHours: [48, 6],
-			balance: { randomness: 0.3, repeatPenalty: 0.45, repeatLookback: 4, matchMinutes: 12 },
+			balance: { randomness: 0.3, repeatPenalty: 0.45, repeatLookback: 4, matchMinutes: 5 },
 			memberKeys: [
 				'pedro',
 				'anna',
@@ -214,7 +214,7 @@ const full: Scenario = {
 			minPlayers: 8,
 			responseDeadlineHours: 12,
 			reminderHours: [24],
-			balance: { randomness: 0.5, repeatPenalty: 0.2, repeatLookback: 3, matchMinutes: 10 },
+			balance: { randomness: 0.5, repeatPenalty: 0.2, repeatLookback: 3, matchMinutes: 5 },
 			memberKeys: ['yara', 'sofia', 'elena', 'nina', 'priya', 'hanna', 'linnea', 'greta', 'maja', 'astrid'],
 			adminKeys: ['yara'],
 			extraKeys: ['claudia', 'wilma'],
@@ -265,7 +265,7 @@ const big: Scenario = {
 			minPlayers: 16,
 			responseDeadlineHours: 4,
 			reminderHours: [72, 24, 4],
-			balance: { randomness: 0.2, repeatPenalty: 0.6, repeatLookback: 6, matchMinutes: 10 },
+			balance: { randomness: 0.2, repeatPenalty: 0.6, repeatLookback: 6, matchMinutes: 5 },
 			memberKeys: [
 				'pedro',
 				'anna',

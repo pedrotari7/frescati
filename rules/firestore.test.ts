@@ -573,7 +573,7 @@ describe('the generated lineup', () => {
 		],
 		elos: { [MEMBER]: 1000, [OTHER_MEMBER]: 1000, [SEASON_ADMIN]: 1000, [EXTRA]: 1000 },
 		seed: 1,
-		settings: { randomness: 0.3, repeatPenalty: 0.4, repeatLookback: 4, matchMinutes: 12 },
+		settings: { randomness: 0.3, repeatPenalty: 0.4, repeatLookback: 4, matchMinutes: 5 },
 		generation: 1,
 		builtAt: '2026-08-30T10:00:00.000Z',
 	});

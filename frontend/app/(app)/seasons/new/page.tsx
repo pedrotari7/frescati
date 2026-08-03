@@ -22,7 +22,7 @@ const NewSeasonPage = () => {
 		name: '',
 		venueName: 'Frescatihallen',
 		venueAddress: 'Svante Arrhenius väg 4, 114 18 Stockholm',
-		weekday: 0 as Weekday,
+		weekday: 6 as Weekday,
 		time: '15:00',
 		durationMinutes: 90,
 		startDate: '',

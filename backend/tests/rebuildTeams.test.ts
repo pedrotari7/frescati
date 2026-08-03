@@ -48,7 +48,7 @@ describe('runTeamRebuild', () => {
 			players: players.map(uid => ({ uid, elo: getElo(undefined, getSeedElo([])) })),
 			squadSizes: getSquadSizes(8, getTeamCount(8)),
 			seed,
-			settings: { randomness: 0.3, repeatPenalty: 0.4, repeatLookback: 4, matchMinutes: 12 },
+			settings: { randomness: 0.3, repeatPenalty: 0.4, repeatLookback: 4, matchMinutes: 5 },
 			history: [],
 		});
 		expect(lineup?.teams).toEqual(expected);
