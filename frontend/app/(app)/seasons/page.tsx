@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { CalendarDaysIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../lib/auth';
@@ -15,6 +15,7 @@ import Button from '../../../components/Button';
 
 const SeasonsPage = () => {
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const { user } = useAuth();
 	const { seasons, loading } = useSeasons();
 	const { seasonId: currentSeasonId } = useSeasonScope();
@@ -22,11 +23,15 @@ const SeasonsPage = () => {
 	const active = useMemo(() => seasons.filter(season => season.status === 'active'), [seasons]);
 
 	// With a single group there is almost always exactly one season on the go.
-	// Skipping the picker saves a tap on every single visit.
+	// Skipping the picker saves a tap on every single visit — but only when
+	// landing here fresh (from "/"). `?browse=1` marks a deliberate visit (the
+	// "Switch season" button), which always shows the list, even with one
+	// season — otherwise a solo season could never be reached to manage.
 	//
 	// Keyed on the id rather than the array: `filter` returns a new reference
 	// every render, which would re-run this — and `router.replace` — in a loop.
-	const soleActiveId = active.length === 1 ? active[0].id : null;
+	const browsing = searchParams.get('browse') === '1';
+	const soleActiveId = !browsing && active.length === 1 ? active[0].id : null;
 
 	useEffect(() => {
 		if (!loading && soleActiveId) router.replace(`/s/${soleActiveId}`);

@@ -164,7 +164,7 @@ const MePage = () => {
 
 				<section className='glass rounded-2xl p-5'>
 					<h2 className='text-ink mb-3 font-semibold'>Seasons</h2>
-					<Button variant='secondary' fullWidth onClick={() => router.push('/seasons')}>
+					<Button variant='secondary' fullWidth onClick={() => router.push('/seasons?browse=1')}>
 						Switch season
 					</Button>
 				</section>

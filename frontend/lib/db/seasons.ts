@@ -1,4 +1,4 @@
-import { addDoc, arrayRemove, arrayUnion, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, deleteDoc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { Season } from '@shared/types';
 import { seasonDoc, seasonsCol } from './paths';
@@ -47,3 +47,6 @@ export const addSeasonAdmin = (seasonId: string, uid: string) =>
 
 export const removeSeasonAdmin = (seasonId: string, uid: string) =>
 	updateDoc(seasonDoc(seasonId), { adminUids: arrayRemove(uid) });
+
+/** Games, responses and tournament data cascade server-side via `onSeasonDeleted`. */
+export const deleteSeason = (seasonId: string) => deleteDoc(seasonDoc(seasonId));

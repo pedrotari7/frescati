@@ -2,14 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { CalendarDaysIcon, UsersIcon } from '@heroicons/react/24/outline';
 import type { SeasonStatus, Venue, Weekday } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
 import { weekdayName } from '@shared/format';
 import { parseReminderHours } from '@shared/game';
+import { useAuth } from '../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useWrite } from '../../../../../hooks/useWrite';
-import { updateSeason } from '../../../../../lib/db/seasons';
+import { useConfirm } from '../../../../../components/ConfirmDialog';
+import { deleteSeason, updateSeason } from '../../../../../lib/db/seasons';
 import { updateVenueForUpcomingGames } from '../../../../../lib/db/games';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
@@ -18,8 +21,11 @@ import Button from '../../../../../components/Button';
 import { Field, RangeInput, Select, TextInput } from '../../../../../components/Field';
 
 const SeasonAdminPage = () => {
+	const router = useRouter();
+	const { user } = useAuth();
 	const { seasonId, season, games, loading, isAdmin } = useSeasonContext();
 	const write = useWrite();
+	const confirm = useConfirm();
 
 	const [form, setForm] = useState({
 		name: '',
@@ -138,6 +144,21 @@ const SeasonAdminPage = () => {
 
 		setSaved(true);
 		setTimeout(() => setSaved(false), 2500);
+	};
+
+	const handleDelete = async () => {
+		const ok = await confirm({
+			title: `Delete ${season.name}?`,
+			message: "Every game, response and tournament result in this season goes with it, and this can't be undone.",
+			confirmLabel: 'Delete season',
+			tone: 'danger',
+		});
+
+		if (!ok) return;
+
+		const done = await write(() => deleteSeason(seasonId), "Couldn't delete this season.");
+
+		if (done) router.replace('/seasons?browse=1');
 	};
 
 	return (
@@ -336,6 +357,21 @@ const SeasonAdminPage = () => {
 						Games screen.
 					</p>
 				</section>
+
+				{/* App-admin only, per the security rules — a season admin can run
+				    the season but not erase it. */}
+				{user?.isAppAdmin && (
+					<section className='glass space-y-3 rounded-2xl p-5'>
+						<h2 className='text-ink font-semibold'>Danger zone</h2>
+						<p className='text-faint text-xs'>
+							Deletes the season and every game, response and tournament result in it. This can&apos;t be
+							undone.
+						</p>
+						<Button variant='danger' fullWidth onClick={handleDelete}>
+							Delete season
+						</Button>
+					</section>
+				)}
 			</div>
 		</SeasonShell>
 	);
