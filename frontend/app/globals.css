@@ -156,6 +156,19 @@
 		transform: scale(0.99);
 	}
 
+	/*
+	 * Same frosted look as .glass, but opaque enough to read over. The bottom
+	 * nav sits on top of scrolling page content rather than a fixed backdrop,
+	 * so .glass's 4.5% tint let card text bleed through and collide with the
+	 * tab labels.
+	 */
+	.glass-nav {
+		background-color: rgb(15 17 21 / 0.92);
+		backdrop-filter: blur(16px);
+		-webkit-backdrop-filter: blur(16px);
+		border: 1px solid rgb(255 255 255 / 0.08);
+	}
+
 	@media (hover: hover) {
 		.glass-card:hover {
 			background-color: rgb(255 255 255 / 0.06);

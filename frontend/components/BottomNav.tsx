@@ -82,7 +82,7 @@ const BottomNav = ({ items, sectionHrefs }: { items: NavItem[]; sectionHrefs?: s
 
 	return (
 		<nav className='pb-safe fixed inset-x-0 bottom-0 z-30 lg:hidden'>
-			<div className='glass shadow-glass relative mx-2 mb-2 flex h-16 items-stretch rounded-2xl px-1'>
+			<div className='glass-nav shadow-glass relative mx-2 mb-2 flex h-16 items-stretch rounded-2xl px-1'>
 				{indicator && (
 					<div
 						className='bg-brand/15 ring-brand/25 absolute inset-y-2 rounded-xl ring-1 transition-all duration-300 ease-out'
