@@ -6,7 +6,8 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { GoogleAuthProvider, onIdTokenChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { deleteField, doc, getDoc, setDoc } from 'firebase/firestore';
 import { getDb, getFirebaseAuth } from './firebaseClient';
-import type { AppUser } from '@shared/types';
+import { isStandalone, thisDevice } from './device';
+import type { AppUser, ClientInfo } from '@shared/types';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
 
 export interface AuthUser {
@@ -37,6 +38,23 @@ const toAuthUser = (firebaseUser: FirebaseUser, isAppAdmin: boolean): AuthUser =
 	photoURL: firebaseUser.photoURL,
 	isAppAdmin,
 });
+
+/**
+ * How this person is opening the app, so an admin can tell an iPhone that never
+ * left Safari from one that simply has notifications switched off.
+ *
+ * `lastStandaloneAt` only ever moves forward: somebody who normally uses the
+ * home screen app but opened a shared link in a browser tab is still installed,
+ * and overwriting it here would say otherwise every time they follow a link.
+ */
+const describeClient = (existing: ClientInfo | undefined, now: string): ClientInfo => {
+	const lastStandaloneAt = isStandalone() ? now : existing?.lastStandaloneAt;
+
+	return {
+		platform: thisDevice().platform,
+		...(lastStandaloneAt ? { lastStandaloneAt } : {}),
+	};
+};
 
 /**
  * Make sure a `users/{uid}` document exists and holds a current profile, so the
@@ -75,6 +93,7 @@ const upsertUserDoc = async (user: AuthUser) => {
 			isAppAdmin: existing?.isAppAdmin ?? false,
 			// Seeded once, then left to whatever the user has since chosen.
 			notificationPrefs: existing?.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS,
+			client: describeClient(existing?.client, now),
 		},
 		{ merge: true }
 	);

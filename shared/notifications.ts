@@ -71,6 +71,48 @@ export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof
 	newPlayer: 'newPlayers',
 };
 
+/**
+ * Which switches on a profile mean anything for this person.
+ *
+ * `newPlayers` is only ever sent to app admins, so for everybody else it is a
+ * setting with nothing behind it — counting it would report a player as
+ * partially muted for turning off something they were never going to get.
+ */
+export const relevantPrefs = (isAppAdmin: boolean): (keyof NotificationPrefs)[] =>
+	isAppAdmin ? ['reminders', 'gameChanges', 'newPlayers'] : ['reminders', 'gameChanges'];
+
+/**
+ * Why nothing is arriving, for the three reasons that aren't a bug.
+ *
+ * `noDevice` beats `muted` deliberately: preferences are academic until
+ * something is registered to send to, and telling somebody to check their
+ * settings when they have never turned notifications on sends them looking in
+ * the wrong place.
+ */
+export type PushReach = 'reachable' | 'partly' | 'muted' | 'noDevice';
+
+export const getPushReach = ({
+	prefs,
+	devices,
+	isAppAdmin,
+}: {
+	prefs?: NotificationPrefs;
+	/** How many devices are registered to the account. */
+	devices: number;
+	isAppAdmin: boolean;
+}): PushReach => {
+	if (devices === 0) return 'noDevice';
+
+	const relevant = relevantPrefs(isAppAdmin);
+	// Absent means opted in, matching `tokensFor` on the backend — a profile
+	// written before a preference existed must not read as switched off.
+	const on = relevant.filter(key => prefs?.[key] !== false);
+
+	if (on.length === 0) return 'muted';
+
+	return on.length === relevant.length ? 'reachable' : 'partly';
+};
+
 type Copy = (context: GameNotificationContext) => { title: string; body: string };
 
 const COPY: Record<GameNotification, Copy> = {

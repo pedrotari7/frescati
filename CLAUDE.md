@@ -33,8 +33,8 @@ Mobile-first PWA for running a recurring football group. A **season** defines a 
 ## Data model
 
 ```
-users/{uid}                                  profile + notificationPrefs + rating (function-owned)
-users/{uid}/pushTokens/{token}               FCM registration tokens
+users/{uid}                                  profile + notificationPrefs + client + rating (function-owned)
+users/{uid}/pushTokens/{token}               FCM registration tokens — private to their owner
 seasons/{seasonId}                           slot, venue, minPlayers, balance, memberUids[], adminUids[]
 seasons/{seasonId}/games/{gameId}            kickoff, status, counts (function-owned), atRisk
 seasons/{seasonId}/games/{gameId}/responses/{uid}   status: 'in'|'out', role: 'member'|'extra'
@@ -58,6 +58,12 @@ Nights of 8+ split into 2, 3 or 4 teams (`shared/tournament.ts`) and play a gene
 - **Scores** live at `matches/{order}` where the id is the fixture's place in the running order, so two people scoring the same match write the same document. **No match document means "not played"** — same third state as a response, and for the same reason.
 - Anyone holding a response on the game can write a score. Confirming the night (`resultFinalisedAt`) closes it to everyone but a season admin, whose correction triggers a **replay**: `replayRatingsFrom` rewinds the ledger latest-first and replays it in kickoff order. Adjusting only the corrected game would be wrong, because every game after it was rated against the ratings that game produced.
 - Ratings apply on an admin's Confirm, or automatically `AUTO_FINALISE_HOURS` after kickoff via `finaliseDueTournaments`.
+
+## Notifications
+
+- A push reaches somebody only if all three line up: a **registered device**, the **preference** for that kind switched on, and — on iPhone only — the app **installed** to the home screen, which is the one Safari allows push from at all. `getPushReach` in `shared/notifications.ts` is that rule in one place; a missing preference means opted in, matching `tokensFor` on the backend.
+- `users/{uid}.client` records the platform somebody last signed in on and the last time they opened it installed. Self-written on every sign-in. `lastStandaloneAt` only moves **forward** — opening a link in a browser tab must not read as an uninstall, and an uninstall can't be observed at all.
+- Push tokens stay private to their owner: a token is a capability to push to that device. The admin screen gets them through the `getPushDevices` callable, which strips the token and returns platform, browser and registration date. Don't relax the rule instead — it would hand every admin a working send-anything credential for every phone in the group.
 
 ## Members vs extras
 

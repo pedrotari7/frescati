@@ -13,3 +13,4 @@ export { onGameDeleted, onSeasonDeleted } from './cascadeDeletes';
 export { sendReminders } from './sendReminders';
 export { setAppAdmin } from './setAppAdmin';
 export { sendTestPush } from './sendTestPush';
+export { getPushDevices } from './getPushDevices';

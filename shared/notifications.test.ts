@@ -5,6 +5,8 @@ import {
 	NOTIFICATION_PREF,
 	buildGamePush,
 	buildNewPlayerPush,
+	getPushReach,
+	relevantPrefs,
 } from './notifications';
 
 const CONTEXT: GameNotificationContext = {
@@ -133,5 +135,56 @@ describe('NOTIFICATION_PREF', () => {
 	// people joining, which is not what that switch says.
 	it('keeps the admin notice on its own preference', () => {
 		expect(NOTIFICATION_PREF.newPlayer).toBe('newPlayers');
+	});
+});
+
+describe('getPushReach', () => {
+	const ALL_ON = { reminders: true, gameChanges: true, newPlayers: true };
+
+	it('reaches somebody with a device and everything switched on', () => {
+		expect(getPushReach({ prefs: ALL_ON, devices: 1, isAppAdmin: false })).toBe('reachable');
+	});
+
+	// Preferences are academic until there is something to send to, and telling
+	// somebody to check their settings when they never turned notifications on
+	// sends them looking in the wrong place.
+	it('blames the missing device before the preferences', () => {
+		expect(getPushReach({ prefs: { ...ALL_ON, reminders: false }, devices: 0, isAppAdmin: false })).toBe(
+			'noDevice'
+		);
+	});
+
+	it('separates a partial opt-out from silence', () => {
+		expect(getPushReach({ prefs: { ...ALL_ON, reminders: false }, devices: 2, isAppAdmin: false })).toBe('partly');
+		expect(
+			getPushReach({
+				prefs: { reminders: false, gameChanges: false, newPlayers: true },
+				devices: 2,
+				isAppAdmin: false,
+			})
+		).toBe('muted');
+	});
+
+	// `newPlayers` is only ever sent to app admins. Counting it for everybody
+	// else would report a player as partially muted for switching off something
+	// they were never going to be sent.
+	it('only counts the admin notice for an admin', () => {
+		const prefs = { ...ALL_ON, newPlayers: false };
+
+		expect(getPushReach({ prefs, devices: 1, isAppAdmin: false })).toBe('reachable');
+		expect(getPushReach({ prefs, devices: 1, isAppAdmin: true })).toBe('partly');
+	});
+
+	// Matches `tokensFor` on the backend: a profile written before a preference
+	// existed is opted in, not silently switched off.
+	it('treats missing preferences as opted in', () => {
+		expect(getPushReach({ devices: 1, isAppAdmin: true })).toBe('reachable');
+	});
+});
+
+describe('relevantPrefs', () => {
+	it('hides the admin notice from everybody else', () => {
+		expect(relevantPrefs(false)).toEqual(['reminders', 'gameChanges']);
+		expect(relevantPrefs(true)).toEqual(['reminders', 'gameChanges', 'newPlayers']);
 	});
 });

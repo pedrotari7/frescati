@@ -18,9 +18,12 @@ import type { WriteBatch } from 'firebase-admin/firestore';
 import type {
 	AppUser,
 	BalanceSettings,
+	ClientInfo,
 	Game,
 	GameResponse,
+	NotificationPrefs,
 	PlayerRating,
+	PushToken,
 	RatingLedgerEntry,
 	Season,
 	TournamentMatch,
@@ -123,6 +126,112 @@ const photoFor = (member: CastMember): string | null => {
 	const path = avatarPath(member);
 
 	return path === null ? null : `${appOrigin}${path}`;
+};
+
+/** Real strings, so the admin screen's parsing is exercised rather than faked. */
+const USER_AGENTS = {
+	iphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+	android:
+		'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
+	mac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+	windows:
+		'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.2592.68',
+};
+
+/**
+ * How somebody reaches the app: what they open it on, what they have registered
+ * for push, and which kinds they've switched off.
+ *
+ * A table rather than a roll off the RNG, because the admin notification screen
+ * exists to explain *why* a push doesn't arrive, and every one of those reasons
+ * has to be sitting in a seeded database or the screen can't be looked at. So
+ * the list covers each of them once — the iPhone nobody ever added to the home
+ * screen, the account with two devices, the person who muted everything, the
+ * profile written before any of this was recorded — rather than thirty
+ * variations on "works fine".
+ */
+interface DeviceProfile {
+	/** Absent means they haven't signed in since the app started recording this. */
+	client?: { platform: ClientInfo['platform']; standaloneHoursAgo?: number };
+	/** One entry per registered device, newest last. */
+	devices?: { agent: string; hoursAgo: number }[];
+	prefs?: Partial<NotificationPrefs>;
+}
+
+const DEVICE_PROFILES: DeviceProfile[] = [
+	// The happy path: installed on a phone, registered, everything on.
+	{ client: { platform: 'ios', standaloneHoursAgo: 6 }, devices: [{ agent: USER_AGENTS.iphone, hoursAgo: 900 }] },
+	{
+		client: { platform: 'android', standaloneHoursAgo: 30 },
+		devices: [{ agent: USER_AGENTS.android, hoursAgo: 1400 }],
+	},
+
+	// The one this screen is really for. On iPhone, push simply does not work
+	// until the app is on the home screen — and nothing else in the database
+	// says so.
+	{ client: { platform: 'ios' } },
+
+	// Installed, but never turned notifications on. Worth telling apart from
+	// the row above: this one only needs a nudge, not an explanation.
+	{ client: { platform: 'ios', standaloneHoursAgo: 50 } },
+
+	// Registered, then muted every kind. The devices are there and the pushes
+	// still go nowhere.
+	{
+		client: { platform: 'desktop' },
+		devices: [{ agent: USER_AGENTS.mac, hoursAgo: 200 }],
+		prefs: { reminders: false, gameChanges: false },
+	},
+
+	// Half muted — the reminders are off, the cancellations still land.
+	{
+		client: { platform: 'android', standaloneHoursAgo: 90 },
+		devices: [{ agent: USER_AGENTS.android, hoursAgo: 700 }],
+		prefs: { reminders: false },
+	},
+
+	// Phone and laptop both registered.
+	{
+		client: { platform: 'ios', standaloneHoursAgo: 2 },
+		devices: [
+			{ agent: USER_AGENTS.windows, hoursAgo: 2000 },
+			{ agent: USER_AGENTS.iphone, hoursAgo: 120 },
+		],
+	},
+
+	// Signed in on a laptop and never on a phone. Fine — push works from a
+	// browser tab everywhere except iOS.
+	{ client: { platform: 'desktop' }, devices: [{ agent: USER_AGENTS.mac, hoursAgo: 40 }] },
+
+	// A profile from before the app recorded any of this. Reads as "never
+	// seen", which is the truth — not as "not installed".
+	{},
+];
+
+/**
+ * The device documents for one person, picked by their key so two seed runs on
+ * the same day produce the same database.
+ */
+const deviceProfileFor = (member: CastMember, now: string) => {
+	const profile = DEVICE_PROFILES[hashSeed(`devices:${member.key}`) % DEVICE_PROFILES.length];
+
+	const client: ClientInfo | undefined = profile.client && {
+		platform: profile.client.platform,
+		...(profile.client.standaloneHoursAgo === undefined
+			? {}
+			: { lastStandaloneAt: addHours(now, -profile.client.standaloneHoursAgo) }),
+	};
+
+	const tokens: PushToken[] = (profile.devices ?? []).map((device, index) => ({
+		// The real thing is an FCM registration token and the document id, which
+		// is what makes re-registering the same device overwrite rather than
+		// pile up. Only the shape matters here.
+		token: `seed-${member.key}-${index}`,
+		createdAt: addHours(now, -device.hoursAgo),
+		userAgent: device.agent,
+	}));
+
+	return { client, tokens, prefs: { ...DEFAULT_NOTIFICATION_PREFS, ...profile.prefs } };
 };
 
 const commitAll = async (writes: ((batch: WriteBatch) => void)[]): Promise<void> => {
@@ -644,9 +753,11 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 
 	const profiles: ((batch: WriteBatch) => void)[] = CAST.filter(
 		member => !scenario.newcomerKeys.includes(member.key)
-	).map(member => {
+	).flatMap(member => {
 		const uid = uidFor(member.key);
 		const rating = ratings.get(uid);
+		const isAppAdmin = scenario.appAdminKeys.includes(member.key);
+		const { client, tokens, prefs } = deviceProfileFor(member, now);
 
 		const profile: AppUser = {
 			uid,
@@ -656,14 +767,24 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			// Staggered, but from the key rather than the clock — two seed runs
 			// on the same day should produce the same database.
 			lastSeenAt: addHours(now, -(hashSeed(member.key) % 72)),
-			isAppAdmin: scenario.appAdminKeys.includes(member.key),
-			notificationPrefs: DEFAULT_NOTIFICATION_PREFS,
+			isAppAdmin,
+			// The app admin keeps every kind on: they are the only person the
+			// new-player notice is sent to, and a seeded database where nobody
+			// can receive it makes that path untestable.
+			notificationPrefs: isAppAdmin ? DEFAULT_NOTIFICATION_PREFS : prefs,
+			...(client ? { client } : {}),
 			// Absent until they have played a rated night — the app treats a
 			// missing rating as "no rating", never as zero.
 			...(rating ? { rating } : {}),
 		};
 
-		return batch => batch.set(db().doc(`users/${uid}`), profile);
+		return [
+			(batch: WriteBatch) => batch.set(db().doc(`users/${uid}`), profile),
+			// The token is the document id, exactly as `enablePush` writes it.
+			...tokens.map(
+				token => (batch: WriteBatch) => batch.set(db().doc(`users/${uid}/pushTokens/${token.token}`), token)
+			),
+		];
 	});
 
 	const documents: ((batch: WriteBatch) => void)[] = [

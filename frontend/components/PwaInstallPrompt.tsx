@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ArrowUpOnSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { isIos, isIosSafari, isStandalone } from '../lib/device';
 import Button from './Button';
 
 const DISMISS_KEY = 'frescati:install-dismissed';
@@ -10,17 +11,6 @@ interface BeforeInstallPromptEvent extends Event {
 	prompt: () => Promise<void>;
 	userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
-
-const isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-// Chrome/Firefox/Edge on iOS all run on WebKit and report "Safari" in their UA
-// too, so Safari itself has to be identified by the absence of the other
-// browsers' markers, not the presence of its own.
-const isIosSafari = () => isIos() && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
-
-const isStandalone = () =>
-	window.matchMedia('(display-mode: standalone)').matches ||
-	(window.navigator as { standalone?: boolean }).standalone === true;
 
 /**
  * Nudges people to install, because the installed app is where push actually

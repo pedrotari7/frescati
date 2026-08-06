@@ -106,8 +106,8 @@ const MePage = () => {
 
 					{support === 'needs-install' && (
 						<p className='text-pending mb-4 text-sm'>
-							On iPhone, add Frescati to your home screen first — Safari only allows notifications for
-							installed apps.
+							On iPhone and iPad, add Frescati to your home screen first — Safari only allows
+							notifications for installed apps.
 						</p>
 					)}
 
@@ -198,6 +198,17 @@ const MePage = () => {
 							</p>
 							<Button variant='secondary' fullWidth onClick={() => router.push('/admin')}>
 								Manage app admins
+							</Button>
+						</section>
+
+						<section className='glass rounded-2xl p-5'>
+							<h2 className='text-ink mb-1 font-semibold'>Who gets notified</h2>
+							<p className='text-muted mb-3 text-sm leading-relaxed'>
+								Every account&apos;s notification settings, the devices they have registered, and who
+								never added the app to their home screen.
+							</p>
+							<Button variant='secondary' fullWidth onClick={() => router.push('/admin/notifications')}>
+								Notification status
 							</Button>
 						</section>
 

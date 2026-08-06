@@ -103,10 +103,26 @@ service cloud.firestore {
         return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rating']);
       }
 
+      // The device notes behind the admin notification screen. Self-reported
+      // and self-written, which is fine — nothing is authorized on the back of
+      // it, and the worst a person can do is lie about their own phone. Bounded
+      // anyway, because `client` being a map means the allowlist above stops at
+      // its edge and anything could otherwise be nested inside a document the
+      // whole group can read.
+      function clientShapeOk() {
+        return !request.resource.data.keys().hasAny(['client'])
+               || (request.resource.data.client.keys().hasOnly(['platform', 'lastStandaloneAt'])
+                   && request.resource.data.client.get('platform', '') is string
+                   && request.resource.data.client.get('platform', '').size() <= 20
+                   && request.resource.data.client.get('lastStandaloneAt', '') is string
+                   && request.resource.data.client.get('lastStandaloneAt', '').size() <= 40);
+      }
+
       function userShapeOk() {
         return request.resource.data.keys().hasOnly(
                  ['uid', 'displayName', 'photoURL', 'createdAt', 'lastSeenAt',
-                  'isAppAdmin', 'notificationPrefs', 'email', 'rating'])
+                  'isAppAdmin', 'notificationPrefs', 'email', 'rating', 'client'])
+               && clientShapeOk()
                && request.resource.data.get('displayName', '') is string
                && request.resource.data.get('displayName', '').size() <= 100
                && request.resource.data.get('createdAt', '') is string

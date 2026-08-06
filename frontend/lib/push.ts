@@ -1,6 +1,7 @@
 import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { app } from './firebaseClient';
+import { isIos, isStandalone } from './device';
 import { pushTokensCol } from './db/paths';
 
 /**
@@ -14,12 +15,6 @@ import { pushTokensCol } from './db/paths';
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 
 export type PushSupport = 'supported' | 'needs-install' | 'unsupported';
-
-const isStandalone = () =>
-	window.matchMedia('(display-mode: standalone)').matches ||
-	(window.navigator as { standalone?: boolean }).standalone === true;
-
-const isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 /**
  * iOS only allows push for apps added to the home screen, and silently fails
@@ -74,7 +69,7 @@ export const enablePush = async (uid: string): Promise<{ ok: boolean; reason?: s
 
 	const support = await checkPushSupport();
 	if (support === 'needs-install') {
-		return { ok: false, reason: 'On iPhone, add Frescati to your home screen first.' };
+		return { ok: false, reason: 'On iPhone and iPad, add Frescati to your home screen first.' };
 	}
 	if (support === 'unsupported') return { ok: false, reason: 'This browser cannot do notifications.' };
 

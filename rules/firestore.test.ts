@@ -350,6 +350,68 @@ describe('users', () => {
 		);
 		await assertFails(getDoc(doc(authed(EXTRA), `users/${MEMBER}/pushTokens/tok`)));
 	});
+
+	// The device notes the admin notification screen reads. Self-reported, so
+	// the rules only bound them — there is nothing here to authorize against.
+	it('lets a user record what they are opening the app on', async () => {
+		await assertSucceeds(
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				client: { platform: 'ios', lastStandaloneAt: '2026-08-06T09:00:00.000Z' },
+			})
+		);
+	});
+
+	// Somebody who has never opened it installed simply has no timestamp — the
+	// same third state a missing response document means.
+	it('accepts client notes with no standalone timestamp', async () => {
+		await assertSucceeds(
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				client: { platform: 'desktop' },
+			})
+		);
+	});
+
+	// `client` is a map, so the profile allowlist stops at its edge. Without a
+	// shape check of its own it would be an unbounded payload hung off a
+	// document every signed-in user can read.
+	it('rejects junk nested inside the client notes', async () => {
+		await assertFails(
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				client: { platform: 'ios', payload: 'y'.repeat(50_000) },
+			})
+		);
+	});
+
+	it('rejects an oversized platform', async () => {
+		await assertFails(
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				client: { platform: 'i'.repeat(21) },
+			})
+		);
+	});
+
+	it('stops one user writing client notes onto somebody else', async () => {
+		await assertFails(
+			setDoc(doc(authed(EXTRA), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				client: { platform: 'ios' },
+			})
+		);
+	});
 });
 
 describe('seasons', () => {

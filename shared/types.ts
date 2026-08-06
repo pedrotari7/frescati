@@ -7,6 +7,8 @@
  * same as chronologically, so `orderBy('kickoff')` works without Timestamps.
  */
 
+import type { DevicePlatform } from './device';
+
 export type SeasonStatus = 'draft' | 'active' | 'archived';
 export type GameStatus = 'scheduled' | 'cancelled' | 'played';
 export type ResponseStatus = 'in' | 'out';
@@ -28,6 +30,33 @@ export interface SeasonSlot {
 	durationMinutes: number;
 	/** IANA zone, e.g. `Europe/Stockholm`. */
 	timezone: string;
+}
+
+/**
+ * What we know about how somebody reaches the app, written on every sign-in.
+ *
+ * Exists for one question an admin cannot otherwise answer: why isn't this
+ * person getting notifications? On iPhone the answer is usually "they never
+ * added it to the home screen", and nothing else in the database records that.
+ *
+ * Coarse on purpose — a platform and a timestamp, no user agent string and no
+ * device identifier. Every signed-in user can read this document, and a profile
+ * here is a name, an avatar and a badge; this is as far towards a device
+ * fingerprint as it goes.
+ */
+export interface ClientInfo {
+	/** The device they last signed in on. */
+	platform: DevicePlatform;
+	/**
+	 * The last time they opened Frescati installed rather than in a browser tab.
+	 * Only ever moved forward, so a member who normally uses the home screen app
+	 * still reads as installed on the day they happen to open a link in Safari.
+	 *
+	 * Absent means we have never seen them run it installed. There is no way to
+	 * observe an uninstall, which is why this is a "last seen" rather than a
+	 * flag — a date going stale is visible, a stuck `true` is not.
+	 */
+	lastStandaloneAt?: string;
 }
 
 export interface NotificationPrefs {
@@ -62,6 +91,8 @@ export interface AppUser {
 	 */
 	isAppAdmin: boolean;
 	notificationPrefs: NotificationPrefs;
+	/** Absent on anybody who hasn't signed in since this was added. */
+	client?: ClientInfo;
 	/**
 	 * Absent until they've played a rated game. A player with no rating is
 	 * seeded from the group average at selection time rather than carrying a
@@ -74,6 +105,23 @@ export interface PushToken {
 	token: string;
 	createdAt: string;
 	userAgent: string;
+}
+
+/**
+ * One registered device, as the admin notification screen sees it.
+ *
+ * Pointedly **not** a `PushToken`. The token itself is a capability to push to
+ * that device, which is why security rules keep the collection private to its
+ * owner; this is what `getPushDevices` hands an admin instead — enough to tell
+ * a phone from a laptop and to see whether a registration is recent, with
+ * nothing in it that could be used to send anything.
+ */
+export interface PushDevice {
+	platform: DevicePlatform;
+	/** Browser family, or an empty string when the user agent didn't parse. */
+	browser: string;
+	/** When this device registered. Empty on tokens written before it was stored. */
+	registeredAt: string;
 }
 
 /**
