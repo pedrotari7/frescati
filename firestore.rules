@@ -118,11 +118,36 @@ service cloud.firestore {
                    && request.resource.data.client.get('lastStandaloneAt', '').size() <= 40);
       }
 
+      // The four switches, and nothing else. Bounded for the same reason
+      // `client` is — a map is where the allowlist below stops, and this
+      // document is writable by its owner and read by every roster screen in
+      // the app through one live listener over the whole collection. Anything
+      // parked here is downloaded by everybody, repeatedly.
+      //
+      // Read with `get(key, true)` rather than addressed directly, because a
+      // *partial* map has to stay valid: absent means opted in everywhere this
+      // is consumed, so profiles written before a preference existed carry no
+      // key for it and must not be locked out of every future write.
+      //
+      // `hasOnly` means a fifth preference has to be added here in the same
+      // change that adds it to `NotificationPrefs`, or writes start failing.
+      // Same coupling `clientShapeOk` already carries.
+      function notificationPrefsShapeOk() {
+        return !request.resource.data.keys().hasAny(['notificationPrefs'])
+               || (request.resource.data.notificationPrefs.keys()
+                     .hasOnly(['reminders', 'gameChanges', 'newPlayers', 'emailFallback'])
+                   && request.resource.data.notificationPrefs.get('reminders', true) is bool
+                   && request.resource.data.notificationPrefs.get('gameChanges', true) is bool
+                   && request.resource.data.notificationPrefs.get('newPlayers', true) is bool
+                   && request.resource.data.notificationPrefs.get('emailFallback', true) is bool);
+      }
+
       function userShapeOk() {
         return request.resource.data.keys().hasOnly(
                  ['uid', 'displayName', 'photoURL', 'createdAt', 'lastSeenAt',
                   'isAppAdmin', 'notificationPrefs', 'email', 'rating', 'client'])
                && clientShapeOk()
+               && notificationPrefsShapeOk()
                && request.resource.data.get('displayName', '') is string
                && request.resource.data.get('displayName', '').size() <= 100
                && request.resource.data.get('createdAt', '') is string

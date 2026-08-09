@@ -8,7 +8,7 @@ import { deleteField, doc, getDoc, setDoc } from 'firebase/firestore';
 import { getDb, getFirebaseAuth } from './firebaseClient';
 import { isStandalone, thisDevice } from './device';
 import type { AppUser, ClientInfo } from '@shared/types';
-import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
+import { normaliseNotificationPrefs } from '@shared/notifications';
 
 export interface AuthUser {
 	uid: string;
@@ -91,8 +91,12 @@ const upsertUserDoc = async (user: AuthUser) => {
 			// Only ever echoed back, never raised: rules reject a client writing
 			// itself the badge. The admin SDK owns this field.
 			isAppAdmin: existing?.isAppAdmin ?? false,
-			// Seeded once, then left to whatever the user has since chosen.
-			notificationPrefs: existing?.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS,
+			// Seeded once, then left to whatever the user has since chosen —
+			// but rewritten through the normaliser rather than passed straight
+			// back, so a stored map that has picked up anything the rules no
+			// longer accept heals on the next sign-in instead of failing every
+			// write to this document from then on.
+			notificationPrefs: normaliseNotificationPrefs(existing?.notificationPrefs),
 			client: describeClient(existing?.client, now),
 		},
 		{ merge: true }

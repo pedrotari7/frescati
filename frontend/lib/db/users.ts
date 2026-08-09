@@ -1,6 +1,7 @@
 import { onSnapshot, updateDoc } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { AppUser, NotificationPrefs } from '@shared/types';
+import { normaliseNotificationPrefs } from '@shared/notifications';
 import { userDoc, usersCol } from './paths';
 
 /** The document id *is* the uid — trust it over a field that could be missing. */
@@ -39,6 +40,10 @@ export const subscribeToUser = (
 /**
  * Which kinds of notification this person wants. Honoured by `sendPush` on the
  * backend, which skips anyone who has switched a kind off.
+ *
+ * Normalised on the way out rather than written through: the screen builds its
+ * state by spreading whatever the profile holds over the defaults, and security
+ * rules bound this map to exactly four keys.
  */
 export const setNotificationPrefs = (uid: string, notificationPrefs: NotificationPrefs) =>
-	updateDoc(userDoc(uid), { notificationPrefs });
+	updateDoc(userDoc(uid), { notificationPrefs: normaliseNotificationPrefs(notificationPrefs) });

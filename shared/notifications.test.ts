@@ -8,6 +8,7 @@ import {
 	buildNewPlayerPush,
 	canEmail,
 	getPushReach,
+	normaliseNotificationPrefs,
 	relevantPrefs,
 } from './notifications';
 import { DEFAULT_NOTIFICATION_PREFS } from './types';
@@ -211,6 +212,53 @@ describe('canEmail', () => {
 	// is opted in, not silently switched off.
 	it('treats a missing preference as opted in', () => {
 		expect(canEmail({ hasEmail: true })).toBe(true);
+	});
+});
+
+describe('normaliseNotificationPrefs', () => {
+	it('keeps every switch the caller set', () => {
+		expect(
+			normaliseNotificationPrefs({
+				reminders: false,
+				gameChanges: true,
+				newPlayers: false,
+				emailFallback: true,
+			})
+		).toEqual({ reminders: false, gameChanges: true, newPlayers: false, emailFallback: true });
+	});
+
+	// The whole point: security rules bound this map to these four keys, and a
+	// writer that spread a stored one forward could carry anything else with it.
+	it('drops anything that is not one of the four switches', () => {
+		const prefs = normaliseNotificationPrefs({
+			reminders: false,
+			junk: 'x'.repeat(1000),
+			nested: { anything: [1, 2, 3] },
+		} as never);
+
+		expect(Object.keys(prefs).sort()).toEqual(['emailFallback', 'gameChanges', 'newPlayers', 'reminders']);
+		expect(prefs.reminders).toBe(false);
+	});
+
+	// Matches how every reader treats an absent key. A preference nobody has
+	// expressed is not an opt-out, so a partial map fills in as on.
+	it('reads a missing switch as opted in', () => {
+		expect(normaliseNotificationPrefs({ reminders: false })).toEqual({
+			reminders: false,
+			gameChanges: true,
+			newPlayers: true,
+			emailFallback: true,
+		});
+	});
+
+	it('gives a profile with no preferences at all the defaults', () => {
+		expect(normaliseNotificationPrefs()).toEqual(DEFAULT_NOTIFICATION_PREFS);
+	});
+
+	// Anything that is not exactly `false` is on, which is the same test every
+	// reader applies — so a corrupted value settles on the safe side.
+	it('treats a non-boolean as opted in rather than passing it through', () => {
+		expect(normaliseNotificationPrefs({ reminders: 'nope' } as never).reminders).toBe(true);
 	});
 });
 

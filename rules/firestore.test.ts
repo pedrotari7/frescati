@@ -412,6 +412,50 @@ describe('users', () => {
 			})
 		);
 	});
+
+	// The same reasoning as `client`, and the last map on this document without
+	// it: every roster screen holds one live listener over the whole `users`
+	// collection, so anything parked here is downloaded by everybody, over and
+	// over.
+	const aProfile = (notificationPrefs: unknown) => ({
+		uid: MEMBER,
+		displayName: 'A',
+		isAppAdmin: false,
+		notificationPrefs,
+	});
+
+	it('accepts the four notification switches', async () => {
+		await assertSucceeds(
+			setDoc(
+				doc(authed(MEMBER), `users/${MEMBER}`),
+				aProfile({ reminders: true, gameChanges: false, newPlayers: true, emailFallback: false })
+			)
+		);
+	});
+
+	// Absent means opted in everywhere this is read, so a profile written before
+	// a preference existed must not be locked out of every future write.
+	it('accepts a partial map, and a profile with no preferences at all', async () => {
+		await assertSucceeds(setDoc(doc(authed(MEMBER), `users/${MEMBER}`), aProfile({ reminders: false })));
+		await assertSucceeds(setDoc(doc(authed(MEMBER), `users/${MEMBER}`), aProfile({})));
+	});
+
+	it('rejects junk nested inside the notification preferences', async () => {
+		await assertFails(
+			setDoc(
+				doc(authed(MEMBER), `users/${MEMBER}`),
+				aProfile({ reminders: true, payload: 'y'.repeat(50_000) })
+			)
+		);
+		await assertFails(
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), aProfile({ nested: { anything: { at: { all: [1, 2] } } } }))
+		);
+	});
+
+	it('rejects a switch that is not a boolean', async () => {
+		await assertFails(setDoc(doc(authed(MEMBER), `users/${MEMBER}`), aProfile({ reminders: 'yes please' })));
+		await assertFails(setDoc(doc(authed(MEMBER), `users/${MEMBER}`), aProfile({ emailFallback: 1 })));
+	});
 });
 
 describe('seasons', () => {

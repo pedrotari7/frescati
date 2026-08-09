@@ -137,6 +137,30 @@ export const getPushReach = ({
 export const canEmail = ({ prefs, hasEmail }: { prefs?: NotificationPrefs; hasEmail: boolean }): boolean =>
 	hasEmail && prefs?.emailFallback !== false;
 
+/**
+ * Exactly the four switches, whatever came in.
+ *
+ * Every writer used to spread the stored map forward — `{ ...defaults,
+ * ...profile?.notificationPrefs }` on the settings screen, and the stored value
+ * verbatim on sign-in. Fine while the only things writing it were those two,
+ * and not fine as a rule: security rules now bound this map to these four keys,
+ * so a profile that had somehow acquired a fifth would have had every
+ * subsequent write to it rejected — its owner unable to save a preference, and
+ * their sign-in profile sync failing quietly behind a `.catch`.
+ *
+ * Picking the keys out explicitly rather than spreading is what makes "the
+ * client only ever writes the four" true by construction instead of by luck.
+ *
+ * Missing becomes `true`, matching how every reader treats an absent key: the
+ * defaults are on, and a preference nobody has expressed is not an opt-out.
+ */
+export const normaliseNotificationPrefs = (prefs?: Partial<NotificationPrefs>): NotificationPrefs => ({
+	reminders: prefs?.reminders !== false,
+	gameChanges: prefs?.gameChanges !== false,
+	newPlayers: prefs?.newPlayers !== false,
+	emailFallback: prefs?.emailFallback !== false,
+});
+
 type Copy = (context: GameNotificationContext) => { title: string; body: string };
 
 const COPY: Record<GameNotification, Copy> = {
