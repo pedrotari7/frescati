@@ -45,6 +45,20 @@ export const getNoResponseCount = (counts: GameCounts, memberCount: number): num
 	Math.max(0, memberCount - counts.membersIn - counts.membersOut);
 
 /**
+ * Season members who haven't answered a game at all — the people a reminder
+ * is for. An extra with no response isn't in this list: they were never asked
+ * in the first place, so there's nothing to nudge them about.
+ */
+export const getSilentMembers = (
+	season: Pick<Season, 'memberUids'>,
+	responses: Pick<GameResponse, 'uid'>[]
+): string[] => {
+	const answered = new Set(responses.map(response => response.uid));
+
+	return season.memberUids.filter(uid => !answered.has(uid));
+};
+
+/**
  * The format the confirmed headcount supports, e.g. `5v5` for ten players or
  * `3 teams · 5 a side` for fifteen. `null` when there aren't enough bodies for
  * a game at all.

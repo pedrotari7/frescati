@@ -1,9 +1,10 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import type { Game } from '../../shared/types';
+import { getSilentMembers } from '../../shared/game';
 import { formatGameWhen } from '../../shared/format';
 import { REGION } from './lib/firebase';
-import { getResponses, getSeason, getSilentMembers, getUidsWhoSaidIn } from './lib/data';
+import { getResponses, getSeason, getUidsWhoSaidIn } from './lib/data';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendGamePush } from './lib/push';
 import { enqueueTeamRebuild } from './lib/teams';

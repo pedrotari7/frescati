@@ -1,20 +1,26 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BellAlertIcon } from '@heroicons/react/24/outline';
+import { BellAlertIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import type { AppNotification, GameNotification, PushPayload } from '@shared/notifications';
 import { NOTIFICATIONS, buildGamePush, buildNewPlayerPush } from '@shared/notifications';
-import { formatGameWhen } from '@shared/format';
+import { getSilentMembers } from '@shared/game';
+import { formatGameWhen, shortName } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
 import { checkPushSupport, isPushEnabled } from '../../../lib/push';
 import type { PushSupport } from '../../../lib/push';
 import { sendTestPush } from '../../../lib/db/testPush';
-import { useGames, useSeasons } from '../../../hooks/useData';
+import { sendTestEmail } from '../../../lib/db/testEmail';
+import type { EmailTestOutcome, EmailTestStatus, TestEmailResult } from '../../../lib/db/testEmail';
+import { useGames, useResponses, useSeasons, useUsers } from '../../../hooks/useData';
 import { useToast } from '../../../components/Toast';
+import { useConfirm } from '../../../components/ConfirmDialog';
 import PageShell from '../../../components/PageShell';
 import EmptyState from '../../../components/EmptyState';
+import Avatar from '../../../components/Avatar';
 import Button from '../../../components/Button';
 import StatusPill from '../../../components/StatusPill';
+import type { PillTone } from '../../../components/StatusPill';
 import { Field, Select } from '../../../components/Field';
 
 /**
@@ -50,10 +56,20 @@ const DESCRIPTIONS: Record<GameNotification | AppNotification, string> = {
 	newPlayer: 'Really goes to every app admin, once, when somebody first signs in. Sends as if you had just joined.',
 };
 
+const STATUS_TONE: Record<EmailTestStatus, PillTone> = { sent: 'in', noAddress: 'out', emailOff: 'neutral' };
+
+const STATUS_LABEL: Record<EmailTestStatus, string> = {
+	sent: 'Emailed',
+	noAddress: 'No address',
+	emailOff: 'Email off',
+};
+
 const DebugPage = () => {
 	const { user } = useAuth();
 	const { notify, warn } = useToast();
+	const confirm = useConfirm();
 	const { seasons } = useSeasons();
+	const { users } = useUsers();
 
 	const [support, setSupport] = useState<PushSupport | null>(null);
 	const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -62,6 +78,9 @@ const DebugPage = () => {
 	const [sentPayloads, setSentPayloads] = useState<Partial<Record<GameNotification | AppNotification, PushPayload>>>(
 		{}
 	);
+	const [emailKind, setEmailKind] = useState<GameNotification | AppNotification>('reminder');
+	const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
+	const [emailResult, setEmailResult] = useState<TestEmailResult | null>(null);
 
 	// Fall back to the first season rather than holding the selection in an
 	// effect: the list arrives after the first render, and syncing it back into
@@ -83,6 +102,17 @@ const DebugPage = () => {
 	// previous one selected — which would send a notification deep-linking
 	// somewhere the picker isn't pointing.
 	const gameId = chosenGame && byKickoff.some(game => game.id === chosenGame) ? chosenGame : defaultGameId;
+
+	const season = seasons.find(candidate => candidate.id === seasonId) ?? null;
+	const { responses } = useResponses(seasonId, gameId);
+
+	// Who a real reminder would actually nudge for this game — the quick way
+	// into "email exactly the people who haven't answered" without hand-picking
+	// them from the full roster.
+	const silentUids = useMemo(
+		() => (season ? getSilentMembers(season, responses) : []),
+		[season, responses]
+	);
 
 	const uid = user?.uid;
 
@@ -114,8 +144,6 @@ const DebugPage = () => {
 		);
 	}
 
-	const season = seasons.find(candidate => candidate.id === seasonId) ?? null;
-
 	const send = async (kind: GameNotification | AppNotification) => {
 		try {
 			const result = await sendTestPush(kind, seasonId && gameId ? { seasonId, gameId } : undefined);
@@ -146,6 +174,43 @@ const DebugPage = () => {
 		} catch (error) {
 			console.error('Could not send the test notification', error);
 			warn(error instanceof Error ? error.message : "Couldn't send that notification.");
+		}
+	};
+
+	const toggleRecipient = (target: string) =>
+		setSelectedUids(previous => {
+			const next = new Set(previous);
+			if (next.has(target)) next.delete(target);
+			else next.add(target);
+			return next;
+		});
+
+	const sendEmailTest = async () => {
+		const uids = Array.from(selectedUids);
+		if (uids.length === 0) return;
+
+		// The one send on this screen that reaches somebody other than the
+		// person tapping it — worth a second tap before it actually goes.
+		const ok = await confirm({
+			title: `Email ${uids.length} ${uids.length === 1 ? 'person' : 'people'}?`,
+			message: 'This sends a real email right now, to their real inbox — not a preview.',
+			confirmLabel: 'Send',
+		});
+		if (!ok) return;
+
+		try {
+			const result = await sendTestEmail(emailKind, uids, seasonId && gameId ? { seasonId, gameId } : undefined);
+
+			setEmailResult(result);
+
+			if (result.sent > 0) {
+				notify(`Emailed ${result.sent} of ${uids.length}.`);
+			} else {
+				warn('Nobody selected could be emailed — see the reasons below.');
+			}
+		} catch (error) {
+			console.error('Could not send the test email', error);
+			warn(error instanceof Error ? error.message : "Couldn't send that email.");
 		}
 	};
 
@@ -259,6 +324,96 @@ const DebugPage = () => {
 							);
 						})}
 					</div>
+				</section>
+
+				<section className='glass space-y-4 rounded-2xl p-5'>
+					<div className='mb-1 flex items-center gap-2'>
+						<EnvelopeIcon className='text-muted size-5' aria-hidden='true' />
+						<h2 className='text-ink font-semibold'>Email a selection of people</h2>
+					</div>
+
+					<p className='text-muted text-sm leading-relaxed'>
+						Unlike everything above, this reaches real accounts other than your own — through the same
+						fallback transport a genuine send would use, so it proves delivery and rendering, not just the
+						copy.
+					</p>
+
+					<Field label='Kind'>
+						<Select
+							value={emailKind}
+							onChange={event => setEmailKind(event.target.value as GameNotification | AppNotification)}
+						>
+							{NOTIFICATIONS.map(kind => (
+								<option key={kind} value={kind}>
+									{titleFor(kind)}
+								</option>
+							))}
+						</Select>
+					</Field>
+
+					<div>
+						<div className='mb-1.5 flex items-center justify-between gap-2'>
+							<span className='text-muted text-xs font-semibold tracking-wide uppercase'>Recipients</span>
+
+							<div className='flex gap-1'>
+								{gameId && silentUids.length > 0 && (
+									<Button size='sm' variant='ghost' onClick={() => setSelectedUids(new Set(silentUids))}>
+										Hasn&apos;t answered ({silentUids.length})
+									</Button>
+								)}
+								{selectedUids.size > 0 && (
+									<Button size='sm' variant='ghost' onClick={() => setSelectedUids(new Set())}>
+										Clear
+									</Button>
+								)}
+							</div>
+						</div>
+
+						<div className='glass-card max-h-64 divide-y divide-white/5 overflow-y-auto rounded-xl px-3'>
+							{users.length === 0 && <p className='text-faint py-3 text-sm'>No accounts yet.</p>}
+
+							{users.map(candidate => (
+								<label key={candidate.uid} className='flex cursor-pointer items-center gap-3 py-2'>
+									<input
+										type='checkbox'
+										className='accent-brand size-4 shrink-0'
+										checked={selectedUids.has(candidate.uid)}
+										onChange={() => toggleRecipient(candidate.uid)}
+									/>
+									<Avatar displayName={candidate.displayName} photoURL={candidate.photoURL} size='sm' />
+									<span className='text-ink flex-1 truncate text-sm'>
+										{shortName(candidate.displayName)}
+									</span>
+								</label>
+							))}
+						</div>
+					</div>
+
+					<Button variant='primary' fullWidth disabled={selectedUids.size === 0} onClick={sendEmailTest}>
+						Email {selectedUids.size > 0 && selectedUids.size} {selectedUids.size === 1 ? 'person' : 'people'}
+					</Button>
+
+					{emailResult && (
+						<div className='space-y-2 border-t border-white/5 pt-4'>
+							<p className='text-ink text-sm font-medium'>{emailResult.payload.title}</p>
+							<p className='text-muted border-l-2 border-white/10 pl-2 text-xs leading-relaxed'>
+								{emailResult.payload.body}
+							</p>
+
+							<ul className='mt-2 space-y-1.5'>
+								{emailResult.results.map((outcome: EmailTestOutcome) => (
+									<li key={outcome.uid} className='flex items-center justify-between gap-2'>
+										<span className='text-muted truncate text-xs'>
+											{shortName(outcome.displayName)}
+										</span>
+										<StatusPill tone={STATUS_TONE[outcome.status]}>
+											{STATUS_LABEL[outcome.status]}
+										</StatusPill>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
 				</section>
 			</div>
 		</PageShell>

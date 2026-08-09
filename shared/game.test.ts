@@ -6,6 +6,7 @@ import {
 	getNoResponseCount,
 	getResponseDeadline,
 	getRole,
+	getSilentMembers,
 	isConfirmed,
 	parseReminderHours,
 	sortResponses,
@@ -98,6 +99,33 @@ describe('getNoResponseCount', () => {
 
 	it('never goes negative when the roster shrinks after responses land', () => {
 		expect(getNoResponseCount({ ...EMPTY_COUNTS, membersIn: 8, membersOut: 2 }, 5)).toBe(0);
+	});
+});
+
+describe('getSilentMembers', () => {
+	const withMembers = (memberUids: string[]) => ({ memberUids });
+
+	it('returns members with no response at all', () => {
+		expect(getSilentMembers(withMembers(['member-a', 'member-b']), [])).toEqual(['member-a', 'member-b']);
+	});
+
+	it('drops a member the moment they answer, in or out', () => {
+		const responses = [response({ uid: 'member-a', status: 'in' }), response({ uid: 'member-b', status: 'out' })];
+
+		expect(getSilentMembers(withMembers(['member-a', 'member-b', 'member-c']), responses)).toEqual(['member-c']);
+	});
+
+	// An extra was never asked, so their silence isn't the reminder's business.
+	it('ignores an extra who never responded', () => {
+		expect(getSilentMembers(withMembers(['member-a']), [response({ uid: 'extra-1', status: 'in' })])).toEqual([
+			'member-a',
+		]);
+	});
+
+	it('is empty once every member has answered', () => {
+		const responses = [response({ uid: 'member-a' }), response({ uid: 'member-b' })];
+
+		expect(getSilentMembers(withMembers(['member-a', 'member-b']), responses)).toEqual([]);
 	});
 });
 

@@ -1,18 +1,12 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import type { NotificationPrefs } from '../../shared/types';
-import type {
-	AppNotification,
-	GameNotification,
-	GameNotificationContext,
-	PushPayload,
-} from '../../shared/notifications';
-import { NOTIFICATIONS, NOTIFICATION_PREF, buildGamePush, buildNewPlayerPush } from '../../shared/notifications';
-import { formatGameWhen } from '../../shared/format';
+import type { AppNotification, GameNotification } from '../../shared/notifications';
+import { NOTIFICATIONS, NOTIFICATION_PREF } from '../../shared/notifications';
 import { db, REGION } from './lib/firebase';
-import { getGame, getSeason } from './lib/data';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendPush } from './lib/push';
+import { buildTestPayload } from './lib/testNotifications';
 
 /**
  * Sends one of the real notifications to the caller's own devices.
@@ -67,9 +61,8 @@ export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; s
 		// which is worth more than a preview it composed itself and would have
 		// to keep in step. Both the payload and the preference still come from
 		// `kind`, so they cannot be paired up wrongly.
-		const payload = await buildPayload(kind, {
-			uid,
-			displayName: (userSnap.data()?.displayName as string | undefined) ?? '',
+		const payload = await buildTestPayload(kind, {
+			sender: { uid, displayName: (userSnap.data()?.displayName as string | undefined) ?? '' },
 			seasonId,
 			gameId,
 		});
@@ -84,49 +77,3 @@ export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; s
 		return { sent: pushed, emailed, devices: tokensSnap.size, prefEnabled, payload };
 	}
 );
-
-/**
- * The payload for whichever kind was asked for.
- *
- * `newPlayer` stands the caller in as the newcomer — sending it as if you had
- * just signed up yourself is the only honest way to see what an admin gets,
- * short of creating an account to throw away.
- */
-const buildPayload = async (
-	kind: GameNotification | AppNotification,
-	{ uid, displayName, seasonId, gameId }: { uid: string; displayName: string; seasonId?: string; gameId?: string }
-): Promise<PushPayload> =>
-	kind === 'newPlayer'
-		? buildNewPlayerPush({ uid, displayName })
-		: buildGamePush(kind, await buildContext(seasonId, gameId));
-
-/**
- * Real game if one was named, a plausible stand-in otherwise.
- *
- * Worth the two reads: a payload carrying a real deep link is the only way to
- * test what the notification does when tapped, including the service worker's
- * "I'm in" action handing `?respond=in` back to the app.
- */
-const buildContext = async (seasonId?: string, gameId?: string): Promise<GameNotificationContext> => {
-	if (!seasonId || !gameId) {
-		return { when: 'Tue 1 Sep · 19:00', url: '/seasons', gameId: 'sample', shortBy: 2, playing: 6 };
-	}
-
-	const [season, game] = await Promise.all([getSeason(seasonId), getGame(seasonId, gameId)]);
-
-	if (!season || !game) throw new HttpsError('not-found', 'That game no longer exists.');
-
-	const minimum = game.minPlayers ?? season.minPlayers;
-
-	return {
-		when: formatGameWhen(game.kickoff, season.slot.timezone),
-		url: `/s/${seasonId}/g/${gameId}`,
-		gameId,
-		cancelledReason: game.cancelledReason,
-		// The real trigger only fires while `playing < minimum`, so a shortfall
-		// is never zero in the wild. Flooring it at one keeps the test message
-		// reading like the real one when the game happens to be well subscribed.
-		shortBy: Math.max(1, minimum - (game.counts?.playing ?? 0)),
-		playing: game.counts?.playing ?? 0,
-	};
-};

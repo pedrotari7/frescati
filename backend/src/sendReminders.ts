@@ -1,9 +1,10 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import type { Game, Season } from '../../shared/types';
+import { getSilentMembers } from '../../shared/game';
 import { formatGameWhen } from '../../shared/format';
 import { db, REGION } from './lib/firebase';
-import { getResponses, getSilentMembers } from './lib/data';
+import { getResponses } from './lib/data';
 import { EMAIL_SECRETS } from './lib/email';
 import type { SendResult } from './lib/push';
 import { sendGamePush } from './lib/push';

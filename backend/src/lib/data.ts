@@ -21,13 +21,6 @@ export const getResponses = async (seasonId: string, gameId: string): Promise<Ga
 	return snapshot.docs.map(doc => doc.data() as GameResponse);
 };
 
-/** Season members who haven't answered — the people worth nudging. */
-export const getSilentMembers = (season: Season, responses: GameResponse[]): string[] => {
-	const answered = new Set(responses.map(response => response.uid));
-
-	return season.memberUids.filter(uid => !answered.has(uid));
-};
-
 export const getUidsWhoSaidIn = (responses: GameResponse[]): string[] =>
 	responses.filter(response => response.status === 'in').map(response => response.uid);
 

@@ -75,7 +75,7 @@ const isEmulated = (): boolean => process.env.FUNCTIONS_EMULATOR === 'true';
 const resolveRecipients = async (uids: string[]): Promise<Recipient[]> => {
 	const [profiles, addresses] = await Promise.all([
 		Promise.all(uids.map(uid => db.doc(`users/${uid}`).get())),
-		lookUpAddresses(uids),
+		lookUpVerifiedEmails(uids),
 	]);
 
 	// Filtered through the shared `canEmail` rather than by reading the
@@ -94,8 +94,11 @@ const resolveRecipients = async (uids: string[]): Promise<Recipient[]> => {
  * filters nothing; it is here because the day somebody adds email/password, an
  * unverified address is one an attacker typed, and mailing it would hand them
  * another player's game notifications.
+ *
+ * Exported for `sendTestEmail`, which needs to know *why* somebody was skipped
+ * — no address, versus opted out — rather than just a bare count.
  */
-const lookUpAddresses = async (uids: string[]): Promise<Map<string, string>> => {
+export const lookUpVerifiedEmails = async (uids: string[]): Promise<Map<string, string>> => {
 	const found = new Map<string, string>();
 
 	for (let start = 0; start < uids.length; start += LOOKUP_LIMIT) {
