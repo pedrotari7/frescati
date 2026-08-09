@@ -141,6 +141,7 @@ Each takes `--dry-run` (except `recount-games`) and is safe to run twice.
 | `pnpm --filter backend strip-user-emails` | remove `email` from profiles written before it moved out of Firestore |
 | `pnpm --filter backend recount-games` | recompute `counts` and repair drifted `role`s across every game |
 | `pnpm --filter backend prune-orphans` | delete responses and games left behind by deletions that predate the cascade triggers |
+| `pnpm --filter backend forget-player <uid\|email>` | remove somebody who has asked to be taken off — see below |
 
 Anything touching the emulators needs a JDK 21+, which `scripts/emulators.sh` goes and finds — no `JAVA_HOME` prefix required.
 
@@ -206,6 +207,24 @@ What it means in practice, so it can be reconsidered on purpose rather than disc
 - Nobody can read another person's contact details or push tokens. Addresses live in Firebase Auth and never touch Firestore; tokens are private to their owner. Those are the two things kept back, and the reasons are in `firestore.rules`.
 
 If this ever needs closing, the cheap version is an `approved` custom claim gating reads, mirroring how `admin` already works — free at the rules layer, because a claim is already in the token and costs no document read to check.
+
+### Taking somebody off
+
+There is no self-serve deletion, and `users/{uid}` is `allow delete: if false` on purpose — every roster renders names and avatars from those documents, so a missing one turns a squad list into a wall of "Unknown player". When somebody asks to be removed, run:
+
+```sh
+pnpm --filter backend forget-player alex@example.com --dry-run   # see the plan
+pnpm --filter backend forget-player alex@example.com             # do it
+```
+
+It draws a line between data that is **about a person** and data that is a **shared record**:
+
+- **Erased** — the Firebase Auth account and the address in it, their display name, avatar and device notes, every registered push token, and the free-text note on every response they wrote.
+- **Kept** — the uid itself, wherever it appears in something more than one person took part in: `ratingLedger`, the generated lineups, the scoreboard's `updatedBy`, and the in/out of each response.
+
+That second list is not stubbornness. The ledger is the undo history for the **whole** ladder — `replayRatingsFrom` rebuilds each night from the state the one before it left — so deleting one player's entries wouldn't only lose their history, it would corrupt every replay for everybody who ever played alongside them. What survives is an opaque id with nothing attached to it, which is the most that can be taken away without rewriting other people's results.
+
+Idempotent, so a half-finished run can just be repeated, and it accepts a uid as well as an email for the case where the Auth account is already gone. If they were the only admin of a season it says so and leaves them on `adminUids` rather than orphaning it — appoint somebody else and re-run.
 
 **App Check** is the separate half of this and _is_ enabled: it attests that a request came from this app rather than from a script holding the same public config. It restricts software, not people, so it changes none of the above — see setup step 10.
 
