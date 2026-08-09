@@ -214,6 +214,7 @@ If this ever needs closing, the cheap version is an `approved` custom claim gati
 - **Frontend** → Vercel git integration. Set the same `NEXT_PUBLIC_FIREBASE_*` vars (see `frontend/.env.local.example`) in the Vercel project's Environment Variables. Root directory `frontend`, install command run from the repo root.
 - **Functions and rules** → GitHub Actions on push to `main` (`.github/workflows/ci.yml`) — see setup step 9 above for the repo variables and `GCP_SA_KEY` secret it needs.
 - The deploy is **non-interactive**, which makes two things hard requirements rather than conveniences: every `defineSecret` must already exist in Secret Manager, and every `defineString` must have a value in `backend/.env`. Neither falls back to a default — the deploy just fails. That is why `backend/.env` is committed and why `RESEND_API_KEY` has to exist even on a project sending no email.
+- The **Content-Security-Policy still ships report-only.** Violations post to `/api/csp-report` and come out in Vercel's function logs (`vercel logs`, or the Logs tab, filtered on `CSP violation`). Watch those through a few days of real use — sign-in, notifications, the tournament screen — and once nothing legitimate is being reported, switch the header key in `frontend/next.config.js` from `Content-Security-Policy-Report-Only` to `Content-Security-Policy`. `frame-ancestors` already enforces in its own header, because it is ignored in report-only mode.
 
 ## Notes for future work
 
