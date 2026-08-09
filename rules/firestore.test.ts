@@ -9,6 +9,7 @@ import {
 	doc,
 	getDoc,
 	getDocs,
+	increment,
 	query,
 	setDoc,
 	updateDoc,
@@ -524,6 +525,74 @@ describe('seasons', () => {
 			})
 		);
 	});
+
+	// The response rule multiplies `responseDeadlineHours`, and a rule that
+	// errors denies — so a season admin writing a string here locked every
+	// ordinary player out of every game in the season, invisibly from their own
+	// account, since admins keep writing through their own rule.
+	it('rejects a response deadline that is not a number', async () => {
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { responseDeadlineHours: 'soon' }));
+	});
+
+	it('leaves games answerable after a legitimate deadline change', async () => {
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { responseDeadlineHours: 3 }));
+
+		await assertSucceeds(setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member')));
+	});
+
+	// `size()` works on strings too, so this passed the "never leave a season
+	// without an admin" check while making `uid in adminUids` error — which
+	// locked the season's own admins out of it.
+	it('rejects adminUids that is not a list', async () => {
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { adminUids: 'season-admin' }));
+	});
+
+	it('rejects memberUids that is not a list', async () => {
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { memberUids: 'everybody' }));
+	});
+
+	// A season document is read by every signed-in user, and the seasons list
+	// subscribes to all of them at once.
+	it('rejects fields the season schema does not have', async () => {
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { payload: 'y'.repeat(50_000) }));
+	});
+
+	// The allowlist stops at the edge of a map, so each one it names is bounded
+	// in turn — otherwise the payload just moves one level down.
+	it('rejects junk nested inside the venue, the slot or the balance levers', async () => {
+		await assertFails(
+			updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), {
+				venue: { name: 'Frescati IP', payload: 'y'.repeat(50_000) },
+			})
+		);
+		await assertFails(
+			updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), {
+				slot: { weekday: 2, time: '19:00', durationMinutes: 90, timezone: 'Europe/Stockholm', junk: 'x' },
+			})
+		);
+		await assertFails(
+			updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), {
+				balance: { randomness: 0.3, junk: { nested: [1, 2, 3] } },
+			})
+		);
+	});
+
+	it('accepts the settings screen saving every lever at once', async () => {
+		await assertSucceeds(
+			updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), {
+				name: 'Autumn 2026',
+				status: 'active',
+				venue: { name: 'Frescati IP', address: 'Svante Arrhenius väg 4' },
+				slot: { weekday: 3, time: '20:00', durationMinutes: 60, timezone: 'Europe/Stockholm' },
+				startDate: '2026-09-01',
+				endDate: '2026-12-15',
+				minPlayers: 12,
+				responseDeadlineHours: 12,
+				reminderHours: [48, 12],
+				balance: { matchMinutes: 6, randomness: 0.5, repeatPenalty: 0.2, repeatLookback: 3 },
+			})
+		);
+	});
 });
 
 describe('games', () => {
@@ -617,6 +686,41 @@ describe('games', () => {
 		await assertSucceeds(
 			updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { status: 'cancelled', cancelledReason: 'frozen pitch' })
 		);
+	});
+
+	// Reshuffle is the one write in the app that goes through a server-side
+	// transform, so `reshuffleCount is number` is only safe if the rule sees the
+	// value the increment produces rather than the operation. Tested against the
+	// real call rather than a plain number, which is what the app sends.
+	it('accepts a reshuffle bumped by an increment, not just a literal', async () => {
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { reshuffleCount: increment(1) }));
+	});
+
+	it('rejects a kickoff mirror that stops being a number', async () => {
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { kickoffMillis: 'soon' }));
+	});
+
+	// One document per week, and every season screen subscribes to the whole
+	// collection — so the same bound a season needs, for the same reason.
+	it('rejects fields the game schema does not have', async () => {
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { payload: 'y'.repeat(50_000) }));
+	});
+
+	it('rejects junk nested inside a game venue or its balance overrides', async () => {
+		await assertFails(
+			updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), {
+				venue: { name: 'Elsewhere', payload: 'y'.repeat(50_000) },
+			})
+		);
+		await assertFails(
+			updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { balance: { junk: { nested: [1, 2, 3] } } })
+		);
+	});
+
+	// A game may override any subset of the season's levers, so a partial map
+	// has to stay valid.
+	it('accepts a game overriding just one balance lever', async () => {
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { balance: { matchMinutes: 8 } }));
 	});
 
 	it('stops a member cancelling a game', async () => {
