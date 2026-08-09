@@ -127,10 +127,19 @@ const DebugPage = () => {
 			// entire point of the screen.
 			if (result.sent > 0) {
 				notify(`Sent to ${result.sent} device${result.sent === 1 ? '' : 's'}.`);
-			} else if (result.devices === 0) {
-				warn('No registered devices. Turn notifications on for this device first.');
+			} else if (result.emailed > 0) {
+				// Checked before the two push failures below, because when the
+				// fallback caught it neither of them is what happened.
+				notify('No device could be reached, so it went to your email instead.');
 			} else if (!result.prefEnabled) {
+				// Ahead of the device count, unlike `getPushReach` — that
+				// summarises whether somebody is reachable at all, where the
+				// missing device is the root cause. This reports one send, and
+				// the preference is what short-circuited it, before either
+				// channel was consulted.
 				warn('That kind is switched off in your notification preferences.');
+			} else if (result.devices === 0) {
+				warn('No registered devices, and no email went out either. Check the email fallback is configured.');
 			} else {
 				warn('FCM accepted none of your tokens — they are stale. Turn notifications off and on again.');
 			}

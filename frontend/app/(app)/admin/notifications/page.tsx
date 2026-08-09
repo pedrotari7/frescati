@@ -2,15 +2,15 @@
 
 import { useMemo, useState } from 'react';
 import { ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import type { AppUser, PushDevice } from '@shared/types';
+import type { AppUser, NotificationPrefs, PushDevice } from '@shared/types';
 import type { PushReach } from '@shared/notifications';
-import { getPushReach, relevantPrefs } from '@shared/notifications';
+import { canEmail, getPushReach, relevantPrefs } from '@shared/notifications';
 import { describeDevice, platformLabel } from '@shared/device';
 import { formatRelative } from '@shared/format';
 import { useAuth } from '../../../../lib/auth';
 import { useUsers } from '../../../../hooks/useData';
 import { usePushDevices } from '../../../../hooks/usePushDevices';
-import type { PushDevicesByUid } from '../../../../lib/db/pushDevices';
+import type { NotificationReach } from '../../../../lib/db/pushDevices';
 import PageShell from '../../../../components/PageShell';
 import EmptyState from '../../../../components/EmptyState';
 import { SkeletonBlock } from '../../../../components/Skeleton';
@@ -29,9 +29,14 @@ import { TextInput } from '../../../../components/Field';
  * switched off, or (on iPhone, and it is nearly always this) the app was never
  * added to the home screen, where Safari is the only place push works at all.
  *
+ * The email fallback catches the first of those, so somebody with no device is
+ * no longer necessarily unreachable, and this screen has to say which it is —
+ * "gets the emails" and "hears nothing" want completely different conversations.
+ *
  * Preferences and the install signal live on the profile and arrive live with
- * everything else. Devices come from a callable, because push tokens are
- * unreadable from the client on purpose — see `usePushDevices`.
+ * everything else. Devices and addresses come from a callable, because push
+ * tokens and email addresses are both unreadable from the client on purpose —
+ * see `usePushDevices`.
  */
 
 const REACH_TONE: Record<PushReach, PillTone> = {
@@ -48,11 +53,18 @@ const REACH_LABEL: Record<PushReach, string> = {
 	noDevice: 'No device',
 };
 
-const PREF_LABEL = {
+/**
+ * Every switch on a profile, so this can't fall behind one. Only the keys
+ * `relevantPrefs` returns are ever rendered — `emailFallback` shows up as its
+ * own pill instead, because "Email off" alongside the muted kinds would read as
+ * a fourth thing they aren't being sent.
+ */
+const PREF_LABEL: Record<keyof NotificationPrefs, string> = {
 	reminders: 'Reminders',
 	gameChanges: 'Game changes',
 	newPlayers: 'New players',
-} as const;
+	emailFallback: 'Email fallback',
+};
 
 /**
  * What we know about whether they have it installed.
@@ -85,14 +97,14 @@ const NotificationsAdminPage = () => {
 	const isAppAdmin = user?.isAppAdmin === true;
 
 	const { users, loading: usersLoading } = useUsers();
-	const { devices, loading: devicesLoading, error, reload } = usePushDevices(isAppAdmin);
+	const { reach, loading: devicesLoading, error, reload } = usePushDevices(isAppAdmin);
 	const [search, setSearch] = useState('');
 
 	// One clock for the whole render, so twenty rows can't disagree about how
 	// long ago "3 days" was.
 	const now = new Date();
 
-	const rows = useMemo(() => buildRows(users, devices), [users, devices]);
+	const rows = useMemo(() => buildRows(users, reach), [users, reach]);
 
 	// The headline counts everybody, the lists only what was searched for — a
 	// total that moved as you typed would be a different number every keystroke
@@ -127,7 +139,7 @@ const NotificationsAdminPage = () => {
 								{reached}
 								<span className='text-faint text-base font-normal'> of {rows.length}</span>
 							</p>
-							<p className='text-muted mt-0.5 text-sm'>can be reached by a push notification</p>
+							<p className='text-muted mt-0.5 text-sm'>can be reached, by push or by email</p>
 						</div>
 
 						<Button size='sm' variant='secondary' onClick={reload} disabled={devicesLoading}>
@@ -142,11 +154,21 @@ const NotificationsAdminPage = () => {
 						Preferences update live. Registered devices are read when this screen opens — hit Refresh after
 						somebody turns notifications on.
 					</p>
+
+					{/* Every row would otherwise read as push-only with no hint
+					    that the fallback exists but was never set up. */}
+					{!devicesLoading && !error && !reach.emailConfigured && (
+						<p className='text-pending mt-3 text-xs leading-relaxed'>
+							No email sender is configured, so nobody below gets the email fallback. See EMAIL_FROM and
+							APP_URL in the README.
+						</p>
+					)}
 				</section>
 
 				{error && (
 					<p className='text-out text-sm leading-relaxed'>
-						Couldn&apos;t load registered devices, so every row below reads as having none.
+						Couldn&apos;t load registered devices, so every row below reads as having none and as getting no
+						email either.
 					</p>
 				)}
 
@@ -197,12 +219,20 @@ interface Row {
 	user: AppUser;
 	devices: PushDevice[];
 	reach: PushReach;
+	/** Whether the fallback would carry what push can't. */
+	byEmail: boolean;
 }
 
-/** Something still gets through. A partial opt-out is still a way to reach them. */
-const isReached = (row: Row): boolean => row.reach === 'reachable' || row.reach === 'partly';
+/**
+ * Something still gets through. A partial opt-out is still a way to reach them,
+ * and so is the email fallback — but only where push is failing for want of a
+ * device. Somebody who muted a kind outright is not rescued by a channel that
+ * only ever carries the kinds they left switched on.
+ */
+const isReached = (row: Row): boolean =>
+	row.reach === 'reachable' || row.reach === 'partly' || (row.reach === 'noDevice' && row.byEmail);
 
-const buildRows = (users: AppUser[], devices: PushDevicesByUid): Row[] =>
+const buildRows = (users: AppUser[], { devices, addressed, emailConfigured }: NotificationReach): Row[] =>
 	users.map(candidate => {
 		const registered = devices[candidate.uid] ?? [];
 
@@ -214,6 +244,9 @@ const buildRows = (users: AppUser[], devices: PushDevicesByUid): Row[] =>
 				devices: registered.length,
 				isAppAdmin: candidate.isAppAdmin === true,
 			}),
+			byEmail:
+				emailConfigured &&
+				canEmail({ prefs: candidate.notificationPrefs, hasEmail: addressed.has(candidate.uid) }),
 		};
 	});
 
@@ -233,7 +266,7 @@ const Section = ({ title, rows, now, empty }: { title: string; rows: Row[]; now:
 	</section>
 );
 
-const PlayerRow = ({ row: { user, devices, reach }, now }: { row: Row; now: Date }) => {
+const PlayerRow = ({ row: { user, devices, reach, byEmail }, now }: { row: Row; now: Date }) => {
 	const install = summariseInstall(user, now);
 	const prefs = relevantPrefs(user.isAppAdmin === true);
 	// Absent means opted in, the same way the backend reads it — never show a
@@ -267,6 +300,12 @@ const PlayerRow = ({ row: { user, devices, reach }, now }: { row: Row; now: Date
 
 				<div className='mt-2 flex flex-wrap items-center gap-1.5'>
 					<StatusPill tone={REACH_TONE[reach]}>{REACH_LABEL[reach]}</StatusPill>
+
+					{/* Only where it changes the answer. Push reaching them
+					    already means the fallback never fires, so saying they
+					    also have an address would be noise on every row. */}
+					{reach === 'noDevice' && byEmail && <StatusPill tone='in'>Emailed instead</StatusPill>}
+
 					<StatusPill tone={install.tone}>{install.label}</StatusPill>
 
 					{/* Only the switched-off kinds. Three green pills on every

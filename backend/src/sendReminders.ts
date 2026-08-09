@@ -4,6 +4,8 @@ import type { Game, Season } from '../../shared/types';
 import { formatGameWhen } from '../../shared/format';
 import { db, REGION } from './lib/firebase';
 import { getResponses, getSilentMembers } from './lib/data';
+import { EMAIL_SECRETS } from './lib/email';
+import type { SendResult } from './lib/push';
 import { sendGamePush } from './lib/push';
 
 /**
@@ -15,16 +17,19 @@ import { sendGamePush } from './lib/push';
  * three days.
  */
 export const sendReminders = onSchedule(
-	{ schedule: 'every 60 minutes', timeZone: 'Europe/Stockholm', region: REGION },
+	{ schedule: 'every 60 minutes', timeZone: 'Europe/Stockholm', region: REGION, secrets: EMAIL_SECRETS },
 	async () => {
 		const now = Date.now();
 
 		const seasonsSnap = await db.collection('seasons').where('status', '==', 'active').get();
-		let totalSent = 0;
+		let pushed = 0;
+		let emailed = 0;
 
 		for (const seasonDoc of seasonsSnap.docs) {
 			try {
-				totalSent += await remindSeason({ ...seasonDoc.data(), id: seasonDoc.id } as Season, now);
+				const sent = await remindSeason({ ...seasonDoc.data(), id: seasonDoc.id } as Season, now);
+				pushed += sent.pushed;
+				emailed += sent.emailed;
 			} catch (error) {
 				// One malformed season must not cost every other season its
 				// reminders for the hour. Nothing retries this — the schedule is
@@ -33,19 +38,20 @@ export const sendReminders = onSchedule(
 			}
 		}
 
-		logger.info('Reminder sweep finished', { notificationsSent: totalSent });
+		logger.info('Reminder sweep finished', { pushed, emailed });
 	}
 );
 
-/** Returns how many notifications went out for this season. */
-const remindSeason = async (season: Season, now: number): Promise<number> => {
+/** Returns how many notifications went out for this season, by channel. */
+const remindSeason = async (season: Season, now: number): Promise<SendResult> => {
+	const sent: SendResult = { pushed: 0, emailed: 0 };
+
 	// A season saved before `reminderHours` existed, or hand-edited without it,
 	// used to throw here and take the whole sweep down with it.
 	const reminderHours = season.reminderHours ?? [];
-	if (reminderHours.length === 0) return 0;
+	if (reminderHours.length === 0) return sent;
 
 	const furthestOut = Math.max(...reminderHours);
-	let sent = 0;
 
 	// Only games between now and the earliest reminder window can possibly be
 	// due, so the query stays small however long the season is.
@@ -75,12 +81,15 @@ const remindSeason = async (season: Season, now: number): Promise<number> => {
 			const silent = getSilentMembers(season, responses);
 
 			if (silent.length > 0) {
-				sent += await sendGamePush(silent, 'reminder', {
+				const result = await sendGamePush(silent, 'reminder', {
 					when: formatGameWhen(game.kickoff, season.slot.timezone),
 					url: `/s/${season.id}/g/${game.id}`,
 					gameId: game.id,
 					playing: game.counts?.playing ?? 0,
 				});
+
+				sent.pushed += result.pushed;
+				sent.emailed += result.emailed;
 			}
 
 			// Record every window we've now passed, not just the one sent, so

@@ -17,6 +17,11 @@ dist/
 .env*.local
 *-service-account.json
 
+# ...except the functions' deploy-time parameters, which are not secrets and
+# which `firebase deploy` needs in the repo: a non-interactive deploy with a
+# declared param missing from a dotenv file fails rather than taking a default.
+!backend/.env
+
 # firebase
 .firebase/
 firebase-debug.log

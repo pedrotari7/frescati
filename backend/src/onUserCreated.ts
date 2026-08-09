@@ -4,6 +4,7 @@ import type { AppUser } from '../../shared/types';
 import { NOTIFICATION_PREF, buildNewPlayerPush } from '../../shared/notifications';
 import { REGION } from './lib/firebase';
 import { getAppAdminUids } from './lib/data';
+import { EMAIL_SECRETS } from './lib/email';
 import { sendPush } from './lib/push';
 
 /**
@@ -20,25 +21,28 @@ import { sendPush } from './lib/push';
  * written by the client on first sign-in, in one merge, so exactly one creation
  * event marks the moment somebody joins.
  */
-export const onUserCreated = onDocumentCreated({ document: 'users/{uid}', region: REGION }, async event => {
-	const user = event.data?.data() as AppUser | undefined;
-	if (!user) return;
+export const onUserCreated = onDocumentCreated(
+	{ document: 'users/{uid}', region: REGION, secrets: EMAIL_SECRETS },
+	async event => {
+		const user = event.data?.data() as AppUser | undefined;
+		if (!user) return;
 
-	const { uid } = event.params;
+		const { uid } = event.params;
 
-	// A profile that arrives already carrying the badge wasn't written by
-	// somebody signing in — the create rule forbids a client from granting
-	// itself `isAppAdmin`, so this is `setAppAdmin` or the bootstrap script
-	// promoting a uid that had no profile yet. Whoever did it already knows.
-	if (user.isAppAdmin) return;
+		// A profile that arrives already carrying the badge wasn't written by
+		// somebody signing in — the create rule forbids a client from granting
+		// itself `isAppAdmin`, so this is `setAppAdmin` or the bootstrap script
+		// promoting a uid that had no profile yet. Whoever did it already knows.
+		if (user.isAppAdmin) return;
 
-	const admins = await getAppAdminUids();
+		const admins = await getAppAdminUids();
 
-	const sent = await sendPush(
-		admins,
-		buildNewPlayerPush({ uid, displayName: user.displayName ?? '' }),
-		NOTIFICATION_PREF.newPlayer
-	);
+		const sent = await sendPush(
+			admins,
+			buildNewPlayerPush({ uid, displayName: user.displayName ?? '' }),
+			NOTIFICATION_PREF.newPlayer
+		);
 
-	logger.info('Notified app admins of a new player', { uid, admins: admins.length, sent });
-});
+		logger.info('Notified app admins of a new player', { uid, admins: admins.length, ...sent });
+	}
+);

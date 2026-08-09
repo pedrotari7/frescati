@@ -37,17 +37,23 @@ export const clearAuth = async (): Promise<void> => {
 /**
  * Creates a real Auth-emulator account. Needed wherever a function looks the
  * uid up through `getAuth()` — `setAppAdmin` most of all, which 404s a uid
- * with no account.
+ * with no account, and the email fallback, which reads the address from here
+ * because Firestore deliberately doesn't hold one.
+ *
+ * Verified by default, matching every account the app actually creates: sign-in
+ * is Google-only, and the seeder imports its cast the same way. Overridable,
+ * because "unverified" is a case the fallback has to refuse.
  */
 export const createAuthUser = async (
 	uid: string,
 	{
 		displayName = 'Test Player',
 		email,
+		emailVerified = true,
 		admin = false,
-	}: { displayName?: string; email?: string; admin?: boolean } = {}
+	}: { displayName?: string; email?: string; emailVerified?: boolean; admin?: boolean } = {}
 ): Promise<void> => {
-	await getAuth().createUser({ uid, displayName, email: email ?? `${uid}@example.test` });
+	await getAuth().createUser({ uid, displayName, email: email ?? `${uid}@example.test`, emailVerified });
 	if (admin) await getAuth().setCustomUserClaims(uid, { admin: true });
 };
 
@@ -174,8 +180,7 @@ export const snap = <T>(data: T) => ({ data: () => data });
  */
 export const paramsEvent = (params: Record<string, string>) => ({ params }) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-export const createdEvent = (params: Record<string, string>, data: unknown) =>
-	({ params, data: snap(data) }) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+export const createdEvent = (params: Record<string, string>, data: unknown) => ({ params, data: snap(data) }) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export const writtenEvent = (params: Record<string, string>, before: unknown, after: unknown) =>
 	({ params, data: { before: snap(before), after: snap(after) } }) as any; // eslint-disable-line @typescript-eslint/no-explicit-any

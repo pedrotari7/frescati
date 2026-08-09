@@ -56,7 +56,26 @@ Project: **`footballfrescati`**.
 
     A service account key works too, via `GOOGLE_APPLICATION_CREDENTIALS`, but ADC avoids putting a key file on disk.
 
-8. Wire up GitHub Actions — without this, the `deploy` job in `ci.yml` fails on your first push to `main`:
+8. **Create the `RESEND_API_KEY` secret.** Required before any functions deploy, whether or not you want the email fallback — the functions declare the secret, and a deploy that can't find it fails outright.
+
+    ```sh
+    firebase functions:secrets:set RESEND_API_KEY
+    ```
+
+    If you're not using email yet, give it any placeholder. Nothing is sent until `EMAIL_FROM` and `APP_URL` are filled in too, and in `backend/.env` they start empty.
+
+    **Then, to actually turn the fallback on:** push reaches nobody on an iPhone that was never added to the home screen, which in practice is most of the people who say they never get the reminders. Sign up at [resend.com](https://resend.com), verify the domain you'll send from, set the real key above, and fill in `backend/.env`:
+
+    ```sh
+    EMAIL_FROM=Frescati <notifications@your-domain.com>
+    APP_URL=https://your-vercel-domain.com
+    ```
+
+    Both are `defineString` parameters rather than secrets, which is why they are committed — see the comments in that file. Deploy the functions afterwards; a secret is only bound into a function at deploy time.
+
+    Check it by opening **You → Push debug** as an app admin on a device with notifications switched off: the send should report that it went to your email instead. **You → Notification status** says up front if no sender is configured.
+
+9. Wire up GitHub Actions — without this, the `deploy` job in `ci.yml` fails on your first push to `main`:
     - **Repo variables** (Settings → Secrets and variables → Actions → **Variables**): the same `NEXT_PUBLIC_FIREBASE_*` keys as `frontend/.env.local` (all except `VAPID_KEY`) — `frontend.yml` needs them to build the frontend in CI.
     - **Repo secret** (Settings → Secrets and variables → Actions → **Secrets**): `GCP_SA_KEY`, the JSON key of a service account that can deploy functions and rules:
 
@@ -71,7 +90,8 @@ Project: **`footballfrescati`**.
         for ROLE in roles/firebase.admin roles/cloudfunctions.admin roles/run.admin \
           roles/cloudbuild.builds.editor roles/artifactregistry.writer \
           roles/iam.serviceAccountUser roles/storage.admin \
-          roles/cloudtasks.admin roles/cloudscheduler.admin
+          roles/cloudtasks.admin roles/cloudscheduler.admin \
+          roles/secretmanager.admin
         do
           gcloud projects add-iam-policy-binding $PROJECT \
             --member="serviceAccount:${SA_EMAIL}" --role="$ROLE"
@@ -81,7 +101,7 @@ Project: **`footballfrescati`**.
           --iam-account=$SA_EMAIL
         ```
 
-        Paste `sa-key.json`'s contents into the `GCP_SA_KEY` secret, then delete the local file — gen2 functions deploy through Cloud Build, Artifact Registry and Cloud Run, so `firebase.admin` alone isn't enough. `cloudtasks.admin` and `cloudscheduler.admin` are needed too: `rebuildTeams` upserts its Cloud Tasks queue and `finaliseDueTournaments`/`sendReminders` upsert their Cloud Scheduler jobs on every deploy.
+        Paste `sa-key.json`'s contents into the `GCP_SA_KEY` secret, then delete the local file — gen2 functions deploy through Cloud Build, Artifact Registry and Cloud Run, so `firebase.admin` alone isn't enough. `cloudtasks.admin` and `cloudscheduler.admin` are needed too: `rebuildTeams` upserts its Cloud Tasks queue and `finaliseDueTournaments`/`sendReminders` upsert their Cloud Scheduler jobs on every deploy. `secretmanager.admin` is what lets the deploy read `RESEND_API_KEY` and grant the runtime service account access to it.
 
 ## Commands
 
@@ -155,6 +175,7 @@ The seeder never invents anything the app could work out for itself: counts come
 - **Cloud Tasks has no emulator.** `rebuildTeams` is normally queued; locally the same work runs in-process a couple of seconds after a response instead, so teams really do rebuild when you answer. See `enqueueTeamRebuild`.
 - **Scheduled functions never fire** — the emulator skips them without pubsub. `finaliseDueTournaments` and `sendReminders` therefore do nothing locally; confirming a night by hand still works, since that path is a callable.
 - **Push goes nowhere.** FCM is not emulated.
+- **Email goes nowhere either** — deliberately, in this case. `sendEmail` logs what it would have sent rather than calling Resend, so a `pnpm dev:seeded` run doesn't mail the entire seeded roster. The honest end-to-end test is **You → Push debug** in production.
 - Seeding while the Functions emulator is up sets off a few hundred triggers. The seeder waits them out and has the last word — which is why `pnpm seed` takes about thirty seconds with functions running and about five without.
 
 Set `NEXT_PUBLIC_USE_EMULATORS=1` in `.env.local` to point the app at the local emulators.
@@ -162,7 +183,8 @@ Set `NEXT_PUBLIC_USE_EMULATORS=1` in `.env.local` to point the app at the local 
 ## Deployment
 
 - **Frontend** → Vercel git integration. Set the same `NEXT_PUBLIC_FIREBASE_*` vars (see `frontend/.env.local.example`) in the Vercel project's Environment Variables. Root directory `frontend`, install command run from the repo root.
-- **Functions and rules** → GitHub Actions on push to `main` (`.github/workflows/ci.yml`) — see setup step 8 above for the repo variables and `GCP_SA_KEY` secret it needs.
+- **Functions and rules** → GitHub Actions on push to `main` (`.github/workflows/ci.yml`) — see setup step 9 above for the repo variables and `GCP_SA_KEY` secret it needs.
+- The deploy is **non-interactive**, which makes two things hard requirements rather than conveniences: every `defineSecret` must already exist in Secret Manager, and every `defineString` must have a value in `backend/.env`. Neither falls back to a default — the deploy just fails. That is why `backend/.env` is committed and why `RESEND_API_KEY` has to exist even on a project sending no email.
 
 ## Notes for future work
 

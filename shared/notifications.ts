@@ -1,13 +1,18 @@
 import type { NotificationPrefs } from './types';
 
 /**
- * Every push the app sends, built in one place.
+ * Every notification the app sends, built in one place.
  *
  * The payloads used to be written inline at each trigger, which was fine until
  * something needed to send one on purpose — a debug screen composing its own
  * copies would be a test of the copies, not of what players actually receive.
  * Same reasoning as the seeder deriving its data from `shared/` rather than
  * hand-writing it.
+ *
+ * Email is the same copy in a different envelope: `buildEmail` takes the push
+ * payload a trigger already built rather than the kind and context it was built
+ * from, so there is exactly one place a wording lives and no second channel to
+ * keep in step.
  */
 
 export interface PushPayload {
@@ -77,6 +82,10 @@ export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof
  * `newPlayers` is only ever sent to app admins, so for everybody else it is a
  * setting with nothing behind it — counting it would report a player as
  * partially muted for turning off something they were never going to get.
+ *
+ * `emailFallback` is deliberately absent: it picks a channel rather than a kind,
+ * and counting it here would report somebody who wants push and nothing else as
+ * partially muted.
  */
 export const relevantPrefs = (isAppAdmin: boolean): (keyof NotificationPrefs)[] =>
 	isAppAdmin ? ['reminders', 'gameChanges', 'newPlayers'] : ['reminders', 'gameChanges'];
@@ -112,6 +121,21 @@ export const getPushReach = ({
 
 	return on.length === relevant.length ? 'reachable' : 'partly';
 };
+
+/**
+ * Whether email would carry something a push could not.
+ *
+ * Needs an address to send to and the switch left on — and, like every
+ * preference here, absent means opted in. Kept separate from `getPushReach`
+ * rather than folded into it because the two answer different questions: that
+ * one is about a channel this person may simply not want, and a screen that
+ * conflated them could no longer say *which* of the two is silent.
+ *
+ * Says nothing about the kinds. A cancellation still needs `gameChanges` on;
+ * this only decides how it travels once it's going out at all.
+ */
+export const canEmail = ({ prefs, hasEmail }: { prefs?: NotificationPrefs; hasEmail: boolean }): boolean =>
+	hasEmail && prefs?.emailFallback !== false;
 
 type Copy = (context: GameNotificationContext) => { title: string; body: string };
 
@@ -176,3 +200,108 @@ export const buildNewPlayerPush = ({ uid, displayName }: NewPlayerContext): Push
 	tag: `new-player-${uid}`,
 	respondable: false,
 });
+
+/**
+ * The same notification, as an email.
+ *
+ * Built **from the push payload** rather than from the kind and context, which
+ * is the whole point: there is one set of copy, and an email can't drift from
+ * the notification it stands in for. It reads as second-class on purpose — a
+ * subject, the line that would have been on the lock screen, and a way in.
+ */
+export interface EmailPayload {
+	subject: string;
+	html: string;
+	/** Plain-text alternative. Not optional — a mail with only HTML scores as spam. */
+	text: string;
+}
+
+/**
+ * Everything in an email is interpolated into markup, and one of the bodies
+ * carries an admin's free-typed cancellation reason.
+ */
+const escapeHtml = (value: string): string =>
+	value
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+
+/**
+ * Hex rather than the `@theme` tokens every component uses.
+ *
+ * The one place in the app allowed to: an email is rendered by somebody else's
+ * mail client, where there is no stylesheet, no custom properties and often no
+ * `<style>` block at all — inline attributes on tables is the whole toolkit.
+ * Kept in step with `globals.css` by hand.
+ */
+const CANVAS = '#07080a';
+const SURFACE = '#0f1115';
+const LINE = '#262b34';
+const INK = '#f3f5f8';
+const MUTED = '#98a1b1';
+const FAINT = '#626b7a';
+const BRAND = '#3ddc84';
+const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+/**
+ * Absolute, because a mail client has no origin to resolve `/s/…` against.
+ *
+ * Trailing slashes on the configured base would otherwise produce `//s/…`,
+ * which some clients rewrite as a protocol-relative URL and send nowhere.
+ */
+const absolute = (appUrl: string, path: string): string => `${appUrl.replace(/\/+$/, '')}${path}`;
+
+export const buildEmail = (payload: PushPayload, { appUrl }: { appUrl: string }): EmailPayload => {
+	const link = absolute(appUrl, payload.url);
+	const settings = absolute(appUrl, '/me');
+	// `respondable` already marks the ones with a question in them, which is
+	// exactly when "open the app" has something for you to do.
+	const action = payload.respondable ? 'Say if you’re in' : 'Open Frescati';
+
+	const text = [
+		payload.title,
+		'',
+		payload.body,
+		'',
+		`${action}: ${link}`,
+		'',
+		'You’re getting this by email because Frescati couldn’t reach this account with a push notification.',
+		`Turn notifications on, or switch these emails off, at ${settings}`,
+	].join('\n');
+
+	const html = `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${CANVAS};margin:0;padding:24px 12px;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;background-color:${SURFACE};border:1px solid ${LINE};border-radius:16px;">
+        <tr>
+          <td style="padding:28px 24px;font-family:${FONT};">
+            <p style="margin:0 0 20px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${BRAND};">Frescati</p>
+            <h1 style="margin:0 0 10px;font-size:22px;line-height:1.3;font-weight:600;color:${INK};">${escapeHtml(payload.title)}</h1>
+            <p style="margin:0 0 24px;font-size:16px;line-height:1.5;color:${MUTED};">${escapeHtml(payload.body)}</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="border-radius:10px;background-color:${BRAND};">
+                  <a href="${escapeHtml(link)}" style="display:inline-block;padding:12px 22px;font-family:${FONT};font-size:15px;font-weight:600;color:${CANVAS};text-decoration:none;">${action}</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 24px 24px;font-family:${FONT};">
+            <p style="margin:0;padding-top:20px;border-top:1px solid ${LINE};font-size:12px;line-height:1.6;color:${FAINT};">
+              You’re getting this by email because Frescati couldn’t reach this account with a push notification.
+              <a href="${escapeHtml(settings)}" style="color:${MUTED};">Turn notifications on, or switch these emails off.</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>`.trim();
+
+	return { subject: payload.title, html, text };
+};

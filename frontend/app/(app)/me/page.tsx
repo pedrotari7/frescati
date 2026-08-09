@@ -34,8 +34,14 @@ const MePage = () => {
 
 	// The stored preferences, which apply to the account rather than this
 	// device — the backend checks them before sending anything.
+	//
+	// Merged over the defaults rather than swapped for them: a profile written
+	// before a preference existed is missing that key, and the backend reads
+	// absent as opted in. Falling back only when the whole map is missing would
+	// draw those switches off while notifications kept arriving — and saving any
+	// other row would then write the wrong value in.
 	const { user: profile } = useUser(uid ?? null);
-	const prefs = profile?.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS;
+	const prefs = { ...DEFAULT_NOTIFICATION_PREFS, ...profile?.notificationPrefs };
 
 	useEffect(() => {
 		checkPushSupport().then(setSupport);
@@ -108,11 +114,15 @@ const MePage = () => {
 						<p className='text-pending mb-4 text-sm'>
 							On iPhone and iPad, add Frescati to your home screen first — Safari only allows
 							notifications for installed apps.
+							{prefs.emailFallback && ' Until then these go to your email instead.'}
 						</p>
 					)}
 
 					{support === 'unsupported' && (
-						<p className='text-faint mb-4 text-sm'>This browser doesn&apos;t support notifications.</p>
+						<p className='text-faint mb-4 text-sm'>
+							This browser doesn&apos;t support notifications.
+							{prefs.emailFallback && ' These go to your email instead.'}
+						</p>
 					)}
 
 					{support === 'supported' &&
@@ -177,6 +187,27 @@ const MePage = () => {
 								}
 							/>
 						)}
+
+						{/* A channel rather than a kind, and the last row for
+						    that reason: it decides how the switches above
+						    travel, never what they cover. */}
+						<Toggle
+							label='Email me if notifications fail'
+							description={
+								user.email
+									? `Sends to ${user.email} when a notification can't reach your devices.`
+									: "Sends an email when a notification can't reach your devices."
+							}
+							checked={prefs.emailFallback}
+							disabled={!uid}
+							onChange={next =>
+								uid &&
+								write(
+									() => setNotificationPrefs(uid, { ...prefs, emailFallback: next }),
+									"Couldn't save that preference."
+								)
+							}
+						/>
 					</div>
 				</section>
 

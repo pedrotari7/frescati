@@ -1,27 +1,33 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { getPushDevices } from '../lib/db/pushDevices';
-import type { PushDevicesByUid } from '../lib/db/pushDevices';
-
-const NO_DEVICES: PushDevicesByUid = {};
+import { getNotificationReach } from '../lib/db/pushDevices';
+import type { NotificationReach } from '../lib/db/pushDevices';
 
 /**
- * Registered devices for everybody, fetched once.
+ * Nothing registered, nothing addressable, nothing configured — what every row
+ * reads as before the call comes back, and what it falls back to if the call
+ * fails. Erring towards "can't reach them" is the safe direction for a screen
+ * whose whole job is to find the people nothing arrives for.
+ */
+const NOTHING: NotificationReach = { devices: {}, addressed: new Set(), emailConfigured: false };
+
+/**
+ * How the app can reach everybody, fetched once.
  *
  * The only thing in the app that isn't realtime, because it is the only thing
- * that can't be: push tokens are unreadable from the client by design, so this
- * comes back from a callable rather than an `onSnapshot`. `reload` is what the
- * screen offers instead — an admin watching somebody turn notifications on over
- * the phone needs a way to ask again, and a refresh button is more honest than
- * a poll that hides how stale the answer is.
+ * that can't be: push tokens and email addresses are both unreadable from the
+ * client by design, so this comes back from a callable rather than an
+ * `onSnapshot`. `reload` is what the screen offers instead — an admin watching
+ * somebody turn notifications on over the phone needs a way to ask again, and a
+ * refresh button is more honest than a poll that hides how stale the answer is.
  *
  * `enabled` is false for anyone who isn't an app admin: the function would
  * reject them, and firing a call that is certain to fail just to render the
  * "admins only" screen puts a permission error in their console.
  */
 export const usePushDevices = (enabled: boolean) => {
-	const [devices, setDevices] = useState<PushDevicesByUid>(NO_DEVICES);
+	const [reach, setReach] = useState<NotificationReach>(NOTHING);
 	const [loading, setLoading] = useState(enabled);
 	const [error, setError] = useState<Error | null>(null);
 
@@ -31,11 +37,11 @@ export const usePushDevices = (enabled: boolean) => {
 		setLoading(true);
 
 		try {
-			setDevices(await getPushDevices());
+			setReach(await getNotificationReach());
 			setError(null);
 		} catch (caught) {
-			console.error('Could not load registered devices', caught);
-			setError(caught instanceof Error ? caught : new Error('Could not load registered devices'));
+			console.error('Could not load how the app reaches people', caught);
+			setError(caught instanceof Error ? caught : new Error('Could not load how the app reaches people'));
 		} finally {
 			setLoading(false);
 		}
@@ -50,5 +56,5 @@ export const usePushDevices = (enabled: boolean) => {
 		void reload();
 	}, [enabled, reload]);
 
-	return { devices, loading, error, reload };
+	return { reach, loading, error, reload };
 };

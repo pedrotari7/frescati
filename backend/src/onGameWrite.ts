@@ -4,6 +4,7 @@ import type { Game } from '../../shared/types';
 import { formatGameWhen } from '../../shared/format';
 import { REGION } from './lib/firebase';
 import { getResponses, getSeason, getSilentMembers, getUidsWhoSaidIn } from './lib/data';
+import { EMAIL_SECRETS } from './lib/email';
 import { sendGamePush } from './lib/push';
 import { enqueueTeamRebuild } from './lib/teams';
 
@@ -14,7 +15,7 @@ import { enqueueTeamRebuild } from './lib/teams';
  * itself, and it also fires on every `counts` update from `onResponseWrite`.
  */
 export const onGameWrite = onDocumentWritten(
-	{ document: 'seasons/{seasonId}/games/{gameId}', region: REGION },
+	{ document: 'seasons/{seasonId}/games/{gameId}', region: REGION, secrets: EMAIL_SECRETS },
 	async event => {
 		const before = event.data?.before.data() as Game | undefined;
 		const after = event.data?.after.data() as Game | undefined;
@@ -56,14 +57,14 @@ export const onGameWrite = onDocumentWritten(
 				cancelledReason: after.cancelledReason,
 			});
 
-			logger.info('Notified players of a cancellation', { seasonId, gameId, sent });
+			logger.info('Notified players of a cancellation', { seasonId, gameId, ...sent });
 			return;
 		}
 
 		if (before.status === 'cancelled' && after.status === 'scheduled') {
 			const sent = await sendGamePush(season.memberUids, 'restored', { when, url, gameId });
 
-			logger.info('Notified players a game was restored', { seasonId, gameId, sent });
+			logger.info('Notified players a game was restored', { seasonId, gameId, ...sent });
 			return;
 		}
 
@@ -75,7 +76,7 @@ export const onGameWrite = onDocumentWritten(
 
 			const sent = await sendGamePush(silent, 'atRisk', { when, url, gameId, shortBy });
 
-			logger.info('Notified silent members a game is at risk', { seasonId, gameId, sent });
+			logger.info('Notified silent members a game is at risk', { seasonId, gameId, ...sent });
 			return;
 		}
 
@@ -83,7 +84,7 @@ export const onGameWrite = onDocumentWritten(
 		if (before.kickoff !== after.kickoff && after.status === 'scheduled') {
 			const sent = await sendGamePush(getUidsWhoSaidIn(responses), 'kickoffMoved', { when, url, gameId });
 
-			logger.info('Notified players of a reschedule', { seasonId, gameId, sent });
+			logger.info('Notified players of a reschedule', { seasonId, gameId, ...sent });
 		}
 	}
 );

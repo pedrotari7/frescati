@@ -3,11 +3,14 @@ import {
 	GAME_NOTIFICATIONS,
 	NOTIFICATIONS,
 	NOTIFICATION_PREF,
+	buildEmail,
 	buildGamePush,
 	buildNewPlayerPush,
+	canEmail,
 	getPushReach,
 	relevantPrefs,
 } from './notifications';
+import { DEFAULT_NOTIFICATION_PREFS } from './types';
 
 const CONTEXT: GameNotificationContext = {
 	when: 'Tue 1 Sep · 19:00',
@@ -139,7 +142,7 @@ describe('NOTIFICATION_PREF', () => {
 });
 
 describe('getPushReach', () => {
-	const ALL_ON = { reminders: true, gameChanges: true, newPlayers: true };
+	const ALL_ON = { ...DEFAULT_NOTIFICATION_PREFS };
 
 	it('reaches somebody with a device and everything switched on', () => {
 		expect(getPushReach({ prefs: ALL_ON, devices: 1, isAppAdmin: false })).toBe('reachable');
@@ -158,7 +161,7 @@ describe('getPushReach', () => {
 		expect(getPushReach({ prefs: { ...ALL_ON, reminders: false }, devices: 2, isAppAdmin: false })).toBe('partly');
 		expect(
 			getPushReach({
-				prefs: { reminders: false, gameChanges: false, newPlayers: true },
+				prefs: { ...ALL_ON, reminders: false, gameChanges: false },
 				devices: 2,
 				isAppAdmin: false,
 			})
@@ -186,5 +189,94 @@ describe('relevantPrefs', () => {
 	it('hides the admin notice from everybody else', () => {
 		expect(relevantPrefs(false)).toEqual(['reminders', 'gameChanges']);
 		expect(relevantPrefs(true)).toEqual(['reminders', 'gameChanges', 'newPlayers']);
+	});
+
+	// It picks a channel, not a kind. Counted here, somebody who wants push and
+	// nothing else would show up on the admin screen as partially muted.
+	it('leaves the email fallback out — it is not a kind', () => {
+		expect(relevantPrefs(true)).not.toContain('emailFallback');
+	});
+});
+
+describe('canEmail', () => {
+	it('needs both an address and the switch left on', () => {
+		expect(canEmail({ prefs: DEFAULT_NOTIFICATION_PREFS, hasEmail: true })).toBe(true);
+		expect(canEmail({ prefs: DEFAULT_NOTIFICATION_PREFS, hasEmail: false })).toBe(false);
+		expect(canEmail({ prefs: { ...DEFAULT_NOTIFICATION_PREFS, emailFallback: false }, hasEmail: true })).toBe(
+			false
+		);
+	});
+
+	// Same as every other preference here: a profile written before this existed
+	// is opted in, not silently switched off.
+	it('treats a missing preference as opted in', () => {
+		expect(canEmail({ hasEmail: true })).toBe(true);
+	});
+});
+
+describe('buildEmail', () => {
+	const APP_URL = 'https://frescati.example';
+
+	it('carries the push copy through unchanged', () => {
+		const push = buildGamePush('cancelled', { ...CONTEXT, cancelledReason: 'frozen pitch' });
+		const email = buildEmail(push, { appUrl: APP_URL });
+
+		expect(email.subject).toBe('Game called off');
+		expect(email.text).toContain('Tue 1 Sep · 19:00 is off — frozen pitch');
+		expect(email.html).toContain('Tue 1 Sep · 19:00 is off — frozen pitch');
+	});
+
+	// A mail client has no origin to resolve `/s/…` against.
+	it('makes the deep link absolute', () => {
+		const email = buildEmail(buildGamePush('reminder', CONTEXT), { appUrl: APP_URL });
+
+		expect(email.text).toContain('https://frescati.example/s/spring/g/game-1');
+		expect(email.html).toContain('https://frescati.example/s/spring/g/game-1');
+	});
+
+	// `//s/…` reads as protocol-relative in some clients and goes nowhere.
+	it('does not double the slash when the base URL has a trailing one', () => {
+		const email = buildEmail(buildGamePush('reminder', CONTEXT), { appUrl: 'https://frescati.example/' });
+
+		expect(email.html).toContain('https://frescati.example/s/spring/g/game-1');
+		expect(email.html).not.toContain('example//s/');
+	});
+
+	// The cancellation reason is free text an admin types, interpolated straight
+	// into markup.
+	it('escapes the copy rather than pasting it into the markup', () => {
+		const push = buildGamePush('cancelled', { ...CONTEXT, cancelledReason: '<script>alert(1)</script>' });
+		const email = buildEmail(push, { appUrl: APP_URL });
+
+		expect(email.html).not.toContain('<script>');
+		expect(email.html).toContain('&lt;script&gt;');
+	});
+
+	it('offers a way in on every kind, and a way to switch these off', () => {
+		for (const kind of GAME_NOTIFICATIONS) {
+			const email = buildEmail(buildGamePush(kind, CONTEXT), { appUrl: APP_URL });
+
+			expect(email.subject.length).toBeGreaterThan(0);
+			expect(email.text).not.toContain('undefined');
+			expect(email.html).toContain('https://frescati.example/me');
+		}
+	});
+
+	// Nothing behind the admin notice can be answered, so inviting somebody to
+	// say whether they're in would open the app and do nothing — the same
+	// reasoning that keeps `respondable` off it.
+	it('asks for an answer only where there is one to give', () => {
+		expect(buildEmail(buildGamePush('reminder', CONTEXT), { appUrl: APP_URL }).text).toContain('Say if you’re in');
+		expect(buildEmail(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe' }), { appUrl: APP_URL }).text).toContain(
+			'Open Frescati'
+		);
+	});
+
+	// A mail with no plain-text alternative scores as spam.
+	it('always writes a plain-text alternative', () => {
+		const email = buildEmail(buildGamePush('atRisk', { ...CONTEXT, shortBy: 2 }), { appUrl: APP_URL });
+
+		expect(email.text).toContain('needs 2 more');
+		expect(email.text).not.toContain('<');
 	});
 });

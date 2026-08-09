@@ -175,6 +175,12 @@ const DEVICE_PROFILES: DeviceProfile[] = [
 	// the row above: this one only needs a nudge, not an explanation.
 	{ client: { platform: 'ios', standaloneHoursAgo: 50 } },
 
+	// No device and no email either — the only way left to be genuinely
+	// unreachable now that the fallback catches everybody else with nothing
+	// registered. Without this the admin screen's "Nothing gets through"
+	// section is empty in every seeded run.
+	{ client: { platform: 'desktop' }, prefs: { emailFallback: false } },
+
 	// Registered, then muted every kind. The devices are there and the pushes
 	// still go nowhere.
 	{

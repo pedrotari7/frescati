@@ -69,6 +69,19 @@ export interface NotificationPrefs {
 	 * revoked and a preference that vanished with it would forget its setting.
 	 */
 	newPlayers: boolean;
+	/**
+	 * Whether to fall back to email when a push can't be delivered.
+	 *
+	 * Not a kind, unlike the three above — it picks the *channel* for kinds
+	 * already switched on. Nothing is ever sent by email that wouldn't have been
+	 * sent as a push, so turning `reminders` off silences the reminder on both.
+	 *
+	 * On by default, and worth having a switch for at all because the people it
+	 * exists for are exactly the people who never turned push on: without this,
+	 * the only way to stop hearing from Frescati would be to switch off all three
+	 * kinds individually.
+	 */
+	emailFallback: boolean;
 }
 
 /**
@@ -77,7 +90,9 @@ export interface NotificationPrefs {
  * only ever see as strings.
  *
  * Deliberately holds no contact details. Email lives in Firebase Auth, which is
- * not readable from the client at all — see `frontend/lib/auth.tsx`.
+ * not readable from the client at all — see `frontend/lib/auth.tsx`. The email
+ * fallback reads it there with the Admin SDK rather than mirroring it here; a
+ * copy on this document would be a group-wide address book.
  */
 export interface AppUser {
 	uid: string;
@@ -430,4 +445,5 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
 	reminders: true,
 	gameChanges: true,
 	newPlayers: true,
+	emailFallback: true,
 };

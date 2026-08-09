@@ -11,6 +11,7 @@ import { NOTIFICATIONS, NOTIFICATION_PREF, buildGamePush, buildNewPlayerPush } f
 import { formatGameWhen } from '../../shared/format';
 import { db, REGION } from './lib/firebase';
 import { getGame, getSeason } from './lib/data';
+import { EMAIL_SECRETS } from './lib/email';
 import { sendPush } from './lib/push';
 
 /**
@@ -30,9 +31,13 @@ import { sendPush } from './lib/push';
  *     sends it down the same `sendPush`, preferences and dead-token cleanup
  *     included, rather than reaching for `messaging()` itself. A debug path
  *     that skips the checks stops testing the thing it is there to test.
+ *
+ * That last point is why it is also the only honest test of the email fallback:
+ * an admin with no device registered gets the mail here on exactly the terms a
+ * player would, and there is no Resend sandbox worth standing up locally.
  */
 export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; seasonId?: string; gameId?: string }>(
-	{ region: REGION },
+	{ region: REGION, secrets: EMAIL_SECRETS },
 	async request => {
 		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
 		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
@@ -68,11 +73,15 @@ export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; s
 			seasonId,
 			gameId,
 		});
-		const sent = await sendPush([uid], payload, NOTIFICATION_PREF[kind]);
+		const { pushed, emailed } = await sendPush([uid], payload, NOTIFICATION_PREF[kind]);
 
-		logger.info('Sent a test notification', { uid, kind, sent, devices: tokensSnap.size, prefEnabled });
+		logger.info('Sent a test notification', { uid, kind, pushed, emailed, devices: tokensSnap.size, prefEnabled });
 
-		return { sent, devices: tokensSnap.size, prefEnabled, payload };
+		// `sent` rather than `pushed` in the response: it is the field the screen
+		// has always read, and renaming it would only rename it back on the other
+		// side. `emailed` sits next to it because the fallback is invisible from
+		// the phone in exactly the way push is — the whole reason this exists.
+		return { sent: pushed, emailed, devices: tokensSnap.size, prefEnabled, payload };
 	}
 );
 

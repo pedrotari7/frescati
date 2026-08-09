@@ -1,7 +1,9 @@
+import { getAuth } from 'firebase-admin/auth';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import type { PushDevice, PushToken } from '../../shared/types';
 import { describeUserAgent } from '../../shared/device';
 import { db, REGION } from './lib/firebase';
+import { isEmailConfigured } from './lib/email';
 
 /**
  * Which devices each account has registered for push, for the admin
@@ -23,6 +25,12 @@ import { db, REGION } from './lib/firebase';
  * the rest of the app: this is a diagnostic screen an admin opens when somebody
  * says notifications aren't arriving, and a token appearing a few seconds late
  * changes nothing about the answer.
+ *
+ * Also reports which accounts have an address the email fallback could use, for
+ * the same reason and with the same restraint: a boolean, never the address.
+ * Without it the screen would have to guess, and it would guess wrong in both
+ * directions — claiming email reach on a project with no sender configured, or
+ * calling somebody unreachable who has been getting the mail all along.
  */
 export const getPushDevices = onCall({ region: REGION }, async request => {
 	if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
@@ -52,5 +60,32 @@ export const getPushDevices = onCall({ region: REGION }, async request => {
 	// nothing arrives is the one at the top of their row.
 	for (const list of Object.values(devices)) list.sort((a, b) => b.registeredAt.localeCompare(a.registeredAt));
 
-	return { devices };
+	return { devices, addressed: await getAddressedUids(), emailConfigured: isEmailConfigured() };
 });
+
+/**
+ * The uids the fallback has somewhere to write to.
+ *
+ * Auth is the only place an address lives — `users/{uid}` deliberately holds no
+ * contact details — so this pages the account list rather than reading
+ * Firestore. One page covers a football group several times over.
+ *
+ * Unverified addresses are left out, matching what `sendEmail` will actually
+ * do; a screen that counted them would promise a delivery that never happens.
+ */
+const getAddressedUids = async (): Promise<string[]> => {
+	const addressed: string[] = [];
+	let pageToken: string | undefined;
+
+	do {
+		const page = await getAuth().listUsers(1000, pageToken);
+
+		for (const user of page.users) {
+			if (user.email && user.emailVerified) addressed.push(user.uid);
+		}
+
+		pageToken = page.pageToken;
+	} while (pageToken);
+
+	return addressed;
+};
