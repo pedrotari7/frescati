@@ -2,7 +2,7 @@ import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import type { Game } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
-import { replayRatingsFrom } from './lib/finalise';
+import { requestRatingReplay } from './lib/finalise';
 
 /**
  * Deletes what Firestore leaves behind.
@@ -19,7 +19,10 @@ import { replayRatingsFrom } from './lib/finalise';
  */
 
 export const onGameDeleted = onDocumentDeleted(
-	{ document: 'seasons/{seasonId}/games/{gameId}', region: REGION },
+	// Long enough to finish a replay of the ladder, and — like every function
+	// that takes the lock — comfortably inside the lease, so a run that is
+	// killed at its timeout has already stopped writing before its lease frees.
+	{ document: 'seasons/{seasonId}/games/{gameId}', region: REGION, timeoutSeconds: 300 },
 	async event => {
 		const { seasonId, gameId } = event.params;
 		const game = event.data?.data() as Game | undefined;
@@ -45,17 +48,22 @@ export const onGameDeleted = onDocumentDeleted(
 		// there is nothing to unwind.
 		if (!game?.resultFinalisedAt) return;
 
-		await replayRatingsFrom(game.kickoffMillis ?? Date.parse(game.kickoff));
+		await requestRatingReplay(game.kickoffMillis ?? Date.parse(game.kickoff));
 	}
 );
 
 /**
  * Fires once for the season and lets the cascade take the games with it. Each
  * deleted game then trips `onGameDeleted` against an already-empty responses
- * collection — and, for a night that had been confirmed, a replay of the ladder
- * from that night forward. So a season unwinds one game at a time rather than
- * in a single pass: more invocations than strictly necessary, but it keeps one
- * path for "a rated game went away" instead of two that could disagree.
+ * collection — and, for a night that had been confirmed, asks for a replay of
+ * the ladder from that night forward.
+ *
+ * A season of confirmed nights therefore asks for as many replays as it has
+ * games, all at once, which is only survivable because those requests collapse:
+ * the first to take the ladder lock drains a floor the rest have lowered to the
+ * earliest kickoff among them, so the whole season unwinds in one pass. Keeping
+ * one path for "a rated game went away" beats a second, season-shaped one that
+ * could disagree with it.
  */
 export const onSeasonDeleted = onDocumentDeleted({ document: 'seasons/{seasonId}', region: REGION }, async event => {
 	const { seasonId } = event.params;

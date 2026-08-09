@@ -216,6 +216,10 @@ describe('onMatchWrite', () => {
 		expect(game?.resultFinalisedAt).toBeTruthy();
 	});
 
+	// Spied on `requestRatingReplay` rather than `replayRatingsFrom`: that is
+	// what the trigger calls, and the drain reaches the replay through a local
+	// binding a module spy would never see — so spying there would pass here
+	// whether or not the trigger had asked for anything.
 	it('does nothing for a match under a night that is not yet confirmed', async () => {
 		await setUpNight();
 		await writeNightMatches([
@@ -223,10 +227,39 @@ describe('onMatchWrite', () => {
 			[3, 1],
 			[1, 1],
 		]);
-		const replaySpy = jest.spyOn(finalise, 'replayRatingsFrom');
+		const replaySpy = jest.spyOn(finalise, 'requestRatingReplay');
 
 		await onMatchWrite.run(paramsEvent({ seasonId: SEASON_ID, gameId: GAME_ID, order: '0' }));
 
 		expect(replaySpy).not.toHaveBeenCalled();
+	});
+
+	// Three corrections to one night raise three of these. Before the ladder
+	// lock each ran its own rewind-and-replay, and they interleaved.
+	it('collapses a burst of corrections into a single replay', async () => {
+		await setUpNight();
+		await writeNightMatches([
+			[2, 1],
+			[3, 1],
+			[1, 1],
+		]);
+		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
+
+		await writeNightMatches([
+			[0, 3],
+			[1, 4],
+			[1, 1],
+		]);
+
+		await Promise.all(
+			['0', '1', '2'].map(order =>
+				onMatchWrite.run(paramsEvent({ seasonId: SEASON_ID, gameId: GAME_ID, order }))
+			)
+		);
+
+		// Whatever order they landed in, the ladder agrees with the scoreboard
+		// — and each player moved exactly one night's worth, not three.
+		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: 980, games: 1 });
+		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: 1020, games: 1 });
 	});
 });

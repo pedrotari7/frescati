@@ -16,6 +16,7 @@ import { getPositions, getStandings } from '../../../shared/standings';
 import { selectPlayedMatches } from '../../../shared/tournament';
 import { db } from './firebase';
 import { getGame, getSeason } from './data';
+import { clearPendingIfUnmoved, readPendingFrom, withDrainedLadderLock, withLadderLock } from './ladderLock';
 
 /**
  * Turning a scoreboard into ratings.
@@ -181,33 +182,94 @@ const clearGameRatings = async (seasonId: string, gameId: string): Promise<void>
 	]);
 };
 
+export type FinaliseOutcome = 'finalised' | 'nothing-to-rate' | 'already-finalised' | 'missing' | 'busy';
+
 /**
  * Confirm a night.
  *
  * Refuses an already-confirmed game rather than applying it twice — a second
  * application would rate the same result against the ratings the first one
  * produced, which is exactly the double-counting the replay exists to avoid.
+ *
+ * Held under the ladder lock, for two reasons. It reads every player's current
+ * rating and writes it back, so a replay rewinding underneath it would have it
+ * rate the night against ratings that were never real — and it writes a *new*
+ * ledger entry, which a replay already in flight never queried and so will not
+ * repair. And the read of `resultFinalisedAt` and the write that sets it are
+ * now one critical section, which is what stops two admins tapping Confirm at
+ * the same moment from both finding it unconfirmed and both applying it.
+ *
+ * `busy` rather than a throw when the lock never comes free: the callable turns
+ * it into something an admin can act on, and the hourly sweep simply leaves the
+ * night for next time.
  */
 export const finaliseGame = async (
 	seasonId: string,
 	gameId: string,
 	finalisedBy: string | null
-): Promise<'finalised' | 'nothing-to-rate' | 'already-finalised' | 'missing'> => {
-	const [game, season] = await Promise.all([getGame(seasonId, gameId), getSeason(seasonId)]);
+): Promise<FinaliseOutcome> => {
+	const outcome = await withLadderLock<FinaliseOutcome>(async () => {
+		const [game, season] = await Promise.all([getGame(seasonId, gameId), getSeason(seasonId)]);
 
-	if (!game || !season) return 'missing';
-	if (game.resultFinalisedAt) return 'already-finalised';
+		if (!game || !season) return 'missing';
+		if (game.resultFinalisedAt) return 'already-finalised';
 
-	const at = new Date().toISOString();
-	const ratings = await computeGameRatings(seasonId, gameId, season, at);
+		const at = new Date().toISOString();
+		const ratings = await computeGameRatings(seasonId, gameId, season, at);
 
-	if (!ratings) return 'nothing-to-rate';
+		if (!ratings) return 'nothing-to-rate';
 
-	await commitGameRatings(seasonId, gameId, ratings, game.kickoff, at, finalisedBy);
+		await commitGameRatings(seasonId, gameId, ratings, game.kickoff, at, finalisedBy);
 
-	logger.info('Finalised a night', { seasonId, gameId, players: ratings.changes.length, finalisedBy });
+		logger.info('Finalised a night', { seasonId, gameId, players: ratings.changes.length, finalisedBy });
 
-	return 'finalised';
+		return 'finalised';
+	});
+
+	return outcome ?? 'busy';
+};
+
+/**
+ * Ask for a replay from `fromMillis`, and run it unless somebody is already
+ * running one.
+ *
+ * **This is what triggers should call, not `replayRatingsFrom`.** A replay is
+ * background repair with nobody watching, and every caller wants the same work
+ * done — so one that finds the ladder busy records how far back it needs and
+ * leaves, and the holder drains that before letting go. The request is
+ * honoured; just not by the invocation that made it.
+ *
+ * Draining is a loop rather than a single pass because a request can arrive
+ * while the replay it would have made is already running, and it may need an
+ * earlier kickoff than the one being covered.
+ */
+export const requestRatingReplay = async (fromMillis: number): Promise<number> =>
+	withDrainedLadderLock(fromMillis, drainRatingReplays);
+
+/**
+ * Pick up a floor whose holder died before draining it.
+ *
+ * The lease frees itself after a crash, but nothing re-reads what the dead
+ * holder was asked to do — so without this a correction could be recorded and
+ * then quietly never applied until somebody happened to make another one. Run
+ * from the hourly sweep, which is already the app's answer to "what got
+ * missed".
+ */
+export const drainAbandonedReplays = async (): Promise<number> =>
+	(await readPendingFrom()) === null ? 0 : withDrainedLadderLock(undefined, drainRatingReplays);
+
+/** Replay whatever floor is outstanding, until none is. Assumes the lock is held. */
+const drainRatingReplays = async (): Promise<number> => {
+	let replayed = 0;
+
+	for (;;) {
+		const from = await readPendingFrom();
+		if (from === null) return replayed;
+
+		replayed += await replayRatingsFrom(from);
+
+		await clearPendingIfUnmoved(from);
+	}
 };
 
 /**
@@ -224,6 +286,11 @@ export const finaliseGame = async (
  * what makes this the whole answer to a deleted game as well as a corrected
  * one: the rewind needs the entry to still be there to be exact, so nothing may
  * remove it beforehand.
+ *
+ * **Does no locking of its own.** Between the rewind and the end of the replay
+ * the ladder is deliberately in a state nobody should read or write, so callers
+ * go through `requestRatingReplay`; this is left exported for the tests, which
+ * exercise the replay itself rather than who is allowed to start one.
  */
 export const replayRatingsFrom = async (fromMillis: number): Promise<number> => {
 	const entriesSnap = await db

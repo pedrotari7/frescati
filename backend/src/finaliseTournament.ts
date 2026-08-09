@@ -5,7 +5,7 @@ import { logger } from 'firebase-functions';
 import type { Game, Season } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
 import { AUTO_FINALISE_HOURS } from '../../shared/tournament';
-import { finaliseGame, replayRatingsFrom } from './lib/finalise';
+import { drainAbandonedReplays, finaliseGame, requestRatingReplay } from './lib/finalise';
 
 const isSeasonAdmin = async (seasonId: string, uid: string, isAppAdmin: boolean): Promise<boolean> => {
 	if (isAppAdmin) return true;
@@ -25,7 +25,7 @@ const isSeasonAdmin = async (seasonId: string, uid: string, isAppAdmin: boolean)
  * no API layer and doesn't want one, but `setAppAdmin` already establishes that
  * privileged actions arrive this way.
  */
-export const finaliseTournament = onCall({ region: REGION }, async request => {
+export const finaliseTournament = onCall({ region: REGION, timeoutSeconds: 300 }, async request => {
 	const uid = request.auth?.uid;
 	if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
 
@@ -45,6 +45,12 @@ export const finaliseTournament = onCall({ region: REGION }, async request => {
 	if (outcome === 'nothing-to-rate') {
 		throw new HttpsError('failed-precondition', 'Enter at least one score before confirming.');
 	}
+	// Somebody else's correction is being worked through the ladder. Nothing is
+	// wrong and nothing was applied — worth saying so plainly rather than
+	// leaving the button looking broken, because tapping again shortly works.
+	if (outcome === 'busy') {
+		throw new HttpsError('aborted', 'Ratings are being recalculated right now — try again in a moment.');
+	}
 
 	return { ok: true };
 });
@@ -59,41 +65,59 @@ export const finaliseTournament = onCall({ region: REGION }, async request => {
  * A night with no scores at all is left alone rather than confirmed empty: it
  * has nothing to say about anybody, and confirming it would only close the
  * scoreboard on a game somebody might still be about to fill in.
+ *
+ * Also the app's answer to a replay whose holder died mid-flight. The lease
+ * frees itself, but nothing re-reads what that holder had been asked to do, so
+ * a correction could sit recorded and unapplied until somebody happened to make
+ * another one. This already exists to catch what got missed.
  */
-export const finaliseDueTournaments = onSchedule({ schedule: 'every 1 hours', region: REGION }, async () => {
-	const cutoff = new Date(Date.now() - AUTO_FINALISE_HOURS * 3600_000).toISOString();
+export const finaliseDueTournaments = onSchedule(
+	{ schedule: 'every 1 hours', region: REGION, timeoutSeconds: 300 },
+	async () => {
+		const cutoff = new Date(Date.now() - AUTO_FINALISE_HOURS * 3600_000).toISOString();
 
-	// Games that kicked off before the cutoff and haven't been confirmed. The
-	// window's lower bound keeps this off the whole back catalogue every hour.
-	const floor = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+		// Games that kicked off before the cutoff and haven't been confirmed. The
+		// window's lower bound keeps this off the whole back catalogue every hour.
+		const floor = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
 
-	// Filtered on status as well as kickoff so this rides the collection-group
-	// index `sendReminders` already needs, rather than asking for another one.
-	// Cancelled nights have nothing to rate anyway.
-	const games = await db
-		.collectionGroup('games')
-		.where('status', '==', 'scheduled')
-		.where('kickoff', '>=', floor)
-		.where('kickoff', '<', cutoff)
-		.get();
+		// Filtered on status as well as kickoff so this rides the collection-group
+		// index `sendReminders` already needs, rather than asking for another one.
+		// Cancelled nights have nothing to rate anyway.
+		const games = await db
+			.collectionGroup('games')
+			.where('status', '==', 'scheduled')
+			.where('kickoff', '>=', floor)
+			.where('kickoff', '<', cutoff)
+			.get();
 
-	let finalised = 0;
+		let finalised = 0;
+		let busy = 0;
 
-	for (const doc of games.docs) {
-		const game = doc.data() as Game;
+		for (const doc of games.docs) {
+			const game = doc.data() as Game;
 
-		if (game.resultFinalisedAt) continue;
+			if (game.resultFinalisedAt) continue;
 
-		try {
-			if ((await finaliseGame(game.seasonId, doc.id, null)) === 'finalised') finalised++;
-		} catch (error) {
-			// One wedged night must not stop the rest of the week confirming.
-			logger.error('Could not auto-confirm a night', { seasonId: game.seasonId, gameId: doc.id, error });
+			try {
+				const outcome = await finaliseGame(game.seasonId, doc.id, null);
+
+				if (outcome === 'finalised') finalised++;
+				// The ladder was busy the whole time this waited. Nothing was
+				// applied and nothing is wrong; next hour will get it.
+				if (outcome === 'busy') busy++;
+			} catch (error) {
+				// One wedged night must not stop the rest of the week confirming.
+				logger.error('Could not auto-confirm a night', { seasonId: game.seasonId, gameId: doc.id, error });
+			}
 		}
-	}
 
-	logger.info('Auto-confirmed nights past their window', { checked: games.size, finalised });
-});
+		// Last, so a replay abandoned by a crashed holder is picked up after
+		// tonight's confirmations rather than being rewound by them.
+		const replayed = await drainAbandonedReplays();
+
+		logger.info('Auto-confirmed nights past their window', { checked: games.size, finalised, busy, replayed });
+	}
+);
 
 /**
  * Replays the ladder when a confirmed score is corrected.
@@ -101,12 +125,19 @@ export const finaliseDueTournaments = onSchedule({ schedule: 'every 1 hours', re
  * Only fires for games that are already confirmed — before that, scores move
  * constantly and nothing has been applied yet, so there is nothing to replay.
  *
- * The replay is idempotent, which is what makes it safe to run per write: an
- * admin fixing two scorelines triggers two replays and the second simply
- * arrives at the same answer.
+ * Fires **per match document**, so an admin fixing three scorelines raises
+ * three of these. `requestRatingReplay` is what makes that safe and cheap: the
+ * first to take the ladder lock does the work, the other two lower a floor it
+ * is already covering and return. Running the replay directly here would have
+ * had three rewinds interleaving with each other's forward passes, and the
+ * ladder would settle on an answer none of them computed.
  */
 export const onMatchWrite = onDocumentWritten(
-	{ document: 'seasons/{seasonId}/games/{gameId}/matches/{order}', region: REGION },
+	{
+		document: 'seasons/{seasonId}/games/{gameId}/matches/{order}',
+		region: REGION,
+		timeoutSeconds: 300,
+	},
 	async event => {
 		const { seasonId, gameId } = event.params;
 
@@ -117,6 +148,6 @@ export const onMatchWrite = onDocumentWritten(
 
 		logger.info('Replaying after a correction to a confirmed night', { seasonId, gameId });
 
-		await replayRatingsFrom(game.kickoffMillis ?? Date.parse(game.kickoff));
+		await requestRatingReplay(game.kickoffMillis ?? Date.parse(game.kickoff));
 	}
 );
