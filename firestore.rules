@@ -295,7 +295,17 @@ service cloud.firestore {
                                 && (isSeasonAdmin(seasonId)
                                     || (respondedToThisGame() && !isFinalised()));
 
-          allow delete: if isSeasonAdmin(seasonId);
+          // Removing a score is on the same terms as writing one. "Not played"
+          // is a real state and the absence of a document is the only thing
+          // that says it, so a night where somebody scored a match that never
+          // kicked off could not be put right by the people who were there.
+          //
+          // It hands nobody anything new: anyone who can overwrite a scoreline
+          // can already destroy what it recorded, and a plausible wrong score
+          // does more damage than a removal — it still counts towards the table
+          // and towards everyone's rating, where a gap is visible on screen.
+          allow delete: if isSeasonAdmin(seasonId)
+                           || (respondedToThisGame() && !isFinalised());
         }
 
         // ── responses ────────────────────────────────────────────────────────

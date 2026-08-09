@@ -851,11 +851,51 @@ describe('the scoreboard', () => {
 		await assertSucceeds(setDoc(doc(authed(SEASON_ADMIN), matchDoc(0)), aScore(SEASON_ADMIN, { scoreA: 9 })));
 	});
 
-	it('lets a season admin delete a match that never happened', async () => {
+	// Deleting is on the same terms as writing. "Not played" is a real state
+	// and only the absence of a document says it, so whoever scored a match
+	// that never kicked off has to be able to take it back.
+	it('lets a player clear a match that never happened', async () => {
 		await respond(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 
+		await assertSucceeds(deleteDoc(doc(authed(MEMBER), matchDoc(0))));
+	});
+
+	it('lets a player clear a score somebody else entered', async () => {
+		await respond(MEMBER, 'member');
+		await respond(OTHER_MEMBER, 'member');
+		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
+
+		await assertSucceeds(deleteDoc(doc(authed(OTHER_MEMBER), matchDoc(0))));
+	});
+
+	it('stops a signed-in stranger who never answered clearing a score', async () => {
+		await respond(MEMBER, 'member');
+		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
+
+		await assertFails(deleteDoc(doc(authed(EXTRA), matchDoc(0))));
+	});
+
+	it('closes clearing to players once the night is confirmed', async () => {
+		await respond(MEMBER, 'member');
+		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
+		await finalise();
+
 		await assertFails(deleteDoc(doc(authed(MEMBER), matchDoc(0))));
+	});
+
+	it('still lets a season admin delete a match from a confirmed night', async () => {
+		await respond(MEMBER, 'member');
+		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
+		await finalise();
+
+		await assertSucceeds(deleteDoc(doc(authed(SEASON_ADMIN), matchDoc(0))));
+	});
+
+	it('lets a season admin delete without having answered', async () => {
+		await respond(MEMBER, 'member');
+		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
+
 		await assertSucceeds(deleteDoc(doc(authed(SEASON_ADMIN), matchDoc(0))));
 	});
 
