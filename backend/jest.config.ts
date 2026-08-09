@@ -18,7 +18,7 @@ const config: Config = {
 		],
 	},
 	setupFiles: ['<rootDir>/backend/tests/setup.ts'],
-	setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+	setupFilesAfterEnv: ['<rootDir>/backend/tests/setupAfterEnv.ts'],
 	testTimeout: 20000,
 	maxWorkers: 1,
 	collectCoverage: false,
