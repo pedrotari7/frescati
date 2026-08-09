@@ -6,6 +6,7 @@ const customJestConfig: Config = {
 	transform: {
 		'^.+\\.tsx?$': ['ts-jest', { tsconfig: { module: 'commonjs', moduleResolution: 'node' } }],
 	},
+	setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
 	collectCoverage: true,
 	collectCoverageFrom: ['<rootDir>/shared/**/*.ts'],
 	coveragePathIgnorePatterns: ['.*__snapshots__/.*'],

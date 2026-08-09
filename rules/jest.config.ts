@@ -11,6 +11,7 @@ const config: Config = {
 	transform: {
 		'^.+\\.tsx?$': ['ts-jest', { tsconfig: { module: 'commonjs', moduleResolution: 'node' } }],
 	},
+	setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
 	testTimeout: 20000,
 	collectCoverage: false,
 };
