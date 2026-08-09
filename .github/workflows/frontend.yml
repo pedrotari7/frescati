@@ -29,4 +29,8 @@ jobs:
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID }}
           NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+          # A site key, not a secret — but absent, CI builds a bundle that sends
+          # no App Check token, and this workflow only builds to prove the app
+          # compiles. Vercel is where the deployed bundle gets its copy.
+          NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY }}
       - run: pnpm --filter frontend test

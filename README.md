@@ -103,6 +103,18 @@ Project: **`footballfrescati`**.
 
         Paste `sa-key.json`'s contents into the `GCP_SA_KEY` secret, then delete the local file — gen2 functions deploy through Cloud Build, Artifact Registry and Cloud Run, so `firebase.admin` alone isn't enough. `cloudtasks.admin` and `cloudscheduler.admin` are needed too: `rebuildTeams` upserts its Cloud Tasks queue and `finaliseDueTournaments`/`sendReminders` upsert their Cloud Scheduler jobs on every deploy. `secretmanager.admin` is what lets the deploy read `RESEND_API_KEY` and grant the runtime service account access to it.
 
+10. **Set up App Check**, which is what keeps a script holding this project's public config out of a database every read of which is a plain signed-in read. See "Who can see the group" for what it does and doesn't cover.
+
+    1. **Project settings → App Check → Apps →** your web app **→ reCAPTCHA Enterprise.** Register it, and put the **site key** in `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY` — in `frontend/.env.local`, in Vercel's environment variables, and as a repo variable for CI. It is public, like every other `NEXT_PUBLIC_` value.
+    2. Deploy the frontend and leave it alone for a few days. App Check starts in **monitoring** mode: tokens are collected and nothing is rejected. **Project settings → App Check → APIs** then shows the share of verified requests per service.
+    3. Only once Firestore reads **and** Cloud Functions calls are showing ~100% verified, switch **Enforce** on, one service at a time.
+
+    > Enforcing before that number is where it should be locks the live app out of Firestore, and the fix is a console change with no deploy behind it. Waiting costs nothing.
+
+    For `pnpm dev:live` — a localhost dev server against the real project — reCAPTCHA has no domain it recognises, so requests go out unattested and will be rejected once enforcement is on. Run it once with the site key set, take the debug token the SDK logs to the browser console, register it under **App Check → Apps → Manage debug tokens**, and put it in `NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN`. It is a standing exemption from the check, so it belongs in `.env.local` and nowhere near production.
+
+    `pnpm dev:seeded` needs none of this: the emulators don't verify App Check tokens, and the client skips it entirely when pointed at them.
+
 ## Commands
 
 |  |  |
@@ -179,6 +191,23 @@ The seeder never invents anything the app could work out for itself: counts come
 - Seeding while the Functions emulator is up sets off a few hundred triggers. The seeder waits them out and has the last word — which is why `pnpm seed` takes about thirty seconds with functions running and about five without.
 
 Set `NEXT_PUBLIC_USE_EMULATORS=1` in `.env.local` to point the app at the local emulators.
+
+## Who can see the group
+
+**Anyone with a Google account and the URL can sign in and read everything** — every season, its venue and street address, every kick-off time, the full squad, who has said they're playing, every score and every rating. There is no allowlist and no approval step. (Firebase Auth's _Authorized domains_ setting controls which domains may host the sign-in flow. It does not control who may sign in.)
+
+That is a deliberate choice, not an oversight. Extras are the point: anyone in the group can forward the link to somebody to fill a gap, and that person has to be able to find the game and put their hand up without an admin being awake. An approval queue for a group this size costs more than it buys.
+
+What it means in practice, so it can be reconsidered on purpose rather than discovered:
+
+- The venue address and the exact time a named group of people will be standing there are visible to anyone signed in.
+- A stranger signing in for the first time pushes every app admin — which is the intended alarm, and the reason `onUserCreated` exists.
+- An extra still **cannot** affect a headcount. `isConfirmed` requires a season admin's nod, so nobody can push a game over its minimum and silence the "short of players" nudge.
+- Nobody can read another person's contact details or push tokens. Addresses live in Firebase Auth and never touch Firestore; tokens are private to their owner. Those are the two things kept back, and the reasons are in `firestore.rules`.
+
+If this ever needs closing, the cheap version is an `approved` custom claim gating reads, mirroring how `admin` already works — free at the rules layer, because a claim is already in the token and costs no document read to check.
+
+**App Check** is the separate half of this and _is_ enabled: it attests that a request came from this app rather than from a script holding the same public config. It restricts software, not people, so it changes none of the above — see setup step 10.
 
 ## Deployment
 

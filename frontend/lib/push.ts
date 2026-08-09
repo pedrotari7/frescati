@@ -1,6 +1,6 @@
 import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
-import { app } from './firebaseClient';
+import { getFirebaseApp } from './firebaseClient';
 import { isIos, isStandalone } from './device';
 import { pushTokensCol } from './db/paths';
 
@@ -49,7 +49,7 @@ export const isPushEnabled = async (uid: string): Promise<boolean> => {
 	if ((await checkPushSupport()) !== 'supported') return false;
 
 	const registration = await navigator.serviceWorker.ready;
-	const token = await getToken(getMessaging(app), {
+	const token = await getToken(getMessaging(getFirebaseApp()), {
 		vapidKey: VAPID_KEY,
 		serviceWorkerRegistration: registration,
 	}).catch(() => null);
@@ -78,7 +78,7 @@ export const enablePush = async (uid: string): Promise<{ ok: boolean; reason?: s
 
 	const registration = await navigator.serviceWorker.ready;
 
-	const token = await getToken(getMessaging(app), {
+	const token = await getToken(getMessaging(getFirebaseApp()), {
 		vapidKey: VAPID_KEY,
 		// Reuse our worker rather than letting the SDK register its own.
 		serviceWorkerRegistration: registration,
@@ -100,7 +100,7 @@ export const enablePush = async (uid: string): Promise<{ ok: boolean; reason?: s
 export const disablePush = async (uid: string): Promise<void> => {
 	if (!VAPID_KEY) return;
 
-	const messaging = getMessaging(app);
+	const messaging = getMessaging(getFirebaseApp());
 	const registration = await navigator.serviceWorker.ready;
 
 	// Read the token before deleting it — afterwards there's nothing to look up.
