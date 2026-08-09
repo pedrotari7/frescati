@@ -218,6 +218,12 @@ export const finaliseGame = async (
  * The replay then runs in kickoff order, each night rated against the ratings
  * the night before it produced — which is the point, and the reason adjusting
  * only the corrected game would leave every later one wrong.
+ *
+ * A night whose game has since been deleted is rewound like any other and then
+ * simply not replayed, and its ledger entry is retired on the way past. That is
+ * what makes this the whole answer to a deleted game as well as a corrected
+ * one: the rewind needs the entry to still be there to be exact, so nothing may
+ * remove it beforehand.
  */
 export const replayRatingsFrom = async (fromMillis: number): Promise<number> => {
 	const entriesSnap = await db
@@ -242,12 +248,30 @@ export const replayRatingsFrom = async (fromMillis: number): Promise<number> => 
 	);
 
 	let replayed = 0;
+	let retired = 0;
 
 	for (const entry of entries) {
 		const [game, season] = await Promise.all([getGame(entry.seasonId, entry.gameId), getSeason(entry.seasonId)]);
 
+		// The game, or its whole season, has been deleted. The rewind above has
+		// already undone everything this night did, and there is nothing left to
+		// rate it from, so the entry goes too — otherwise it sits in the ledger
+		// forever, still carrying its `seasonId`, and the season table keeps
+		// counting a night nobody can open as an appearance and a win.
+		//
+		// Retired here rather than at the deletion, so there is one place that
+		// knows how to unwind a rated night — and so a ledger already holding
+		// orphans from before anything cleaned up after a deletion heals itself
+		// the next time a replay walks over them.
+		//
+		// Deleted directly rather than through `clearGameRatings`, which updates
+		// the game document to drop `resultFinalisedAt` and would fail the whole
+		// batch against a document that no longer exists.
 		if (!game || !season) {
-			logger.warn('Skipped a ledger entry whose game has gone', {
+			await db.doc(`ratingLedger/${entry.gameId}`).delete();
+			retired++;
+
+			logger.info('Retired a ledger entry whose game has gone', {
 				seasonId: entry.seasonId,
 				gameId: entry.gameId,
 			});
@@ -276,7 +300,7 @@ export const replayRatingsFrom = async (fromMillis: number): Promise<number> => 
 		replayed++;
 	}
 
-	logger.info('Replayed ratings', { fromMillis, entries: entries.length, replayed });
+	logger.info('Replayed ratings', { fromMillis, entries: entries.length, replayed, retired });
 
 	return replayed;
 };

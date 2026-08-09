@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import type { Game } from '@shared/types';
 import { diffGeneratedGames, generateGameDates } from '@shared/schedule';
 import { getGameLifecycle } from '@shared/game';
 import { formatGameDate, formatGameTime } from '@shared/format';
@@ -17,6 +18,28 @@ import EmptyState from '../../../../../../components/EmptyState';
 import Button from '../../../../../../components/Button';
 import StatusPill from '../../../../../../components/StatusPill';
 import { Field, TextInput } from '../../../../../../components/Field';
+
+/**
+ * What deleting this game actually costs.
+ *
+ * A confirmed night is the part worth spelling out: the ratings it gave
+ * everybody are taken back and every night played since is worked out again,
+ * because each of those was rated against the ratings this one produced. None
+ * of that is what "delete a game" sounds like it does.
+ */
+const describeDeletion = (game: Game): string => {
+	const answers = game.counts.membersIn + game.counts.membersOut + game.counts.extrasIn + game.counts.extrasOut;
+
+	return [
+		game.resultFinalisedAt &&
+			'These results are confirmed, so the ratings they gave everyone are taken back and every night played since is worked out again.',
+		answers > 0 &&
+			`${answers} ${answers === 1 ? 'answer goes' : 'answers go'} with it. Cancelling the game instead keeps them.`,
+		"This can't be undone.",
+	]
+		.filter(Boolean)
+		.join(' ');
+};
 
 const AdminGamesPage = () => {
 	const { user } = useAuth();
@@ -216,18 +239,9 @@ const AdminGamesPage = () => {
 										size='sm'
 										variant='danger'
 										onClick={async () => {
-											const answers =
-												game.counts.membersIn +
-												game.counts.membersOut +
-												game.counts.extrasIn +
-												game.counts.extrasOut;
-
 											const ok = await confirm({
 												title: `Delete ${formatGameDate(game.kickoff, season.slot.timezone)}?`,
-												message:
-													answers > 0
-														? `${answers} ${answers === 1 ? 'answer goes' : 'answers go'} with it, and this can't be undone. Cancelling the game instead keeps them.`
-														: "This can't be undone.",
+												message: describeDeletion(game),
 												confirmLabel: 'Delete',
 												tone: 'danger',
 											});

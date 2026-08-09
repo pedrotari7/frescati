@@ -182,6 +182,14 @@ export const paramsEvent = (params: Record<string, string>) => ({ params }) as a
 
 export const createdEvent = (params: Record<string, string>, data: unknown) => ({ params, data: snap(data) }) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
+/**
+ * Structurally identical to a create event: a delete carries the document as it
+ * was immediately before it went, in the same `event.data` slot. Named
+ * separately because reading `createdEvent` in a deletion test says the wrong
+ * thing about what the handler is being handed.
+ */
+export const deletedEvent = createdEvent;
+
 export const writtenEvent = (params: Record<string, string>, before: unknown, after: unknown) =>
 	({ params, data: { before: snap(before), after: snap(after) } }) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
