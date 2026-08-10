@@ -1,4 +1,4 @@
-import { deleteDoc, doc, onSnapshot, orderBy, query, updateDoc, writeBatch } from 'firebase/firestore';
+import { deleteDoc, deleteField, doc, onSnapshot, orderBy, query, updateDoc, writeBatch } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { Game, Season, Venue } from '@shared/types';
 import { EMPTY_COUNTS } from '@shared/types';
@@ -115,7 +115,14 @@ export const updateVenueForUpcomingGames = async (seasonId: string, games: Game[
 export const cancelGame = (seasonId: string, gameId: string, reason: string) =>
 	updateDoc(gameDoc(seasonId, gameId), { status: 'cancelled', cancelledReason: reason });
 
+/**
+ * The reason is removed rather than blanked. Every reader already treats an
+ * empty string as no reason — so this changes nothing today — but "no reason
+ * given" then has two spellings, and which one a game carries depends on
+ * whether it was ever cancelled. Absence is the state everywhere else here: no
+ * response document means no response, no match document means not played.
+ */
 export const restoreGame = (seasonId: string, gameId: string) =>
-	updateDoc(gameDoc(seasonId, gameId), { status: 'scheduled', cancelledReason: '' });
+	updateDoc(gameDoc(seasonId, gameId), { status: 'scheduled', cancelledReason: deleteField() });
 
 export const deleteGame = (seasonId: string, gameId: string) => deleteDoc(gameDoc(seasonId, gameId));

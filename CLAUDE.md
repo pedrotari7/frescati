@@ -21,7 +21,7 @@ Mobile-first PWA for running a recurring football group. A **season** defines a 
 
 - The shell exports an `npm_config_registry` pointing at Spotify's artifactory, which overrides `.npmrc`. Prefix installs with `npm_config_registry=https://registry.npmjs.org/`.
 - `firebase-tools` needs **JDK 21+** and the default `java` here is 17. `scripts/emulators.sh` finds a newer one, and every emulator script goes through it — so no `JAVA_HOME` prefix is needed. A raw `firebase emulators:*` still does.
-- `pnpm test` runs the pure `shared/` suites. `pnpm test:rules` runs the Firestore rules suite against the emulator — run it after **any** change to `firestore.rules`.
+- `pnpm test` runs the pure `shared/` suites **and nothing else** — green there says nothing about the frontend, the rules or the functions. `pnpm test:all` runs all four; it needs ports 8080/9099, so stop `dev:seeded` first. `pnpm test:rules` after **any** change to `firestore.rules`, `pnpm test:backend` after any change under `backend/src`.
 
 ## Architecture
 

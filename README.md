@@ -122,8 +122,11 @@ Project: **`footballfrescati`**.
 | `pnpm dev:seeded` | **the whole local stack in one command** — emulators, seeded data, dev server |
 | `pnpm dev:live` | dev server against the real Firebase project |
 | `pnpm dev` | dev server against whatever `frontend/.env.local` says |
-| `pnpm test` | pure domain tests (`shared/`) |
+| `pnpm test` | pure domain tests (`shared/`) — **this is not all the tests**, see `test:all` |
+| `pnpm test:all` | all four suites: shared, frontend, rules, backend. Needs ports 8080/9099 free, so stop `dev:seeded` first |
+| `pnpm test:frontend` | components and hooks (jsdom, no emulator) |
 | `pnpm test:rules` | security rules against the Firestore emulator — **run after any `firestore.rules` change** |
+| `pnpm test:backend` | the Cloud Functions against the Firestore + Auth emulators |
 | `pnpm emulators` | Auth + Firestore + Functions emulators, on their own |
 | `pnpm seed` | fill already-running emulators with a scenario — see below |
 | `pnpm build` / `pnpm lint` | both workspaces |
