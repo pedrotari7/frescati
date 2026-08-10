@@ -4,6 +4,7 @@ import { db, REGION } from './lib/firebase';
 import { getSeason } from './lib/data';
 import { recountGame } from './lib/recount';
 import { enqueueTeamRebuild } from './lib/teams';
+import { instrument } from './lib/sentry';
 
 /**
  * Keeps `counts` and `atRisk` on the game document in step with its responses.
@@ -26,7 +27,7 @@ import { enqueueTeamRebuild } from './lib/teams';
  */
 export const onResponseWrite = onDocumentWritten(
 	{ document: 'seasons/{seasonId}/games/{gameId}/responses/{uid}', region: REGION },
-	async event => {
+	instrument('onResponseWrite', async event => {
 		const { seasonId, gameId } = event.params;
 
 		// Read outside the transaction: the season isn't part of the contended
@@ -48,5 +49,5 @@ export const onResponseWrite = onDocumentWritten(
 		// headcount, not on the team sheet, and the optimiser is the one part of
 		// this that gets slower the better the turnout.
 		await enqueueTeamRebuild({ seasonId, gameId, generation: result.teamsGeneration });
-	}
+	})
 );

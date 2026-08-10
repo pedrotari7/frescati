@@ -8,6 +8,7 @@ import { getResponses, getSeason, getUidsWhoSaidIn } from './lib/data';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendGamePush } from './lib/push';
 import { enqueueTeamRebuild } from './lib/teams';
+import { instrument, reportError } from './lib/sentry';
 
 /**
  * Keeps the numeric mirror in step with the instant it mirrors.
@@ -41,7 +42,7 @@ const repairKickoffMirror = async (seasonId: string, gameId: string, game: Game)
 	} catch (error) {
 		// Deleted between the write and this running, most likely. Not worth
 		// failing the notifications this trigger is mainly here to send.
-		logger.error('Could not repair a drifted kickoffMillis', { seasonId, gameId, error });
+		reportError('Could not repair a drifted kickoffMillis', { seasonId, gameId }, error);
 	}
 };
 
@@ -58,7 +59,7 @@ const repairKickoffMirror = async (seasonId: string, gameId: string, game: Game)
  */
 export const onGameWrite = onDocumentWritten(
 	{ document: 'seasons/{seasonId}/games/{gameId}', region: REGION, secrets: EMAIL_SECRETS },
-	async event => {
+	instrument('onGameWrite', async event => {
 		const before = event.data?.before.data() as Game | undefined;
 		const after = event.data?.after.data() as Game | undefined;
 		const { seasonId, gameId } = event.params;
@@ -133,5 +134,5 @@ export const onGameWrite = onDocumentWritten(
 
 			logger.info('Notified players of a reschedule', { seasonId, gameId, ...sent });
 		}
-	}
+	})
 );

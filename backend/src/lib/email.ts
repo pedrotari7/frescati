@@ -5,6 +5,7 @@ import type { NotificationPrefs } from '../../../shared/types';
 import type { PushPayload } from '../../../shared/notifications';
 import { buildEmail, canEmail } from '../../../shared/notifications';
 import { db } from './firebase';
+import { reportError } from './sentry';
 
 /**
  * The email fallback: what somebody gets when a push couldn't reach them.
@@ -164,7 +165,13 @@ export const sendEmail = async (uids: string[], payload: PushPayload): Promise<n
 			if (!response.ok) {
 				// The body carries which address Resend objected to, which is the
 				// only way to tell a bad sender domain from one bounced player.
-				logger.error('Resend rejected a batch', { status: response.status, body: await response.text() });
+				// Synthesised into an Error so the report groups by status rather
+				// than by whichever address happened to be in the body.
+				reportError(
+					'Resend rejected a batch',
+					{ status: response.status, body: await response.text() },
+					new Error(`Resend responded ${response.status}`)
+				);
 				continue;
 			}
 
@@ -173,7 +180,7 @@ export const sendEmail = async (uids: string[], payload: PushPayload): Promise<n
 			// A notification is not worth failing the trigger that raised it: the
 			// push has already gone out, and throwing here would retry the whole
 			// thing and re-push everybody who *was* reachable.
-			logger.error('Could not reach Resend', { error });
+			reportError('Could not reach Resend', {}, error);
 		}
 	}
 

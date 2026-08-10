@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions';
 import type { Game } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
 import { requestRatingReplay } from './lib/finalise';
+import { instrument } from './lib/sentry';
 
 /**
  * Deletes what Firestore leaves behind.
@@ -23,7 +24,7 @@ export const onGameDeleted = onDocumentDeleted(
 	// that takes the lock — comfortably inside the lease, so a run that is
 	// killed at its timeout has already stopped writing before its lease frees.
 	{ document: 'seasons/{seasonId}/games/{gameId}', region: REGION, timeoutSeconds: 300 },
-	async event => {
+	instrument('onGameDeleted', async event => {
 		const { seasonId, gameId } = event.params;
 		const game = event.data?.data() as Game | undefined;
 
@@ -49,7 +50,7 @@ export const onGameDeleted = onDocumentDeleted(
 		if (!game?.resultFinalisedAt) return;
 
 		await requestRatingReplay(game.kickoffMillis ?? Date.parse(game.kickoff));
-	}
+	})
 );
 
 /**
@@ -65,10 +66,13 @@ export const onGameDeleted = onDocumentDeleted(
  * one path for "a rated game went away" beats a second, season-shaped one that
  * could disagree with it.
  */
-export const onSeasonDeleted = onDocumentDeleted({ document: 'seasons/{seasonId}', region: REGION }, async event => {
-	const { seasonId } = event.params;
+export const onSeasonDeleted = onDocumentDeleted(
+	{ document: 'seasons/{seasonId}', region: REGION },
+	instrument('onSeasonDeleted', async event => {
+		const { seasonId } = event.params;
 
-	await db.recursiveDelete(db.doc(`seasons/${seasonId}`));
+		await db.recursiveDelete(db.doc(`seasons/${seasonId}`));
 
-	logger.info('Cleaned up after a deleted season', { seasonId });
-});
+		logger.info('Cleaned up after a deleted season', { seasonId });
+	})
+);

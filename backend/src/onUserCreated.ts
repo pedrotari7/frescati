@@ -6,6 +6,7 @@ import { REGION } from './lib/firebase';
 import { getAppAdminUids } from './lib/data';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendPush } from './lib/push';
+import { instrument } from './lib/sentry';
 
 /**
  * Tells the app admins when somebody signs in for the first time.
@@ -23,7 +24,7 @@ import { sendPush } from './lib/push';
  */
 export const onUserCreated = onDocumentCreated(
 	{ document: 'users/{uid}', region: REGION, secrets: EMAIL_SECRETS },
-	async event => {
+	instrument('onUserCreated', async event => {
 		const user = event.data?.data() as AppUser | undefined;
 		if (!user) return;
 
@@ -44,5 +45,5 @@ export const onUserCreated = onDocumentCreated(
 		);
 
 		logger.info('Notified app admins of a new player', { uid, admins: admins.length, ...sent });
-	}
+	})
 );

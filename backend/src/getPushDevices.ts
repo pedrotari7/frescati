@@ -4,6 +4,7 @@ import type { PushDevice, PushToken } from '../../shared/types';
 import { describeUserAgent } from '../../shared/device';
 import { db, REGION } from './lib/firebase';
 import { isEmailConfigured } from './lib/email';
+import { instrument } from './lib/sentry';
 
 /**
  * Which devices each account has registered for push, for the admin
@@ -32,36 +33,39 @@ import { isEmailConfigured } from './lib/email';
  * directions — claiming email reach on a project with no sender configured, or
  * calling somebody unreachable who has been getting the mail all along.
  */
-export const getPushDevices = onCall({ region: REGION }, async request => {
-	if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-	if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
+export const getPushDevices = onCall<void>(
+	{ region: REGION },
+	instrument('getPushDevices', async request => {
+		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
 
-	const snapshot = await db.collectionGroup('pushTokens').get();
+		const snapshot = await db.collectionGroup('pushTokens').get();
 
-	const devices: Record<string, PushDevice[]> = {};
+		const devices: Record<string, PushDevice[]> = {};
 
-	for (const token of snapshot.docs) {
-		// `users/{uid}/pushTokens/{token}` — the grandparent is the account. A
-		// collection group query can only be scoped by collection id, so the uid
-		// comes off the path rather than out of the document.
-		const uid = token.ref.parent.parent?.id;
-		if (!uid) continue;
+		for (const token of snapshot.docs) {
+			// `users/{uid}/pushTokens/{token}` — the grandparent is the account. A
+			// collection group query can only be scoped by collection id, so the uid
+			// comes off the path rather than out of the document.
+			const uid = token.ref.parent.parent?.id;
+			if (!uid) continue;
 
-		const data = token.data() as Partial<PushToken>;
+			const data = token.data() as Partial<PushToken>;
 
-		devices[uid] ??= [];
-		devices[uid].push({
-			...describeUserAgent(data.userAgent ?? ''),
-			registeredAt: data.createdAt ?? '',
-		});
-	}
+			devices[uid] ??= [];
+			devices[uid].push({
+				...describeUserAgent(data.userAgent ?? ''),
+				registeredAt: data.createdAt ?? '',
+			});
+		}
 
-	// Newest first, so the device somebody is holding while they complain that
-	// nothing arrives is the one at the top of their row.
-	for (const list of Object.values(devices)) list.sort((a, b) => b.registeredAt.localeCompare(a.registeredAt));
+		// Newest first, so the device somebody is holding while they complain that
+		// nothing arrives is the one at the top of their row.
+		for (const list of Object.values(devices)) list.sort((a, b) => b.registeredAt.localeCompare(a.registeredAt));
 
-	return { devices, addressed: await getAddressedUids(), emailConfigured: isEmailConfigured() };
-});
+		return { devices, addressed: await getAddressedUids(), emailConfigured: isEmailConfigured() };
+	})
+);
 
 /**
  * The uids the fallback has somewhere to write to.

@@ -2,6 +2,7 @@ import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { REGION } from './lib/firebase';
 import { runTeamRebuild } from './lib/rebuild';
 import type { TeamRebuildTask } from './lib/rebuild';
+import { instrument } from './lib/sentry';
 
 /**
  * Re-pick the teams for one game.
@@ -22,5 +23,5 @@ export const rebuildTeams = onTaskDispatched<TeamRebuildTask>(
 		// already deferred — and this keeps a busy Sunday from fanning out.
 		rateLimits: { maxConcurrentDispatches: 4 },
 	},
-	request => runTeamRebuild(request.data)
+	instrument('rebuildTeams', request => runTeamRebuild(request.data))
 );

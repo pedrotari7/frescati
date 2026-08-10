@@ -4,6 +4,7 @@ import type { Season } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
 import { recountGame } from './lib/recount';
 import { enqueueTeamRebuild } from './lib/teams';
+import { instrument, reportError } from './lib/sentry';
 
 const sameMembers = (before: string[] = [], after: string[] = []): boolean =>
 	before.length === after.length && [...before].sort().join() === [...after].sort().join();
@@ -80,7 +81,7 @@ const gamesHoldingAnswersFrom = async (seasonId: string, uids: string[]): Promis
  */
 export const onSeasonWrite = onDocumentWritten(
 	{ document: 'seasons/{seasonId}', region: REGION, timeoutSeconds: 300 },
-	async event => {
+	instrument('onSeasonWrite', async event => {
 		const before = event.data?.before.data() as Season | undefined;
 		const after = event.data?.after.data() as Season | undefined;
 
@@ -128,7 +129,7 @@ export const onSeasonWrite = onDocumentWritten(
 			} catch (error) {
 				// One wedged game must not strand the rest of the calendar with a
 				// roster that no longer matches the squad.
-				logger.error('Could not repair a game after a roster change', { seasonId, gameId: gameDoc.id, error });
+				reportError('Could not repair a game after a roster change', { seasonId, gameId: gameDoc.id }, error);
 			}
 		};
 
@@ -147,5 +148,5 @@ export const onSeasonWrite = onDocumentWritten(
 			moved: moved.length,
 			members: after.memberUids.length,
 		});
-	}
+	})
 );

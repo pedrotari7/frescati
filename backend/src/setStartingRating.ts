@@ -5,6 +5,7 @@ import type { AppUser, GameResponse } from '../../shared/types';
 import { createStartingRating, fromDisplayRating, hasPlayed } from '../../shared/rating';
 import { db, REGION } from './lib/firebase';
 import { invalidateTeams } from './lib/teams';
+import { instrument } from './lib/sentry';
 
 /**
  * Giving somebody a starting rating, before the ladder has had its say.
@@ -90,68 +91,71 @@ const gamesToRepick = async (uid: string): Promise<{ seasonId: string; gameId: s
 	return affected;
 };
 
-export const setStartingRating = onCall<{ uid: string; rating: number | null }>({ region: REGION }, async request => {
-	if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-	if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
+export const setStartingRating = onCall<{ uid: string; rating: number | null }>(
+	{ region: REGION },
+	instrument('setStartingRating', async request => {
+		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
 
-	const { uid, rating } = request.data;
-	if (!uid) throw new HttpsError('invalid-argument', 'A uid is required.');
+		const { uid, rating } = request.data;
+		if (!uid) throw new HttpsError('invalid-argument', 'A uid is required.');
 
-	// `null` clears it; anything else has to be a real number on the scale the
-	// admin was shown. Checked rather than clamped, because a request carrying
-	// 500 is a bug somewhere and quietly storing 100 would hide it.
-	if (rating !== null && (typeof rating !== 'number' || !Number.isFinite(rating))) {
-		throw new HttpsError('invalid-argument', 'A rating must be a number, or null to clear it.');
-	}
+		// `null` clears it; anything else has to be a real number on the scale the
+		// admin was shown. Checked rather than clamped, because a request carrying
+		// 500 is a bug somewhere and quietly storing 100 would hide it.
+		if (rating !== null && (typeof rating !== 'number' || !Number.isFinite(rating))) {
+			throw new HttpsError('invalid-argument', 'A rating must be a number, or null to clear it.');
+		}
 
-	if (rating !== null && (rating < MIN_DISPLAY || rating > MAX_DISPLAY)) {
-		throw new HttpsError('invalid-argument', `A rating must be between ${MIN_DISPLAY} and ${MAX_DISPLAY}.`);
-	}
+		if (rating !== null && (rating < MIN_DISPLAY || rating > MAX_DISPLAY)) {
+			throw new HttpsError('invalid-argument', `A rating must be between ${MIN_DISPLAY} and ${MAX_DISPLAY}.`);
+		}
 
-	// The profile has to exist. Unlike `setAppAdmin`, which can promote
-	// somebody who has never opened the app, there is nothing to rate about an
-	// account with no profile — and creating one here to hang a rating off
-	// would put a player in every roster who has never signed in.
-	const ref = db.doc(`users/${uid}`);
-	const snapshot = await ref.get();
+		// The profile has to exist. Unlike `setAppAdmin`, which can promote
+		// somebody who has never opened the app, there is nothing to rate about an
+		// account with no profile — and creating one here to hang a rating off
+		// would put a player in every roster who has never signed in.
+		const ref = db.doc(`users/${uid}`);
+		const snapshot = await ref.get();
 
-	if (!snapshot.exists) throw new HttpsError('not-found', 'That player has no profile yet.');
+		if (!snapshot.exists) throw new HttpsError('not-found', 'That player has no profile yet.');
 
-	const profile = snapshot.data() as AppUser;
+		const profile = snapshot.data() as AppUser;
 
-	if (hasPlayed(profile.rating)) {
-		throw new HttpsError(
-			'failed-precondition',
-			'They have already played a rated game, so their rating is the ladder’s now.'
+		if (hasPlayed(profile.rating)) {
+			throw new HttpsError(
+				'failed-precondition',
+				'They have already played a rated game, so their rating is the ladder’s now.'
+			);
+		}
+
+		await ref.set(
+			{
+				rating:
+					rating === null
+						? FieldValue.delete()
+						: createStartingRating(fromDisplayRating(rating), new Date().toISOString()),
+			},
+			{ merge: true }
 		);
-	}
 
-	await ref.set(
-		{
-			rating:
-				rating === null
-					? FieldValue.delete()
-					: createStartingRating(fromDisplayRating(rating), new Date().toISOString()),
-		},
-		{ merge: true }
-	);
+		// Lineups already built for upcoming games were picked with this player at
+		// the season seed. Without this the balancer keeps using the old number
+		// until somebody else happens to answer, which reads exactly like the
+		// rating having been ignored.
+		//
+		// Batched rather than one at a time: somebody who has answered a whole
+		// season in advance is a long serial chain of transactions inside a request
+		// an admin is watching. Bounded rather than unbounded, so that same person
+		// cannot open a transaction per game at once.
+		const repick = await gamesToRepick(uid);
 
-	// Lineups already built for upcoming games were picked with this player at
-	// the season seed. Without this the balancer keeps using the old number
-	// until somebody else happens to answer, which reads exactly like the
-	// rating having been ignored.
-	//
-	// Batched rather than one at a time: somebody who has answered a whole
-	// season in advance is a long serial chain of transactions inside a request
-	// an admin is watching. Bounded rather than unbounded, so that same person
-	// cannot open a transaction per game at once.
-	const repick = await gamesToRepick(uid);
+		for (const batch of chunksOf(repick, REPICK_CONCURRENCY)) {
+			await Promise.all(batch.map(game => invalidateTeams(game.seasonId, game.gameId)));
+		}
 
-	for (const batch of chunksOf(repick, REPICK_CONCURRENCY)) {
-		await Promise.all(batch.map(game => invalidateTeams(game.seasonId, game.gameId)));
-	}
+		logger.info('Set a starting rating', { uid, rating, by: request.auth.uid, repicked: repick.length });
 
-	logger.info('Set a starting rating', { uid, rating, by: request.auth.uid, repicked: repick.length });
-
-	return { ok: true };
-});
+		return { ok: true };
+	})
+);

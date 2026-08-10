@@ -6,6 +6,7 @@ import { NOTIFICATIONS, canEmail } from '../../shared/notifications';
 import { db, REGION } from './lib/firebase';
 import { EMAIL_SECRETS, lookUpVerifiedEmails, sendEmail } from './lib/email';
 import { buildTestPayload } from './lib/testNotifications';
+import { instrument } from './lib/sentry';
 
 export type EmailTestStatus = 'sent' | 'noAddress' | 'emailOff';
 
@@ -48,42 +49,48 @@ export const sendTestEmail = onCall<{
 	uids: string[];
 	seasonId?: string;
 	gameId?: string;
-}>({ region: REGION, secrets: EMAIL_SECRETS }, async request => {
-	if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-	if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
+}>(
+	{ region: REGION, secrets: EMAIL_SECRETS },
+	instrument('sendTestEmail', async request => {
+		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
 
-	const { kind, uids, seasonId, gameId } = request.data;
+		const { kind, uids, seasonId, gameId } = request.data;
 
-	if (!NOTIFICATIONS.includes(kind)) {
-		throw new HttpsError('invalid-argument', `Unknown notification kind: ${kind}`);
-	}
+		if (!NOTIFICATIONS.includes(kind)) {
+			throw new HttpsError('invalid-argument', `Unknown notification kind: ${kind}`);
+		}
 
-	// De-duplicated so picking the same person twice in the UI can't double the
-	// "sent" count or, worse, double the mail.
-	const targets = Array.from(new Set(uids ?? []));
+		// De-duplicated so picking the same person twice in the UI can't double the
+		// "sent" count or, worse, double the mail.
+		const targets = Array.from(new Set(uids ?? []));
 
-	if (targets.length === 0) throw new HttpsError('invalid-argument', 'Pick at least one person to send to.');
+		if (targets.length === 0) throw new HttpsError('invalid-argument', 'Pick at least one person to send to.');
 
-	const callerSnap = await db.doc(`users/${request.auth.uid}`).get();
+		const callerSnap = await db.doc(`users/${request.auth.uid}`).get();
 
-	const payload = await buildTestPayload(kind, {
-		sender: { uid: request.auth.uid, displayName: (callerSnap.data()?.displayName as string | undefined) ?? '' },
-		seasonId,
-		gameId,
-	});
+		const payload = await buildTestPayload(kind, {
+			sender: {
+				uid: request.auth.uid,
+				displayName: (callerSnap.data()?.displayName as string | undefined) ?? '',
+			},
+			seasonId,
+			gameId,
+		});
 
-	const outcomes = await describeReach(targets);
-	const sendable = outcomes.filter(outcome => outcome.status === 'sent').map(outcome => outcome.uid);
+		const outcomes = await describeReach(targets);
+		const sendable = outcomes.filter(outcome => outcome.status === 'sent').map(outcome => outcome.uid);
 
-	// The actual send, through the same transport and gating every real
-	// fallback email goes through — `describeReach` above only explains why,
-	// it isn't what decides whether mail goes out.
-	const sent = await sendEmail(sendable, payload);
+		// The actual send, through the same transport and gating every real
+		// fallback email goes through — `describeReach` above only explains why,
+		// it isn't what decides whether mail goes out.
+		const sent = await sendEmail(sendable, payload);
 
-	logger.info('Sent a test email', { admin: request.auth.uid, kind, requested: targets.length, sent });
+		logger.info('Sent a test email', { admin: request.auth.uid, kind, requested: targets.length, sent });
 
-	return { payload, sent, results: outcomes };
-});
+		return { payload, sent, results: outcomes };
+	})
+);
 
 /**
  * Why each target is or isn't reachable by email, for the admin screen to show

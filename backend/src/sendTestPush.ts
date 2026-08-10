@@ -7,6 +7,7 @@ import { db, REGION } from './lib/firebase';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendPush } from './lib/push';
 import { buildTestPayload } from './lib/testNotifications';
+import { instrument } from './lib/sentry';
 
 /**
  * Sends one of the real notifications to the caller's own devices.
@@ -32,7 +33,7 @@ import { buildTestPayload } from './lib/testNotifications';
  */
 export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; seasonId?: string; gameId?: string }>(
 	{ region: REGION, secrets: EMAIL_SECRETS },
-	async request => {
+	instrument('sendTestPush', async request => {
 		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
 		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
 
@@ -75,5 +76,5 @@ export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; s
 		// side. `emailed` sits next to it because the fallback is invisible from
 		// the phone in exactly the way push is — the whole reason this exists.
 		return { sent: pushed, emailed, devices: tokensSnap.size, prefEnabled, payload };
-	}
+	})
 );

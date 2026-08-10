@@ -6,6 +6,7 @@ import { formatGameWhen } from '../../shared/format';
 import { db, REGION } from './lib/firebase';
 import { getResponses } from './lib/data';
 import { EMAIL_SECRETS } from './lib/email';
+import { HOURLY, instrumentSchedule, reportError } from './lib/sentry';
 import type { SendResult } from './lib/push';
 import { sendGamePush } from './lib/push';
 
@@ -19,7 +20,11 @@ import { sendGamePush } from './lib/push';
  */
 export const sendReminders = onSchedule(
 	{ schedule: 'every 60 minutes', timeZone: 'Europe/Stockholm', region: REGION, secrets: EMAIL_SECRETS },
-	async () => {
+	// A missed sweep is worth hearing about on the first miss: reminders are the
+	// one thing here with a deadline, and an hour of silence is an hour closer to
+	// a kickoff nobody was nudged about. The margin absorbs ordinary scheduler
+	// jitter without absorbing a job that has stopped.
+	instrumentSchedule('sendReminders', { schedule: HOURLY, checkinMargin: 20, maxRuntime: 5 }, async () => {
 		const now = Date.now();
 
 		const seasonsSnap = await db.collection('seasons').where('status', '==', 'active').get();
@@ -35,12 +40,12 @@ export const sendReminders = onSchedule(
 				// One malformed season must not cost every other season its
 				// reminders for the hour. Nothing retries this — the schedule is
 				// the retry, and the next run is an hour of silence away.
-				logger.error('Could not sweep a season for reminders', { seasonId: seasonDoc.id, error });
+				reportError('Could not sweep a season for reminders', { seasonId: seasonDoc.id }, error);
 			}
 		}
 
 		logger.info('Reminder sweep finished', { pushed, emailed });
-	}
+	})
 );
 
 /** Returns how many notifications went out for this season, by channel. */
@@ -100,7 +105,7 @@ const remindSeason = async (season: Season, now: number): Promise<SendResult> =>
 		} catch (error) {
 			// Same reasoning one level down: a single unreadable game shouldn't
 			// cost the rest of the season its nudges.
-			logger.error('Could not send reminders for a game', { seasonId: season.id, gameId: gameDoc.id, error });
+			reportError('Could not send reminders for a game', { seasonId: season.id, gameId: gameDoc.id }, error);
 		}
 	}
 
