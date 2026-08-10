@@ -71,7 +71,17 @@ export const onSeasonDeleted = onDocumentDeleted(
 	instrument('onSeasonDeleted', async event => {
 		const { seasonId } = event.params;
 
+		// The calendar token lives under this season, so `recursiveDelete` below
+		// takes it with everything else. Its reverse index does not — `calendarFeeds`
+		// is top-level, deliberately, so the public feed function can look a token
+		// up without a query — so it has to be read before the season disappears
+		// and cleaned up by hand afterwards.
+		const tokenSnap = await db.doc(`seasons/${seasonId}/calendar/token`).get();
+		const token = tokenSnap.exists ? (tokenSnap.data() as { token: string }).token : null;
+
 		await db.recursiveDelete(db.doc(`seasons/${seasonId}`));
+
+		if (token) await db.doc(`calendarFeeds/${token}`).delete();
 
 		logger.info('Cleaned up after a deleted season', { seasonId });
 	})

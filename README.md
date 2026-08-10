@@ -239,6 +239,7 @@ What it means in practice, so it can be reconsidered on purpose rather than disc
 - A stranger signing in for the first time pushes every app admin — which is the intended alarm, and the reason `onUserCreated` exists.
 - An extra still **cannot** affect a headcount. `isConfirmed` requires a season admin's nod, so nobody can push a game over its minimum and silence the "short of players" nudge.
 - Nobody can read another person's contact details or push tokens. Addresses live in Firebase Auth and never touch Firestore; tokens are private to their owner. Those are the two things kept back, and the reasons are in `firestore.rules`.
+- A season's subscribable calendar link (`getCalendarLink` in `backend/src/calendarLink.ts`) goes one step further than everything else on this list: it needs **no sign-in at all**. A calendar app polls it with a plain `GET`, so a 32-byte random token in the URL is the entire access check — whoever holds the link can read that season's kick-off times, venue and cancellations, same as anyone signed in can from the app itself, just without the Google sign-in first. Nothing else is in it: no roster, no scores, no ratings. A season admin can rotate the link from the admin screen, which invalidates every copy already handed out.
 
 If this ever needs closing, the cheap version is an `approved` custom claim gating reads, mirroring how `admin` already works — free at the rules layer, because a claim is already in the token and costs no document read to check.
 

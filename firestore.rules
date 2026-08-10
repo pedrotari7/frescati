@@ -555,6 +555,25 @@ service cloud.firestore {
           allow write: if isSeasonAdmin(seasonId);
         }
       }
+
+      // The subscribable calendar's token. Closed to every client, season
+      // admin included — the only doors in are `getCalendarLink` and
+      // `rotateCalendarToken`, which read and write it with the Admin SDK.
+      // Nothing here is more sensitive than what `allow read: if isSignedIn()`
+      // already hands out above; it just hands it to whoever holds the token,
+      // signed in or not, which is exactly why a client write is never safe —
+      // it would let anyone who can already read the season mint or overwrite
+      // the one credential that skips signing in altogether.
+      match /calendar/{docId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Reverse index from a calendar token to the season it unlocks, so the
+    // public feed function can look one up without a query. Same reasoning as
+    // `seasons/{seasonId}/calendar` above: Admin SDK only, no client door.
+    match /calendarFeeds/{token} {
+      allow read, write: if false;
     }
 
     // ── rating ledger ────────────────────────────────────────────────────────

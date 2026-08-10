@@ -17,3 +17,5 @@ export { sendTestPush } from './sendTestPush';
 export { sendTestEmail } from './sendTestEmail';
 export { throwTestError } from './throwTestError';
 export { getPushDevices } from './getPushDevices';
+export { getCalendarLink, rotateCalendarToken } from './calendarLink';
+export { calendarFeed } from './calendarFeed';

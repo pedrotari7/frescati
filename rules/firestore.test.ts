@@ -443,10 +443,7 @@ describe('users', () => {
 
 	it('rejects junk nested inside the notification preferences', async () => {
 		await assertFails(
-			setDoc(
-				doc(authed(MEMBER), `users/${MEMBER}`),
-				aProfile({ reminders: true, payload: 'y'.repeat(50_000) })
-			)
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), aProfile({ reminders: true, payload: 'y'.repeat(50_000) }))
 		);
 		await assertFails(
 			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), aProfile({ nested: { anything: { at: { all: [1, 2] } } } }))
@@ -1106,6 +1103,56 @@ describe('the rating ledger', () => {
 		await seedLedger();
 
 		await assertFails(deleteDoc(doc(authed(SEASON_ADMIN), ledgerDoc())));
+	});
+});
+
+// The subscribable calendar's token — closed to every client, including a
+// season admin. `getCalendarLink`/`rotateCalendarToken` are the only doors in,
+// and both use the Admin SDK, which these rules never run against.
+describe('the calendar feed token', () => {
+	const tokenDoc = () => `seasons/${SEASON}/calendar/token`;
+	const feedDoc = () => `calendarFeeds/some-token`;
+
+	const seedToken = async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), tokenDoc()), {
+				token: 'some-token',
+				createdAt: '2026-08-01T00:00:00.000Z',
+				createdBy: SEASON_ADMIN,
+			});
+			await setDoc(doc(context.firestore(), feedDoc()), {
+				seasonId: SEASON,
+				createdAt: '2026-08-01T00:00:00.000Z',
+			});
+		});
+	};
+
+	it.each([MEMBER, SEASON_ADMIN, APP_ADMIN])('stops %s reading the season-scoped token', async uid => {
+		await seedToken();
+
+		await assertFails(getDoc(doc(authed(uid, uid === APP_ADMIN ? { admin: true } : undefined), tokenDoc())));
+	});
+
+	it.each([MEMBER, SEASON_ADMIN, APP_ADMIN])('stops %s writing the season-scoped token', async uid => {
+		await assertFails(
+			setDoc(doc(authed(uid, uid === APP_ADMIN ? { admin: true } : undefined), tokenDoc()), {
+				token: 'forged',
+				createdAt: '2026-08-01T00:00:00.000Z',
+				createdBy: uid,
+			})
+		);
+	});
+
+	it.each([MEMBER, SEASON_ADMIN, APP_ADMIN])('stops %s reading the reverse index', async uid => {
+		await seedToken();
+
+		await assertFails(getDoc(doc(authed(uid, uid === APP_ADMIN ? { admin: true } : undefined), feedDoc())));
+	});
+
+	it.each([MEMBER, SEASON_ADMIN, APP_ADMIN])('stops %s writing the reverse index', async uid => {
+		await assertFails(
+			setDoc(doc(authed(uid, uid === APP_ADMIN ? { admin: true } : undefined), feedDoc()), { seasonId: SEASON })
+		);
 	});
 });
 

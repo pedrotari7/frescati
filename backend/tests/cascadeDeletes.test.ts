@@ -60,7 +60,13 @@ describe('onGameDeleted, for a game that had been confirmed', () => {
 		await writeGame(SEASON_ID, gameId, { kickoff });
 		await writeTeams(SEASON_ID, gameId, [TEAM_A, TEAM_B]);
 
-		for (const [order, [scoreA, scoreB]] of ([[2, 1], [3, 1], [1, 1]] as [number, number][]).entries()) {
+		for (const [order, [scoreA, scoreB]] of (
+			[
+				[2, 1],
+				[3, 1],
+				[1, 1],
+			] as [number, number][]
+		).entries()) {
 			await writeMatch(SEASON_ID, gameId, { order, teamA: 0, teamB: 1, scoreA, scoreB });
 		}
 
@@ -148,5 +154,31 @@ describe('onSeasonDeleted', () => {
 		const responseSnap = await getDb().doc(`seasons/${SEASON_ID}/games/${GAME_ID}/responses/${MEMBER}`).get();
 		expect(gameSnap.exists).toBe(false);
 		expect(responseSnap.exists).toBe(false);
+	});
+
+	// The token itself sits under the season, so `recursiveDelete` reaches it —
+	// but `calendarFeeds` is top-level on purpose, so nothing else would ever
+	// take it with the rest.
+	it('takes the calendar token and its reverse index with it', async () => {
+		await writeSeason(SEASON_ID);
+		await getDb()
+			.doc(`seasons/${SEASON_ID}/calendar/token`)
+			.set({ token: 'a-token', createdAt: '2026-08-01T00:00:00.000Z', createdBy: MEMBER });
+		await getDb().doc('calendarFeeds/a-token').set({ seasonId: SEASON_ID, createdAt: '2026-08-01T00:00:00.000Z' });
+
+		await getDb().doc(`seasons/${SEASON_ID}`).delete();
+
+		await onSeasonDeleted.run(paramsEvent({ seasonId: SEASON_ID }));
+
+		expect((await getDb().doc(`seasons/${SEASON_ID}/calendar/token`).get()).exists).toBe(false);
+		expect((await getDb().doc('calendarFeeds/a-token').get()).exists).toBe(false);
+	});
+
+	it('does nothing extra when the season never had a calendar link', async () => {
+		await writeSeason(SEASON_ID);
+
+		await getDb().doc(`seasons/${SEASON_ID}`).delete();
+
+		await expect(onSeasonDeleted.run(paramsEvent({ seasonId: SEASON_ID }))).resolves.not.toThrow();
 	});
 });
