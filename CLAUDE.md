@@ -73,6 +73,17 @@ Games of 8+ split into 2, 3 or 4 teams (`shared/tournament.ts`) and play a gener
 - `users/{uid}.client` records the platform somebody last signed in on and the last time they opened it installed. Self-written on every sign-in. `lastStandaloneAt` only moves **forward** — opening a link in a browser tab must not read as an uninstall, and an uninstall can't be observed at all.
 - Push tokens stay private to their owner: a token is a capability to push to that device. The admin screen gets them through the `getPushDevices` callable, which strips the token and returns platform, browser and registration date. Don't relax the rule instead — it would hand every admin a working send-anything credential for every phone in the group.
 
+## Error reporting
+
+- Both halves report to **one Sentry project** — a failed write and the trigger that should have followed it belong in the same inbox. Unconfigured it is inert, like the email transport: a blank DSN sends nothing and changes no behaviour.
+- **Nothing is reported from a local run.** The frontend checks `NEXT_PUBLIC_USE_EMULATORS`; the backend checks `FIRESTORE_EMULATOR_HOST`, which is wider than `FUNCTIONS_EMULATOR` on purpose because `pnpm test:backend` imports the handlers straight into jest and would otherwise report its own deliberately-provoked failures.
+- **Only the uid identifies a person**, never a name or an address — the same line `forget-player` draws. `sendDefaultPii` is off, and Session Replay is off because it would record a roster of real names.
+- `instrument()` wraps **every** exported function. It reports and **rethrows** — background triggers need the throw to be retried and callables need it to answer the client, so telemetry must never change what a function does. An `HttpsError` is skipped: it is a decision the code made, and an inbox full of the authorization layer working correctly is one nobody opens.
+- The `catch` blocks that deliberately swallow an error to keep a sweep going go through `reportError`, which logs **and** reports. Those are the failures GCP genuinely cannot see, and the ones that can repeat weekly with nothing to show for it.
+- The two hourly sweeps go through `instrumentSchedule`, which **check-ins** to a Sentry cron monitor as well as reporting errors. A sweep that throws reports an error; a sweep that never runs at all reports nothing, and that silence is indistinguishable from a quiet week — the check-in is what makes absence visible. The expected schedule is upserted from the code beside the `onSchedule` that implements it, so a dashboard can't drift from reality.
+- Tracing is off and tree-shaken out (`webpack.treeshake.removeTracing`). Turning it back on means deleting that line — and costs 28 kB gzipped on the shared bundle.
+- `/debug` can **break things on purpose** — four browser paths and the `throwTestError` callable — because a reporting pipeline looks identical working and broken. Each button takes a genuinely different route (React swallows render errors, ignores throws from event handlers, and neither is how a rejected write surfaces), so one passing says nothing about the others. `httpsError` is the one that must produce **no** Sentry issue. They go down the real paths rather than calling `captureException` directly: a trigger with its own private route would still pass with `instrument` deleted from every function.
+
 ## Members vs extras
 
 - A **member** is on `season.memberUids`. Members have no cap and always rank first.

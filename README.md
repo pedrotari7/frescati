@@ -114,6 +114,38 @@ Project: **`footballfrescati`**.
 
     `pnpm dev:seeded` needs none of this: the emulators don't verify App Check tokens, and the client skips it entirely when pointed at them.
 
+11. **Set up Sentry**, which is how a crash on somebody's phone reaches you at all. Almost every screen talks to Firestore directly from the browser, so most of what can go wrong never touches a server log — before this, the only way it surfaced was somebody mentioning at the pitch that the app "wasn't working".
+
+    Sign up at [sentry.io](https://sentry.io) and create **one** project (platform: Next.js). The functions report into the same project on purpose — a failed write and the trigger that should have followed it belong in one place.
+
+    > **Pick the EU data region when you create the organisation.** It cannot be changed afterwards, and this is a Swedish group whose reports carry uids and stack traces. Same reasoning as keeping addresses out of Firestore.
+
+    Then, from **Settings → Client Keys (DSN)**, take the DSN and put it in:
+    - `frontend/.env.local` as `NEXT_PUBLIC_SENTRY_DSN`
+    - Vercel's environment variables, same name
+    - the repo variables for CI, same name
+    - `backend/.env` as `SENTRY_DSN`, then redeploy the functions
+
+    It is public, like the Firebase config — a DSN authorizes writing an event to one project and reads nothing back. Left blank everywhere, the SDK is inert and nothing changes.
+
+    For readable stack traces, add three more to **Vercel only** (they are build-time only, and CI deliberately does without them so its throwaway builds don't claim releases): `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` — the last from **Settings → Auth Tokens**, scoped to `project:releases`. Without them the build still succeeds; every trace just stays minified, which on a phone is most of the value gone.
+
+    **Check it works** from **You → Debug → Break something on purpose**, which fails deliberately in seven different ways and is safe to fire in production — nothing there touches a game, a rating or anybody's data. Six should appear in Sentry within a few seconds; the seventh, `HttpsError`, must **not**, since that is the filter keeping the authorization layer out of the inbox. Worth doing once on a phone as well as a laptop: it is the only way to find out whether a content blocker is eating the reports, and the tunnel exists precisely because they do.
+
+    **Then set up an issue alert**, because none of the above tells you anything by itself — Sentry collects silently until something is configured to speak. **Alerts → Create Alert → Issues**, fire on *a new issue is created*, deliver wherever you'll actually see it. Without this the inbox is a thing you have to remember to visit, which is the same failure as reading logs.
+
+    ### Knowing a scheduled sweep has stopped
+
+    `sendReminders` and `finaliseDueTournaments` run hourly and unattended, and they fail in two quite different ways. One throws — that reports an error like anything else. The other simply **stops running**: a scheduler job deleted, a deploy that dropped the function. That produces no error, no log line, and looks exactly like a week where nothing needed doing. It is the failure you find out about when somebody mentions they've stopped getting reminders.
+
+    So both check in. Each run reports that it started and that it finished, and Sentry raises an issue when an expected check-in doesn't arrive — absence becomes the signal instead of the blind spot. The monitors create themselves on the first run after deploy (`instrumentSchedule` upserts the config), so there is nothing to set up here beyond the alert rule above. The expected schedule lives in the code next to the `onSchedule` that implements it, deliberately, so the two can't drift apart.
+
+    They differ in how eagerly they complain, which is worth knowing before you tune it: reminders raise on the **first** miss, because a missed nudge is an hour closer to a kickoff nobody was told about. Confirmations raise on the **second**, because a game confirmed an hour late rates exactly the same.
+
+    > Two cron monitors are created. Check what your Sentry plan allows — the free tier's allowance is small, and monitors beyond it are rejected rather than billed.
+
+    What is deliberately **not** switched on: performance tracing and Session Replay. Replay records the DOM, which here is a roster of real names and who is playing where — a much bigger collection than a stack trace, and not one to make before there's a privacy notice saying so. Tracing is tree-shaken out entirely (`webpack.treeshake.removeTracing` in `next.config.js`), which is worth 28 kB gzipped on a phone-first bundle.
+
 ## Commands
 
 |  |  |
@@ -229,6 +261,56 @@ That second list is not stubbornness. The ledger is the undo history for the **w
 Idempotent, so a half-finished run can just be repeated, and it accepts a uid as well as an email for the case where the Auth account is already gone. If they were the only admin of a season it says so and leaves them on `adminUids` rather than orphaning it — appoint somebody else and re-run.
 
 **App Check** is the separate half of this and _is_ enabled: it attests that a request came from this app rather than from a script holding the same public config. It restricts software, not people, so it changes none of the above — see setup step 10.
+
+## Backups
+
+Enabled on `footballfrescati` and needing nothing further day to day. Written down because the restore is the half nobody thinks about until they need it, and it does not work the way people assume.
+
+|  |  |
+| --- | --- |
+| **Point-in-time recovery** | 7-day continuous window. Read the database as it was at any timestamp inside it. |
+| **Daily backup** | kept 7 days |
+| **Weekly backup** (Sunday) | kept 14 weeks |
+
+The two cover different failures, which is why both are on. PITR is for *"I deleted a season an hour ago"* — precise, immediate, and useless once the week is up. The weekly is for *"`ratingLedger` has been quietly wrong since some point last month"*, which is the failure this database is genuinely exposed to: a replay bug corrupts history rather than losing it, nothing alarms, and by the time the table looks wrong every backup inside a 7-day window contains the same corruption. Fourteen weeks is how far back there is still something clean to compare against.
+
+`ratingLedger` is the reason any of this exists. It is the undo history for the **whole** ladder — `replayRatingsFrom` rebuilds each game from the state the one before it left — so it cannot be reconstructed from the games, only the other way round.
+
+### Restoring
+
+**A restore creates a new database. It never writes over the live one.** There is no in-place rollback, so the shape of every recovery is: restore beside production, look at it, then move what's needed.
+
+```sh
+# What is there to restore from
+gcloud firestore backups list --location=eur3 --project=footballfrescati
+
+# Restore one into a NEW database, alongside the live one
+gcloud firestore databases restore \
+  --source-backup=projects/footballfrescati/locations/eur3/backups/BACKUP_ID \
+  --destination-database=frescati-restore --project=footballfrescati
+```
+
+For PITR the equivalent is `gcloud firestore export --snapshot-time=<RFC3339 within the last 7 days>`, then import that export into a scratch database.
+
+Either way you now have two databases and a decision. Copying documents back into `(default)` is a **write**, so every trigger fires on it: restoring old games re-runs `onGameWrite`, and restoring responses re-runs `onResponseWrite` and re-queues team rebuilds. For anything touching ratings, correct the scores and let `replayRatingsFrom` rebuild the ledger rather than pasting an old ledger back — a restored ledger disagrees with the first replay that follows it, which is the same rule as [Tournaments](#tournaments): fix an earned rating by fixing the scores behind it.
+
+Both were enabled through the Firestore Admin API rather than `gcloud`, because the `firestore backups` commands need a far newer SDK than the one on this machine:
+
+```sh
+TOKEN=$(gcloud auth print-access-token)
+DB=https://firestore.googleapis.com/v1/projects/footballfrescati/databases/%28default%29
+
+curl -X PATCH "$DB?updateMask=pointInTimeRecoveryEnablement" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_ENABLED"}'
+
+curl -X POST "$DB/backupSchedules" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"retention":"604800s","dailyRecurrence":{}}'
+
+curl -X POST "$DB/backupSchedules" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"retention":"8467200s","weeklyRecurrence":{"day":"SUNDAY"}}'
+```
+
+> **Delete protection is still off.** It is the one thing none of the above covers: deleting the database takes its backup schedules with it. Turn it on with `-d '{"deleteProtectionState":"DELETE_PROTECTION_ENABLED"}'` against `$DB?updateMask=deleteProtectionState`.
 
 ## Deployment
 
