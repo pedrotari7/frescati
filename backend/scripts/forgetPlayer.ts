@@ -17,7 +17,7 @@
  *   took part in: `ratingLedger`, the generated lineups, the scoreboard's
  *   `updatedBy`, and the in/out of each response. Those are not theirs alone. The
  *   ledger especially: it is the undo history for the *whole* ladder, and
- *   `replayRatingsFrom` rebuilds each night from the state the one before it
+ *   `replayRatingsFrom` rebuilds each game from the state the one before it
  *   left, so deleting one player's entries would not lose only their history —
  *   it would corrupt every replay for everybody who ever played alongside them.
  *

@@ -31,20 +31,20 @@ export const onGameDeleted = onDocumentDeleted(
 
 		logger.info('Cleaned up after a deleted game', { seasonId, gameId });
 
-		// A confirmed night also left a mark outside that subtree. Its ledger
+		// A confirmed game also left a mark outside that subtree. Its ledger
 		// entry is top-level, deliberately — ratings are global and a replay has
 		// to walk every rated game regardless of season — so `recursiveDelete`
 		// never touches it. Deleting the game alone left every player carrying
-		// Elo from a night that no longer exists, and left the entry counting
+		// Elo from a game that no longer exists, and left the entry counting
 		// towards its season's table forever.
 		//
 		// Replayed rather than subtracted, for the same reason a correction is:
-		// every night rated after this one was rated against the ratings this
+		// every game rated after this one was rated against the ratings this
 		// one produced, so there is no arithmetic that undoes it in place. The
 		// replay rewinds past it and rebuilds forward, finds this game gone, and
 		// retires the entry as it passes.
 		//
-		// A night that was never confirmed has no entry and moved nobody, so
+		// A game that was never confirmed has no entry and moved nobody, so
 		// there is nothing to unwind.
 		if (!game?.resultFinalisedAt) return;
 
@@ -55,10 +55,10 @@ export const onGameDeleted = onDocumentDeleted(
 /**
  * Fires once for the season and lets the cascade take the games with it. Each
  * deleted game then trips `onGameDeleted` against an already-empty responses
- * collection — and, for a night that had been confirmed, asks for a replay of
- * the ladder from that night forward.
+ * collection — and, for a game that had been confirmed, asks for a replay of
+ * the ladder from that game forward.
  *
- * A season of confirmed nights therefore asks for as many replays as it has
+ * A season of confirmed games therefore asks for as many replays as it has
  * games, all at once, which is only survivable because those requests collapse:
  * the first to take the ladder lock drains a floor the rest have lowered to the
  * earliest kickoff among them, so the whole season unwinds in one pass. Keeping

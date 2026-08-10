@@ -8,7 +8,7 @@
  * produced — not a column of made-up numbers that no result explains.
  *
  * Keep the list long. Scenarios pick from it, and a group of thirty gives the
- * four-team nights, the fringe members and the hopeful extras that the screens
+ * four-team games, the fringe members and the hopeful extras that the screens
  * are built for.
  */
 

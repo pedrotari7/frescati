@@ -89,7 +89,7 @@ describe('TeamCard', () => {
 		expect(screen.queryByText(/rotating/)).not.toBeInTheDocument();
 	});
 
-	it('shows rating movement once the night has been confirmed', () => {
+	it('shows rating movement once the game has been confirmed', () => {
 		render(
 			<TeamCard
 				team={team}

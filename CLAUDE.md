@@ -43,7 +43,7 @@ seasons/{seasonId}/games/{gameId}/responses/{uid}   status: 'in'|'out', role: 'm
 seasons/{seasonId}/games/{gameId}/tournament/teams  generated lineup (function-owned)
 seasons/{seasonId}/games/{gameId}/tournament/result confirmed table + rating deltas (function-owned)
 seasons/{seasonId}/games/{gameId}/matches/{order}   one scoreline; doc id is the fixture order
-ratingLedger/{gameId}                        one entry per rated night (function-owned)
+ratingLedger/{gameId}                        one entry per rated game (function-owned)
 ```
 
 **No response document at all means "no response"** — that is a real third state, not a default. Never write a placeholder response doc.
@@ -52,13 +52,14 @@ ratingLedger/{gameId}                        one entry per rated night (function
 
 ## Tournaments
 
-Nights of 8+ split into 2, 3 or 4 teams (`shared/tournament.ts`) and play a generated round robin. Squads differ by at most one player; the on-pitch side size is the smaller of the two squads meeting, with the larger rotating a sub through.
+Games of 8+ split into 2, 3 or 4 teams (`shared/tournament.ts`) and play a generated round robin. Squads differ by at most one player; the on-pitch side size is the smaller of the two squads meeting, with the larger rotating a sub through.
 
 - **Ratings** are a global career Elo on `users/{uid}.rating`, shown as 0–100 via a fixed mapping (`shared/rating.ts`). A rating moves on how a team finished _versus how it was expected to_, not on raw position — with a working balancer, raw position is nearly noise. Unrated players seed at the live average of the season's rated members.
+- A **starting rating** is an app admin's estimate of somebody who hasn't played yet, set from `/admin/ratings` through the `setStartingRating` callable. It stores a real rating on `games: 0`, so `hasPlayed` rather than the presence of the field is what "the ladder has had its say" means — the balancer uses it from their first game, the all-time ladder leaves them off, and the provisional K-factor still moves them fast. **Only settable before their first rated game**, and not by taste: every ledger entry records what each player carried into that game, so overwriting an earned rating would be silently undone by the next replay. Fix an earned rating by fixing the scores behind it.
 - **Teams** are picked by the pure, seeded `pickTeams` in `shared/optimizer.ts` and written **only** by the `rebuildTeams` function. Rules reject every client write to the teams doc — an admin reshuffles by bumping `reshuffleCount` on the game, never by writing a lineup.
-- Rebuilds are **debounced through Cloud Tasks**: a response write bumps `teamsGeneration`, queues a task carrying it, and the handler drops itself if the generation has moved on. Kept out of `onResponseWrite` deliberately — the optimizer is the one part of the app whose cost grows with turnout. Cloud Tasks has no emulator, so locally `enqueueTeamRebuild` runs `runTeamRebuild` in-process instead. A confirmed night's lineup is never rebuilt — the ledger was computed against it and a replay reads it back.
+- Rebuilds are **debounced through Cloud Tasks**: a response write bumps `teamsGeneration`, queues a task carrying it, and the handler drops itself if the generation has moved on. Kept out of `onResponseWrite` deliberately — the optimizer is the one part of the app whose cost grows with turnout. Cloud Tasks has no emulator, so locally `enqueueTeamRebuild` runs `runTeamRebuild` in-process instead. A confirmed game's lineup is never rebuilt — the ledger was computed against it and a replay reads it back.
 - **Scores** live at `matches/{order}` where the id is the fixture's place in the running order, so two people scoring the same match write the same document. **No match document means "not played"** — same third state as a response, and for the same reason.
-- Anyone holding a response on the game can write a score. Confirming the night (`resultFinalisedAt`) closes it to everyone but a season admin, whose correction triggers a **replay**: `replayRatingsFrom` rewinds the ledger latest-first and replays it in kickoff order. Adjusting only the corrected game would be wrong, because every game after it was rated against the ratings that game produced.
+- Anyone holding a response on the game can write a score. Confirming the game (`resultFinalisedAt`) closes it to everyone but a season admin, whose correction triggers a **replay**: `replayRatingsFrom` rewinds the ledger latest-first and replays it in kickoff order. Adjusting only the corrected game would be wrong, because every game after it was rated against the ratings that game produced.
 - Ratings apply on an admin's Confirm, or automatically `AUTO_FINALISE_HOURS` after kickoff via `finaliseDueTournaments`.
 
 ## Notifications

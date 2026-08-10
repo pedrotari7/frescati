@@ -2,7 +2,7 @@
  * The table.
  *
  * Built from whichever matches have actually been played, which is the whole
- * difficulty: rain stops play, somebody has to leave, and a night that got
+ * difficulty: rain stops play, somebody has to leave, and a game that got
  * through four of its six matches still has to produce a fair order.
  *
  * The trick is to rank on **per-match rates** rather than totals. When every

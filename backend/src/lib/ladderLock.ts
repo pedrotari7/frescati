@@ -5,12 +5,12 @@ import { db } from './firebase';
 /**
  * One lock over the global ladder.
  *
- * Everything that rates a night reads every affected player's current rating
- * and writes it straight back: `finaliseGame` for one night, `replayRatingsFrom`
+ * Everything that rates a game reads every affected player's current rating
+ * and writes it straight back: `finaliseGame` for one game, `replayRatingsFrom`
  * for a window of them. Two of those at once is not a lost update that the next
  * run repairs — a replay rewinds everybody to before the window and then rebuilds
  * forward, so a second rewind landing inside the first run's forward pass makes
- * it rate a night against ratings that were never real. The answer goes into the
+ * it rate a game against ratings that were never real. The answer goes into the
  * profiles *and* into the ledger entries that exist to be able to undo them, and
  * nothing afterwards recomputes it. That is what makes this worth a lock rather
  * than a retry.
@@ -62,9 +62,9 @@ const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(r
  * record how far back it needs one, whether or not it got the lease.
  *
  * The floor is a **minimum**, not the latest request. Two corrections to
- * different nights collapse into a single replay from the earlier of them,
+ * different games collapse into a single replay from the earlier of them,
  * which covers both. Keeping the latest would be the natural "this supersedes
- * that" move and would silently skip the earlier night — the opposite of what
+ * that" move and would silently skip the earlier game — the opposite of what
  * `teamsGeneration` does for team rebuilds, where a later request genuinely
  * does supersede an earlier one.
  */

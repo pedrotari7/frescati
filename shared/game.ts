@@ -64,7 +64,7 @@ export const getSilentMembers = (
  * a game at all.
  *
  * Delegates to the tournament bands rather than halving the headcount: past
- * eleven players a night is no longer one match, and a badge reading `7v7` for
+ * eleven players a game is no longer one match, and a badge reading `7v7` for
  * fourteen described a game nobody was going to play.
  */
 export const getFormat = (playing: number): string | null => {

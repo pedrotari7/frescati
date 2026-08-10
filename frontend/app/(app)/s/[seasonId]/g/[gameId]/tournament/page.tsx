@@ -92,9 +92,9 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const fixtures = getFixtures(lineup.teams.length);
 	const fit = getScheduleFit(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
 
-	// Not everything under `matches/` is one of tonight's — see
+	// Not everything under `matches/` belongs to this game — see
 	// `selectPlayedMatches`. The screen has to agree with the function that
-	// rates the night, or the table here would explain a set of ratings it
+	// rates the game, or the table here would explain a set of ratings it
 	// didn't produce.
 	const playedMatches = selectPlayedMatches(lineup.teams.length, matches);
 
@@ -102,13 +102,13 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const played = playedMatches.length;
 
 	// Once confirmed the table comes from the result document rather than being
-	// recomputed, so a past night keeps reading the way it was decided even if
+	// recomputed, so a past game keeps reading the way it was decided even if
 	// somebody later clears a score.
 	const standings = result?.standings ?? getStandings(lineup.teams.length, playedMatches);
 	const deltas = result ? new Map(result.changes.map(change => [change.uid, change.delta])) : undefined;
 
 	// Anyone who answered the game can keep the score — that is the point, so
-	// whoever has a free hand does it. Confirming the night closes it to
+	// whoever has a free hand does it. Confirming the game closes it to
 	// everyone but an admin, whose correction replays the ratings.
 	const finalised = !!game.resultFinalisedAt;
 	const canScore = (isAdmin || !!myResponses[gameId]) && (isAdmin || !finalised);

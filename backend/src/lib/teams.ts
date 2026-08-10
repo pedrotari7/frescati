@@ -1,6 +1,6 @@
 import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions';
-import { REGION } from './firebase';
+import { db, REGION } from './firebase';
 import { runTeamRebuild } from './rebuild';
 import type { TeamRebuildTask } from './rebuild';
 
@@ -8,7 +8,7 @@ import type { TeamRebuildTask } from './rebuild';
  * Queueing for the debounced team rebuild.
  *
  * Teams are re-picked whenever the playing pool moves, which during a burst of
- * answers on a Sunday night means half a dozen changes in a minute. Rebuilding
+ * answers on a Sunday evening means half a dozen changes in a minute. Rebuilding
  * on each one would be six full optimiser runs to produce five lineups nobody
  * ever saw.
  *
@@ -81,4 +81,41 @@ export const enqueueTeamRebuild = async (task: TeamRebuildTask): Promise<void> =
 	} catch (error) {
 		logger.warn('Could not queue a team rebuild', { ...task, error });
 	}
+};
+
+/**
+ * Mark a game's lineup stale and queue the rebuild, without touching its
+ * counters.
+ *
+ * Everything else that invalidates a lineup goes through `recountGame`, which
+ * bumps the generation in the same transaction as the counts — because
+ * everything else that invalidates a lineup moves the playing pool, and the
+ * counters describe the pool. A rating change moves neither the pool nor the
+ * counters, only what the optimizer thinks the pool is worth, so it needs the
+ * marker bumped on its own.
+ *
+ * Transactional for the same reason the recount is: two of these racing would
+ * otherwise settle on the same generation, and the second rebuild would drop
+ * itself as superseded by a task that had already run.
+ *
+ * Silent on a game that has gone — the caller found it a moment ago through a
+ * response that outlived it, and a cascade delete is on its way to that too.
+ */
+export const invalidateTeams = async (seasonId: string, gameId: string): Promise<void> => {
+	const gameRef = db.doc(`seasons/${seasonId}/games/${gameId}`);
+
+	const generation = await db.runTransaction(async transaction => {
+		const gameSnap = await transaction.get(gameRef);
+
+		if (!gameSnap.exists) return null;
+
+		const next = ((gameSnap.data() as { teamsGeneration?: number }).teamsGeneration ?? 0) + 1;
+		transaction.update(gameRef, { teamsGeneration: next });
+
+		return next;
+	});
+
+	if (generation === null) return;
+
+	await enqueueTeamRebuild({ seasonId, gameId, generation });
 };

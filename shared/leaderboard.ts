@@ -4,11 +4,11 @@
  * The all-time one is just the profiles sorted, because a rating is already
  * global and carried across every season. The season one is aggregated from the
  * rating ledger, which is the only record of who actually played and where they
- * finished — a response says who *meant* to play, and on the night those differ.
+ * finished — a response says who *meant* to play, and on the day those differ.
  */
 
 import type { AppUser, RatingLedgerEntry } from './types';
-import { BASE_ELO, isProvisional, toDisplayRating } from './rating';
+import { BASE_ELO, hasPlayed, isProvisional, toDisplayRating } from './rating';
 
 export interface LadderRow {
 	uid: string;
@@ -25,10 +25,16 @@ export interface LadderRow {
  * Unrated players are left off rather than shown at the base rating: they have
  * not earned a place on a ladder, and seeding them at 50 would bury genuinely
  * average players beneath a wall of people who have never played.
+ *
+ * Which is why this asks `hasPlayed` rather than whether a rating is stored.
+ * Somebody an admin gave a starting point to has a real rating — the balancer
+ * uses it from their first game — but they have played nothing, and putting an
+ * estimate on the ladder above people who earned their place is the same
+ * mistake in a more flattering shape.
  */
 export const getRatingLadder = (users: AppUser[]): LadderRow[] => {
 	const rated = users
-		.filter(user => user.rating)
+		.filter(user => hasPlayed(user.rating))
 		.map(user => ({
 			uid: user.uid,
 			elo: user.rating!.elo,
@@ -49,9 +55,9 @@ export const getRatingLadder = (users: AppUser[]): LadderRow[] => {
 
 export interface SeasonRow {
 	uid: string;
-	/** Nights actually played, as recorded when each was confirmed. */
+	/** Games actually played, as recorded when each was confirmed. */
 	appearances: number;
-	/** Nights their team finished top, shared firsts included. */
+	/** Games their team finished top, shared firsts included. */
 	wins: number;
 	/** Rating gained or lost across the season, in Elo. */
 	movement: number;
@@ -61,7 +67,7 @@ export interface SeasonRow {
 /**
  * The season table, from that season's ledger entries.
  *
- * Ordered on nights won, then rating movement — deliberately not on rating
+ * Ordered on games won, then rating movement — deliberately not on rating
  * itself. The all-time ladder already answers "who is best"; this one answers
  * "who had a good season", and somebody who turned up every week and kept
  * winning belongs at the top of it even if they started strong.
@@ -79,7 +85,7 @@ export const getSeasonTable = (entries: RatingLedgerEntry[], seasonId: string): 
 			row.appearances++;
 			if (position === 0) row.wins++;
 
-			// A player with no rating before the night had nothing to move, so
+			// A player with no rating before the game had nothing to move, so
 			// their first appearance contributes nothing rather than counting
 			// the whole distance from a seed nobody stored.
 			if (after !== undefined) row.movement += after - (entry.before[uid]?.elo ?? after);

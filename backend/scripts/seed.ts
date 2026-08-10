@@ -163,7 +163,7 @@ const main = async () => {
 	console.log(
 		[
 			`  ${summary.seasons} seasons, ${summary.games} games, ${summary.responses} responses`,
-			`  ${summary.confirmedNights} confirmed nights, ${summary.ratedPlayers} rated players`,
+			`  ${summary.confirmedGames} confirmed games, ${summary.ratedPlayers} rated players`,
 			`  ${summary.devUsers.length} accounts written to frontend/public/dev-users.json`,
 		].join('\n')
 	);

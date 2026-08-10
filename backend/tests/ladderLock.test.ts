@@ -12,7 +12,7 @@ import {
 } from './helpers';
 
 /**
- * The lock that stops two things rating nights at once.
+ * The lock that stops two things rating games at once.
  *
  * Worth testing at this level rather than through the triggers: the failure it
  * prevents is an interleaving, which no assertion on a finished trigger can
@@ -45,11 +45,17 @@ const abandonLock = async (pendingFrom: number): Promise<void> => {
 	await lockDoc().set({ heldUntil: Date.now() - 1_000, pendingFrom });
 };
 
-const playNight = async (gameId: string, kickoff: string) => {
+const playGame = async (gameId: string, kickoff: string) => {
 	await writeGame(SEASON_ID, gameId, { kickoff });
 	await writeTeams(SEASON_ID, gameId, [TEAM_A, TEAM_B]);
 
-	for (const [order, [scoreA, scoreB]] of ([[2, 1], [3, 1], [1, 1]] as [number, number][]).entries()) {
+	for (const [order, [scoreA, scoreB]] of (
+		[
+			[2, 1],
+			[3, 1],
+			[1, 1],
+		] as [number, number][]
+	).entries()) {
 		await writeMatch(SEASON_ID, gameId, { order, teamA: 0, teamB: 1, scoreA, scoreB });
 	}
 };
@@ -62,7 +68,7 @@ beforeEach(async () => {
 
 describe('requestRatingReplay', () => {
 	it('defers to a run already in flight rather than starting a second', async () => {
-		await playNight(GAME_ID, KICKOFF);
+		await playGame(GAME_ID, KICKOFF);
 		await finaliseGame(SEASON_ID, GAME_ID, ADMIN);
 		await holdLock();
 
@@ -79,9 +85,9 @@ describe('requestRatingReplay', () => {
 		expect((await readLock()).pendingFrom).toBe(KICKOFF_MILLIS);
 	});
 
-	// A minimum, not a supersede. Two corrections to different nights collapse
+	// A minimum, not a supersede. Two corrections to different games collapse
 	// into one replay from the earlier of them, which covers both; keeping the
-	// latest would silently skip the earlier night.
+	// latest would silently skip the earlier game.
 	it('lowers the floor to the earliest kickoff anyone asked for', async () => {
 		await holdLock();
 
@@ -93,7 +99,7 @@ describe('requestRatingReplay', () => {
 	});
 
 	it('takes a lease whose holder has gone and does the work', async () => {
-		await playNight(GAME_ID, KICKOFF);
+		await playGame(GAME_ID, KICKOFF);
 		await finaliseGame(SEASON_ID, GAME_ID, ADMIN);
 
 		await lockDoc().set({ heldUntil: Date.now() - 1_000 }, { merge: true });
@@ -102,7 +108,7 @@ describe('requestRatingReplay', () => {
 	});
 
 	it('releases the lease and clears the floor once it has drained', async () => {
-		await playNight(GAME_ID, KICKOFF);
+		await playGame(GAME_ID, KICKOFF);
 		await finaliseGame(SEASON_ID, GAME_ID, ADMIN);
 
 		await requestRatingReplay(KICKOFF_MILLIS);
@@ -118,16 +124,16 @@ describe('drainAbandonedReplays', () => {
 	// holder was asked to do — so without this a correction could sit recorded
 	// and never applied until somebody happened to make another one.
 	it('picks up a floor left behind by a holder that died', async () => {
-		await playNight(GAME_ID, KICKOFF);
+		await playGame(GAME_ID, KICKOFF);
 		await finaliseGame(SEASON_ID, GAME_ID, ADMIN);
 
-		// The night's result is corrected, but the replay never ran.
+		// The game's result is corrected, but the replay never ran.
 		await writeMatch(SEASON_ID, GAME_ID, { order: 0, teamA: 0, teamB: 1, scoreA: 0, scoreB: 5 });
 		await abandonLock(KICKOFF_MILLIS);
 
 		expect(await drainAbandonedReplays()).toBe(1);
 
-		// Team B now takes the night, and the ladder says so.
+		// Team B now takes the game, and the ladder says so.
 		expect((await readUser('p1'))?.rating).toMatchObject({ elo: 980 });
 		expect((await readLock()).pendingFrom).toBeUndefined();
 	});
@@ -145,8 +151,8 @@ describe('drainAbandonedReplays', () => {
 });
 
 describe('finaliseGame under the lock', () => {
-	it('reports itself busy rather than rating a night underneath a replay', async () => {
-		await playNight(GAME_ID, KICKOFF);
+	it('reports itself busy rather than rating a game underneath a replay', async () => {
+		await playGame(GAME_ID, KICKOFF);
 		await holdLock();
 
 		expect(await finaliseGame(SEASON_ID, GAME_ID, ADMIN)).toBe('busy');
@@ -157,12 +163,12 @@ describe('finaliseGame under the lock', () => {
 	});
 
 	it('releases the lease afterwards, so the next one gets in', async () => {
-		await playNight(GAME_ID, KICKOFF);
+		await playGame(GAME_ID, KICKOFF);
 
 		expect(await finaliseGame(SEASON_ID, GAME_ID, ADMIN)).toBe('finalised');
 		expect((await readLock()).heldUntil).toBeLessThanOrEqual(Date.now());
 
-		await playNight('game-2', '2026-09-08T17:00:00.000Z');
+		await playGame('game-2', '2026-09-08T17:00:00.000Z');
 		expect(await finaliseGame(SEASON_ID, 'game-2', ADMIN)).toBe('finalised');
 	});
 
@@ -175,7 +181,7 @@ describe('finaliseGame under the lock', () => {
 
 	// The read of `resultFinalisedAt` and the write that sets it are now one
 	// critical section. Before, two admins tapping Confirm together both found
-	// the night unconfirmed and both applied it.
+	// the game unconfirmed and both applied it.
 	//
 	// Asserted as the property rather than as two particular messages: the
 	// loser gets `already-finalised` if it outwaited the winner and `busy` if
@@ -183,7 +189,7 @@ describe('finaliseGame under the lock', () => {
 	// Both are the same answer to the only question that matters, and pinning
 	// one of them made this fail on a slow run.
 	it('lets only one of two simultaneous confirmations through', async () => {
-		await playNight(GAME_ID, KICKOFF);
+		await playGame(GAME_ID, KICKOFF);
 
 		const outcomes = await Promise.all([
 			finaliseGame(SEASON_ID, GAME_ID, ADMIN),
@@ -193,7 +199,7 @@ describe('finaliseGame under the lock', () => {
 		expect(outcomes.filter(outcome => outcome === 'finalised')).toHaveLength(1);
 		expect(outcomes).toContainEqual(expect.stringMatching(/^(already-finalised|busy)$/));
 
-		// One night's worth of movement, not two — which is what a second
+		// One game's worth of movement, not two — which is what a second
 		// application would have produced, rating the same result against the
 		// ratings the first one had just written.
 		expect((await readUser('p1'))?.rating).toMatchObject({ elo: 1020, games: 1 });

@@ -50,12 +50,12 @@ describe('onGameDeleted', () => {
 });
 
 /**
- * A deleted night's ledger entry lives outside the subtree `recursiveDelete`
+ * A deleted game's ledger entry lives outside the subtree `recursiveDelete`
  * walks, because ratings are global. Left alone it kept every player carrying
  * Elo from a game nobody could open, and kept counting towards the season table.
  */
-describe('onGameDeleted, for a night that had been confirmed', () => {
-	/** Confirms a two-team night team A wins, and returns the game as it stood. */
+describe('onGameDeleted, for a game that had been confirmed', () => {
+	/** Confirms a two-team game that team A wins, and returns it as it stood. */
 	const playAndConfirm = async (gameId: string, kickoff: string) => {
 		await writeGame(SEASON_ID, gameId, { kickoff });
 		await writeTeams(SEASON_ID, gameId, [TEAM_A, TEAM_B]);
@@ -79,7 +79,7 @@ describe('onGameDeleted, for a night that had been confirmed', () => {
 		await writeSeason(SEASON_ID, { memberUids: [...TEAM_A, ...TEAM_B], adminUids: [ADMIN] });
 	});
 
-	it('rewinds every rating the night moved', async () => {
+	it('rewinds every rating the game moved', async () => {
 		const game = await playAndConfirm(GAME_ID, '2026-09-01T17:00:00.000Z');
 
 		// Team A won two and drew one against an evenly-seeded field.
@@ -88,12 +88,12 @@ describe('onGameDeleted, for a night that had been confirmed', () => {
 
 		await deleteGame(GAME_ID, game);
 
-		// Nobody had a rating before this night, so nobody has one after it goes
+		// Nobody had a rating before this game, so nobody has one after it goes
 		// — restoring a stand-in would read as a real, settled rating.
 		for (const uid of [...TEAM_A, ...TEAM_B]) expect((await readUser(uid))?.rating).toBeUndefined();
 	});
 
-	it('retires the ledger entry, so the season table stops counting the night', async () => {
+	it('retires the ledger entry, so the season table stops counting the game', async () => {
 		const game = await playAndConfirm(GAME_ID, '2026-09-01T17:00:00.000Z');
 		expect(await readRatingLedger(GAME_ID)).toBeDefined();
 
@@ -102,25 +102,25 @@ describe('onGameDeleted, for a night that had been confirmed', () => {
 		expect(await readRatingLedger(GAME_ID)).toBeUndefined();
 	});
 
-	it('re-rates every night played after it against the ratings it no longer produced', async () => {
+	it('re-rates every game played after it against the ratings it no longer produced', async () => {
 		const first = await playAndConfirm(GAME_ID, '2026-09-01T17:00:00.000Z');
 		await playAndConfirm('game-2', '2026-09-08T17:00:00.000Z');
 
-		// Two nights of the same result, the second rated off the first.
+		// Two games of the same result, the second rated off the first.
 		expect((await readUser('p1'))?.rating).toMatchObject({ games: 2 });
 		const before = (await readUser('p1'))!.rating!.elo;
 
 		await deleteGame(GAME_ID, first);
 
 		const after = await readUser('p1');
-		// One night's worth of history left, and rated as if it were the only
-		// one ever played rather than carrying the deleted night's Elo forward.
+		// One game's worth of history left, and rated as if it were the only
+		// one ever played rather than carrying the deleted game's Elo forward.
 		expect(after?.rating).toMatchObject({ elo: 1020, games: 1 });
 		expect(after!.rating!.elo).not.toBe(before);
 		expect(await readRatingLedger('game-2')).toBeDefined();
 	});
 
-	it('leaves the ladder alone when the deleted night was never confirmed', async () => {
+	it('leaves the ladder alone when the deleted game was never confirmed', async () => {
 		await writeGame(SEASON_ID, GAME_ID);
 		await writeTeams(SEASON_ID, GAME_ID, [TEAM_A, TEAM_B]);
 		await writeMatch(SEASON_ID, GAME_ID, { order: 0, teamA: 0, teamB: 1, scoreA: 2, scoreB: 1 });

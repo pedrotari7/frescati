@@ -8,7 +8,7 @@ import type { TeamRebuildTask } from './lib/rebuild';
  *
  * Deliberately its own function rather than part of `onResponseWrite`: the
  * optimiser is the one piece of this app whose cost grows with the turnout, and
- * a slow night must never be able to hold up the headcount everybody is
+ * a slow game must never be able to hold up the headcount everybody is
  * actually looking at.
  *
  * The work itself lives in `lib/rebuild` so it can be run without a queue,

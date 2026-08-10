@@ -45,7 +45,7 @@ describe('getSeed', () => {
 		expect(getSeed('game-1', 0)).not.toBe(getSeed('game-1', 1));
 	});
 
-	it('differs between games, so two nights never roll identically', () => {
+	it('differs between games, so no two roll identically', () => {
 		expect(getSeed('game-1', 0)).not.toBe(getSeed('game-2', 0));
 	});
 });

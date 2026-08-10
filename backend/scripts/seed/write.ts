@@ -350,7 +350,7 @@ interface PlannedGame {
 }
 
 /**
- * How a night was answered.
+ * How a game was answered.
  *
  * `playing` is the target confirmed headcount, and the members who say yes are
  * drawn per game rather than per season, so the same fourteen people don't turn
@@ -371,7 +371,7 @@ const buildResponses = (
 	const target = pin.playing ?? between(rng, plan.turnout[0], plan.turnout[1]);
 	const memberUids = shuffled(season.memberUids, rng);
 
-	// Extras top up a thin night rather than swelling a healthy one — which is
+	// Extras top up a thin game rather than swelling a healthy one — which is
 	// what they are for, and it keeps confirmed extras worth looking at.
 	const extraTarget = Math.min(plan.extraKeys.length, Math.max(0, target - memberUids.length));
 	const membersIn = Math.min(memberUids.length, target - extraTarget);
@@ -382,7 +382,7 @@ const buildResponses = (
 	memberUids.forEach((uid, rank) => {
 		const isIn = rank < membersIn;
 
-		// On a partially answered night the tail of the squad simply hasn't
+		// On a partially answered game the tail of the squad simply hasn't
 		// opened the app yet.
 		if (mode === 'partial' && !isIn && rng() < 0.55) return;
 
@@ -485,7 +485,7 @@ const buildGames = (plan: SeasonPlan, season: Season, createdBy: string): Planne
 
 /* ------------------------------------------------- playing the games out */
 
-interface PlayedNight {
+interface PlayedGame {
 	teams: TournamentTeams;
 	matches: TournamentMatch[];
 	result?: TournamentResult;
@@ -515,7 +515,7 @@ const playMatch = (squadA: string[], squadB: string[], rng: () => number): [numb
 
 	// Squad averages over five or six people cluster tightly, so the gap between
 	// two sides is small in absolute terms and has to be amplified to say
-	// anything. Too low and every night is a coin flip, the ratings random-walk,
+	// anything. Too low and every game is a coin flip, the ratings random-walk,
 	// and the seeded ladder ends up in no relation to who can actually play.
 	const edge = (mean(squadA) - mean(squadB)) * 8;
 	const base = 2.2;
@@ -524,20 +524,20 @@ const playMatch = (squadA: string[], squadB: string[], rng: () => number): [numb
 };
 
 /**
- * Play one night out: pick the teams, roll the scores, and — if it was
+ * Play one game out: pick the teams, roll the scores, and — if it was
  * confirmed — work out what it did to everyone's rating.
  *
- * `ratings` is the live ladder as it stood *going into* this night, and is
- * mutated on the way out. Nights are played in kickoff order across every
+ * `ratings` is the live ladder as it stood *going into* this game, and is
+ * mutated on the way out. Games are played in kickoff order across every
  * season for exactly that reason: ratings are global, so a Sunday result has to
  * be sitting in the ladder before the Tuesday that follows it is rated, or the
  * ledger a replay walks would not reproduce itself.
  */
-const playNight = (
+const playGame = (
 	planned: PlannedGame,
 	ratings: Map<string, PlayerRating>,
 	history: string[][][]
-): PlayedNight | null => {
+): PlayedGame | null => {
 	const { game, season, pin, offset } = planned;
 
 	if (game.status === 'cancelled') return null;
@@ -678,7 +678,7 @@ export interface SeedSummary {
 	seasons: number;
 	games: number;
 	responses: number;
-	confirmedNights: number;
+	confirmedGames: number;
 	ratedPlayers: number;
 	devUsers: DevUser[];
 	/** Keyed by game path, for `settle` to re-assert. */
@@ -686,7 +686,7 @@ export interface SeedSummary {
 	/** Resolved, run-scoped — not the ids the scenario declares. */
 	seasonIds: string[];
 	/**
-	 * When each confirmed night was confirmed, keyed by game path. Applied by
+	 * When each confirmed game was confirmed, keyed by game path. Applied by
 	 * `settle` rather than here — see the note on `onMatchWrite` there.
 	 */
 	finalisedAt: Map<string, string>;
@@ -737,22 +737,22 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 
 	// Ratings are global, so the whole calendar is replayed as one sequence.
 	// This is the same ordering `replayRatingsFrom` walks, and for the same
-	// reason: a night has to be rated against the ladder the nights before it
+	// reason: a game has to be rated against the ladder the games before it
 	// left behind.
 	const inKickoffOrder = [...planned].sort((a, b) => a.game.kickoffMillis - b.game.kickoffMillis);
 
 	const ratings = new Map<string, PlayerRating>();
 	const historyBySeason = new Map<string, string[][][]>();
-	const nights = new Map<string, PlayedNight>();
+	const games = new Map<string, PlayedGame>();
 
 	for (const entry of inKickoffOrder) {
 		const history = historyBySeason.get(entry.season.id) ?? [];
-		const night = playNight(entry, ratings, history);
+		const game = playGame(entry, ratings, history);
 
-		if (!night) continue;
+		if (!game) continue;
 
-		nights.set(entry.game.id, night);
-		historyBySeason.set(entry.season.id, [night.teams.teams.map(team => team.uids), ...history]);
+		games.set(entry.game.id, game);
+		historyBySeason.set(entry.season.id, [game.teams.teams.map(team => team.uids), ...history]);
 	}
 
 	const now = new Date().toISOString();
@@ -779,7 +779,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			// can receive it makes that path untestable.
 			notificationPrefs: isAppAdmin ? DEFAULT_NOTIFICATION_PREFS : prefs,
 			...(client ? { client } : {}),
-			// Absent until they have played a rated night — the app treats a
+			// Absent until they have played a rated game — the app treats a
 			// missing rating as "no rating", never as zero.
 			...(rating ? { rating } : {}),
 		};
@@ -811,17 +811,17 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			documents.push(batch => batch.set(gameRef.collection('responses').doc(response.uid), response));
 		}
 
-		const night = nights.get(entry.game.id);
-		if (!night) continue;
+		const game = games.get(entry.game.id);
+		if (!game) continue;
 
-		documents.push(batch => batch.set(gameRef.collection('tournament').doc('teams'), night.teams));
+		documents.push(batch => batch.set(gameRef.collection('tournament').doc('teams'), game.teams));
 
-		for (const match of night.matches) {
+		for (const match of game.matches) {
 			documents.push(batch => batch.set(gameRef.collection('matches').doc(String(match.order)), match));
 		}
 
-		if (night.result) {
-			const { result, ledger } = night;
+		if (game.result) {
+			const { result, ledger } = game;
 			documents.push(batch => batch.set(gameRef.collection('tournament').doc('result'), result));
 			documents.push(batch => batch.set(db().doc(`ratingLedger/${entry.game.id}`), ledger!));
 			// `resultFinalisedAt` deliberately not written here — `settle` does it.
@@ -845,22 +845,22 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 		seasons: seasons.length,
 		games: planned.length,
 		responses: planned.reduce((total, entry) => total + entry.responses.length, 0),
-		confirmedNights: [...nights.values()].filter(night => night.result).length,
+		confirmedGames: [...games.values()].filter(game => game.result).length,
 		ratedPlayers: ratings.size,
 		devUsers,
 		seasonIds: seasons.map(season => season.id),
 		finalisedAt: new Map(
 			planned
-				.filter(entry => nights.get(entry.game.id)?.result)
+				.filter(entry => games.get(entry.game.id)?.result)
 				.map(entry => [
 					`seasons/${entry.season.id}/games/${entry.game.id}`,
-					nights.get(entry.game.id)!.result!.finalisedAt,
+					games.get(entry.game.id)!.result!.finalisedAt,
 				])
 		),
 		lineups: new Map(
 			planned
-				.filter(entry => nights.has(entry.game.id))
-				.map(entry => [`seasons/${entry.season.id}/games/${entry.game.id}`, nights.get(entry.game.id)!.teams])
+				.filter(entry => games.has(entry.game.id))
+				.map(entry => [`seasons/${entry.season.id}/games/${entry.game.id}`, games.get(entry.game.id)!.teams])
 		),
 	};
 };
@@ -873,19 +873,19 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
  * The waiting: every one of the hundreds of seeded responses fires
  * `onResponseWrite`, which recounts, bumps `teamsGeneration` and queues a
  * rebuild. Those keep arriving well after the last write lands, and a rebuild
- * that runs afterwards would re-pick the teams for a night whose scores are
+ * that runs afterwards would re-pick the teams for a game whose scores are
  * already in. So wait for the generations to go quiet, write the seeded lineups
  * back over anything that got rebuilt, and bump the generation once more —
  * leaving every rebuild still in flight carrying a stale generation, which is
  * exactly what makes it drop itself.
  *
  * The avoiding: `onMatchWrite` fires a full ladder replay for every score
- * written to an already-confirmed night. Writing `resultFinalisedAt` up front
+ * written to an already-confirmed game. Writing `resultFinalisedAt` up front
  * would therefore set off a hundred and eighty overlapping replays against a
  * database still being written, and they interleave into a ladder that is not
  * quite what any single clean replay produces. So the seeder leaves the marker
  * off, and it goes on here — by which point most of the match triggers have run,
- * seen an unconfirmed night, and correctly done nothing.
+ * seen an unconfirmed game, and correctly done nothing.
  *
  * Most, not all: the queue runs deep enough that some arrive after the marker
  * lands and start replaying anyway. Hence the last step — one clean replay,

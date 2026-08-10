@@ -93,7 +93,7 @@ describe('runTeamRebuild', () => {
 		).resolves.toBeUndefined();
 	});
 
-	it('leaves a confirmed night’s lineup alone', async () => {
+	it('leaves a confirmed game’s lineup alone', async () => {
 		const players = uids(8);
 		await writeSeason(SEASON_ID, { memberUids: players });
 		await writeGame(SEASON_ID, GAME_ID, { teamsGeneration: 3, resultFinalisedAt: '2026-09-01T21:00:00.000Z' });

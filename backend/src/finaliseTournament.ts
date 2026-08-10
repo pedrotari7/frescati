@@ -16,10 +16,10 @@ const isSeasonAdmin = async (seasonId: string, uid: string, isAppAdmin: boolean)
 };
 
 /**
- * Confirm a night on demand.
+ * Confirm a game on demand.
  *
  * A callable rather than a flag on the game, because applying ratings is
- * privileged work with a real failure mode — a night applied twice would rate
+ * privileged work with a real failure mode — a game applied twice would rate
  * the same result against the ratings the first pass produced — and the person
  * tapping the button deserves to be told which of those happened. The app has
  * no API layer and doesn't want one, but `setAppAdmin` already establishes that
@@ -58,11 +58,11 @@ export const finaliseTournament = onCall({ region: REGION, timeoutSeconds: 300 }
 /**
  * Confirms whatever nobody got round to confirming.
  *
- * Hourly, like the reminders. Without this an unconfirmed night silently never
+ * Hourly, like the reminders. Without this an unconfirmed game silently never
  * counts and somebody notices three weeks later that the ladder has not moved —
  * which is precisely the failure an explicit-confirm-only design invites.
  *
- * A night with no scores at all is left alone rather than confirmed empty: it
+ * A game with no scores at all is left alone rather than confirmed empty: it
  * has nothing to say about anybody, and confirming it would only close the
  * scoreboard on a game somebody might still be about to fill in. It keeps being
  * offered here for as long as that stays true, however late the scores arrive —
@@ -78,22 +78,22 @@ export const finaliseDueTournaments = onSchedule(
 	async () => {
 		const cutoff = new Date(Date.now() - AUTO_FINALISE_HOURS * 3600_000).toISOString();
 
-		// Every unrated night that has had its window, with no lower bound.
+		// Every unrated game that has had its window, with no lower bound.
 		//
 		// There used to be one, seven days back, to keep this off the whole back
 		// catalogue every hour — necessary while a rated game stayed `scheduled`
 		// forever and so matched this query for the rest of time. It also meant a
-		// night whose scores were entered a week late fell out of the window and
+		// game whose scores were entered a week late fell out of the window and
 		// was never rated at all, silently, while the screen went on promising it
 		// would be.
 		//
 		// Confirming now marks the game `played`, so what comes back here is only
-		// what genuinely still needs rating: a handful of nights nobody scored,
+		// what genuinely still needs rating: a handful of games nobody scored,
 		// which is exactly the set worth noticing.
 		//
 		// Filtered on status as well as kickoff so this rides the collection-group
 		// index `sendReminders` already needs, rather than asking for another one.
-		// Cancelled nights have nothing to rate anyway.
+		// Cancelled games have nothing to rate anyway.
 		const games = await db
 			.collectionGroup('games')
 			.where('status', '==', 'scheduled')
@@ -124,20 +124,20 @@ export const finaliseDueTournaments = onSchedule(
 				// applied and nothing is wrong; next hour will get it.
 				if (outcome === 'busy') busy++;
 			} catch (error) {
-				// One wedged night must not stop the rest of the week confirming.
-				logger.error('Could not auto-confirm a night', { seasonId: game.seasonId, gameId: doc.id, error });
+				// One wedged game must not stop the rest of the week confirming.
+				logger.error('Could not auto-confirm a game', { seasonId: game.seasonId, gameId: doc.id, error });
 			}
 		}
 
 		// Last, so a replay abandoned by a crashed holder is picked up after
-		// tonight's confirmations rather than being rewound by them.
+		// this sweep's confirmations rather than being rewound by them.
 		const replayed = await drainAbandonedReplays();
 
 		// `lingering` is the number this sweep looked at and could not rate,
-		// which is almost always nights nobody scored. It is the one figure here
+		// which is almost always games nobody scored. It is the one figure here
 		// that should stay small — a number that climbs week on week means games
 		// are going unrated and nobody has noticed.
-		logger.info('Auto-confirmed nights past their window', {
+		logger.info('Auto-confirmed games past their window', {
 			checked: games.size,
 			finalised,
 			busy,
@@ -175,7 +175,7 @@ export const onMatchWrite = onDocumentWritten(
 
 		if (!game?.resultFinalisedAt) return;
 
-		logger.info('Replaying after a correction to a confirmed night', { seasonId, gameId });
+		logger.info('Replaying after a correction to a confirmed game', { seasonId, gameId });
 
 		await requestRatingReplay(game.kickoffMillis ?? Date.parse(game.kickoff));
 	}

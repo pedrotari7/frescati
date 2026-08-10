@@ -68,8 +68,8 @@ const getRecentSquads = async (seasonId: string, kickoff: string, lookback: numb
 		.get();
 
 	// `getAll` throws when handed nothing, which is exactly what the very first
-	// game of a season produces — so without this the one night that has no
-	// history to avoid repeating is the one night that never gets a lineup.
+	// game of a season produces — so without this the one game that has no
+	// history to avoid repeating is the one game that never gets a lineup.
 	if (games.empty) return [];
 
 	const lineups = await db.getAll(...games.docs.map(game => game.ref.collection('tournament').doc('teams')));
@@ -88,12 +88,12 @@ export const runTeamRebuild = async ({ seasonId, gameId, generation }: TeamRebui
 	// have taken the lineup with it.
 	if (!game) return;
 
-	// Once a night has been confirmed its lineup is no longer a suggestion: it
+	// Once a game has been confirmed its lineup is no longer a suggestion: it
 	// is what the ledger was computed against, and `replayRatingsFrom` reads it
 	// back to recompute a correction. Re-picking it here would silently rewrite
-	// what a past night meant, so a confirmed game's teams are frozen.
+	// what a past game meant, so a confirmed game's teams are frozen.
 	if (game.resultFinalisedAt) {
-		logger.debug('Left a confirmed night’s lineup alone', { seasonId, gameId });
+		logger.debug('Left a confirmed game’s lineup alone', { seasonId, gameId });
 		return;
 	}
 

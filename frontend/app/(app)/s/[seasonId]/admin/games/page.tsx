@@ -22,8 +22,8 @@ import { Field, TextInput } from '../../../../../../components/Field';
 /**
  * What deleting this game actually costs.
  *
- * A confirmed night is the part worth spelling out: the ratings it gave
- * everybody are taken back and every night played since is worked out again,
+ * A confirmed game is the part worth spelling out: the ratings it gave
+ * everybody are taken back and every game played since is worked out again,
  * because each of those was rated against the ratings this one produced. None
  * of that is what "delete a game" sounds like it does.
  */
@@ -32,7 +32,7 @@ const describeDeletion = (game: Game): string => {
 
 	return [
 		game.resultFinalisedAt &&
-			'These results are confirmed, so the ratings they gave everyone are taken back and every night played since is worked out again.',
+			'These results are confirmed, so the ratings they gave everyone are taken back and every game played since is worked out again.',
 		answers > 0 &&
 			`${answers} ${answers === 1 ? 'answer goes' : 'answers go'} with it. Cancelling the game instead keeps them.`,
 		"This can't be undone.",

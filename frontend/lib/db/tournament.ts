@@ -78,7 +78,7 @@ export const clearMatchScore = (seasonId: string, gameId: string, order: number)
 	deleteDoc(matchDoc(seasonId, gameId, order));
 
 /**
- * Every rated night in one season.
+ * Every rated game in one season.
  *
  * The ledger is queried rather than each game's result document because it is
  * one read instead of two per game across a whole calendar, and it already
@@ -108,7 +108,7 @@ export const subscribeToResult = (
 	);
 
 /**
- * Confirm the night and apply the ratings.
+ * Confirm the game and apply the ratings.
  *
  * A callable because rules cannot express this: it reads every player's current
  * rating, writes them all back and leaves a ledger entry, and applying it twice

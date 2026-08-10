@@ -12,6 +12,7 @@ export { finaliseTournament, finaliseDueTournaments, onMatchWrite } from './fina
 export { onGameDeleted, onSeasonDeleted } from './cascadeDeletes';
 export { sendReminders } from './sendReminders';
 export { setAppAdmin } from './setAppAdmin';
+export { setStartingRating } from './setStartingRating';
 export { sendTestPush } from './sendTestPush';
 export { sendTestEmail } from './sendTestEmail';
 export { getPushDevices } from './getPushDevices';

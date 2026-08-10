@@ -1,5 +1,5 @@
 /**
- * The shape of a night: how many teams, how big the squads, who plays whom and
+ * The shape of a game: how many teams, how big the squads, who plays whom and
  * whether the whole thing fits the slot.
  *
  * Pure and dependency-free so the Cloud Function that builds teams and the
@@ -13,7 +13,7 @@ import type { TournamentMatch } from './types';
 export const MIN_TOURNAMENT_PLAYERS = 8;
 
 /**
- * Hours after kickoff at which an unconfirmed night confirms itself.
+ * Hours after kickoff at which an unconfirmed game confirms itself.
  *
  * Lives here rather than in the function that acts on it because the screen has
  * to promise it — "nothing counts until this is confirmed" is only reassuring
@@ -64,7 +64,7 @@ export const getSquadSizes = (playing: number, teamCount: number): number[] => {
  *
  * This is what makes "equal sides, nobody rests permanently" work on an odd
  * headcount. Eleven players are squads of six and five playing 5v5, and the six
- * take turns sitting out rather than one person watching all night.
+ * take turns sitting out rather than one person watching the whole game.
  */
 export const getSideSize = (squadA: number, squadB: number): number => Math.min(squadA, squadB);
 
@@ -80,7 +80,7 @@ export interface Fixture {
  * Who plays whom, in the order they play it.
  *
  * Two teams play three matches; three play a double round robin; four play a
- * single one. All land on six matches, which is what keeps a night the same
+ * single one. All land on six matches, which is what keeps a game the same
  * length whatever the turnout.
  *
  * The orders are hand-picked for rest on a single pitch. Four teams manage all
@@ -116,10 +116,10 @@ export const getFixtures = (teamCount: number): Fixture[] =>
 	(ROTATIONS[teamCount] ?? []).map(([teamA, teamB], order) => ({ order, teamA, teamB }));
 
 /**
- * The matches that actually belong to this night.
+ * The matches that actually belong to this game.
  *
  * The scoreboard is the one thing in the app anybody at the pitch may write, so
- * what comes back from it is not automatically part of the night. A document at
+ * what comes back from it is not automatically part of the game. A document at
  * an `order` no rotation reaches, or between two teams that fixture never puts
  * together, describes a match that was never on the card — and because the
  * screen only ever draws `getFixtures`, such a document counted towards the
@@ -128,7 +128,7 @@ export const getFixtures = (teamCount: number): Fixture[] =>
  *
  * Security rules bind a match's document id to its `order`, which is what stops
  * two documents claiming one fixture. They cannot do the rest: a rule has no
- * cheap way to know how many teams a night split into, let alone which pairs
+ * cheap way to know how many teams a game split into, let alone which pairs
  * that split's rotation produces. So this is the real check, and both the screen
  * and the function that turns a scoreboard into ratings run it before reading a
  * single score.
@@ -169,7 +169,7 @@ export interface ScheduleFit {
 }
 
 /**
- * Whether the night fits the season's slot.
+ * Whether the game fits the season's slot.
  *
  * Reported rather than enforced: the fixture list is generated at the requested
  * match length either way, and an overrun is surfaced as a warning. Changeovers
@@ -189,7 +189,7 @@ export const getScheduleFit = (teamCount: number, matchMinutes: number, slotMinu
 };
 
 /**
- * How the night reads on a badge, e.g. `5v5` or `3 teams · 4–5 a side`.
+ * How the game reads on a badge, e.g. `5v5` or `3 teams · 4–5 a side`.
  *
  * Two teams keep the familiar `NvN` because that is what people call it. Three
  * or four say how many squads, since the side size alone stops describing the

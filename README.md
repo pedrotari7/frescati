@@ -104,7 +104,6 @@ Project: **`footballfrescati`**.
         Paste `sa-key.json`'s contents into the `GCP_SA_KEY` secret, then delete the local file — gen2 functions deploy through Cloud Build, Artifact Registry and Cloud Run, so `firebase.admin` alone isn't enough. `cloudtasks.admin` and `cloudscheduler.admin` are needed too: `rebuildTeams` upserts its Cloud Tasks queue and `finaliseDueTournaments`/`sendReminders` upsert their Cloud Scheduler jobs on every deploy. `secretmanager.admin` is what lets the deploy read `RESEND_API_KEY` and grant the runtime service account access to it.
 
 10. **Set up App Check**, which is what keeps a script holding this project's public config out of a database every read of which is a plain signed-in read. See "Who can see the group" for what it does and doesn't cover.
-
     1. **Project settings → App Check → Apps →** your web app **→ reCAPTCHA Enterprise.** Register it, and put the **site key** in `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY` — in `frontend/.env.local`, in Vercel's environment variables, and as a repo variable for CI. It is public, like every other `NEXT_PUBLIC_` value.
     2. Deploy the frontend and leave it alone for a few days. App Check starts in **monitoring** mode: tokens are collected and nothing is rejected. **Project settings → App Check → APIs** then shows the share of verified requests per service.
     3. Only once Firestore reads **and** Cloud Functions calls are showing ~100% verified, switch **Enforce** on, one service at a time.
@@ -174,13 +173,13 @@ Then tap the flask in the bottom-right of the app and pick somebody. That switch
 |                              |                                                                      |
 | ---------------------------- | -------------------------------------------------------------------- |
 | `pnpm seed`                  | the `full` scenario — three seasons, a full ladder, every game state |
-| `pnpm seed --scenario=big`   | 26 members, four-team nights, a season of history                    |
+| `pnpm seed --scenario=big`   | 26 members, four-team games, a season of history                     |
 | `pnpm seed --scenario=fresh` | day one: no history, no ratings, every empty state                   |
 | `pnpm seed --list`           | what else is there                                                   |
 | `pnpm seed --keep`           | seed alongside what's already there instead of wiping                |
 | `pnpm seed --origin=…`       | if the app isn't on `localhost:3000` (avatars are served from it)    |
 
-Scenarios live in `backend/scripts/seed/scenarios.ts` and are declarative — a season is an entry in a list, and a night that should be cancelled, at risk, played-but-unconfirmed or answered by nobody is a line in its `pins`. Everything is positioned relative to today, so a seed is as useful in six months as it is now.
+Scenarios live in `backend/scripts/seed/scenarios.ts` and are declarative — a season is an entry in a list, and a game that should be cancelled, at risk, played-but-unconfirmed or answered by nobody is a line in its `pins`. Everything is positioned relative to today, so a seed is as useful in six months as it is now.
 
 The seeder never invents anything the app could work out for itself: counts come from `tallyResponses`, lineups from `pickTeams`, tables from `getStandings` and ratings from `getRatingChanges` — the same code the Cloud Functions run. Only the scorelines are made up, rolled from a hidden per-player strength that never reaches Firestore. So the seeded ladder is one the app could genuinely have produced, and replaying it reproduces it exactly.
 
@@ -189,7 +188,7 @@ The seeder never invents anything the app could work out for itself: counts come
 ### What the emulators can't do
 
 - **Cloud Tasks has no emulator.** `rebuildTeams` is normally queued; locally the same work runs in-process a couple of seconds after a response instead, so teams really do rebuild when you answer. See `enqueueTeamRebuild`.
-- **Scheduled functions never fire** — the emulator skips them without pubsub. `finaliseDueTournaments` and `sendReminders` therefore do nothing locally; confirming a night by hand still works, since that path is a callable.
+- **Scheduled functions never fire** — the emulator skips them without pubsub. `finaliseDueTournaments` and `sendReminders` therefore do nothing locally; confirming a game by hand still works, since that path is a callable.
 - **Push goes nowhere.** FCM is not emulated.
 - **Email goes nowhere either** — deliberately, in this case. `sendEmail` logs what it would have sent rather than calling Resend, so a `pnpm dev:seeded` run doesn't mail the entire seeded roster. The honest end-to-end test is **You → Push debug** in production.
 - Seeding while the Functions emulator is up sets off a few hundred triggers. The seeder waits them out and has the last word — which is why `pnpm seed` takes about thirty seconds with functions running and about five without.
@@ -225,7 +224,7 @@ It draws a line between data that is **about a person** and data that is a **sha
 - **Erased** — the Firebase Auth account and the address in it, their display name, avatar and device notes, every registered push token, and the free-text note on every response they wrote.
 - **Kept** — the uid itself, wherever it appears in something more than one person took part in: `ratingLedger`, the generated lineups, the scoreboard's `updatedBy`, and the in/out of each response.
 
-That second list is not stubbornness. The ledger is the undo history for the **whole** ladder — `replayRatingsFrom` rebuilds each night from the state the one before it left — so deleting one player's entries wouldn't only lose their history, it would corrupt every replay for everybody who ever played alongside them. What survives is an opaque id with nothing attached to it, which is the most that can be taken away without rewriting other people's results.
+That second list is not stubbornness. The ledger is the undo history for the **whole** ladder — `replayRatingsFrom` rebuilds each game from the state the one before it left — so deleting one player's entries wouldn't only lose their history, it would corrupt every replay for everybody who ever played alongside them. What survives is an opaque id with nothing attached to it, which is the most that can be taken away without rewriting other people's results.
 
 Idempotent, so a half-finished run can just be repeated, and it accepts a uid as well as an email for the case where the Auth account is already gone. If they were the only admin of a season it says so and leaves them on `adminUids` rather than orphaning it — appoint somebody else and re-run.
 

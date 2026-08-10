@@ -12,14 +12,14 @@ import type { DevicePlatform } from './device';
 export type SeasonStatus = 'draft' | 'active' | 'archived';
 
 /**
- * `played` is set by the finalise functions once a night has been rated, and is
- * read by exactly one thing: the hourly sweep that looks for nights still owed
- * a rating. It is a marker that the night is *done with*, not a description of
+ * `played` is set by the finalise functions once a game has been rated, and is
+ * read by exactly one thing: the hourly sweep that looks for games still owed
+ * a rating. It is a marker that the game is *done with*, not a description of
  * whether it happened — `getGameLifecycle` answers that from `endsAt`, so a
  * game reads as finished on the screen whether or not anybody scored it.
  *
  * Which is why a replay that finds every score cleared puts the status back to
- * `scheduled`: the night is owed a rating again.
+ * `scheduled`: the game is owed a rating again.
  */
 export type GameStatus = 'scheduled' | 'cancelled' | 'played';
 export type ResponseStatus = 'in' | 'out';
@@ -120,9 +120,10 @@ export interface AppUser {
 	/** Absent on anybody who hasn't signed in since this was added. */
 	client?: ClientInfo;
 	/**
-	 * Absent until they've played a rated game. A player with no rating is
-	 * seeded from the group average at selection time rather than carrying a
-	 * stored placeholder — same reasoning as a missing response document.
+	 * Absent until they've played a rated game, or an app admin set them a
+	 * starting point. A player with neither is seeded from the group average at
+	 * selection time rather than carrying a stored placeholder — same reasoning
+	 * as a missing response document.
 	 */
 	rating?: PlayerRating;
 }
@@ -158,12 +159,16 @@ export interface PushDevice {
  * tell them apart, and the clamp quietly breaks the zero-sum property the
  * update relies on. `toDisplayRating` in `rating.ts` does the mapping.
  *
- * Written only by the rating functions; security rules freeze it against client
- * writes the same way `isAppAdmin` is frozen.
+ * Written only by the rating functions and by `setStartingRating`; security
+ * rules freeze it against client writes the same way `isAppAdmin` is frozen.
  */
 export interface PlayerRating {
 	elo: number;
-	/** Rated games played. Drives the provisional K-factor. */
+	/**
+	 * Rated games played. Drives the provisional K-factor — and, at zero, marks
+	 * this as a starting point an admin set rather than a rating anybody
+	 * earned. See `hasPlayed` in `rating.ts`.
+	 */
 	games: number;
 	updatedAt: string;
 }
@@ -187,7 +192,7 @@ export interface BalanceSettings {
 	repeatPenalty: number;
 	/** How many previous games the repeat penalty looks back over. */
 	repeatLookback: number;
-	/** Minutes per match, used to size the night against the season's slot. */
+	/** Minutes per match, used to size the game against the season's slot. */
 	matchMinutes: number;
 }
 
@@ -264,7 +269,7 @@ export interface Game {
 	 */
 	teamsGeneration?: number;
 	/**
-	 * When the night's results were confirmed and the ratings applied. Set, the
+	 * When the game's results were confirmed and the ratings applied. Set, the
 	 * scoreboard is closed to everyone but a season admin — whose correction
 	 * replays every rated game from here forward.
 	 *
@@ -316,7 +321,7 @@ export interface GameResponse {
 }
 
 /**
- * One squad for one night. `uids` is the whole squad; how many of them are on
+ * One squad for one game. `uids` is the whole squad; how many of them are on
  * the pitch at once depends on who they're playing — see `getSideSize`.
  */
 export interface TournamentTeam {
@@ -353,7 +358,7 @@ export interface TournamentTeams {
  *
  * **No match document at all means "not played yet"** — the same third state
  * responses use, and for the same reason: an unplayed match and a 0–0 draw are
- * different things, and a placeholder would make the standings claim a night
+ * different things, and a placeholder would make the standings claim a game
  * had been played before anybody kicked off.
  *
  * `teamA` and `teamB` are stored rather than re-derived from the fixture list,
@@ -371,7 +376,7 @@ export interface TournamentMatch {
 	updatedAt: string;
 }
 
-/** What one night did to one player's rating. */
+/** What one game did to one player's rating. */
 export interface RatingDelta {
 	uid: string;
 	before: number;
@@ -380,11 +385,11 @@ export interface RatingDelta {
 }
 
 /**
- * A confirmed night, at `seasons/{id}/games/{id}/tournament/result`.
+ * A confirmed game, at `seasons/{id}/games/{id}/tournament/result`.
  *
  * Written only by the finalise functions. Holds the table and the rating
  * movement as they stood when confirmed, so the screen never has to recompute
- * a past night from ratings that have since moved on.
+ * a past game from ratings that have since moved on.
  */
 export interface TournamentResult {
 	standings: TeamStanding[];
@@ -395,13 +400,13 @@ export interface TournamentResult {
 }
 
 /**
- * One night's rating movement, at `ratingLedger/{gameId}`.
+ * One game's rating movement, at `ratingLedger/{gameId}`.
  *
  * Top-level rather than under the season, because ratings are global and a
  * replay has to walk every rated game in kickoff order regardless of which
  * season it belonged to — there is nothing season-scoped to iterate.
  *
- * `before` holds the exact rating each player carried into the night, `null`
+ * `before` holds the exact rating each player carried into the game, `null`
  * where they had none at all. That is what makes a rewind exact: restoring a
  * stored document beats recomputing what a rating "must have been".
  */
@@ -418,7 +423,7 @@ export interface RatingLedgerEntry {
 	 *
 	 * Here as well as in the result document so a season table is one query
 	 * against this collection rather than two reads per game across the whole
-	 * calendar — and it is genuinely part of what the night did to a player,
+	 * calendar — and it is genuinely part of what the game did to a player,
 	 * which is what this entry records.
 	 */
 	positions: Record<string, number>;

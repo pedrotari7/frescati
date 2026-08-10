@@ -233,6 +233,17 @@ const MePage = () => {
 						</section>
 
 						<section className='glass rounded-2xl p-5'>
+							<h2 className='text-ink mb-1 font-semibold'>Starting ratings</h2>
+							<p className='text-muted mb-3 text-sm leading-relaxed'>
+								Tell the balancer what a new player is worth before they have played, instead of
+								starting everybody on the group average.
+							</p>
+							<Button variant='secondary' fullWidth onClick={() => router.push('/admin/ratings')}>
+								Set starting ratings
+							</Button>
+						</section>
+
+						<section className='glass rounded-2xl p-5'>
 							<h2 className='text-ink mb-1 font-semibold'>Who gets notified</h2>
 							<p className='text-muted mb-3 text-sm leading-relaxed'>
 								Every account&apos;s notification settings, the devices they have registered, and who

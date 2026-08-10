@@ -398,7 +398,7 @@ service cloud.firestore {
           }
 
           // Read live off the game rather than snapshotted, so confirming the
-          // night closes the scoreboard immediately.
+          // game closes the scoreboard immediately.
           function isFinalised() {
             return get(/databases/$(database)/documents/seasons/$(seasonId)/games/$(gameId))
                      .data.get('resultFinalisedAt', null) != null;
@@ -426,7 +426,7 @@ service cloud.firestore {
                    // No rotation runs past six matches — see `ROTATIONS` in
                    // shared/tournament.ts. Mirrored here the same way the
                    // four-team ceiling below is: a rule cannot read the lineup
-                   // to learn tonight's real fixture count, so it bounds the
+                   // to learn the game's real fixture count, so it bounds the
                    // worst case and `selectPlayedMatches` does the exact check
                    // on the way back out.
                    && request.resource.data.order < 6
@@ -447,7 +447,7 @@ service cloud.firestore {
 
           allow read: if isSignedIn();
 
-          // A season admin keeps writing after the night is confirmed — that is
+          // A season admin keeps writing after the game is confirmed — that is
           // what makes a correction possible at all, and the rating replay is
           // built to follow one.
           allow create, update: if matchShapeOk()
@@ -456,7 +456,7 @@ service cloud.firestore {
 
           // Removing a score is on the same terms as writing one. "Not played"
           // is a real state and the absence of a document is the only thing
-          // that says it, so a night where somebody scored a match that never
+          // that says it, so a game where somebody scored a match that never
           // kicked off could not be put right by the people who were there.
           //
           // It hands nobody anything new: anyone who can overwrite a scoreline
@@ -558,7 +558,7 @@ service cloud.firestore {
     }
 
     // ── rating ledger ────────────────────────────────────────────────────────
-    // One entry per rated night, holding the exact rating every player carried
+    // One entry per rated game, holding the exact rating every player carried
     // into it. Top-level rather than under the season because ratings are
     // global: a replay has to walk every rated game in kickoff order, and there
     // is nothing season-scoped to iterate.

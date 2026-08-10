@@ -140,7 +140,7 @@ describe('describeSquads', () => {
 		expect(describeSquads(sizes)).toBe(expected);
 	});
 
-	it('has nothing to say about an empty night', () => {
+	it('has nothing to say about an empty game', () => {
 		expect(describeSquads([])).toBeNull();
 	});
 });
@@ -157,24 +157,24 @@ describe('selectPlayedMatches', () => {
 		...overrides,
 	});
 
-	/** A full night, scored exactly as the rotation ran it. */
+	/** A full game, scored exactly as the rotation ran it. */
 	const asPlayed = (teamCount: number) =>
 		getFixtures(teamCount).map(fixture => aMatch(fixture.order, fixture.teamA, fixture.teamB));
 
-	it('keeps every fixture a real night produces', () => {
+	it('keeps every fixture a real game produces', () => {
 		expect(selectPlayedMatches(4, asPlayed(4))).toHaveLength(6);
 		expect(selectPlayedMatches(2, asPlayed(2))).toHaveLength(3);
 	});
 
 	// The reason this exists. Anybody holding a response on the game can write
 	// to the scoreboard, and a match at an order nothing renders still moved
-	// every rating on the night.
-	it('drops a match at an order the night never reaches', () => {
+	// every rating on the game.
+	it('drops a match at an order the game never reaches', () => {
 		expect(selectPlayedMatches(2, [aMatch(0, 0, 1), aMatch(40, 0, 1)])).toEqual([aMatch(0, 0, 1)]);
 	});
 
 	it('drops a match between two teams that fixture never puts together', () => {
-		// A four-team night opens 0v1, not 0v3.
+		// A four-team game opens 0v1, not 0v3.
 		expect(selectPlayedMatches(4, [aMatch(0, 0, 3)])).toEqual([]);
 	});
 

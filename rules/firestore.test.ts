@@ -940,7 +940,7 @@ describe('the scoreboard', () => {
 	});
 
 	// The id is the fixture's place in the running order, and the table and
-	// every rating on the night are built from whatever this collection holds.
+	// every rating on the game are built from whatever this collection holds.
 	// Unbound, a score could be filed under an id the screen never draws and
 	// still count in full — which is a way to move the ladder that leaves
 	// nothing on screen to explain it.
@@ -953,7 +953,7 @@ describe('the scoreboard', () => {
 	it('stops a match invented at an order no rotation reaches', async () => {
 		await respond(MEMBER, 'member');
 
-		// Six matches is the longest night there is.
+		// Six matches is the longest game there is.
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(6)), aScore(MEMBER, { order: 6 })));
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(40)), aScore(MEMBER, { order: 40 })));
 	});
@@ -967,13 +967,13 @@ describe('the scoreboard', () => {
 	});
 
 	// Not exempt: a season admin is the one person who can still write here
-	// after the night is confirmed, which is when a forged order would be
+	// after the game is confirmed, which is when a forged order would be
 	// hardest to notice and would trigger a replay of the whole ladder.
 	it('holds a season admin to the same id', async () => {
 		await assertFails(setDoc(doc(authed(SEASON_ADMIN), matchDoc(0)), aScore(SEASON_ADMIN, { order: 3 })));
 	});
 
-	it('accepts every order a six-match night actually uses', async () => {
+	it('accepts every order a six-match game actually uses', async () => {
 		await respond(MEMBER, 'member');
 
 		for (const order of [0, 1, 2, 3, 4, 5]) {
@@ -981,7 +981,7 @@ describe('the scoreboard', () => {
 		}
 	});
 
-	it('closes the scoreboard to players once the night is confirmed', async () => {
+	it('closes the scoreboard to players once the game is confirmed', async () => {
 		await respond(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 		await finalise();
@@ -991,7 +991,7 @@ describe('the scoreboard', () => {
 
 	// The replay is built to follow exactly this — without it a confirmed
 	// mistake would be baked into everyone's rating forever.
-	it('still lets a season admin correct a confirmed night', async () => {
+	it('still lets a season admin correct a confirmed game', async () => {
 		await respond(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 		await finalise();
@@ -1024,7 +1024,7 @@ describe('the scoreboard', () => {
 		await assertFails(deleteDoc(doc(authed(EXTRA), matchDoc(0))));
 	});
 
-	it('closes clearing to players once the night is confirmed', async () => {
+	it('closes clearing to players once the game is confirmed', async () => {
 		await respond(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 		await finalise();
@@ -1032,7 +1032,7 @@ describe('the scoreboard', () => {
 		await assertFails(deleteDoc(doc(authed(MEMBER), matchDoc(0))));
 	});
 
-	it('still lets a season admin delete a match from a confirmed night', async () => {
+	it('still lets a season admin delete a match from a confirmed game', async () => {
 		await respond(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 		await finalise();

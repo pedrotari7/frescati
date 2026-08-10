@@ -21,12 +21,12 @@ import { clearPendingIfUnmoved, readPendingFrom, withDrainedLadderLock, withLadd
 /**
  * Turning a scoreboard into ratings.
  *
- * Everything a night does to the ladder happens here, and leaves behind a
+ * Everything a game does to the ladder happens here, and leaves behind a
  * ledger entry precise enough to undo. That last part is the whole design: a
  * correction to a confirmed result cannot be applied forward, because every
  * game after it was rated against the ratings that game produced. The only
  * correct fix is to rewind and replay — and a rewind is exact only if the state
- * before each night was written down rather than inferred afterwards.
+ * before each game was written down rather than inferred afterwards.
  */
 
 /** Firestore caps a batch at 500 writes. */
@@ -58,7 +58,7 @@ const commitAll = async (writes: ((batch: WriteBatch) => void)[]): Promise<void>
 };
 
 /**
- * What one night would do to the ladder, given the ratings as they stand right
+ * What one game would do to the ladder, given the ratings as they stand right
  * now. `null` when there is nothing to rate.
  */
 export const computeGameRatings = async (
@@ -88,7 +88,7 @@ export const computeGameRatings = async (
 		matchesSnap.docs.map(doc => doc.data() as TournamentMatch)
 	);
 
-	// A night with no scores is not a nil-all draw for everybody, it is a night
+	// A game with no scores is not a nil-all draw for everybody, it is a game
 	// that produced no information — so it moves nothing, rather than paying
 	// every team a joint first.
 	if (matches.length === 0) return null;
@@ -97,7 +97,7 @@ export const computeGameRatings = async (
 	const uids = lineup.teams.flatMap(team => team.uids);
 	const profiles = await getProfiles([...new Set([...season.memberUids, ...uids])]);
 
-	// Seeded from the season's rated members, not from tonight's turnout — a
+	// Seeded from the season's rated members, not from this game's turnout — a
 	// newcomer's starting point shouldn't depend on who else happened to show.
 	const seedElo = getSeedElo(
 		season.memberUids
@@ -124,12 +124,12 @@ export const computeGameRatings = async (
 };
 
 /**
- * Write a night's ratings: every affected profile, the result, the ledger entry
+ * Write a game's ratings: every affected profile, the result, the ledger entry
  * and the marker that closes the scoreboard.
  *
- * Batched so a half-applied night can't exist. A profile updated without a
+ * Batched so a half-applied game can't exist. A profile updated without a
  * ledger entry would be unrewindable, which is a worse state than not having
- * applied the night at all.
+ * applied the game at all.
  */
 const commitGameRatings = async (
 	seasonId: string,
@@ -177,14 +177,14 @@ const commitGameRatings = async (
 	]);
 };
 
-/** Undo a night entirely — used when a replay finds every score has been cleared. */
+/** Undo a game entirely — used when a replay finds every score has been cleared. */
 const clearGameRatings = async (seasonId: string, gameId: string): Promise<void> => {
 	const gameRef = db.doc(`seasons/${seasonId}/games/${gameId}`);
 
 	await commitAll([
 		batch => batch.delete(db.doc(`ratingLedger/${gameId}`)),
 		batch => batch.delete(gameRef.collection('tournament').doc('result')),
-		// Back to `scheduled` as well, or the night would be unrated and yet
+		// Back to `scheduled` as well, or the game would be unrated and yet
 		// invisible to the sweep that exists to rate it — the one state this
 		// pair of fields must never be left in together.
 		batch => batch.update(gameRef, { resultFinalisedAt: FieldValue.delete(), status: 'scheduled' }),
@@ -194,7 +194,7 @@ const clearGameRatings = async (seasonId: string, gameId: string): Promise<void>
 export type FinaliseOutcome = 'finalised' | 'nothing-to-rate' | 'already-finalised' | 'missing' | 'busy';
 
 /**
- * Confirm a night.
+ * Confirm a game.
  *
  * Refuses an already-confirmed game rather than applying it twice — a second
  * application would rate the same result against the ratings the first one
@@ -202,7 +202,7 @@ export type FinaliseOutcome = 'finalised' | 'nothing-to-rate' | 'already-finalis
  *
  * Held under the ladder lock, for two reasons. It reads every player's current
  * rating and writes it back, so a replay rewinding underneath it would have it
- * rate the night against ratings that were never real — and it writes a *new*
+ * rate the game against ratings that were never real — and it writes a *new*
  * ledger entry, which a replay already in flight never queried and so will not
  * repair. And the read of `resultFinalisedAt` and the write that sets it are
  * now one critical section, which is what stops two admins tapping Confirm at
@@ -210,7 +210,7 @@ export type FinaliseOutcome = 'finalised' | 'nothing-to-rate' | 'already-finalis
  *
  * `busy` rather than a throw when the lock never comes free: the callable turns
  * it into something an admin can act on, and the hourly sweep simply leaves the
- * night for next time.
+ * game for next time.
  */
 export const finaliseGame = async (
 	seasonId: string,
@@ -230,7 +230,7 @@ export const finaliseGame = async (
 
 		await commitGameRatings(seasonId, gameId, ratings, game.kickoff, at, finalisedBy);
 
-		logger.info('Finalised a night', { seasonId, gameId, players: ratings.changes.length, finalisedBy });
+		logger.info('Finalised a game', { seasonId, gameId, players: ratings.changes.length, finalisedBy });
 
 		return 'finalised';
 	});
@@ -286,11 +286,11 @@ const drainRatingReplays = async (): Promise<number> => {
  *
  * The rewind runs latest-first, so each restore lands on the state its entry
  * was applied to and everyone ends up exactly as they were before the window.
- * The replay then runs in kickoff order, each night rated against the ratings
- * the night before it produced — which is the point, and the reason adjusting
+ * The replay then runs in kickoff order, each game rated against the ratings
+ * the game before it produced — which is the point, and the reason adjusting
  * only the corrected game would leave every later one wrong.
  *
- * A night whose game has since been deleted is rewound like any other and then
+ * A game that has since been deleted is rewound like any other and then
  * simply not replayed, and its ledger entry is retired on the way past. That is
  * what makes this the whole answer to a deleted game as well as a corrected
  * one: the rewind needs the entry to still be there to be exact, so nothing may
@@ -315,7 +315,7 @@ export const replayRatingsFrom = async (fromMillis: number): Promise<number> => 
 	await commitAll(
 		[...entries].reverse().flatMap(entry =>
 			Object.entries(entry.before).map(([uid, rating]) => (batch: WriteBatch) => {
-				// A player who carried no rating into the night had none at all,
+				// A player who carried no rating into the game had none at all,
 				// so the field goes rather than being restored to a stand-in
 				// that would read as a real, settled rating.
 				batch.set(db.doc(`users/${uid}`), { rating: rating ?? FieldValue.delete() }, { merge: true });
@@ -330,13 +330,13 @@ export const replayRatingsFrom = async (fromMillis: number): Promise<number> => 
 		const [game, season] = await Promise.all([getGame(entry.seasonId, entry.gameId), getSeason(entry.seasonId)]);
 
 		// The game, or its whole season, has been deleted. The rewind above has
-		// already undone everything this night did, and there is nothing left to
+		// already undone everything this game did, and there is nothing left to
 		// rate it from, so the entry goes too — otherwise it sits in the ledger
 		// forever, still carrying its `seasonId`, and the season table keeps
-		// counting a night nobody can open as an appearance and a win.
+		// counting a game nobody can open as an appearance and a win.
 		//
 		// Retired here rather than at the deletion, so there is one place that
-		// knows how to unwind a rated night — and so a ledger already holding
+		// knows how to unwind a rated game — and so a ledger already holding
 		// orphans from before anything cleaned up after a deletion heals itself
 		// the next time a replay walks over them.
 		//
@@ -362,7 +362,7 @@ export const replayRatingsFrom = async (fromMillis: number): Promise<number> => 
 		}
 
 		// The original confirmation stands — a correction doesn't re-confirm the
-		// night, so who confirmed it and when are carried through untouched.
+		// game, so who confirmed it and when are carried through untouched.
 		const previous = await db.doc(`seasons/${entry.seasonId}/games/${entry.gameId}/tournament/result`).get();
 
 		await commitGameRatings(

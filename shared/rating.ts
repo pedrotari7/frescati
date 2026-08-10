@@ -4,7 +4,7 @@
  * Stored as Elo, shown as 0–100. Everything here is pure so the function that
  * applies a result and the screen that previews one agree exactly.
  *
- * The central idea: a night is a round robin between teams, and a team's
+ * The central idea: a game is a round robin between teams, and a team's
  * strength is the average of its squad. What moves your rating is the gap
  * between how your team *finished* and how it was *expected* to finish given
  * that strength. This matters more than it looks — if the balancer is doing its
@@ -32,7 +32,7 @@ const DISPLAY_SPAN = 250;
 const ELO_SCALE = 400;
 
 /**
- * Elo per win of overperformance. Winning a four-team night outright against an
+ * Elo per win of overperformance. Winning a four-team game outright against an
  * even field is worth 1.5 wins, so about 30 Elo — six points of the displayed
  * 0–100, which settles a newcomer inside a couple of months without letting one
  * good Tuesday rewrite the ladder.
@@ -52,8 +52,40 @@ export const PROVISIONAL_GAMES = 5;
 export const toDisplayRating = (elo: number): number =>
 	Math.max(0, Math.min(100, Math.round(50 + ((elo - BASE_ELO) / DISPLAY_SPAN) * 50)));
 
+/**
+ * The Elo behind a shown 0–100 — the inverse of `toDisplayRating` across the
+ * range that function can produce.
+ *
+ * Exists so an admin setting somebody's starting point can type the number the
+ * whole app already shows them, rather than the Elo nobody but this file sees.
+ * Not an inverse outside 0–100, and can't be: the display clamps, so every Elo
+ * past the ceiling reads as the same 100.
+ */
+export const fromDisplayRating = (display: number): number =>
+	BASE_ELO + ((Math.max(0, Math.min(100, display)) - 50) / 50) * DISPLAY_SPAN;
+
 export const isProvisional = (rating: Pick<PlayerRating, 'games'> | undefined): boolean =>
 	(rating?.games ?? 0) < PROVISIONAL_GAMES;
+
+/**
+ * Whether this rating was earned on the pitch.
+ *
+ * A stored rating no longer implies one: an admin can set somebody's starting
+ * point before their first game, which writes a real rating on `games: 0`.
+ * Everywhere the question is "has the ladder had its say about this player" —
+ * the all-time ladder, and whether that starting point is still an admin's to
+ * change — this is the test, not the presence of the field.
+ */
+export const hasPlayed = (rating: Pick<PlayerRating, 'games'> | undefined): boolean => (rating?.games ?? 0) > 0;
+
+/**
+ * A starting point set by an admin rather than won.
+ *
+ * `games: 0` is the whole of what makes it a starting point: it keeps the
+ * player off the ladder, keeps the provisional K-factor on them so their first
+ * few games still move them fast, and keeps it editable until they play.
+ */
+export const createStartingRating = (elo: number, at: string): PlayerRating => ({ elo, games: 0, updatedAt: at });
 
 const kFactor = (rating: PlayerRating | undefined): number => (isProvisional(rating) ? PROVISIONAL_K_FACTOR : K_FACTOR);
 
@@ -63,6 +95,11 @@ const kFactor = (rating: PlayerRating | undefined): number => (isProvisional(rat
  *
  * Deliberately the live average rather than a fixed number, so somebody joining
  * a strong group in week nine is not assumed to be a beginner.
+ *
+ * A starting rating an admin set counts towards it like any other. What this
+ * average measures is how strong the group is, and somebody's considered
+ * estimate of a real player is evidence about that — the alternative reads a
+ * group whose ratings are all estimates as having no history at all.
  */
 export const getSeedElo = (ratedElos: number[]): number =>
 	ratedElos.length === 0 ? BASE_ELO : ratedElos.reduce((total, elo) => total + elo, 0) / ratedElos.length;
@@ -99,7 +136,7 @@ export const getExpectedWins = (teamElos: number[], index: number): number =>
  *
  * `positions` is 0-indexed and may repeat — teams that finish level share a
  * position and take the average of the scores their places cover, so a two-way
- * tie for first in a four-team night gives both 2.5 rather than inventing a
+ * tie for first in a four-team game gives both 2.5 rather than inventing a
  * winner.
  */
 export const getActualWins = (positions: number[]): number[] => {
@@ -129,12 +166,12 @@ export interface RatingChange {
 }
 
 /**
- * The rating changes for one night.
+ * The rating changes for one game.
  *
  * Every player in a squad moves by the same amount — minutes played are not
  * tracked, and a rolling sub contributed to the result as much as anyone.
  *
- * Provisional players move further than the rest, which means a night
+ * Provisional players move further than the rest, which means a game
  * containing one is not exactly zero-sum. The drift is small and it buys new
  * players a fast, honest starting point; the alternative is rescaling everyone
  * else's change to compensate, which is impossible to explain to the person it
@@ -150,8 +187,8 @@ export const getRatingChanges = (players: RatingInput[], positions: number[], se
 	const actualWins = getActualWins(positions);
 
 	// Overperformance, in wins. Against an evenly matched field this collapses
-	// to the plain position score — a four-team night pays +1.5 / +0.5 / -0.5 /
-	// -1.5, a two-team night half a win either way — because every team's
+	// to the plain position score — a four-team game pays +1.5 / +0.5 / -0.5 /
+	// -1.5, a two-team game half a win either way — because every team's
 	// expectation is then exactly the average. More teams move a rating further,
 	// which is right: a six-match round robin says more about you than one game.
 	const teamSwing = teamElos.map((_, index) => actualWins[index] - getExpectedWins(teamElos, index));

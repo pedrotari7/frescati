@@ -1,11 +1,14 @@
 import {
 	applyRatingChange,
 	BASE_ELO,
+	createStartingRating,
+	fromDisplayRating,
 	getActualWins,
 	getExpectedWins,
 	getRatingChanges,
 	getSeedElo,
 	getWinProbability,
+	hasPlayed,
 	isProvisional,
 	PROVISIONAL_GAMES,
 	toDisplayRating,
@@ -41,6 +44,57 @@ describe('toDisplayRating', () => {
 	it('clamps the display without the caller losing the stored value', () => {
 		expect(toDisplayRating(BASE_ELO + 900)).toBe(100);
 		expect(toDisplayRating(BASE_ELO - 900)).toBe(0);
+	});
+});
+
+describe('fromDisplayRating', () => {
+	it('round-trips every number an admin can type', () => {
+		for (let display = 0; display <= 100; display++) {
+			expect(toDisplayRating(fromDisplayRating(display))).toBe(display);
+		}
+	});
+
+	it('puts the middle of the scale on the base rating', () => {
+		expect(fromDisplayRating(50)).toBe(BASE_ELO);
+	});
+
+	// The display clamps, so there is no Elo to recover from a number past the
+	// ends of the scale. Refusing one is the callable's job; this just doesn't
+	// invent a rating nobody could ever reach by playing.
+	it('clamps rather than extrapolating past the scale', () => {
+		expect(fromDisplayRating(140)).toBe(fromDisplayRating(100));
+		expect(fromDisplayRating(-40)).toBe(fromDisplayRating(0));
+	});
+});
+
+describe('hasPlayed', () => {
+	it('is false for a player with no rating at all', () => {
+		expect(hasPlayed(undefined)).toBe(false);
+	});
+
+	// The distinction the whole starting-rating feature turns on: a real stored
+	// rating that nobody earned.
+	it('is false for a starting rating an admin set', () => {
+		expect(hasPlayed(createStartingRating(1200, '2026-08-01T00:00:00.000Z'))).toBe(false);
+	});
+
+	it('is true once a single game has been rated', () => {
+		expect(hasPlayed(rated(BASE_ELO, 1))).toBe(true);
+	});
+});
+
+describe('createStartingRating', () => {
+	it('stores the rating with no games behind it', () => {
+		expect(createStartingRating(1150, '2026-08-01T00:00:00.000Z')).toEqual({
+			elo: 1150,
+			games: 0,
+			updatedAt: '2026-08-01T00:00:00.000Z',
+		});
+	});
+
+	// It is an opening bid, so the first few games have to be able to move it.
+	it('leaves the player provisional', () => {
+		expect(isProvisional(createStartingRating(1150, '2026-08-01T00:00:00.000Z'))).toBe(true);
 	});
 });
 
@@ -84,7 +138,7 @@ describe('getActualWins', () => {
 		expect(getActualWins([0, 0, 2, 3])).toEqual([2.5, 2.5, 1, 0]);
 	});
 
-	it('gives everyone the same when the whole night ties', () => {
+	it('gives everyone the same when the whole game ties', () => {
 		expect(getActualWins([0, 0, 0])).toEqual([1, 1, 1]);
 	});
 
@@ -135,7 +189,7 @@ describe('getRatingChanges', () => {
 		expect(byTeam.find(change => change.uid === 'd-0')?.delta).toBeCloseTo(-30, 6);
 	});
 
-	it('moves a two-team night less than a four-team one', () => {
+	it('moves a two-team game less than a four-team one', () => {
 		const two = getRatingChanges([...squad(0, BASE_ELO, 5, 'a'), ...squad(1, BASE_ELO, 5, 'b')], [0, 1], BASE_ELO);
 
 		expect(two.find(change => change.uid === 'a-0')?.delta).toBeCloseTo(10, 6);

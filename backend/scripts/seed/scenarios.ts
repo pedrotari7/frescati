@@ -2,9 +2,9 @@
  * What a seeded database looks like.
  *
  * A scenario is a declaration, not a script: it says which seasons exist, who
- * is in them and which nights are unusual, and `write.ts` turns that into the
+ * is in them and which games are unusual, and `write.ts` turns that into the
  * documents the app would hold if those things had actually happened. The point
- * of the split is that adding a case you want to look at — a night nobody
+ * of the split is that adding a case you want to look at — a game nobody
  * answered, a season with one member — is an entry in a list here, not a new
  * pile of Firestore writes.
  *
@@ -14,7 +14,7 @@
 
 import type { BalanceSettings, GameStatus, SeasonSlot, SeasonStatus, Venue } from '../../../shared/types';
 
-/** A night that differs from the ordinary run of the season. */
+/** A game that differs from the ordinary run of the season. */
 export interface GamePin {
 	status?: GameStatus;
 	cancelledReason?: string;
@@ -57,9 +57,9 @@ export interface SeasonPlan {
 	/** Weeks either side of today. Negative is the past. */
 	startWeeks: number;
 	endWeeks: number;
-	/** Confirmed headcount band for an ordinary night, inclusive. */
+	/** Confirmed headcount band for an ordinary game, inclusive. */
 	turnout: [number, number];
-	/** `empty` leaves every past night unplayed — a season with no ladder yet. */
+	/** `empty` leaves every past game unplayed — a season with no ladder yet. */
 	history: 'played' | 'empty';
 	/** Keyed by offset from the next upcoming game: `0` is next, `-1` is last. */
 	pins?: Record<number, GamePin>;
@@ -187,7 +187,7 @@ const full: Scenario = {
 				// Played, scored, and waiting on somebody to hit Confirm — the
 				// state the auto-confirm sweep exists for.
 				[-1]: { outcome: 'scored', note: 'Floodlight on pitch B was out, played the far end' },
-				// The night everyone is actually looking at.
+				// The game everyone is actually looking at.
 				[0]: { responses: 'partial', playing: 15, reshuffleCount: 1 },
 				[1]: { responses: 'partial', playing: 7, note: 'Half the squad is away for the long weekend' },
 				[2]: { status: 'cancelled', cancelledReason: 'Pitch double-booked with a youth tournament' },
@@ -253,7 +253,7 @@ const full: Scenario = {
  * the optimizer and the tournament screens look like under load.
  */
 const big: Scenario = {
-	summary: 'One large season: 26 members, four-team nights, a season of history',
+	summary: 'One large season: 26 members, four-team games, a season of history',
 	appAdminKeys: ['pedro'],
 	newcomerKeys: ['zoe'],
 	seasons: [

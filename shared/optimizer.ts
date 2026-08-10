@@ -37,7 +37,7 @@ export interface OptimizerInput {
 	squadSizes: number[];
 	seed: number;
 	settings: BalanceSettings;
-	/** Previous nights' squads, most recent night first. */
+	/** Previous games' squads, most recent game first. */
 	history: string[][][];
 }
 
@@ -60,7 +60,7 @@ const createRng = (seed: number): (() => number) => {
 
 /**
  * A seed from the game and how many times an admin has hit Reshuffle. Derived
- * rather than stored so it survives a rebuild, and so the same night re-rolls
+ * rather than stored so it survives a rebuild, and so the same game re-rolls
  * identically until somebody asks for a different roll.
  */
 export const getSeed = (gameId: string, reshuffleCount = 0): number => {
@@ -83,10 +83,10 @@ export const getSeed = (gameId: string, reshuffleCount = 0): number => {
 const buildRepeatWeights = (history: string[][][], lookback: number): Map<string, number> => {
 	const weights = new Map<string, number>();
 
-	history.slice(0, lookback).forEach((night, age) => {
+	history.slice(0, lookback).forEach((game, age) => {
 		const weight = (lookback - age) / lookback;
 
-		for (const squad of night) {
+		for (const squad of game) {
 			for (let i = 0; i < squad.length; i++) {
 				for (let j = i + 1; j < squad.length; j++) {
 					for (const key of [`${squad[i]}|${squad[j]}`, `${squad[j]}|${squad[i]}`]) {

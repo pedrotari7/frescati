@@ -17,10 +17,10 @@ const TEAM_STYLES = [
 export const teamName = (index: number): string => TEAM_STYLES[index]?.name ?? `${index + 1}`;
 
 /**
- * What tonight did to somebody's rating.
+ * What this game did to somebody's rating.
  *
  * Rendered on the displayed 0–100 scale rather than in Elo, so it agrees with
- * the number next to it — a night worth 30 Elo reads as +6, and a player whose
+ * the number next to it — a game worth 30 Elo reads as +6, and a player whose
  * change rounds to nothing shows nothing rather than a misleading `+0`.
  */
 const movement = (delta: number | undefined) => {
@@ -42,7 +42,7 @@ const movement = (delta: number | undefined) => {
  *
  * `sideSize` is how many of them are on the pitch at once. When the squad is
  * bigger than that — which happens on any odd headcount — the surplus rotate
- * through rather than one person watching all night, so the card says so
+ * through rather than one person watching the whole game, so the card says so
  * instead of implying somebody is dropped.
  */
 const TeamCard = ({
@@ -58,7 +58,7 @@ const TeamCard = ({
 	usersByUid: Map<string, AppUser>;
 	sideSize: number;
 	highlightUid?: string | null;
-	/** Rating movement per uid, once the night has been confirmed. */
+	/** Rating movement per uid, once the game has been confirmed. */
 	deltas?: Map<string, number>;
 }) => {
 	const style = TEAM_STYLES[team.index] ?? TEAM_STYLES[0];

@@ -110,7 +110,7 @@ describe('getStandings', () => {
 	});
 
 	// Rain stops play. Teams that got an extra game must not be rewarded for it.
-	it('ranks a partial night on points per match', () => {
+	it('ranks a partial game on points per match', () => {
 		// A played once and won. B played twice, winning one and losing one.
 		// B has more points, A has the better rate.
 		const matches = [match(0, 0, 1, 1, 0), match(1, 1, 2, 3, 0)];
@@ -122,7 +122,7 @@ describe('getStandings', () => {
 		expect(rows[1].points).toBe(3);
 	});
 
-	// The per-match ranking has to be invisible on an ordinary night: dividing
+	// The per-match ranking has to be invisible on an ordinary game: dividing
 	// every team by the same number cannot reorder them.
 	it('never puts a team with more points below one with fewer, when all played the same', () => {
 		const matches = [match(0, 0, 1, 2, 0), match(1, 2, 3, 1, 0), match(2, 0, 2, 1, 0), match(3, 1, 3, 1, 0)];
@@ -144,7 +144,7 @@ describe('getStandings', () => {
 		expect(rows.reduce((total, row) => total + row.played, 0)).toBe(2);
 	});
 
-	it('leaves an unplayed night with everyone joint first, which scores nothing', () => {
+	it('leaves an unplayed game with everyone joint first, which scores nothing', () => {
 		expect(positionsOf(4, [])).toEqual([0, 0, 0, 0]);
 	});
 });

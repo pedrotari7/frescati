@@ -41,6 +41,15 @@ describe('getRatingLadder', () => {
 		expect(getRatingLadder([user('a', rating(1000)), user('b')]).map(row => row.uid)).toEqual(['a']);
 	});
 
+	// An admin's estimate is a real rating — the balancer picks teams with it —
+	// but it is not a place on the ladder, and showing it as one would rank
+	// somebody who has never turned up above people who earned their rung.
+	it('leaves out a starting rating nobody has played off yet', () => {
+		expect(getRatingLadder([user('a', rating(1000)), user('b', rating(1200, 0))]).map(row => row.uid)).toEqual([
+			'a',
+		]);
+	});
+
 	it('shares a position between equal ratings', () => {
 		expect(getRatingLadder([user('a', rating(1000)), user('b', rating(1000))]).map(row => row.position)).toEqual([
 			0, 0,
@@ -63,7 +72,7 @@ describe('getRatingLadder', () => {
 });
 
 describe('getSeasonTable', () => {
-	it('counts appearances and nights won', () => {
+	it('counts appearances and games won', () => {
 		const table = getSeasonTable(
 			[
 				entry('g1', 's1', { a: 0, b: 1 }, { a: 1000, b: 1000 }, { a: 1010, b: 990 }),
@@ -102,7 +111,7 @@ describe('getSeasonTable', () => {
 		expect(table[0].movement).toBe(10);
 	});
 
-	// Their first night had no rating to move; counting the distance from a
+	// Their first game had no rating to move; counting the distance from a
 	// seed nobody stored would invent a gain they never made.
 	it('contributes nothing for a player who arrived unrated', () => {
 		const table = getSeasonTable([entry('g1', 's1', { a: 0 }, { a: null }, { a: 1030 })], 's1');
