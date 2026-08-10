@@ -37,11 +37,18 @@ describe('buildIcsFeed', () => {
 		expect(ics.endsWith('\r\n')).toBe(true);
 	});
 
-	it('names the calendar after the season', () => {
+	it('names the calendar after the app and the season, so a subscriber can tell it apart from others', () => {
 		const ics = buildIcsFeed(season, [], { appUrl: APP_URL });
 
-		expect(ics).toContain('X-WR-CALNAME:Autumn 2026');
-		expect(ics).toContain('NAME:Autumn 2026');
+		expect(ics).toContain('X-WR-CALNAME:Frescati - Autumn 2026');
+		expect(ics).toContain('NAME:Frescati - Autumn 2026');
+	});
+
+	it('leaves an event’s own title as just the season name, not the app-prefixed calendar name', () => {
+		const ics = buildIcsFeed(season, [game()], { appUrl: APP_URL });
+
+		expect(ics).toContain('SUMMARY:Autumn 2026');
+		expect(ics).not.toContain('SUMMARY:Frescati - Autumn 2026');
 	});
 
 	it('emits one VEVENT per game, in the order given', () => {
@@ -106,7 +113,7 @@ describe('buildIcsFeed', () => {
 	it('escapes commas, semicolons and backslashes in free text', () => {
 		const ics = buildIcsFeed({ ...season, name: 'Tuesdays; 5-a-side, back \\ forth' }, [], { appUrl: APP_URL });
 
-		expect(ics).toContain('X-WR-CALNAME:Tuesdays\\; 5-a-side\\, back \\\\ forth');
+		expect(ics).toContain('X-WR-CALNAME:Frescati - Tuesdays\\; 5-a-side\\, back \\\\ forth');
 	});
 
 	it('folds a line longer than 75 octets and continues it with a leading space', () => {

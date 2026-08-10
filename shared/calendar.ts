@@ -45,6 +45,9 @@ const foldLine = (line: string): string => {
 
 const line = (name: string, value: string): string => foldLine(`${name}:${value}`);
 
+/** What the calendar itself is called in a subscriber's app — not an event's own title. */
+const calendarName = (season: Season): string => `Frescati - ${season.name}`;
+
 /** `2026-09-01T17:00:00.000Z` → `20260901T170000Z`. Already UTC, so this is a reformat, not a conversion. */
 const toIcsTimestamp = (iso: string): string => iso.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 
@@ -79,8 +82,8 @@ export const buildIcsFeed = (season: Season, games: Game[], opts: { appUrl: stri
 		'PRODID:-//Frescati//Calendar//EN',
 		'CALSCALE:GREGORIAN',
 		'METHOD:PUBLISH',
-		line('X-WR-CALNAME', escapeText(season.name)),
-		line('NAME', escapeText(season.name)),
+		line('X-WR-CALNAME', escapeText(calendarName(season))),
+		line('NAME', escapeText(calendarName(season))),
 		// A hint, not a guarantee: Apple Calendar and Outlook honour it loosely,
 		// Google Calendar ignores it outright and polls on its own schedule
 		// regardless. Either way there is no way to push an update into a
