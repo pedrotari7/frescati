@@ -8,11 +8,19 @@
  *      doesn't auto-display them — that lets a single hand-written worker own
  *      both jobs instead of also shipping firebase-messaging-sw.js.
  *
- * Bump CACHE_VERSION whenever the caching strategy changes; old caches are
- * dropped on activate.
+ * Bump CACHE_VERSION whenever the caching strategy changes, or whenever what is
+ * already in somebody's cache should stop being trusted; `activate` drops every
+ * cache whose name no longer matches. That second reason is the one that
+ * matters — a strategy fix ships to nobody if the entries it was meant to
+ * correct are still being served.
+ *
+ * v2: the catch-all below used to be cache-first, which pinned Next's RSC
+ * payloads. A returning phone kept navigating around inside the build it first
+ * loaded, indefinitely, because nothing in a deploy invalidates a service
+ * worker cache.
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const STATIC_CACHE = `frescati-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `frescati-runtime-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
@@ -41,7 +49,32 @@ self.addEventListener('activate', event => {
 	);
 });
 
-const isStaticAsset = url => url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/fonts/');
+/**
+ * Things a deploy cannot change the meaning of.
+ *
+ * `/_next/static/` filenames carry a content hash, and an icon or a font at a
+ * fixed path is the same bytes forever in any way that matters. Those are safe
+ * to serve from cache without asking.
+ *
+ * Everything else same-origin — Next's RSC payloads above all — is a URL whose
+ * *content* a deploy replaces while the address stays put, and cache-first on
+ * those is how a phone ends up permanently inside an old build.
+ */
+const isImmutable = url =>
+	url.pathname.startsWith('/_next/static/') ||
+	url.pathname.startsWith('/fonts/') ||
+	url.pathname === '/manifest.json' ||
+	/\.(png|jpg|jpeg|svg|ico|webp|woff2?)$/.test(url.pathname);
+
+/** Store a good response and hand it on. Never caches an error page. */
+const cacheIfOk = (cacheName, request, response) => {
+	if (response.ok) {
+		const copy = response.clone();
+		caches.open(cacheName).then(cache => cache.put(request, copy));
+	}
+
+	return response;
+};
 
 self.addEventListener('fetch', event => {
 	const { request } = event;
@@ -55,22 +88,16 @@ self.addEventListener('fetch', event => {
 	if (url.origin !== self.location.origin) return;
 
 	// Immutable build output: cache-first is safe and makes repeat loads instant.
-	if (isStaticAsset(url)) {
+	if (isImmutable(url)) {
 		event.respondWith(
 			caches.match(request).then(
 				cached =>
 					cached ||
-					fetch(request).then(response => {
-						// Only cache a real answer. Cache-first means a 404 or a
-						// 502 caught mid-deploy would otherwise be served from
-						// the cache forever, wedging that browser on a chunk
-						// that never loads until CACHE_VERSION moves.
-						if (response.ok) {
-							const copy = response.clone();
-							caches.open(STATIC_CACHE).then(cache => cache.put(request, copy));
-						}
-						return response;
-					})
+					// Only cache a real answer. Cache-first means a 404 or a 502
+					// caught mid-deploy would otherwise be served from the cache
+					// forever, wedging that browser on a chunk that never loads
+					// until CACHE_VERSION moves.
+					fetch(request).then(response => cacheIfOk(STATIC_CACHE, request, response))
 			)
 		);
 		return;
@@ -81,34 +108,32 @@ self.addEventListener('fetch', event => {
 	if (request.mode === 'navigate') {
 		event.respondWith(
 			fetch(request)
-				.then(response => {
-					// An error page is not a page worth serving offline later.
-					if (response.ok) {
-						const copy = response.clone();
-						caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
-					}
-					return response;
-				})
+				// An error page is not a page worth serving offline later.
+				.then(response => cacheIfOk(RUNTIME_CACHE, request, response))
 				.catch(() => caches.match(request).then(cached => cached || caches.match(OFFLINE_URL)))
 		);
 		return;
 	}
 
-	// Everything else: serve what we have, refresh it in the background.
+	// Everything else: network-first, with whatever we have as the fallback.
+	//
+	// This is where Next's RSC payloads land — the request every in-app
+	// navigation makes. Cache-first here meant a returning phone kept being
+	// answered out of the build it first loaded: not visibly broken, just never
+	// updating, and eventually dead-ending on a chunk the deploy had aged out.
+	// A round trip is cheaper than that, and the browser's own HTTP cache still
+	// sits behind this, so most of them never leave the device anyway.
 	event.respondWith(
-		caches.match(request).then(cached => {
-			const network = fetch(request)
-				.then(response => {
-					if (response.ok) {
-						const copy = response.clone();
-						caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
-					}
-					return response;
-				})
-				.catch(() => cached);
+		fetch(request)
+			.then(response => cacheIfOk(RUNTIME_CACHE, request, response))
+			.catch(async () => {
+				const cached = await caches.match(request);
 
-			return cached || network;
-		})
+				// `respondWith(undefined)` is a TypeError rather than something
+				// the page can handle, which is what nothing-cached-and-offline
+				// used to produce here.
+				return cached ?? Response.error();
+			})
 	);
 });
 
