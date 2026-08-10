@@ -138,13 +138,25 @@ module.exports = withSentryConfig(nextConfig, {
 	 * Reports are posted to this app's own origin and proxied on to Sentry from
 	 * the server, rather than going to `*.ingest.sentry.io` from the browser.
 	 *
-	 * Not premature: iOS content blockers block Sentry's ingest hosts by name,
-	 * and a good share of this group is on an iPhone. Without the tunnel those
-	 * people report nothing and the inbox looks healthy — which is the exact
-	 * failure this whole change exists to stop. It also means the CSP needs no
-	 * new host: `connect-src 'self'` already covers a same-origin post.
+	 * Not premature: content blockers block Sentry's ingest hosts by name, and a
+	 * good share of this group is on an iPhone. Without the tunnel those people
+	 * report nothing and the inbox looks healthy — which is the exact failure
+	 * this whole change exists to stop. It also means the CSP needs no new host:
+	 * `connect-src 'self'` already covers a same-origin post.
+	 *
+	 * **The path is deliberately not `/monitoring`**, which is Sentry's
+	 * documented default and therefore the one every filter list already knows.
+	 * Pointing the tunnel at it was blocked with `ERR_BLOCKED_BY_CLIENT` on the
+	 * first real test — a same-origin request, refused for looking like
+	 * telemetry rather than for where it was going. Blockers match the path and
+	 * the `?o=…&p=…` envelope signature, so the only part left to change is the
+	 * path, and it has to be something no list would ever carry.
+	 *
+	 * Hence a word from the domain rather than from observability. If reports
+	 * ever go quiet again with the SDK plainly working, suspect this first and
+	 * check the console for `ERR_BLOCKED_BY_CLIENT` before anything else.
 	 */
-	tunnelRoute: '/monitoring',
+	tunnelRoute: '/api/whistle',
 
 	sourcemaps: {
 		// Nothing to upload to without a token, and a hard failure here would
