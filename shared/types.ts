@@ -10,6 +10,17 @@
 import type { DevicePlatform } from './device';
 
 export type SeasonStatus = 'draft' | 'active' | 'archived';
+
+/**
+ * `played` is set by the finalise functions once a night has been rated, and is
+ * read by exactly one thing: the hourly sweep that looks for nights still owed
+ * a rating. It is a marker that the night is *done with*, not a description of
+ * whether it happened — `getGameLifecycle` answers that from `endsAt`, so a
+ * game reads as finished on the screen whether or not anybody scored it.
+ *
+ * Which is why a replay that finds every score cleared puts the status back to
+ * `scheduled`: the night is owed a rating again.
+ */
 export type GameStatus = 'scheduled' | 'cancelled' | 'played';
 export type ResponseStatus = 'in' | 'out';
 export type PlayerRole = 'member' | 'extra';

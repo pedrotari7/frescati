@@ -167,7 +167,13 @@ const commitGameRatings = async (
 		),
 		batch => batch.set(gameRef.collection('tournament').doc('result'), result),
 		batch => batch.set(db.doc(`ratingLedger/${gameId}`), entry),
-		batch => batch.update(gameRef, { resultFinalisedAt: finalisedAt }),
+		// `played` is what retires the game from the hourly sweep's query, which
+		// is what lets that query drop its lower bound and stop being a race
+		// against a seven-day window. Nothing in the app reads the status to
+		// decide how a past game renders — `getGameLifecycle` derives that from
+		// `endsAt` — so this is a marker for the sweep rather than a state
+		// change anybody sees.
+		batch => batch.update(gameRef, { resultFinalisedAt: finalisedAt, status: 'played' }),
 	]);
 };
 
@@ -178,7 +184,10 @@ const clearGameRatings = async (seasonId: string, gameId: string): Promise<void>
 	await commitAll([
 		batch => batch.delete(db.doc(`ratingLedger/${gameId}`)),
 		batch => batch.delete(gameRef.collection('tournament').doc('result')),
-		batch => batch.update(gameRef, { resultFinalisedAt: FieldValue.delete() }),
+		// Back to `scheduled` as well, or the night would be unrated and yet
+		// invisible to the sweep that exists to rate it — the one state this
+		// pair of fields must never be left in together.
+		batch => batch.update(gameRef, { resultFinalisedAt: FieldValue.delete(), status: 'scheduled' }),
 	]);
 };
 

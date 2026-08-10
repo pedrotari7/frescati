@@ -64,7 +64,9 @@ export const finaliseTournament = onCall({ region: REGION, timeoutSeconds: 300 }
  *
  * A night with no scores at all is left alone rather than confirmed empty: it
  * has nothing to say about anybody, and confirming it would only close the
- * scoreboard on a game somebody might still be about to fill in.
+ * scoreboard on a game somebody might still be about to fill in. It keeps being
+ * offered here for as long as that stays true, however late the scores arrive —
+ * which is the point of this having no lower bound.
  *
  * Also the app's answer to a replay whose holder died mid-flight. The lease
  * frees itself, but nothing re-reads what that holder had been asked to do, so
@@ -76,27 +78,43 @@ export const finaliseDueTournaments = onSchedule(
 	async () => {
 		const cutoff = new Date(Date.now() - AUTO_FINALISE_HOURS * 3600_000).toISOString();
 
-		// Games that kicked off before the cutoff and haven't been confirmed. The
-		// window's lower bound keeps this off the whole back catalogue every hour.
-		const floor = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
-
+		// Every unrated night that has had its window, with no lower bound.
+		//
+		// There used to be one, seven days back, to keep this off the whole back
+		// catalogue every hour — necessary while a rated game stayed `scheduled`
+		// forever and so matched this query for the rest of time. It also meant a
+		// night whose scores were entered a week late fell out of the window and
+		// was never rated at all, silently, while the screen went on promising it
+		// would be.
+		//
+		// Confirming now marks the game `played`, so what comes back here is only
+		// what genuinely still needs rating: a handful of nights nobody scored,
+		// which is exactly the set worth noticing.
+		//
 		// Filtered on status as well as kickoff so this rides the collection-group
 		// index `sendReminders` already needs, rather than asking for another one.
 		// Cancelled nights have nothing to rate anyway.
 		const games = await db
 			.collectionGroup('games')
 			.where('status', '==', 'scheduled')
-			.where('kickoff', '>=', floor)
 			.where('kickoff', '<', cutoff)
 			.get();
 
 		let finalised = 0;
 		let busy = 0;
+		let retired = 0;
 
 		for (const doc of games.docs) {
 			const game = doc.data() as Game;
 
-			if (game.resultFinalisedAt) continue;
+			// Rated before confirming began marking the status, so it is still
+			// answering this query. Retire it and move on; the back catalogue
+			// heals itself over the first run or two rather than needing a script.
+			if (game.resultFinalisedAt) {
+				await doc.ref.update({ status: 'played' }).catch(() => undefined);
+				retired++;
+				continue;
+			}
 
 			try {
 				const outcome = await finaliseGame(game.seasonId, doc.id, null);
@@ -115,7 +133,18 @@ export const finaliseDueTournaments = onSchedule(
 		// tonight's confirmations rather than being rewound by them.
 		const replayed = await drainAbandonedReplays();
 
-		logger.info('Auto-confirmed nights past their window', { checked: games.size, finalised, busy, replayed });
+		// `lingering` is the number this sweep looked at and could not rate,
+		// which is almost always nights nobody scored. It is the one figure here
+		// that should stay small — a number that climbs week on week means games
+		// are going unrated and nobody has noticed.
+		logger.info('Auto-confirmed nights past their window', {
+			checked: games.size,
+			finalised,
+			busy,
+			retired,
+			replayed,
+			lingering: games.size - finalised - retired,
+		});
 	}
 );
 

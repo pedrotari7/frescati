@@ -184,6 +184,70 @@ describe('finaliseDueTournaments', () => {
 		const game = await readGame(SEASON_ID, GAME_ID);
 		expect(game?.resultFinalisedAt).toBeUndefined();
 	});
+
+	// Marking it retires the game from this query, which is what lets the query
+	// have no lower bound — and so what stops a late-scored night falling out
+	// of a window and never being rated at all.
+	it('marks a night it confirms as played', async () => {
+		await setUpNight({ kickoff: hoursFromNow(-30), status: 'scheduled' });
+		await writeNightMatches([
+			[2, 1],
+			[3, 1],
+			[1, 1],
+		]);
+
+		await finaliseDueTournaments.run(undefined as never);
+
+		expect((await readGame(SEASON_ID, GAME_ID))?.status).toBe('played');
+	});
+
+	// The failure this whole change is about: scores entered a week and a half
+	// after the night, which the old seven-day floor put permanently out of reach.
+	it('still rates a night whose scores arrived long after it was played', async () => {
+		await setUpNight({ kickoff: hoursFromNow(-24 * 10), status: 'scheduled' });
+
+		// The sweep sees it with nothing to rate, repeatedly, and leaves it.
+		await finaliseDueTournaments.run(undefined as never);
+		expect((await readGame(SEASON_ID, GAME_ID))?.resultFinalisedAt).toBeUndefined();
+
+		// Somebody finally fills in the scoreboard.
+		await writeNightMatches([
+			[2, 1],
+			[3, 1],
+			[1, 1],
+		]);
+		await finaliseDueTournaments.run(undefined as never);
+
+		expect((await readGame(SEASON_ID, GAME_ID))?.resultFinalisedAt).toBeTruthy();
+		expect((await readUser('p1'))?.rating).toMatchObject({ elo: 1020, games: 1 });
+	});
+
+	// Rated before confirming began marking the status, so still answering the
+	// query. Retired in place rather than by a migration script.
+	it('retires a night that was rated before the status was ever set', async () => {
+		await setUpNight({ kickoff: hoursFromNow(-30), status: 'scheduled' });
+		await writeNightMatches([
+			[2, 1],
+			[3, 1],
+			[1, 1],
+		]);
+		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
+
+		// Put it back the way a pre-existing game looks: rated, still scheduled.
+		await writeGame(SEASON_ID, GAME_ID, {
+			kickoff: hoursFromNow(-30),
+			status: 'scheduled',
+			resultFinalisedAt: '2026-01-01T00:00:00.000Z',
+		});
+
+		await finaliseDueTournaments.run(undefined as never);
+
+		const game = await readGame(SEASON_ID, GAME_ID);
+		expect(game?.status).toBe('played');
+		// Retired, not re-rated — a second application would double-count it.
+		expect(game?.resultFinalisedAt).toBe('2026-01-01T00:00:00.000Z');
+		expect((await readUser('p1'))?.rating).toMatchObject({ games: 1 });
+	});
 });
 
 describe('onMatchWrite', () => {
