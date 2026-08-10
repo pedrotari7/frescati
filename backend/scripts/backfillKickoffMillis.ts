@@ -1,11 +1,17 @@
 /**
- * Backfills `kickoffMillis` onto games written before the field existed.
+ * Reconciles `kickoffMillis` with `kickoff` across the whole calendar — filling
+ * it in where it is missing, and correcting it where the two have drifted apart.
  *
- * Security rules enforce the response deadline against this number, because
- * they have no way to parse the ISO 8601 `kickoff`. Games missing it fall back
- * to a far-future default in the rules — answerable forever, exactly as they
- * were before — so this script is what actually turns the deadline on for the
- * existing calendar.
+ * Security rules enforce the response deadline against this number, because they
+ * have no way to parse the ISO 8601 `kickoff`. Games missing it fall back to a
+ * far-future default in the rules — answerable forever, exactly as they were
+ * before — so this is what turns the deadline on for an existing calendar.
+ *
+ * The correcting half matters as much as the backfilling one, and for a sharper
+ * reason: a game whose mirror is *wrong* rather than absent has its deadline
+ * enforced against the wrong instant, silently. `onGameWrite` now repairs that
+ * as it happens, so this is the sweep for anything that drifted before it did,
+ * or while it was failing.
  *
  * Safe to run repeatedly: games that already carry a correct value are skipped.
  *

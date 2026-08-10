@@ -3,7 +3,16 @@ jest.mock('../src/lib/teams', () => ({ enqueueTeamRebuild: jest.fn().mockResolve
 import { onGameWrite } from '../src/onGameWrite';
 import { enqueueTeamRebuild } from '../src/lib/teams';
 import * as push from '../src/lib/push';
-import { aGame, clearAuth, clearFirestore, writeResponse, writeSeason, writtenEvent } from './helpers';
+import {
+	aGame,
+	clearAuth,
+	clearFirestore,
+	readGame,
+	writeGame,
+	writeResponse,
+	writeSeason,
+	writtenEvent,
+} from './helpers';
 
 const SEASON_ID = 'season-1';
 const GAME_ID = 'game-1';
@@ -155,5 +164,76 @@ describe('onGameWrite', () => {
 		await onGameWrite.run(writtenEvent({ seasonId: SEASON_ID, gameId: GAME_ID }, before, after));
 
 		expect(enqueue).toHaveBeenCalledTimes(1);
+	});
+});
+
+/**
+ * The numeric mirror the response deadline is enforced against. No rule can
+ * check it agrees with `kickoff`, because parsing the ISO form is the thing a
+ * rule cannot do — which is why the mirror exists at all.
+ */
+describe('onGameWrite, keeping kickoffMillis in step', () => {
+	const MOVED = '2026-09-08T17:00:00.000Z';
+
+	it('corrects a mirror that disagrees with the kickoff it mirrors', async () => {
+		await writeSeason(SEASON_ID, { memberUids: [MEMBER] });
+		await writeGame(SEASON_ID, GAME_ID, { kickoff: MOVED, kickoffMillis: Date.parse('2026-09-01T17:00:00.000Z') });
+
+		const before = aGame();
+		const after = aGame({ kickoff: MOVED, kickoffMillis: Date.parse('2026-09-01T17:00:00.000Z') });
+
+		await onGameWrite.run(writtenEvent({ seasonId: SEASON_ID, gameId: GAME_ID }, before, after));
+
+		expect((await readGame(SEASON_ID, GAME_ID))?.kickoffMillis).toBe(Date.parse(MOVED));
+	});
+
+	// A creation can arrive already disagreeing, and that is the state the
+	// deadline would then be enforced against for the game's whole life — so
+	// the repair runs ahead of the guard that skips creations for notifications.
+	it('corrects a game that was created already disagreeing', async () => {
+		await writeGame(SEASON_ID, GAME_ID, { kickoff: MOVED, kickoffMillis: 0 });
+
+		await onGameWrite.run(
+			writtenEvent(
+				{ seasonId: SEASON_ID, gameId: GAME_ID },
+				undefined,
+				aGame({ kickoff: MOVED, kickoffMillis: 0 })
+			)
+		);
+
+		expect((await readGame(SEASON_ID, GAME_ID))?.kickoffMillis).toBe(Date.parse(MOVED));
+	});
+
+	// Otherwise the repair would rewrite the document on every `counts` update,
+	// and each of those writes would trigger this again.
+	it('writes nothing when the two already agree', async () => {
+		await writeSeason(SEASON_ID, { memberUids: [MEMBER] });
+		const game = await writeGame(SEASON_ID, GAME_ID);
+		const before = (await readGame(SEASON_ID, GAME_ID))?.kickoffMillis;
+
+		await onGameWrite.run(writtenEvent({ seasonId: SEASON_ID, gameId: GAME_ID }, aGame(), game));
+
+		expect((await readGame(SEASON_ID, GAME_ID))?.kickoffMillis).toBe(before);
+		expect(console.warn).not.toHaveBeenCalledWith('Repaired a drifted kickoffMillis', expect.anything());
+	});
+
+	// `Date.parse` gives NaN, and writing that would fail the update outright —
+	// so the mirror is left as it is rather than replaced with something worse.
+	//
+	// No season here on purpose, so the handler returns before it formats
+	// anything: `formatGameWhen` throws on a kickoff it cannot parse, which is
+	// its own problem and not this one.
+	it('leaves a mirror alone when the kickoff cannot be parsed at all', async () => {
+		await writeGame(SEASON_ID, GAME_ID, { kickoff: 'not a date', kickoffMillis: 123 });
+
+		await onGameWrite.run(
+			writtenEvent(
+				{ seasonId: SEASON_ID, gameId: GAME_ID },
+				aGame(),
+				aGame({ kickoff: 'not a date', kickoffMillis: 123 })
+			)
+		);
+
+		expect((await readGame(SEASON_ID, GAME_ID))?.kickoffMillis).toBe(123);
 	});
 });
