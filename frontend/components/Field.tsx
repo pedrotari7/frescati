@@ -1,7 +1,9 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
 import { classNames } from '../lib/utils/reactHelper';
 
-const CONTROL =
+// Exported so other controls that don't fit `<input>`/`<select>` — DatePicker's
+// trigger button, for instance — still look like they belong on this form.
+export const CONTROL =
 	'w-full rounded-xl bg-white/5 px-3 h-12 text-ink ring-1 ring-inset ring-white/10 ' +
 	'placeholder:text-faint focus:ring-brand/50 focus:outline-none transition-shadow';
 

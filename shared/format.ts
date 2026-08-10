@@ -1,4 +1,4 @@
-import { getZonedParts } from './datetime';
+import { civilDateWeekday, getZonedParts, parseCivilDate } from './datetime';
 
 /**
  * Presentation helpers shared by the app and the push notification copy.
@@ -32,6 +32,12 @@ export const formatGameDateLong = (iso: string, timeZone: string): string => {
 	const { weekday, day, month } = getZonedParts(iso, timeZone);
 
 	return `${weekdayName(weekday)} ${day} ${MONTHS_SHORT[month - 1]}`;
+};
+
+/** `Tue 1 Sep` — a bare `YYYY-MM-DD` civil date, no timezone conversion involved. */
+export const formatCivilDate = (date: string): string => {
+	const { month, day } = parseCivilDate(date);
+	return `${weekdayShort(civilDateWeekday(date))} ${day} ${MONTHS_SHORT[month - 1]}`;
 };
 
 /** `19:00` */

@@ -17,6 +17,7 @@ import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
 import Button from '../../../../../../components/Button';
 import StatusPill from '../../../../../../components/StatusPill';
+import DatePicker from '../../../../../../components/DatePicker';
 import { Field, TextInput } from '../../../../../../components/Field';
 
 /**
@@ -160,11 +161,7 @@ const AdminGamesPage = () => {
 
 					<div className='grid grid-cols-2 gap-3'>
 						<Field label='Date'>
-							<TextInput
-								type='date'
-								value={oneOff.date}
-								onChange={e => setOneOff({ ...oneOff, date: e.target.value })}
-							/>
+							<DatePicker value={oneOff.date} onChange={date => setOneOff({ ...oneOff, date })} />
 						</Field>
 
 						<Field label='Kick-off'>
@@ -225,8 +222,7 @@ const AdminGamesPage = () => {
 														"Couldn't put that game back on."
 													)
 												: write(
-														() =>
-															cancelGame(seasonId, game.id, 'Called off by an admin'),
+														() => cancelGame(seasonId, game.id, 'Called off by an admin'),
 														"Couldn't cancel that game."
 													)
 										}

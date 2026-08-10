@@ -18,6 +18,7 @@ import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
 import Button from '../../../../../components/Button';
+import DatePicker from '../../../../../components/DatePicker';
 import { Field, RangeInput, Select, TextInput } from '../../../../../components/Field';
 
 const SeasonAdminPage = () => {
@@ -149,7 +150,8 @@ const SeasonAdminPage = () => {
 	const handleDelete = async () => {
 		const ok = await confirm({
 			title: `Delete ${season.name}?`,
-			message: "Every game, response and tournament result in this season goes with it, and this can't be undone.",
+			message:
+				"Every game, response and tournament result in this season goes with it, and this can't be undone.",
 			confirmLabel: 'Delete season',
 			tone: 'danger',
 		});
@@ -235,19 +237,14 @@ const SeasonAdminPage = () => {
 
 					<div className='grid grid-cols-2 gap-3'>
 						<Field label='Season starts'>
-							<TextInput
-								type='date'
+							<DatePicker
 								value={form.startDate}
-								onChange={e => setForm({ ...form, startDate: e.target.value })}
+								onChange={startDate => setForm({ ...form, startDate })}
 							/>
 						</Field>
 
 						<Field label='Season ends'>
-							<TextInput
-								type='date'
-								value={form.endDate}
-								onChange={e => setForm({ ...form, endDate: e.target.value })}
-							/>
+							<DatePicker value={form.endDate} onChange={endDate => setForm({ ...form, endDate })} />
 						</Field>
 					</div>
 

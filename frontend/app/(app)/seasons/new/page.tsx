@@ -9,6 +9,7 @@ import { createSeason } from '../../../../lib/db/seasons';
 import PageShell from '../../../../components/PageShell';
 import EmptyState from '../../../../components/EmptyState';
 import Button from '../../../../components/Button';
+import DatePicker from '../../../../components/DatePicker';
 import { Field, Select, TextInput } from '../../../../components/Field';
 
 /** The group plays in Stockholm; a per-season picker can come later if needed. */
@@ -136,19 +137,14 @@ const NewSeasonPage = () => {
 
 					<div className='grid grid-cols-2 gap-3'>
 						<Field label='Starts'>
-							<TextInput
-								type='date'
+							<DatePicker
 								value={form.startDate}
-								onChange={e => setForm({ ...form, startDate: e.target.value })}
+								onChange={startDate => setForm({ ...form, startDate })}
 							/>
 						</Field>
 
 						<Field label='Ends'>
-							<TextInput
-								type='date'
-								value={form.endDate}
-								onChange={e => setForm({ ...form, endDate: e.target.value })}
-							/>
+							<DatePicker value={form.endDate} onChange={endDate => setForm({ ...form, endDate })} />
 						</Field>
 					</div>
 

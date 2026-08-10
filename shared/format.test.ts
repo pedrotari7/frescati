@@ -1,4 +1,5 @@
 import {
+	formatCivilDate,
 	formatGameDate,
 	formatGameTime,
 	formatGameWhen,
@@ -37,6 +38,16 @@ describe('game date and time formatting', () => {
 	it('rolls over to the next local day when UTC and local disagree', () => {
 		// 22:30 UTC on the 1st is 00:30 on the 2nd in Stockholm.
 		expect(formatGameDate('2026-09-01T22:30:00.000Z', STOCKHOLM)).toBe('Wed 2 Sep');
+	});
+});
+
+describe('formatCivilDate', () => {
+	it('renders a bare civil date with no timezone conversion', () => {
+		expect(formatCivilDate('2026-09-01')).toBe('Tue 1 Sep');
+	});
+
+	it('throws on a malformed date', () => {
+		expect(() => formatCivilDate('01-09-2026')).toThrow();
 	});
 });
 
