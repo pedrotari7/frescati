@@ -33,18 +33,63 @@ const CSP_REPORT_PATH = '/api/csp-report';
  * ships enforcing in its own header below, alongside X-Frame-Options. That is
  * the clickjacking protection, and it can't break a same-origin app.
  */
+/**
+ * Whether this is `next dev`. `headers()` is evaluated once — at build time for
+ * a deploy, at server start for a dev run — so this decides which policy gets
+ * baked in, and the dev additions below can never reach a deployed one.
+ */
+const isDev = process.env.NODE_ENV !== 'production';
+
+/**
+ * Sources only the dev server needs.
+ *
+ * `next dev` is a materially different app from the one that ships: webpack
+ * hands every module to `eval` and React Refresh evals its patches, Vercel
+ * Analytics loads a debug build from `va.vercel-scripts.com` instead of the
+ * same-origin `/_vercel/insights/script.js` a deploy serves, and the Firestore,
+ * auth and functions emulators each listen on a port of their own — which
+ * `'self'` does not cover, since a port is part of an origin.
+ *
+ * Report-only means none of that broke anything. What it broke was the reports:
+ * a single local page load buried the console under ~1000 `unsafe-eval`
+ * violations, and a policy whose output nobody reads is one nobody will ever
+ * dare enforce. The alternative — widening the shipped policy until dev is
+ * quiet — pays for that silence in the one place the policy is worth anything.
+ */
+const devScriptSrc = ["'unsafe-eval'", 'https://va.vercel-scripts.com'];
+const devConnectSrc = ['http://127.0.0.1:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'ws://localhost:*'];
+
+const scriptSrc = [
+	"'self'",
+	// Next inlines the hydration payload; there's no nonce plumbed through.
+	"'unsafe-inline'",
+	// `www.google.com` serves reCAPTCHA Enterprise, which App Check loads.
+	'https://apis.google.com',
+	'https://www.gstatic.com',
+	'https://www.google.com',
+	...(isDev ? devScriptSrc : []),
+];
+
+const connectSrc = [
+	"'self'",
+	// Firestore listeners, auth, FCM registration and App Check attestation —
+	// the last of those on firebaseappcheck.googleapis.com.
+	'https://*.googleapis.com',
+	'https://*.google.com',
+	'https://*.firebaseio.com',
+	'wss://*.firebaseio.com',
+	'https://*.gstatic.com',
+	...(isDev ? devConnectSrc : []),
+];
+
 const reportOnlyCsp = [
 	"default-src 'self'",
-	// Next inlines the hydration payload; there's no nonce plumbed through.
-	// `www.google.com` serves reCAPTCHA Enterprise, which App Check loads.
-	"script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://www.google.com",
+	`script-src ${scriptSrc.join(' ')}`,
 	// Tailwind and Next both inject style tags.
 	"style-src 'self' 'unsafe-inline'",
 	"img-src 'self' data: blob: https://*.googleusercontent.com https://*.google.com",
 	"font-src 'self' data:",
-	// Firestore listeners, auth, FCM registration and App Check attestation —
-	// the last of those on firebaseappcheck.googleapis.com.
-	"connect-src 'self' https://*.googleapis.com https://*.google.com https://*.firebaseio.com wss://*.firebaseio.com https://*.gstatic.com",
+	`connect-src ${connectSrc.join(' ')}`,
 	// The auth helper iframe, and reCAPTCHA's.
 	"frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://www.google.com",
 	"worker-src 'self'",
