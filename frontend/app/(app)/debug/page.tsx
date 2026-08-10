@@ -22,6 +22,7 @@ import Button from '../../../components/Button';
 import StatusPill from '../../../components/StatusPill';
 import type { PillTone } from '../../../components/StatusPill';
 import { Field, Select } from '../../../components/Field';
+import ErrorTriggers from '../../../components/ErrorTriggers';
 
 /**
  * Fires each of the app's real notifications at your own devices.
@@ -135,7 +136,7 @@ const DebugPage = () => {
 
 	if (!user?.isAppAdmin) {
 		return (
-			<PageShell title='Push debug' backHref='/me'>
+			<PageShell title='Debug' backHref='/me'>
 				<EmptyState
 					title='App admins only'
 					message='This screen sends real notifications, so it stays behind the global role.'
@@ -215,7 +216,7 @@ const DebugPage = () => {
 	};
 
 	return (
-		<PageShell title='Push debug' subtitle='Sends to your devices only' backHref='/me'>
+		<PageShell title='Debug' subtitle='Notifications, and breaking things on purpose' backHref='/me'>
 			<div className='space-y-4 p-4'>
 				<section className='glass rounded-2xl p-5'>
 					<div className='mb-3 flex items-center gap-2'>
@@ -415,6 +416,8 @@ const DebugPage = () => {
 						</div>
 					)}
 				</section>
+
+				<ErrorTriggers />
 			</div>
 		</PageShell>
 	);

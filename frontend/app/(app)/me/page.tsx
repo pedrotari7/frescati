@@ -255,13 +255,13 @@ const MePage = () => {
 						</section>
 
 						<section className='glass rounded-2xl p-5'>
-							<h2 className='text-ink mb-1 font-semibold'>Push debug</h2>
+							<h2 className='text-ink mb-1 font-semibold'>Debug</h2>
 							<p className='text-muted mb-3 text-sm leading-relaxed'>
 								Send each notification to your own devices, without staging the game state that would
-								normally trigger it.
+								normally trigger it — and break things on purpose to check error reporting is working.
 							</p>
 							<Button variant='secondary' fullWidth onClick={() => router.push('/debug')}>
-								Test notifications
+								Open debug
 							</Button>
 						</section>
 					</>

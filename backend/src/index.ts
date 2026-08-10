@@ -15,4 +15,5 @@ export { setAppAdmin } from './setAppAdmin';
 export { setStartingRating } from './setStartingRating';
 export { sendTestPush } from './sendTestPush';
 export { sendTestEmail } from './sendTestEmail';
+export { throwTestError } from './throwTestError';
 export { getPushDevices } from './getPushDevices';
