@@ -4,6 +4,12 @@ packages:
 
 allowBuilds:
   '@firebase/util': true
+  # sentry-cli uploads source maps at build time. The binary normally arrives as
+  # a prebuilt platform package (`@sentry/cli-darwin` and friends), and this
+  # install script is only the fallback for a platform without one — but blocked
+  # it warns on every install, and on that platform it would leave every stack
+  # trace in Sentry minified, which is most of the value on a phone.
+  '@sentry/cli': true
   esbuild: true
   protobufjs: true
   re2: true
