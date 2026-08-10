@@ -1,4 +1,5 @@
 const path = require('path');
+const { withSentryConfig } = require('@sentry/nextjs');
 
 /** Where the browser posts violations. See `app/api/csp-report/route.ts`. */
 const CSP_REPORT_PATH = '/api/csp-report';
@@ -82,7 +83,7 @@ const securityHeaders = [
 ];
 
 /** @type {import('next').NextConfig} */
-module.exports = {
+const nextConfig = {
 	// `shared/` lives outside this package, so Next has to be told it may compile
 	// files from the repo root.
 	outputFileTracingRoot: path.join(__dirname, '../'),
@@ -110,3 +111,52 @@ module.exports = {
 		];
 	},
 };
+
+/** Set on Vercel and in nobody's local shell; absent, source maps aren't uploaded. */
+const hasUploadCredentials = Boolean(process.env.SENTRY_AUTH_TOKEN);
+
+module.exports = withSentryConfig(nextConfig, {
+	org: process.env.SENTRY_ORG,
+	project: process.env.SENTRY_PROJECT,
+	authToken: process.env.SENTRY_AUTH_TOKEN,
+
+	/**
+	 * Reports are posted to this app's own origin and proxied on to Sentry from
+	 * the server, rather than going to `*.ingest.sentry.io` from the browser.
+	 *
+	 * Not premature: iOS content blockers block Sentry's ingest hosts by name,
+	 * and a good share of this group is on an iPhone. Without the tunnel those
+	 * people report nothing and the inbox looks healthy — which is the exact
+	 * failure this whole change exists to stop. It also means the CSP needs no
+	 * new host: `connect-src 'self'` already covers a same-origin post.
+	 */
+	tunnelRoute: '/monitoring',
+
+	sourcemaps: {
+		// Nothing to upload to without a token, and a hard failure here would
+		// break `pnpm build` for anybody who has never heard of Sentry.
+		disable: !hasUploadCredentials,
+		// Otherwise the maps ship to Vercel and stay publicly fetchable, which
+		// de-minifies the whole app for everyone, not just for us.
+		deleteSourcemapsAfterUpload: true,
+	},
+
+	// The plugin is chatty about a missing token on every single build.
+	silent: !hasUploadCredentials,
+	telemetry: false,
+	// Pulls in the chunks Next serves from outside the default upload scope, so
+	// a stack trace through a lazily loaded route is readable too.
+	widenClientFileUpload: true,
+
+	webpack: {
+		treeshake: {
+			// Sentry's own debug logging, which nothing here reads.
+			removeDebugLogging: true,
+			// Drops the entire performance-monitoring half of the SDK. It is dead
+			// code given `tracesSampleRate: 0` in `lib/sentry.ts`, and leaving it
+			// in costs 28 kB gzipped on the shared bundle — worth having on a
+			// phone-first app. Turning tracing back on means deleting this line.
+			removeTracing: true,
+		},
+	},
+});

@@ -7,6 +7,7 @@ import { GoogleAuthProvider, onIdTokenChanged, signInWithPopup, signOut } from '
 import { deleteField, doc, getDoc, setDoc } from 'firebase/firestore';
 import { getDb, getFirebaseAuth } from './firebaseClient';
 import { isStandalone, thisDevice } from './device';
+import { captureError, setSentryUser } from './sentry';
 import type { AppUser, ClientInfo } from '@shared/types';
 import { normaliseNotificationPrefs } from '@shared/notifications';
 
@@ -112,6 +113,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		return onIdTokenChanged(auth, async firebaseUser => {
 			if (!firebaseUser) {
 				setUser(undefined);
+				void setSentryUser(null);
 				return;
 			}
 
@@ -119,9 +121,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			const authUser = toAuthUser(firebaseUser, result.claims.admin === true);
 
 			setUser(authUser);
+			// The uid alone, so a crash report can say whether this is one
+			// person's phone or everybody's. See `setSentryUser`.
+			void setSentryUser(authUser.uid);
 
-			// Best-effort: a failure here shouldn't block sign-in.
-			upsertUserDoc(authUser).catch(error => console.error('Failed to sync user profile', error));
+			// Best-effort: a failure here shouldn't block sign-in. Quiet on
+			// screen, but not quiet to us — a profile that never syncs is how
+			// somebody ends up nameless in every roster in the app.
+			upsertUserDoc(authUser).catch(error => {
+				console.error('Failed to sync user profile', error);
+				void captureError(error, { stage: 'upsertUserDoc' });
+			});
 		});
 	}, []);
 

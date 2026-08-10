@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react';
 import { useToast } from '../components/Toast';
+import { captureError } from '../lib/sentry';
 
 /**
  * Runs a Firestore write and says so when it fails.
@@ -26,6 +27,12 @@ export const useWrite = () => {
 			} catch (error) {
 				console.error(failureMessage, error);
 				warn(failureMessage);
+
+				// Every mutation in the app funnels through here, so this is the
+				// one place a rejected write can be seen from. The toast tells
+				// the player; without this nothing tells us, and "a rule says no
+				// to something the UI offered" is a bug every time.
+				void captureError(error, { failureMessage });
 
 				return false;
 			}

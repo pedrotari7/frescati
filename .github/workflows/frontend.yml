@@ -33,4 +33,10 @@ jobs:
           # no App Check token, and this workflow only builds to prove the app
           # compiles. Vercel is where the deployed bundle gets its copy.
           NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY }}
+          # Same story: public, and here so CI compiles the same shape of bundle
+          # Vercel ships — with the DSN set, Sentry adds the `/monitoring` tunnel
+          # rewrite, and a build that never sees one can't catch it breaking.
+          # No `SENTRY_AUTH_TOKEN` on purpose, so CI uploads no source maps: this
+          # build is thrown away, and releases would be attributed to it.
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
       - run: pnpm --filter frontend test

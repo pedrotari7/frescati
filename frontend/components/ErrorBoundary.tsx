@@ -2,6 +2,7 @@
 
 import type { ErrorInfo, ReactNode } from 'react';
 import { Component } from 'react';
+import { captureError } from '../lib/sentry';
 
 interface Props {
 	children: ReactNode;
@@ -24,6 +25,11 @@ class ErrorBoundary extends Component<Props, State> {
 
 	componentDidCatch(error: Error, info: ErrorInfo) {
 		console.error('Unhandled UI error', error, info.componentStack);
+
+		// React has already swallowed this to render the fallback below, so
+		// Sentry's global handler will never see it. The component stack is the
+		// useful half — it names the screen, which a minified trace may not.
+		void captureError(error, { componentStack: info.componentStack });
 	}
 
 	render() {
