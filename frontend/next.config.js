@@ -112,8 +112,22 @@ const nextConfig = {
 	},
 };
 
-/** Set on Vercel and in nobody's local shell; absent, source maps aren't uploaded. */
-const hasUploadCredentials = Boolean(process.env.SENTRY_AUTH_TOKEN);
+/**
+ * Whether this build should upload source maps.
+ *
+ * Both halves matter. The token is what makes an upload possible at all, and
+ * `VERCEL` is what makes it *appropriate*: only a deploy produces a bundle
+ * anybody will read a stack trace from.
+ *
+ * Without the `VERCEL` check, a token sitting in `frontend/.env.local` would
+ * have every local build uploading — and the pre-commit hook runs one on every
+ * frontend commit. Each would create a release named after the last commit,
+ * from a working tree that may not match it, for a bundle that is deleted
+ * seconds later. CI is covered by the same reasoning and simply has no token.
+ *
+ * To upload from a local build on purpose, set `VERCEL=1` for that one run.
+ */
+const hasUploadCredentials = Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.VERCEL);
 
 module.exports = withSentryConfig(nextConfig, {
 	org: process.env.SENTRY_ORG,
