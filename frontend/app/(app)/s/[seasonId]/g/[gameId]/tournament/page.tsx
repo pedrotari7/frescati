@@ -123,7 +123,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					<div className='flex flex-wrap items-center gap-2'>
 						<StatusPill tone='brand'>{describeSquads(squadSizes)}</StatusPill>
 						<StatusPill tone='neutral'>
-							{fit.matchCount} matches · {lineup.settings.matchMinutes} min
+							{fit.matchCount} {fit.matchCount === 1 ? 'match' : 'matches'} · {lineup.settings.matchMinutes} min
 						</StatusPill>
 					</div>
 

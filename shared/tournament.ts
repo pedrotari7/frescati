@@ -79,9 +79,12 @@ export interface Fixture {
 /**
  * Who plays whom, in the order they play it.
  *
- * Two teams play three matches; three play a double round robin; four play a
- * single one. All land on six matches, which is what keeps a game the same
- * length whatever the turnout.
+ * Two teams have nobody else to rotate in, so the "tournament" is just the one
+ * game between them — three or six repeats of the same fixture would not be a
+ * round robin, only that one result counted three or six times over. Three
+ * teams play a double round robin; four play a single one. Both land on six
+ * matches, which is what keeps a game the same length whatever the turnout —
+ * a two-team game is the one shape this can't hold for, and runs short.
  *
  * The orders are hand-picked for rest on a single pitch. Four teams manage all
  * but two changeovers without a team playing twice in a row. Three teams
@@ -89,11 +92,7 @@ export interface Fixture {
  * up — the rotation at least spreads it evenly.
  */
 const ROTATIONS: Record<number, [number, number][]> = {
-	2: [
-		[0, 1],
-		[0, 1],
-		[0, 1],
-	],
+	2: [[0, 1]],
 	3: [
 		[0, 1],
 		[1, 2],

@@ -68,11 +68,15 @@ describe('getSideSize', () => {
 
 describe('getFixtures', () => {
 	it.each([
-		[2, 3],
+		[2, 1],
 		[3, 6],
 		[4, 6],
 	])('%i teams play %i matches', (teamCount, expected) => {
 		expect(getFixtures(teamCount)).toHaveLength(expected);
+	});
+
+	it('has just the one fixture for two teams — nobody else to rotate through', () => {
+		expect(getFixtures(2)).toEqual([{ order: 0, teamA: 0, teamB: 1 }]);
 	});
 
 	it('has no fixtures below the floor', () => {
@@ -163,7 +167,7 @@ describe('selectPlayedMatches', () => {
 
 	it('keeps every fixture a real game produces', () => {
 		expect(selectPlayedMatches(4, asPlayed(4))).toHaveLength(6);
-		expect(selectPlayedMatches(2, asPlayed(2))).toHaveLength(3);
+		expect(selectPlayedMatches(2, asPlayed(2))).toHaveLength(1);
 	});
 
 	// The reason this exists. Anybody holding a response on the game can write

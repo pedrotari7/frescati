@@ -24,7 +24,7 @@ const TEAM_B = ['p5', 'p6', 'p7', 'p8'];
 
 const hoursFromNow = (hours: number): string => new Date(Date.now() + hours * 3_600_000).toISOString();
 
-/** Three matches, the full round robin two teams play in a game. */
+/** The one match two teams play in a game — nobody else to rotate through. */
 const writeGameMatches = async (scores: [number, number][]): Promise<void> => {
 	for (const [order, [scoreA, scoreB]] of scores.entries()) {
 		await writeMatch(SEASON_ID, GAME_ID, { order, teamA: 0, teamB: 1, scoreA, scoreB });
@@ -61,11 +61,7 @@ describe('finaliseTournament', () => {
 
 	it('rejects a caller who is not a season admin', async () => {
 		await setUpGame();
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 
 		await expect(
 			finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: OUTSIDER }))
@@ -90,11 +86,7 @@ describe('finaliseTournament', () => {
 
 	it('lets a season admin confirm a played game and applies the ratings', async () => {
 		await setUpGame();
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 
 		const result = await finaliseTournament.run(
 			callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN })
@@ -105,8 +97,8 @@ describe('finaliseTournament', () => {
 		const game = await readGame(SEASON_ID, GAME_ID);
 		expect(game?.resultFinalisedAt).toBeTruthy();
 
-		// Team A won two and drew one against an evenly-seeded field, so every
-		// provisional player swings the full 40 * 0.5 = 20 Elo either way.
+		// Team A won against an evenly-seeded field, so every provisional player
+		// swings the full 40 * 0.5 = 20 Elo either way.
 		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: 1020, games: 1 });
 		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: 980, games: 1 });
 
@@ -118,11 +110,7 @@ describe('finaliseTournament', () => {
 		await writeSeason(SEASON_ID, { memberUids: [...TEAM_A, ...TEAM_B], adminUids: [] });
 		await writeGame(SEASON_ID, GAME_ID);
 		await writeTeams(SEASON_ID, GAME_ID, [TEAM_A, TEAM_B]);
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 
 		const result = await finaliseTournament.run(
 			callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: 'app-admin-1', admin: true })
@@ -133,11 +121,7 @@ describe('finaliseTournament', () => {
 
 	it('rejects confirming a game that is already confirmed', async () => {
 		await setUpGame();
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
 
 		await expect(
@@ -149,11 +133,7 @@ describe('finaliseTournament', () => {
 describe('finaliseDueTournaments', () => {
 	it('auto-confirms a played game once it is past the auto-finalise window', async () => {
 		await setUpGame({ kickoff: hoursFromNow(-30), status: 'scheduled' });
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 
 		await finaliseDueTournaments.run(undefined as never);
 
@@ -173,11 +153,7 @@ describe('finaliseDueTournaments', () => {
 
 	it('leaves a game still inside its window alone', async () => {
 		await setUpGame({ kickoff: hoursFromNow(-10), status: 'scheduled' });
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 
 		await finaliseDueTournaments.run(undefined as never);
 
@@ -190,11 +166,7 @@ describe('finaliseDueTournaments', () => {
 	// of a window and never being rated at all.
 	it('marks a game it confirms as played', async () => {
 		await setUpGame({ kickoff: hoursFromNow(-30), status: 'scheduled' });
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 
 		await finaliseDueTournaments.run(undefined as never);
 
@@ -211,11 +183,7 @@ describe('finaliseDueTournaments', () => {
 		expect((await readGame(SEASON_ID, GAME_ID))?.resultFinalisedAt).toBeUndefined();
 
 		// Somebody finally fills in the scoreboard.
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 		await finaliseDueTournaments.run(undefined as never);
 
 		expect((await readGame(SEASON_ID, GAME_ID))?.resultFinalisedAt).toBeTruthy();
@@ -226,11 +194,7 @@ describe('finaliseDueTournaments', () => {
 	// query. Retired in place rather than by a migration script.
 	it('retires a game that was rated before the status was ever set', async () => {
 		await setUpGame({ kickoff: hoursFromNow(-30), status: 'scheduled' });
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
 
 		// Put it back the way a pre-existing game looks: rated, still scheduled.
@@ -253,21 +217,12 @@ describe('finaliseDueTournaments', () => {
 describe('onMatchWrite', () => {
 	it('replays ratings when a confirmed score is corrected', async () => {
 		await setUpGame();
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
 		expect((await readUser('p1'))?.rating).toMatchObject({ elo: 1020 });
 
-		// Reverse the outcome entirely: team B now wins both close games instead
-		// of team A.
-		await writeGameMatches([
-			[0, 3],
-			[1, 4],
-			[1, 1],
-		]);
+		// Reverse the outcome entirely: team B now wins the game instead of team A.
+		await writeGameMatches([[0, 3]]);
 		await onMatchWrite.run(paramsEvent({ seasonId: SEASON_ID, gameId: GAME_ID, order: '0' }));
 
 		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: 980, games: 1 });
@@ -286,11 +241,7 @@ describe('onMatchWrite', () => {
 	// whether or not the trigger had asked for anything.
 	it('does nothing for a match under a game that is not yet confirmed', async () => {
 		await setUpGame();
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 		const replaySpy = jest.spyOn(finalise, 'requestRatingReplay');
 
 		await onMatchWrite.run(paramsEvent({ seasonId: SEASON_ID, gameId: GAME_ID, order: '0' }));
@@ -298,22 +249,15 @@ describe('onMatchWrite', () => {
 		expect(replaySpy).not.toHaveBeenCalled();
 	});
 
-	// Three corrections to one game raise three of these. Before the ladder
-	// lock each ran its own rewind-and-replay, and they interleaved.
+	// A burst of `onMatchWrite` firings for the same game — however many
+	// documents actually changed. Before the ladder lock each ran its own
+	// rewind-and-replay, and they interleaved.
 	it('collapses a burst of corrections into a single replay', async () => {
 		await setUpGame();
-		await writeGameMatches([
-			[2, 1],
-			[3, 1],
-			[1, 1],
-		]);
+		await writeGameMatches([[2, 1]]);
 		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
 
-		await writeGameMatches([
-			[0, 3],
-			[1, 4],
-			[1, 1],
-		]);
+		await writeGameMatches([[0, 3]]);
 
 		await Promise.all(
 			['0', '1', '2'].map(order => onMatchWrite.run(paramsEvent({ seasonId: SEASON_ID, gameId: GAME_ID, order })))
