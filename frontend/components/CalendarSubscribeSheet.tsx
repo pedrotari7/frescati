@@ -7,6 +7,7 @@ import { getCalendarLink, rotateCalendarToken } from '../lib/db/calendar';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { useWrite } from '../hooks/useWrite';
+import { captureError } from '../lib/sentry';
 import Button from './Button';
 import Spinner from './Spinner';
 import { CONTROL } from './Field';
@@ -44,7 +45,10 @@ const CalendarSubscribeSheet = ({
 
 		getCalendarLink(seasonId)
 			.then(setUrl)
-			.catch(() => setLoadFailed(true));
+			.catch(error => {
+				setLoadFailed(true);
+				void captureError(error, { stage: 'getCalendarLink' });
+			});
 	}, [open, seasonId]);
 
 	const copy = async () => {
@@ -63,7 +67,8 @@ const CalendarSubscribeSheet = ({
 	const rotate = async () => {
 		const ok = await confirm({
 			title: 'Rotate this link?',
-			message: "Everyone who's already subscribed stops getting updates — they'd need the new link to resubscribe.",
+			message:
+				"Everyone who's already subscribed stops getting updates — they'd need the new link to resubscribe.",
 			confirmLabel: 'Rotate link',
 			tone: 'danger',
 		});
@@ -87,10 +92,9 @@ const CalendarSubscribeSheet = ({
 					<DialogTitle className='text-ink text-lg font-semibold'>Subscribe to this season</DialogTitle>
 
 					<p className='text-muted mt-2 text-sm leading-relaxed'>
-						Add this to your phone or laptop&apos;s calendar and it keeps itself up to date — kickoff
-						times, venue changes and cancellations all show up without reopening the app. Most calendar
-						apps only re-check a subscribed link every several hours, so a change here won&apos;t appear
-						instantly.
+						Add this to your phone or laptop&apos;s calendar and it keeps itself up to date — kickoff times,
+						venue changes and cancellations all show up without reopening the app. Most calendar apps only
+						re-check a subscribed link every several hours, so a change here won&apos;t appear instantly.
 					</p>
 
 					{loadFailed && (
