@@ -99,6 +99,15 @@ describe('buildIcsFeed', () => {
 		expect(ics).toContain('Pitch waterlogged');
 	});
 
+	it('separates the note from the URL with a single escaped newline, not a literal backslash-n', () => {
+		const ics = buildIcsFeed(season, [game({ status: 'cancelled', cancelledReason: 'Pitch waterlogged' })], {
+			appUrl: APP_URL,
+		});
+
+		const description = ics.match(/DESCRIPTION:(.+?)\r\nEND:VEVENT/s)?.[1].replace(/\r\n /g, '');
+		expect(description).toBe('Pitch waterlogged\\n\\nhttps://frescati.example/s/season-1/g/game-1');
+	});
+
 	it('never mentions who is in, who is out, or a headcount', () => {
 		const ics = buildIcsFeed(
 			season,

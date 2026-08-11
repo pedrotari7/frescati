@@ -56,7 +56,11 @@ const eventFor = (game: Game, season: Season, appUrl: string, now: string): stri
 	const url = `${appUrl}/s/${season.id}/g/${game.id}`;
 
 	const noteLines = [game.cancelledReason, game.note].filter((text): text is string => Boolean(text));
-	const description = [...noteLines, url].join('\\n\\n');
+	// A real newline here, not a pre-escaped one — escapeText() below is what
+	// turns it into the RFC 5545 `\n` a reader expects. Pre-escaping it would
+	// have escapeText() double the backslash, leaving a literal `\n\n` visible
+	// in every subscriber's calendar app instead of a blank line.
+	const description = [...noteLines, url].join('\n\n');
 
 	return [
 		'BEGIN:VEVENT',
