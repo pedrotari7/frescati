@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import type { ResponseStatus } from '@shared/types';
 import { useToast } from '../components/Toast';
+import { captureError } from '../lib/sentry';
 
 const isResponseStatus = (value: string | null): value is ResponseStatus => value === 'in' || value === 'out';
 
@@ -53,6 +54,7 @@ export const useRespondIntent = ({
 			.catch(error => {
 				console.error('Could not save the response from a notification', error);
 				warn("Couldn't save your answer. Open the game and try again.");
+				void captureError(error, { stage: 'respondIntent' });
 			});
 	}, [ready, isOpen, onRespond, notify, warn]);
 };
