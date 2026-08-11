@@ -43,7 +43,8 @@ export const useMyResponses = () => {
 						onError
 					)
 			: null,
-		[uid]
+		[uid],
+		'myResponses'
 	);
 
 	return useMemo(() => ({ myResponses: data, loading, error }), [data, loading, error]);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Unsubscribe } from 'firebase/firestore';
+import { captureError } from '../lib/sentry';
 
 export interface SubscriptionResult<T> {
 	data: T;
@@ -21,11 +22,19 @@ type Subscribe<T> = (onChange: (value: T) => void, onError: (error: Error) => vo
  *
  * `deps` is what the subscription is keyed on; it is deliberately caller-owned
  * because `subscribe` is a fresh closure on every render.
+ *
+ * `source` names the subscription for `captureError` below. A listener's error
+ * callback is not a rejected promise — nothing about it becomes an unhandled
+ * rejection for Sentry's default browser instrumentation to pick up on its
+ * own, unlike almost every other failure in this app — so this is the one
+ * place that has to report it, and `source` is what turns "a subscription
+ * failed" into "which one".
  */
 export const useFirestoreSubscription = <T>(
 	initial: T,
 	subscribe: Subscribe<T> | null,
-	deps: unknown[]
+	deps: unknown[],
+	source: string
 ): SubscriptionResult<T> => {
 	const [data, setData] = useState<T>(initial);
 	const [loading, setLoading] = useState(true);
@@ -49,6 +58,7 @@ export const useFirestoreSubscription = <T>(
 				console.error('Firestore subscription failed', subscriptionError);
 				setError(subscriptionError);
 				setLoading(false);
+				void captureError(subscriptionError, { source });
 			}
 		);
 

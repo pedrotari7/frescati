@@ -28,7 +28,8 @@ export const useSeasons = () => {
 	const { data, loading, error } = useFirestoreSubscription<Season[]>(
 		NO_SEASONS,
 		(onChange, onError) => subscribeToSeasons(onChange, onError),
-		[]
+		[],
+		'seasons'
 	);
 
 	return { seasons: data, loading, error };
@@ -38,7 +39,8 @@ export const useSeason = (seasonId: string | null) => {
 	const { data, loading, error } = useFirestoreSubscription<Season | null>(
 		null,
 		seasonId ? (onChange, onError) => subscribeToSeason(seasonId, onChange, onError) : null,
-		[seasonId]
+		[seasonId],
+		'season'
 	);
 
 	return { season: data, loading, error };
@@ -48,7 +50,8 @@ export const useGames = (seasonId: string | null) => {
 	const { data, loading, error } = useFirestoreSubscription<Game[]>(
 		NO_GAMES,
 		seasonId ? (onChange, onError) => subscribeToGames(seasonId, onChange, onError) : null,
-		[seasonId]
+		[seasonId],
+		'games'
 	);
 
 	return { games: data, loading, error };
@@ -58,7 +61,8 @@ export const useGame = (seasonId: string | null, gameId: string | null) => {
 	const { data, loading, error } = useFirestoreSubscription<Game | null>(
 		null,
 		seasonId && gameId ? (onChange, onError) => subscribeToGame(seasonId, gameId, onChange, onError) : null,
-		[seasonId, gameId]
+		[seasonId, gameId],
+		'game'
 	);
 
 	return { game: data, loading, error };
@@ -68,7 +72,8 @@ export const useResponses = (seasonId: string | null, gameId: string | null) => 
 	const { data, loading, error } = useFirestoreSubscription<GameResponse[]>(
 		NO_RESPONSES,
 		seasonId && gameId ? (onChange, onError) => subscribeToResponses(seasonId, gameId, onChange, onError) : null,
-		[seasonId, gameId]
+		[seasonId, gameId],
+		'responses'
 	);
 
 	return { responses: data, loading, error };
@@ -78,7 +83,8 @@ export const useUsers = () => {
 	const { data, loading, error } = useFirestoreSubscription<AppUser[]>(
 		NO_USERS,
 		(onChange, onError) => subscribeToUsers(onChange, onError),
-		[]
+		[],
+		'users'
 	);
 
 	return { users: data, loading, error };
@@ -88,7 +94,8 @@ export const useTournamentTeams = (seasonId: string | null, gameId: string | nul
 	const { data, loading, error } = useFirestoreSubscription<TournamentTeams | null>(
 		null,
 		seasonId && gameId ? (onChange, onError) => subscribeToTeams(seasonId, gameId, onChange, onError) : null,
-		[seasonId, gameId]
+		[seasonId, gameId],
+		'tournamentTeams'
 	);
 
 	return { teams: data, loading, error };
@@ -98,7 +105,8 @@ export const useMatches = (seasonId: string | null, gameId: string | null) => {
 	const { data, loading, error } = useFirestoreSubscription<TournamentMatch[]>(
 		NO_MATCHES,
 		seasonId && gameId ? (onChange, onError) => subscribeToMatches(seasonId, gameId, onChange, onError) : null,
-		[seasonId, gameId]
+		[seasonId, gameId],
+		'tournamentMatches'
 	);
 
 	return { matches: data, loading, error };
@@ -108,7 +116,8 @@ export const useTournamentResult = (seasonId: string | null, gameId: string | nu
 	const { data, loading, error } = useFirestoreSubscription<TournamentResult | null>(
 		null,
 		seasonId && gameId ? (onChange, onError) => subscribeToResult(seasonId, gameId, onChange, onError) : null,
-		[seasonId, gameId]
+		[seasonId, gameId],
+		'tournamentResult'
 	);
 
 	return { result: data, loading, error };
@@ -118,7 +127,8 @@ export const useSeasonLedger = (seasonId: string | null) => {
 	const { data, loading, error } = useFirestoreSubscription<RatingLedgerEntry[]>(
 		NO_LEDGER,
 		seasonId ? (onChange, onError) => subscribeToSeasonLedger(seasonId, onChange, onError) : null,
-		[seasonId]
+		[seasonId],
+		'seasonLedger'
 	);
 
 	return { entries: data, loading, error };
@@ -128,7 +138,8 @@ export const useUser = (uid: string | null) => {
 	const { data, loading, error } = useFirestoreSubscription<AppUser | null>(
 		null,
 		uid ? (onChange, onError) => subscribeToUser(uid, onChange, onError) : null,
-		[uid]
+		[uid],
+		'user'
 	);
 
 	return { user: data, loading, error };
