@@ -50,8 +50,14 @@ const CalendarSubscribeSheet = ({
 	const copy = async () => {
 		if (!url) return;
 
-		await navigator.clipboard.writeText(url);
-		notify('Link copied');
+		// `write` isn't just for Firestore — it's the one place in the app that
+		// already catches a failed async action, toasts it, and reports it, which
+		// a rejected `clipboard.writeText` (permission denied, insecure context,
+		// an older WebView) needs exactly as much as a rejected write does. Copy
+		// is this dialog's primary action, so failing silently would leave
+		// someone with no way to get a working link at all.
+		const ok = await write(() => navigator.clipboard.writeText(url), "Couldn't copy the link.");
+		if (ok) notify('Link copied');
 	};
 
 	const rotate = async () => {
