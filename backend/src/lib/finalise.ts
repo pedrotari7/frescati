@@ -85,6 +85,8 @@ export const computeGameRatings = async (
 	// from whatever survives this.
 	const matches = selectPlayedMatches(
 		lineup.teams.length,
+		lineup.settings.matchMinutes,
+		season.slot.durationMinutes,
 		matchesSnap.docs.map(doc => doc.data() as TournamentMatch)
 	);
 

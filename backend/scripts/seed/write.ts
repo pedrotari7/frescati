@@ -585,7 +585,9 @@ const playGame = (
 	const rng = createRng(seed ^ 0x5f3759df);
 	const scoredBy = pool[Math.floor(rng() * pool.length)]?.uid ?? season.adminUids[0];
 
-	const matches: TournamentMatch[] = getFixtures(teamCount).map(fixture => {
+	const fixtures = getFixtures(teamCount, settings.matchMinutes, season.slot.durationMinutes);
+
+	const matches: TournamentMatch[] = fixtures.map(fixture => {
 		const [scoreA, scoreB] = playMatch(teams[fixture.teamA].uids, teams[fixture.teamB].uids, rng);
 
 		return {

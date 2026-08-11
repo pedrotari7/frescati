@@ -947,12 +947,13 @@ describe('the scoreboard', () => {
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { order: 5 })));
 	});
 
-	it('stops a match invented at an order no rotation reaches', async () => {
+	it('stops a match invented past the rotation’s hard ceiling', async () => {
 		await respond(MEMBER, 'member');
 
-		// Six matches is the longest game there is.
-		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(6)), aScore(MEMBER, { order: 6 })));
-		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(40)), aScore(MEMBER, { order: 40 })));
+		// MAX_MATCHES in shared/tournament.ts — the rule's worst case, whatever
+		// the season and match length actually allow.
+		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(30)), aScore(MEMBER, { order: 30 })));
+		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(200)), aScore(MEMBER, { order: 200 })));
 	});
 
 	it('stops a match at an id that is not a number at all', async () => {
@@ -976,6 +977,16 @@ describe('the scoreboard', () => {
 		for (const order of [0, 1, 2, 3, 4, 5]) {
 			await assertSucceeds(setDoc(doc(authed(MEMBER), matchDoc(order)), aScore(MEMBER, { order })));
 		}
+	});
+
+	// A rotation laps to fill the slot now, so a long slot at short matches
+	// legitimately reaches well past six — the rule's job is only the outer
+	// bound; `selectPlayedMatches` is what checks a game's actual fixture list.
+	it('accepts an order only a longer slot would reach', async () => {
+		await respond(MEMBER, 'member');
+
+		await assertSucceeds(setDoc(doc(authed(MEMBER), matchDoc(17)), aScore(MEMBER, { order: 17 })));
+		await assertSucceeds(setDoc(doc(authed(MEMBER), matchDoc(29)), aScore(MEMBER, { order: 29 })));
 	});
 
 	it('closes the scoreboard to players once the game is confirmed', async () => {

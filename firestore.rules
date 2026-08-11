@@ -423,13 +423,15 @@ service cloud.firestore {
                    // `int()` errors on an id that is not a number, and an error
                    // denies, so this also turns away `matches/whatever`.
                    && request.resource.data.order == int(order)
-                   // No rotation runs past six matches — see `ROTATIONS` in
-                   // shared/tournament.ts. Mirrored here the same way the
-                   // four-team ceiling below is: a rule cannot read the lineup
-                   // to learn the game's real fixture count, so it bounds the
-                   // worst case and `selectPlayedMatches` does the exact check
-                   // on the way back out.
-                   && request.resource.data.order < 6
+                   // A rotation now laps to fill the slot, so the real ceiling
+                   // moves with the season and the match length — see
+                   // `getFixtures` in shared/tournament.ts. `MAX_MATCHES` there
+                   // is the one number that doesn't move, and is mirrored here
+                   // the same way the four-team ceiling below is: a rule cannot
+                   // read the season and the lineup to compute the real fixture
+                   // count, so it bounds the worst case and `selectPlayedMatches`
+                   // does the exact check on the way back out.
+                   && request.resource.data.order < 30
                    && request.resource.data.teamA is int
                    && request.resource.data.teamB is int
                    && request.resource.data.teamA >= 0 && request.resource.data.teamA < 4

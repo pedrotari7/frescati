@@ -310,7 +310,10 @@ const SeasonAdminPage = () => {
 							</p>
 
 							<div className='space-y-4'>
-								<Field label='Match length' hint='Minutes per match. Six matches is a normal game.'>
+								<Field
+									label='Match length'
+									hint='Minutes per match. The rotation repeats to fill the slot, so shorter matches mean more of them.'
+								>
 									<TextInput
 										type='number'
 										inputMode='numeric'

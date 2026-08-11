@@ -89,14 +89,19 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	}
 
 	const squadSizes = lineup.teams.map(team => team.uids.length);
-	const fixtures = getFixtures(lineup.teams.length);
+	const fixtures = getFixtures(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
 	const fit = getScheduleFit(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
 
 	// Not everything under `matches/` belongs to this game — see
 	// `selectPlayedMatches`. The screen has to agree with the function that
 	// rates the game, or the table here would explain a set of ratings it
 	// didn't produce.
-	const playedMatches = selectPlayedMatches(lineup.teams.length, matches);
+	const playedMatches = selectPlayedMatches(
+		lineup.teams.length,
+		lineup.settings.matchMinutes,
+		season.slot.durationMinutes,
+		matches
+	);
 
 	const matchesByOrder = new Map(playedMatches.map(match => [match.order, match]));
 	const played = playedMatches.length;
@@ -123,7 +128,8 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					<div className='flex flex-wrap items-center gap-2'>
 						<StatusPill tone='brand'>{describeSquads(squadSizes)}</StatusPill>
 						<StatusPill tone='neutral'>
-							{fit.matchCount} {fit.matchCount === 1 ? 'match' : 'matches'} · {lineup.settings.matchMinutes} min
+							{fit.matchCount} {fit.matchCount === 1 ? 'match' : 'matches'} ·{' '}
+							{lineup.settings.matchMinutes} min
 						</StatusPill>
 					</div>
 

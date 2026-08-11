@@ -30,6 +30,17 @@ export const AUTO_FINALISE_HOURS = 24;
 export const MAX_TEAMS = 4;
 
 /**
+ * However long the slot, a rotation does not repeat forever. Past this many
+ * matches the scoreboard is more grinding than the football, so this is the
+ * ceiling regardless of how much room `getScheduleFit` finds. Firestore rules
+ * mirror it on `matches/{order}.order` the same way they mirror `MAX_TEAMS` —
+ * a rule cannot read the season and the lineup to recompute it, so it bounds
+ * the worst case and `selectPlayedMatches` does the exact check on the way
+ * back out.
+ */
+export const MAX_MATCHES = 30;
+
+/**
  * How many teams a headcount splits into. `0` means "not enough for a
  * tournament" rather than throwing, because this is read on every render of a
  * game that may only have two people in it so far.
@@ -77,19 +88,23 @@ export interface Fixture {
 }
 
 /**
- * Who plays whom, in the order they play it.
+ * One lap: who plays whom, in the order they play it, before the rotation
+ * repeats.
  *
- * Two teams have nobody else to rotate in, so the "tournament" is just the one
- * game between them — three or six repeats of the same fixture would not be a
- * round robin, only that one result counted three or six times over. Three
- * teams play a double round robin; four play a single one. Both land on six
- * matches, which is what keeps a game the same length whatever the turnout —
- * a two-team game is the one shape this can't hold for, and runs short.
+ * Two teams have nobody else to rotate in, so a lap between them is just the
+ * one game — three or six repeats of the same fixture would not be a round
+ * robin, only that one result counted three or six times over. Three teams
+ * play a double round robin per lap; four play a single one. Both land on six
+ * matches a lap, which is what keeps one lap the same length whatever the
+ * turnout — a two-team lap is the one shape this can't hold for, and is
+ * shorter.
  *
- * The orders are hand-picked for rest on a single pitch. Four teams manage all
- * but two changeovers without a team playing twice in a row. Three teams
- * cannot: every match sits out exactly one of them, so somebody always doubles
- * up — the rotation at least spreads it evenly.
+ * The orders within a lap are hand-picked for rest on a single pitch. Four
+ * teams manage all but two changeovers without a team playing twice in a row.
+ * Three teams cannot: every match sits out exactly one of them, so somebody
+ * always doubles up — the rotation at least spreads it evenly. A second lap
+ * starts the same way the first one did, so the rest pattern repeats rather
+ * than compounds.
  */
 const ROTATIONS: Record<number, [number, number][]> = {
 	2: [[0, 1]],
@@ -111,8 +126,29 @@ const ROTATIONS: Record<number, [number, number][]> = {
 	],
 };
 
-export const getFixtures = (teamCount: number): Fixture[] =>
-	(ROTATIONS[teamCount] ?? []).map(([teamA, teamB], order) => ({ order, teamA, teamB }));
+/**
+ * Who plays whom, in the order they play it: as many laps of `ROTATIONS` as
+ * fit `slotMinutes` at `matchMinutes` each, so a fifty-minute five-a-side and
+ * a two-hour tournament are the same shape run a different number of times,
+ * not two different rotations.
+ *
+ * Floored at one full lap — a slot too short for even one is an overrun
+ * `getScheduleFit` surfaces, not a reason to serve half a round robin — and
+ * capped at `MAX_MATCHES` so a long slot with short matches doesn't turn the
+ * scoreboard into a chore.
+ */
+export const getFixtures = (teamCount: number, matchMinutes: number, slotMinutes: number): Fixture[] => {
+	const lap = ROTATIONS[teamCount];
+	if (!lap) return [];
+
+	const matchSlots = matchMinutes > 0 ? Math.floor(slotMinutes / matchMinutes) : 0;
+	const matchCount = Math.min(MAX_MATCHES, Math.max(lap.length, matchSlots));
+
+	return Array.from({ length: matchCount }, (_, order) => {
+		const [teamA, teamB] = lap[order % lap.length];
+		return { order, teamA, teamB };
+	});
+};
 
 /**
  * The matches that actually belong to this game.
@@ -138,9 +174,21 @@ export const getFixtures = (teamCount: number): Fixture[] =>
  * reasoning that already made `getStandings` ignore a match naming a team that
  * has gone, carried to the subtler case where both teams still exist but never
  * met.
+ *
+ * `matchMinutes` and `slotMinutes` are part of the same check now that a
+ * rotation can run more than one lap: a document at an order only a longer
+ * slot would reach is exactly the same kind of match that was never on the
+ * card.
  */
-export const selectPlayedMatches = (teamCount: number, matches: TournamentMatch[]): TournamentMatch[] => {
-	const fixtures = new Map(getFixtures(teamCount).map(fixture => [fixture.order, fixture]));
+export const selectPlayedMatches = (
+	teamCount: number,
+	matchMinutes: number,
+	slotMinutes: number,
+	matches: TournamentMatch[]
+): TournamentMatch[] => {
+	const fixtures = new Map(
+		getFixtures(teamCount, matchMinutes, slotMinutes).map(fixture => [fixture.order, fixture])
+	);
 	const played = new Map<number, TournamentMatch>();
 
 	for (const match of matches) {
@@ -170,13 +218,16 @@ export interface ScheduleFit {
 /**
  * Whether the game fits the season's slot.
  *
- * Reported rather than enforced: the fixture list is generated at the requested
- * match length either way, and an overrun is surfaced as a warning. Changeovers
- * are deliberately not modelled — `matchMinutes` is the admin's number and they
- * know whether theirs includes picking the bibs back up.
+ * `matchCount` already accounts for the slot — `getFixtures` laps the
+ * rotation to use the time available — so this is only ever reporting the one
+ * case that can't be filled away: a lap on its own longer than the slot.
+ * Reported rather than enforced, and the fixture list is generated at the
+ * requested match length either way. Changeovers are deliberately not
+ * modelled — `matchMinutes` is the admin's number and they know whether
+ * theirs includes picking the bibs back up.
  */
 export const getScheduleFit = (teamCount: number, matchMinutes: number, slotMinutes: number): ScheduleFit => {
-	const matchCount = getFixtures(teamCount).length;
+	const matchCount = getFixtures(teamCount, matchMinutes, slotMinutes).length;
 	const totalMinutes = matchCount * matchMinutes;
 
 	return {
