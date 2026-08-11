@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getNotificationReach } from '../lib/db/pushDevices';
 import type { NotificationReach } from '../lib/db/pushDevices';
+import { captureError } from '../lib/sentry';
 
 /**
  * Nothing registered, nothing addressable, nothing configured — what every row
@@ -42,6 +43,7 @@ export const usePushDevices = (enabled: boolean) => {
 		} catch (caught) {
 			console.error('Could not load how the app reaches people', caught);
 			setError(caught instanceof Error ? caught : new Error('Could not load how the app reaches people'));
+			void captureError(caught, { stage: 'getNotificationReach' });
 		} finally {
 			setLoading(false);
 		}
