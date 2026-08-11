@@ -61,6 +61,11 @@ const ignoreErrors = [
 	// mid-flight.
 	/Failed to fetch/,
 	/Load failed/,
+	// Firefox for iOS injects `window.__firefox__` for its own reader mode and
+	// video-quality controls. When that injection lands slightly out of sync
+	// with the page, referencing it throws — a Mozilla-authored global no app
+	// code ever touches, so this never correlates with anything of ours.
+	/__firefox__/,
 ];
 
 export const sentryOptions = {
