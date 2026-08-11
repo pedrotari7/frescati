@@ -2,7 +2,6 @@
 
 import type { AppUser, GameResponse } from '@shared/types';
 import { isConfirmed, sortResponses } from '@shared/game';
-import { shortName } from '@shared/format';
 import Avatar from './Avatar';
 import StatusPill from './StatusPill';
 import Button from './Button';
@@ -68,7 +67,7 @@ const Row = ({
 				tone === 'out' || tone === 'pending' ? 'text-muted' : 'text-ink'
 			)}
 		>
-			{shortName(entry.displayName)}
+			{entry.displayName}
 		</span>
 		{trailing}
 	</div>

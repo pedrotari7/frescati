@@ -89,11 +89,11 @@ describe('RosterList', () => {
 		);
 
 		expect(screen.getByText('Squad in')).toBeInTheDocument();
-		expect(screen.getByText('Alice')).toBeInTheDocument();
+		expect(screen.getByText('Alice Ng')).toBeInTheDocument();
 		expect(screen.getByText('Yet to answer')).toBeInTheDocument();
-		expect(screen.getByText('Carol')).toBeInTheDocument();
+		expect(screen.getByText('Carol Diaz')).toBeInTheDocument();
 		expect(screen.getByText('Out')).toBeInTheDocument();
-		expect(screen.getByText('Bob')).toBeInTheDocument();
+		expect(screen.getByText('Bob Lee')).toBeInTheDocument();
 	});
 
 	it('omits a section entirely when it has no entries', () => {
