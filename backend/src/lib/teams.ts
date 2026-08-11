@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions';
 import { db, REGION } from './firebase';
 import { runTeamRebuild } from './rebuild';
 import type { TeamRebuildTask } from './rebuild';
+import { reportError } from './sentry';
 
 /**
  * Queueing for the debounced team rebuild.
@@ -79,7 +80,10 @@ export const enqueueTeamRebuild = async (task: TeamRebuildTask): Promise<void> =
 			.taskQueue<TeamRebuildTask>(queueName)
 			.enqueue(task, { scheduleDelaySeconds: DEBOUNCE_SECONDS });
 	} catch (error) {
-		logger.warn('Could not queue a team rebuild', { ...task, error });
+		// A misconfigured queue (wrong region, IAM, quota) would otherwise fail
+		// every rebuild forever with nothing but a log line nobody is watching —
+		// exactly the class of swallowed failure `reportError` exists for.
+		reportError('Could not queue a team rebuild', { ...task }, error);
 	}
 };
 
