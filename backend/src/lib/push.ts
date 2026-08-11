@@ -3,6 +3,7 @@ import type { GameNotification, GameNotificationContext, PushPayload } from '../
 import { NOTIFICATION_PREF, buildGamePush } from '../../../shared/notifications';
 import { db, messaging } from './firebase';
 import { sendEmail } from './email';
+import { reportError } from './sentry';
 
 export type NotificationKind = keyof NotificationPrefs;
 
@@ -120,7 +121,13 @@ export const sendPush = async (uids: string[], payload: PushPayload, kind: Notif
 			db
 				.doc(`users/${target.uid}/pushTokens/${target.token}`)
 				.delete()
-				.catch(() => undefined)
+				// Swallowed deliberately — one token that won't delete must not fail
+				// the send it was found in. But silently: a persistent failure here
+				// (a rules regression, a permissions change) would mean the same
+				// dead tokens get resent to, and re-fail to clean up, on every
+				// notification forever, with nothing to notice but a shrinking
+				// success rate nobody is watching. reportError is what surfaces it.
+				.catch(error => reportError('Could not delete a dead push token', { uid: target.uid }, error))
 		)
 	);
 
