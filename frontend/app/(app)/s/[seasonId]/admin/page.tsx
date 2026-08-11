@@ -351,6 +351,7 @@ const SeasonAdminPage = () => {
 									<TextInput
 										type='number'
 										inputMode='numeric'
+										min={1}
 										value={form.repeatLookback}
 										onChange={e => setForm({ ...form, repeatLookback: Number(e.target.value) })}
 									/>

@@ -83,6 +83,13 @@ export const getSeed = (gameId: string, reshuffleCount = 0): number => {
 const buildRepeatWeights = (history: string[][][], lookback: number): Map<string, number> => {
 	const weights = new Map<string, number>();
 
+	// A non-positive lookback has nothing sensible to weight by — `(lookback -
+	// age) / lookback` would flip sign and make older games count for more than
+	// recent ones. Rules only bound this as a number, not its sign, so this is
+	// the layer that has to hold the line: treat it the same as `repeatPenalty:
+	// 0` already does, as "ignore history entirely".
+	if (lookback <= 0) return weights;
+
 	history.slice(0, lookback).forEach((game, age) => {
 		const weight = (lookback - age) / lookback;
 

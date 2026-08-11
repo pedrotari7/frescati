@@ -159,6 +159,38 @@ describe('pickTeams', () => {
 		expect(withHistory).toEqual(without);
 	});
 
+	// `(lookback - age) / lookback` inverts sign for a non-positive lookback,
+	// weighting older games *more* than recent ones instead of less. Guarded by
+	// treating it the same as `repeatPenalty: 0` — history ignored entirely —
+	// rather than acting on a nonsensical weighting.
+	it('ignores history rather than inverting the weighting when the lookback is not positive', () => {
+		const players = ['a', 'b', 'c', 'd'].map(uid => ({ uid, elo: 1000 }));
+		const lastWeek = [
+			[
+				['a', 'b'],
+				['c', 'd'],
+			],
+		];
+
+		const negativeLookback = pickTeams({
+			players,
+			squadSizes: [2, 2],
+			seed: 3,
+			settings: settings({ randomness: 0, repeatPenalty: 1, repeatLookback: -4 }),
+			history: lastWeek,
+		});
+
+		const penaltyOff = pickTeams({
+			players,
+			squadSizes: [2, 2],
+			seed: 3,
+			settings: settings({ randomness: 0, repeatPenalty: 0 }),
+			history: lastWeek,
+		});
+
+		expect(negativeLookback).toEqual(penaltyOff);
+	});
+
 	it('lists each squad strongest first', () => {
 		const players = ladder(12);
 		const elos = new Map(players.map(player => [player.uid, player.elo]));
