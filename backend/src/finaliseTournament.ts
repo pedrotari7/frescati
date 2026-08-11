@@ -121,7 +121,19 @@ export const finaliseDueTournaments = onSchedule(
 				// answering this query. Retire it and move on; the back catalogue
 				// heals itself over the first run or two rather than needing a script.
 				if (game.resultFinalisedAt) {
-					await doc.ref.update({ status: 'played' }).catch(() => undefined);
+					// Swallowed deliberately — a doc stuck on `scheduled` just keeps
+					// matching this query next hour rather than blocking the rest of
+					// the sweep — but silently, so a persistent failure here would
+					// never surface anywhere. reportError is what makes it visible.
+					await doc.ref
+						.update({ status: 'played' })
+						.catch(error =>
+							reportError(
+								'Could not retire a legacy rated game to played',
+								{ seasonId: game.seasonId, gameId: doc.id },
+								error
+							)
+						);
 					retired++;
 					continue;
 				}
