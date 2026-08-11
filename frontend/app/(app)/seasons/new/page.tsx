@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Weekday } from '@shared/types';
 import { weekdayName } from '@shared/format';
 import { useAuth } from '../../../../lib/auth';
+import { captureError } from '../../../../lib/sentry';
 import { createSeason } from '../../../../lib/db/seasons';
 import PageShell from '../../../../components/PageShell';
 import EmptyState from '../../../../components/EmptyState';
@@ -83,6 +84,7 @@ const NewSeasonPage = () => {
 		} catch (createError) {
 			console.error('Could not create season', createError);
 			setError('Could not create the season. Check you still have admin rights.');
+			void captureError(createError, { stage: 'createSeason' });
 		}
 	};
 
