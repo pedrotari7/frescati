@@ -147,6 +147,17 @@ describe('getSeasonTable', () => {
 		expect(table.map(row => row.position)).toEqual([0, 0, 2]);
 	});
 
+	it('does not share a position between two players level on wins but apart on movement', () => {
+		const table = getSeasonTable(
+			[entry('g1', 's1', { a: 0, b: 0, c: 1 }, { a: 1000, b: 1000, c: 1000 }, { a: 1040, b: 1005, c: 990 })],
+			's1'
+		);
+
+		// a and b both won once, but a gained far more — a real order, not a tie.
+		expect(table.map(row => row.uid)).toEqual(['a', 'b', 'c']);
+		expect(table.map(row => row.position)).toEqual([0, 1, 2]);
+	});
+
 	it('survives a ledger entry written before positions existed', () => {
 		const legacy = { ...entry('g1', 's1', {}, { a: 1000 }, { a: 1010 }) };
 		delete (legacy as Partial<RatingLedgerEntry>).positions;

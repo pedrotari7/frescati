@@ -101,7 +101,10 @@ export const getSeasonTable = (entries: RatingLedgerEntry[], seasonId: string): 
 	let position = 0;
 
 	return ordered.map((row, index) => {
-		if (index > 0 && ordered[index - 1].wins !== row.wins) position = index;
+		const previous = ordered[index - 1];
+		// Both sort keys, not just wins — two players level on wins but apart on
+		// movement are in a real, meaningful order, not a tie.
+		if (index > 0 && (previous.wins !== row.wins || previous.movement !== row.movement)) position = index;
 
 		return { ...row, position };
 	});
