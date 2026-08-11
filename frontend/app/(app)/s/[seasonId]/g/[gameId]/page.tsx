@@ -3,7 +3,7 @@
 import { use, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon, TrophyIcon } from '@heroicons/react/24/outline';
-import { getFormat, getGameLifecycle } from '@shared/game';
+import { getFormat, getGameLifecycle, tallyResponses } from '@shared/game';
 import { MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
@@ -25,15 +25,27 @@ import StatusPill from '../../../../../../components/StatusPill';
 const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { gameId } = use(params);
 	const { seasonId, season, games, loading, isAdmin, role } = useSeasonContext();
-	const { responses } = useResponses(seasonId, gameId);
+	const { responses, loading: responsesLoading } = useResponses(seasonId, gameId);
 	const { users } = useUsers();
 	const { myResponses } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
 	const write = useWrite();
 	const now = useNow();
 
-	const game = games.find(candidate => candidate.id === gameId) ?? null;
+	const rawGame = games.find(candidate => candidate.id === gameId) ?? null;
 	const usersByUid = useMemo(() => new Map(users.map(user => [user.uid, user])), [users]);
+
+	// `counts` on the game doc is written by a Cloud Function trigger, so it
+	// lags a response write by a round trip (and a cold start, worst case).
+	// `responses` here is the same subcollection, subscribed directly, so it
+	// carries the local write the instant Firestore echoes it from cache —
+	// tallying it ourselves shows the same number `onResponseWrite` will settle
+	// on, without waiting for it. Held back until responses have loaded once,
+	// so this doesn't flash 0 before the subscription delivers its first snapshot.
+	const game = useMemo(
+		() => (rawGame && !responsesLoading ? { ...rawGame, counts: tallyResponses(responses) } : rawGame),
+		[rawGame, responsesLoading, responses]
+	);
 
 	// Arriving from a notification's "I'm in" button. Runs before the early
 	// returns below so it isn't skipped while the page is still loading.

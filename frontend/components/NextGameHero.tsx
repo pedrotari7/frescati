@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { MapPinIcon } from '@heroicons/react/24/outline';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
-import { getGameLifecycle } from '@shared/game';
+import { getGameLifecycle, tallyResponses } from '@shared/game';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
+import { useResponses } from '../hooks/useData';
 import HeadcountBar from './HeadcountBar';
 import RespondControl from './RespondControl';
 import StatusPill from './StatusPill';
@@ -33,6 +34,14 @@ const NextGameHero = ({
 }) => {
 	const lifecycle = getGameLifecycle(game, season, now);
 	const timezone = season.slot.timezone;
+
+	// `game.counts` comes from the games list query and only moves once the
+	// `onResponseWrite` trigger has caught up with a response write. This is
+	// the one card every player checks right after answering, so it's worth a
+	// dedicated subscription to the responses it's tallying — subscribing per
+	// row on the list below it is what the denormalised counts exist to avoid.
+	const { responses, loading: responsesLoading } = useResponses(season.id, game.id);
+	const liveGame = responsesLoading ? game : { ...game, counts: tallyResponses(responses) };
 
 	return (
 		<section className='glass animate-rise shadow-glass relative overflow-hidden rounded-3xl p-5'>
@@ -63,7 +72,7 @@ const NextGameHero = ({
 					</p>
 				</Link>
 
-				<HeadcountBar game={game} season={season} className='mt-5' />
+				<HeadcountBar game={liveGame} season={season} className='mt-5' />
 
 				{lifecycle === 'cancelled' ? (
 					<p className='text-out mt-5 text-sm'>{game.cancelledReason || 'This game is off.'}</p>
