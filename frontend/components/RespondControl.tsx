@@ -6,6 +6,7 @@ import type { ResponseStatus } from '@shared/types';
 import { classNames } from '../lib/utils/reactHelper';
 import { useToast } from './Toast';
 import { hapticLight, hapticSuccess } from '../lib/utils/haptics';
+import { captureError } from '../lib/sentry';
 
 /**
  * The In/Out pair. This is the one control the whole app exists for, so on
@@ -47,9 +48,12 @@ const RespondControl = ({
 		} catch (error) {
 			// This is the one control the app exists for. A rejected write used
 			// to leave the button snapping back to its old state with the reason
-			// only in the console — indistinguishable from a missed tap.
+			// only in the console — indistinguishable from a missed tap, and
+			// unreported: `onRespond`/`onClear` are raw writes, not routed through
+			// `useWrite`, so this catch is the only place that can tell us.
 			console.error('Could not save your response', error);
 			warn("Couldn't save your answer. Try again in a moment.");
+			void captureError(error, { stage: 'respondControl' });
 		} finally {
 			setPending(null);
 		}
