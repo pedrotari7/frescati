@@ -12,7 +12,7 @@ import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
 	title: 'Frescati',
-	description: 'Who’s playing on Tuesday?',
+	description: 'Who’s playing on Saturday?',
 	manifest: '/manifest.json',
 	applicationName: 'Frescati',
 	appleWebApp: {
