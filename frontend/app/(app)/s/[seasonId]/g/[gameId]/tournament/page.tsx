@@ -1,11 +1,12 @@
 'use client';
 
-import { use, useMemo } from 'react';
+import { Fragment, use, useMemo } from 'react';
 import { ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, UsersIcon } from '@heroicons/react/24/outline';
 import {
 	AUTO_FINALISE_HOURS,
 	describeSquads,
 	getFixtures,
+	getLapLength,
 	getScheduleFit,
 	getSideSize,
 	MIN_TOURNAMENT_PLAYERS,
@@ -18,6 +19,7 @@ import { useMatches, useTournamentResult, useTournamentTeams, useUsers } from '.
 import { useMyResponses } from '../../../../../../../hooks/useMyResponses';
 import { useWrite } from '../../../../../../../hooks/useWrite';
 import { useAuth } from '../../../../../../../lib/auth';
+import { classNames } from '../../../../../../../lib/utils/reactHelper';
 import {
 	clearMatchScore,
 	finaliseTournament,
@@ -91,6 +93,13 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const squadSizes = lineup.teams.map(team => team.uids.length);
 	const fixtures = getFixtures(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
 	const fit = getScheduleFit(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
+
+	// A round only means something once it bundles more than one match — a
+	// two-team lap is always a single fixture, so every "round" would just
+	// repeat the match count — and only worth flagging once the game actually
+	// plays a second one.
+	const lapLength = getLapLength(lineup.teams.length);
+	const showRounds = lapLength > 1 && fixtures.length > lapLength;
 
 	// Not everything under `matches/` belongs to this game — see
 	// `selectPlayedMatches`. The screen has to agree with the function that
@@ -188,27 +197,39 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 
 					<ol className='space-y-2'>
 						{fixtures.map(fixture => (
-							<MatchScore
-								key={fixture.order}
-								fixture={fixture}
-								match={matchesByOrder.get(fixture.order)}
-								sideSize={getSideSize(squadSizes[fixture.teamA], squadSizes[fixture.teamB])}
-								canScore={canScore}
-								onScore={async (scoreA, scoreB) => {
-									if (!user) return;
+							<Fragment key={fixture.order}>
+								{showRounds && fixture.order % lapLength === 0 && (
+									<li
+										className={classNames(
+											'text-faint px-1 pb-1 text-xs font-semibold tracking-wider uppercase',
+											fixture.order > 0 && 'mt-2 border-t border-white/8 pt-4'
+										)}
+									>
+										Round {fixture.order / lapLength + 1}
+									</li>
+								)}
 
-									await write(
-										() => setMatchScore(seasonId, gameId, fixture, scoreA, scoreB, user.uid),
-										"Couldn't save that score."
-									);
-								}}
-								onClear={async () => {
-									await write(
-										() => clearMatchScore(seasonId, gameId, fixture.order),
-										"Couldn't clear that score."
-									);
-								}}
-							/>
+								<MatchScore
+									fixture={fixture}
+									match={matchesByOrder.get(fixture.order)}
+									sideSize={getSideSize(squadSizes[fixture.teamA], squadSizes[fixture.teamB])}
+									canScore={canScore}
+									onScore={async (scoreA, scoreB) => {
+										if (!user) return;
+
+										await write(
+											() => setMatchScore(seasonId, gameId, fixture, scoreA, scoreB, user.uid),
+											"Couldn't save that score."
+										);
+									}}
+									onClear={async () => {
+										await write(
+											() => clearMatchScore(seasonId, gameId, fixture.order),
+											"Couldn't clear that score."
+										);
+									}}
+								/>
+							</Fragment>
 						))}
 					</ol>
 				</section>

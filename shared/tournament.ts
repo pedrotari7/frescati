@@ -151,6 +151,13 @@ export const getFixtures = (teamCount: number, matchMinutes: number, slotMinutes
 };
 
 /**
+ * How many fixtures make up one lap — the length `getFixtures` repeats to
+ * fill the slot, and so the stride a screen groups its fixture list into
+ * rounds by. `0` for a team count with no rotation at all.
+ */
+export const getLapLength = (teamCount: number): number => ROTATIONS[teamCount]?.length ?? 0;
+
+/**
  * The matches that actually belong to this game.
  *
  * The scoreboard is the one thing in the app anybody at the pitch may write, so

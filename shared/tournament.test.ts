@@ -1,6 +1,7 @@
 import {
 	describeSquads,
 	getFixtures,
+	getLapLength,
 	getScheduleFit,
 	getSideSize,
 	getSquadSizes,
@@ -154,6 +155,28 @@ describe('getFixtures', () => {
 	// this falls back to the one lap rather than dividing by zero.
 	it('falls back to one lap when matchMinutes is not positive', () => {
 		expect(getFixtures(4, 0, 90)).toHaveLength(6);
+	});
+});
+
+describe('getLapLength', () => {
+	it.each([
+		[2, 1],
+		[3, 6],
+		[4, 6],
+	])('one lap for %i teams is %i matches', (teamCount, expected) => {
+		expect(getLapLength(teamCount)).toBe(expected);
+	});
+
+	it('has no lap below the floor', () => {
+		expect(getLapLength(0)).toBe(0);
+	});
+
+	// The stride a screen groups a fixture list into rounds by — has to match
+	// what `getFixtures` actually repeats, or a divider would land mid-lap.
+	it('agrees with getFixtures about where one lap ends', () => {
+		for (const teamCount of [2, 3, 4]) {
+			expect(getLapLength(teamCount)).toBe(getFixtures(teamCount, 90, 0).length);
+		}
 	});
 });
 
