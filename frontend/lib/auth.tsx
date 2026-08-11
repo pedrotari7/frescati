@@ -117,7 +117,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				return;
 			}
 
-			const result = await firebaseUser.getIdTokenResult();
+			const result = await firebaseUser.getIdTokenResult().catch(error => {
+				// Transient — a token refresh failing mid-flight on a bad connection.
+				// Firebase's own background refresh retries on its own and fires this
+				// observer again once it succeeds, so there's nothing to do but leave
+				// `user` as it is and report it. Left uncaught, this was an unhandled
+				// rejection that also skipped `setUser` below, stranding whoever it hit
+				// on the "still resolving" screen instead of restoring their session.
+				console.error('Failed to refresh ID token', error);
+				void captureError(error, { stage: 'idTokenObserver' });
+				return null;
+			});
+			if (!result) return;
+
 			const authUser = toAuthUser(firebaseUser, result.claims.admin === true);
 
 			setUser(authUser);
@@ -142,7 +154,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 			// Force refresh so an admin claim granted mid-session takes effect
 			// without the user having to sign out and back in.
-			const result = await current.getIdTokenResult(true);
+			const result = await current.getIdTokenResult(true).catch(error => {
+				// Same story as the observer above: a blip on this tick, not a
+				// defect — the next tick retries in TOKEN_REFRESH_MS.
+				console.error('Failed to refresh ID token', error);
+				void captureError(error, { stage: 'tokenRefreshInterval' });
+				return null;
+			});
+			if (!result) return;
+
 			setUser(toAuthUser(current, result.claims.admin === true));
 		}, TOKEN_REFRESH_MS);
 
