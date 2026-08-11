@@ -139,8 +139,12 @@ describe('getFixtures', () => {
 		}
 	});
 
-	it('laps a two-team game the same way', () => {
-		expect(getFixtures(2, 5, 90)).toHaveLength(18);
+	// A lap of one fixture has nothing to repeat — replaying it is the same
+	// match again, not another round — so two teams never lap, whatever the
+	// slot and match length say.
+	it('never laps two teams, however much room the slot has', () => {
+		expect(getFixtures(2, 5, 90)).toHaveLength(1);
+		expect(getFixtures(2, 1, 1_000)).toHaveLength(1);
 	});
 
 	it('never shrinks below one full lap, even into an overrun the slot cannot fit', () => {
@@ -148,7 +152,7 @@ describe('getFixtures', () => {
 	});
 
 	it('caps how many times the rotation is allowed to repeat', () => {
-		expect(getFixtures(2, 1, 1_000)).toHaveLength(MAX_MATCHES);
+		expect(getFixtures(4, 1, 1_000)).toHaveLength(MAX_MATCHES);
 	});
 
 	// A cleared or zero match length can't size anything against the slot, so
@@ -210,6 +214,18 @@ describe('getScheduleFit', () => {
 		expect(getScheduleFit(4, 5, 90)).toEqual({
 			matchCount: 18,
 			totalMinutes: 90,
+			slotMinutes: 90,
+			overrunMinutes: 0,
+		});
+	});
+
+	// Deliberate under-report, not a bug: two teams never lap, so `matchCount`
+	// stays 1 and `totalMinutes` is one `matchMinutes` regardless of how much
+	// of the ninety the two sides actually spend on the pitch.
+	it('under-reports for two teams, since there is no lap to fill the slot with', () => {
+		expect(getScheduleFit(2, 5, 90)).toEqual({
+			matchCount: 1,
+			totalMinutes: 5,
 			slotMinutes: 90,
 			overrunMinutes: 0,
 		});
@@ -306,5 +322,11 @@ describe('selectPlayedMatches', () => {
 
 	it('drops that same order when the slot does not stretch to it', () => {
 		expect(selectPlayedMatches(4, 90, 0, [aMatch(6, 0, 1)])).toEqual([]);
+	});
+
+	// Two teams never lap, however large the slot — see `getFixtures` — so a
+	// document at any order past zero is never legitimate for them.
+	it('drops any order past zero for two teams, however long the slot', () => {
+		expect(selectPlayedMatches(2, 1, 1_000, [aMatch(0, 0, 1), aMatch(1, 0, 1)])).toEqual([aMatch(0, 0, 1)]);
 	});
 });

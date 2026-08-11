@@ -89,15 +89,14 @@ export interface Fixture {
 
 /**
  * One lap: who plays whom, in the order they play it, before the rotation
- * repeats.
+ * repeats — for the team counts where it repeats at all.
  *
- * Two teams have nobody else to rotate in, so a lap between them is just the
- * one game — three or six repeats of the same fixture would not be a round
- * robin, only that one result counted three or six times over. Three teams
- * play a double round robin per lap; four play a single one. Both land on six
- * matches a lap, which is what keeps one lap the same length whatever the
- * turnout — a two-team lap is the one shape this can't hold for, and is
- * shorter.
+ * Two teams have nobody else to rotate in, so there is only the one game
+ * between them, ever: replaying that same fixture a second time would not be
+ * a round robin recurring, only that one result counted twice over, so
+ * `getFixtures` never laps it however long the slot runs. Three teams play a
+ * double round robin per lap; four play a single one — both land on six
+ * matches, so a lap is the same length whichever of the two it is.
  *
  * The orders within a lap are hand-picked for rest on a single pitch. Four
  * teams manage all but two changeovers without a team playing twice in a row.
@@ -132,14 +131,21 @@ const ROTATIONS: Record<number, [number, number][]> = {
  * a two-hour tournament are the same shape run a different number of times,
  * not two different rotations.
  *
- * Floored at one full lap — a slot too short for even one is an overrun
- * `getScheduleFit` surfaces, not a reason to serve half a round robin — and
- * capped at `MAX_MATCHES` so a long slot with short matches doesn't turn the
- * scoreboard into a chore.
+ * Two teams are the one shape this doesn't apply to. A lap of one fixture has
+ * no pattern to repeat — replaying it is just the same match again, not
+ * another round of anything — so it never does: two teams always play the
+ * single game `ROTATIONS` gives them, whatever `matchMinutes` and
+ * `slotMinutes` say.
+ *
+ * For everyone else, floored at one full lap — a slot too short for even one
+ * is an overrun `getScheduleFit` surfaces, not a reason to serve half a round
+ * robin — and capped at `MAX_MATCHES` so a long slot with short matches
+ * doesn't turn the scoreboard into a chore.
  */
 export const getFixtures = (teamCount: number, matchMinutes: number, slotMinutes: number): Fixture[] => {
 	const lap = ROTATIONS[teamCount];
 	if (!lap) return [];
+	if (lap.length === 1) return [{ order: 0, teamA: lap[0][0], teamB: lap[0][1] }];
 
 	const matchSlots = matchMinutes > 0 ? Math.floor(slotMinutes / matchMinutes) : 0;
 	const matchCount = Math.min(MAX_MATCHES, Math.max(lap.length, matchSlots));
@@ -152,8 +158,9 @@ export const getFixtures = (teamCount: number, matchMinutes: number, slotMinutes
 
 /**
  * How many fixtures make up one lap — the length `getFixtures` repeats to
- * fill the slot, and so the stride a screen groups its fixture list into
- * rounds by. `0` for a team count with no rotation at all.
+ * fill the slot for three or four teams, and so the stride a screen groups
+ * its fixture list into rounds by. Always `1` for two teams, since there is
+ * nothing to repeat; `0` for a team count with no rotation at all.
  */
 export const getLapLength = (teamCount: number): number => ROTATIONS[teamCount]?.length ?? 0;
 
@@ -225,11 +232,14 @@ export interface ScheduleFit {
 /**
  * Whether the game fits the season's slot.
  *
- * `matchCount` already accounts for the slot — `getFixtures` laps the
- * rotation to use the time available — so this is only ever reporting the one
- * case that can't be filled away: a lap on its own longer than the slot.
- * Reported rather than enforced, and the fixture list is generated at the
- * requested match length either way. Changeovers are deliberately not
+ * `matchCount` already accounts for the slot for three or four teams, since
+ * `getFixtures` laps the rotation to use the time available there. Two teams
+ * never lap — `matchCount` is always 1 — so this honestly under-reports for
+ * them: `totalMinutes` is one `matchMinutes`, not however long the two sides
+ * actually end up playing.
+ *
+ * Otherwise reported rather than enforced, and the fixture list is generated
+ * at the requested match length either way. Changeovers are deliberately not
  * modelled — `matchMinutes` is the admin's number and they know whether
  * theirs includes picking the bibs back up.
  */
