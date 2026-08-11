@@ -38,8 +38,15 @@ export const calendarFeed = onRequest(
 			res.status(404).set('Content-Type', 'text/plain; charset=utf-8').send('Not found.');
 		};
 
+		// Real tokens are `randomBytes(32).toString('base64url')` — see
+		// `calendarLink.ts` — so anything outside that charset is already a bad
+		// token, not a bug. Checking the shape here, before it becomes a Firestore
+		// path segment, matters because a `/` in it changes the segment count and
+		// makes `db.doc()` throw synchronously: that throw isn't an `HttpsError`,
+		// so `instrument()` would report it to Sentry and answer with a bare 500 —
+		// on the one route in the app anyone can hit with zero auth.
 		const token = typeof req.query.token === 'string' ? req.query.token : '';
-		if (!token) return notFound();
+		if (!/^[\w-]{16,128}$/.test(token)) return notFound();
 
 		const feedSnap = await db.doc(`calendarFeeds/${token}`).get();
 		if (!feedSnap.exists) return notFound();

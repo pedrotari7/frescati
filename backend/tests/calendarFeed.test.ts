@@ -47,7 +47,15 @@ describe('calendarFeed', () => {
 	it('404s a token nothing indexes', async () => {
 		const { res, state } = fakeRes();
 
-		await calendarFeed(fakeReq({ token: 'made-up' }), res);
+		await calendarFeed(fakeReq({ token: 'a-real-looking-token-nothing-indexes' }), res);
+
+		expect(state.statusCode).toBe(404);
+	});
+
+	it('404s rather than crashes on a token shaped to break the Firestore path, like one containing a slash', async () => {
+		const { res, state } = fakeRes();
+
+		await calendarFeed(fakeReq({ token: 'a/b' }), res);
 
 		expect(state.statusCode).toBe(404);
 	});
