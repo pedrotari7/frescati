@@ -45,7 +45,7 @@ import ErrorTriggers from '../../../components/ErrorTriggers';
  */
 const titleFor = (kind: GameNotification | AppNotification) =>
 	kind === 'newPlayer'
-		? buildNewPlayerPush({ uid: '', displayName: '' }).title
+		? buildNewPlayerPush({ uid: '', displayName: '', seasonId: null }).title
 		: buildGamePush(kind, { when: '', url: '', gameId: '' }).title;
 
 const DESCRIPTIONS: Record<GameNotification | AppNotification, string> = {

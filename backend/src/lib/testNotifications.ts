@@ -7,7 +7,7 @@ import type {
 } from '../../../shared/notifications';
 import { buildGamePush, buildNewPlayerPush } from '../../../shared/notifications';
 import { formatGameWhen } from '../../../shared/format';
-import { getGame, getSeason } from './data';
+import { getGame, getMostRecentActiveSeasonId, getSeason } from './data';
 
 /**
  * Builds the payload for a debug send — shared by `sendTestPush` and
@@ -23,13 +23,18 @@ import { getGame, getSeason } from './data';
  * Those two live here rather than in `buildTestContext` because they describe
  * the sender, not the game: that one answers "which game is this about", and
  * folding a name into it would make it answer two questions.
+ *
+ * `newPlayer` resolves its own deep link through `getMostRecentActiveSeasonId`
+ * rather than the caller's `seasonId` — the debug screen's season picker is
+ * for the game kinds, and a test send is only honest if it deep-links exactly
+ * where the real trigger would.
  */
 export const buildTestPayload = async (
 	kind: GameNotification | AppNotification,
 	{ sender, seasonId, gameId }: { sender: { uid: string; displayName: string }; seasonId?: string; gameId?: string }
 ): Promise<PushPayload> =>
 	kind === 'newPlayer'
-		? buildNewPlayerPush(sender)
+		? buildNewPlayerPush({ ...sender, seasonId: await getMostRecentActiveSeasonId() })
 		: buildGamePush(kind, {
 				...(await buildTestContext(seasonId, gameId)),
 				who: sender.displayName,

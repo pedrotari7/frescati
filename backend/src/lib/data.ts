@@ -9,6 +9,28 @@ export const getSeason = async (seasonId: string): Promise<Season | null> => {
 	return snapshot.exists ? ({ ...snapshot.data(), id: snapshot.id } as Season) : null;
 };
 
+/**
+ * The season a "somebody just joined" notification should send an admin to,
+ * or `null` when none is active.
+ *
+ * Seasons can genuinely overlap — a Tuesday season and a Sunday offshoot both
+ * `active` at once, each with their own admins — so there is no single "the"
+ * active season to ask about. Most recently created stands in for "the one an
+ * admin reached for last": a new season is usually spun up because the old
+ * one is winding down, so the newest active one is the one most likely to
+ * still be recruiting.
+ */
+export const getMostRecentActiveSeasonId = async (): Promise<string | null> => {
+	const snapshot = await db
+		.collection('seasons')
+		.where('status', '==', 'active')
+		.orderBy('createdAt', 'desc')
+		.limit(1)
+		.get();
+
+	return snapshot.empty ? null : snapshot.docs[0].id;
+};
+
 export const getGame = async (seasonId: string, gameId: string): Promise<Game | null> => {
 	const snapshot = await db.doc(`seasons/${seasonId}/games/${gameId}`).get();
 

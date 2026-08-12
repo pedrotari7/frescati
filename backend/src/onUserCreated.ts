@@ -3,7 +3,7 @@ import { logger } from 'firebase-functions';
 import type { AppUser } from '../../shared/types';
 import { NOTIFICATION_PREF, buildNewPlayerPush } from '../../shared/notifications';
 import { REGION } from './lib/firebase';
-import { getAppAdminUids } from './lib/data';
+import { getAppAdminUids, getMostRecentActiveSeasonId } from './lib/data';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendPush } from './lib/push';
 import { instrument } from './lib/sentry';
@@ -14,7 +14,9 @@ import { instrument } from './lib/sentry';
  * A newcomer is a stranger until an admin does something about them: extras can
  * answer any game, but only an admin can put them on a season's roster. Nothing
  * announced their arrival, so that only happened when an admin happened to
- * scroll the user list and notice a name they didn't recognise.
+ * scroll the user list and notice a name they didn't recognise. The notice
+ * deep-links straight to a season's manage-squad screen — see
+ * `getMostRecentActiveSeasonId` — so acting on it is one tap.
  *
  * Fires on the profile document rather than on the Auth account, because the
  * profile is what the rest of the app treats as existing — an account with no
@@ -36,14 +38,14 @@ export const onUserCreated = onDocumentCreated(
 		// promoting a uid that had no profile yet. Whoever did it already knows.
 		if (user.isAppAdmin) return;
 
-		const admins = await getAppAdminUids();
+		const [admins, seasonId] = await Promise.all([getAppAdminUids(), getMostRecentActiveSeasonId()]);
 
 		const sent = await sendPush(
 			admins,
-			buildNewPlayerPush({ uid, displayName: user.displayName ?? '' }),
+			buildNewPlayerPush({ uid, displayName: user.displayName ?? '', seasonId }),
 			NOTIFICATION_PREF.newPlayer
 		);
 
-		logger.info('Notified app admins of a new player', { uid, admins: admins.length, ...sent });
+		logger.info('Notified app admins of a new player', { uid, admins: admins.length, seasonId, ...sent });
 	})
 );

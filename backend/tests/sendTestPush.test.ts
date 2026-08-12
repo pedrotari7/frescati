@@ -80,7 +80,21 @@ describe('sendTestPush', () => {
 
 		const result = await sendTestPush.run(callRequest({ kind: 'newPlayer' }, { uid: CALLER, admin: true }));
 
-		expect(result.payload).toEqual(buildNewPlayerPush({ uid: CALLER, displayName: 'Pedro Alvito' }));
+		expect(result.payload).toEqual(
+			buildNewPlayerPush({ uid: CALLER, displayName: 'Pedro Alvito', seasonId: null })
+		);
+	});
+
+	// Honest in both directions: the debug send resolves the same deep link the
+	// real trigger would rather than trusting the season the picker happens to
+	// be on, which is there for the game kinds.
+	it('deep-links the new-player notice to the active season, same as the real trigger', async () => {
+		await writeUser(CALLER, { displayName: 'Pedro Alvito' });
+		await writeSeason(SEASON_ID, { status: 'active' });
+
+		const result = await sendTestPush.run(callRequest({ kind: 'newPlayer' }, { uid: CALLER, admin: true }));
+
+		expect(result.payload.url).toBe(`/s/${SEASON_ID}/admin/members`);
 	});
 
 	it('gates the new-player notice on its own preference', async () => {

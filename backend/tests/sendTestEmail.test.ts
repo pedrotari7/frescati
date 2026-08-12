@@ -105,7 +105,7 @@ describe('sendTestEmail', () => {
 
 		const result = await sendTestEmail.run(callRequest({ kind: 'newPlayer', uids: [ANNA] }, { uid: ADMIN, admin: true }));
 
-		expect(result.payload).toEqual(buildNewPlayerPush({ uid: ADMIN, displayName: 'Pedro Alvito' }));
+		expect(result.payload).toEqual(buildNewPlayerPush({ uid: ADMIN, displayName: 'Pedro Alvito', seasonId: null }));
 	});
 
 	it('emails somebody with a verified address and the fallback left on', async () => {

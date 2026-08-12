@@ -250,18 +250,29 @@ export interface NewPlayerContext {
 	 * name is there to print.
 	 */
 	displayName: string;
+	/**
+	 * The season whose squad this newcomer most likely belongs on, or `null`
+	 * when there is none. Seasons can genuinely overlap — a Tuesday season and a
+	 * Sunday offshoot both `active` at once, each with their own admins — so
+	 * there is no single "the" season to resolve by construction. The caller
+	 * (`getMostRecentActiveSeasonId`) stands in "most recently created" for
+	 * "the one an admin reached for last".
+	 */
+	seasonId: string | null;
 }
 
 /**
  * Somebody has signed into the app for the first time.
  *
- * Sent to app admins only, so it links to the one screen that lists everybody
- * who has ever signed in rather than to a season the newcomer isn't in yet.
+ * Sent to app admins only, and links straight to that season's manage-squad
+ * screen so adding the newcomer is the very next tap rather than a hunt
+ * through `/admin`. Falls back to `/admin` when there is no active season to
+ * add them to.
  */
-export const buildNewPlayerPush = ({ uid, displayName }: NewPlayerContext): PushPayload => ({
+export const buildNewPlayerPush = ({ uid, displayName, seasonId }: NewPlayerContext): PushPayload => ({
 	title: 'New player',
 	body: `${displayName.trim() || 'Somebody'} just signed into Frescati for the first time.`,
-	url: '/admin',
+	url: seasonId ? `/s/${seasonId}/admin/members` : '/admin',
 	// Per person rather than per event: two people joining the same evening are
 	// two separate things to know about, so these must not replace each other.
 	tag: `new-player-${uid}`,

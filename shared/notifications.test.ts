@@ -121,17 +121,31 @@ describe('buildGamePush', () => {
 
 describe('buildNewPlayerPush', () => {
 	it('names the person who just joined', () => {
-		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe Lindqvist' })).toMatchObject({
+		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe Lindqvist', seasonId: null })).toMatchObject({
 			title: 'New player',
 			body: 'Zoe Lindqvist just signed into Frescati for the first time.',
 			url: '/admin',
 		});
 	});
 
+	// The whole point: an admin can add the newcomer without a hunt through
+	// /admin first.
+	it('deep-links to that season’s manage-squad screen when one is active', () => {
+		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe', seasonId: 'season-current' }).url).toBe(
+			'/s/season-current/admin/members'
+		);
+	});
+
+	// Nothing to add them to yet, so back to the screen that lists everybody
+	// who has ever signed in.
+	it('falls back to /admin when no season is active', () => {
+		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe', seasonId: null }).url).toBe('/admin');
+	});
+
 	// A profile can be created mid-repair with nothing but a uid on it, and
 	// "undefined just signed into Frescati" would reach a lock screen.
 	it('still reads as a sentence when the profile has no name yet', () => {
-		expect(buildNewPlayerPush({ uid: 'zoe', displayName: '   ' }).body).toBe(
+		expect(buildNewPlayerPush({ uid: 'zoe', displayName: '   ', seasonId: null }).body).toBe(
 			'Somebody just signed into Frescati for the first time.'
 		);
 	});
@@ -139,15 +153,15 @@ describe('buildNewPlayerPush', () => {
 	// Two people joining the same evening are two things to know about, unlike
 	// three notifications about the same Tuesday.
 	it('tags per person so arrivals do not replace each other', () => {
-		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe' }).tag).not.toBe(
-			buildNewPlayerPush({ uid: 'erik', displayName: 'Erik' }).tag
+		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe', seasonId: null }).tag).not.toBe(
+			buildNewPlayerPush({ uid: 'erik', displayName: 'Erik', seasonId: null }).tag
 		);
 	});
 
 	// There is no game behind it, so the worker's "I'm in" shortcut would open
 	// the app and do nothing.
 	it('carries no respond shortcut', () => {
-		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe' }).respondable).toBe(false);
+		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe', seasonId: null }).respondable).toBe(false);
 		expect(buildGamePush('reminder', CONTEXT).respondable).toBe(true);
 	});
 });
@@ -361,9 +375,9 @@ describe('buildEmail', () => {
 	// reasoning that keeps `respondable` off it.
 	it('asks for an answer only where there is one to give', () => {
 		expect(buildEmail(buildGamePush('reminder', CONTEXT), { appUrl: APP_URL }).text).toContain('Say if you’re in');
-		expect(buildEmail(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe' }), { appUrl: APP_URL }).text).toContain(
-			'Open Frescati'
-		);
+		expect(
+			buildEmail(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe', seasonId: null }), { appUrl: APP_URL }).text
+		).toContain('Open Frescati');
 	});
 
 	// A mail with no plain-text alternative scores as spam.
