@@ -1,7 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import type { AppUser, TournamentTeam } from '@shared/types';
-import { BASE_ELO, toDisplayRating } from '@shared/rating';
+import { toDisplayRating } from '@shared/rating';
+import { toDisplayMovement } from '@shared/leaderboard';
 import { shortName } from '@shared/format';
 import Avatar from './Avatar';
 import { classNames } from '../lib/utils/reactHelper';
@@ -26,7 +28,7 @@ export const teamName = (index: number): string => TEAM_STYLES[index]?.name ?? `
 const movement = (delta: number | undefined) => {
 	if (delta === undefined) return null;
 
-	const shown = toDisplayRating(BASE_ELO + delta) - 50;
+	const shown = toDisplayMovement(delta);
 	if (shown === 0) return null;
 
 	return (
@@ -85,23 +87,27 @@ const TeamCard = ({
 					const user = usersByUid.get(uid);
 
 					return (
-						<li
-							key={uid}
-							className={classNames(
-								'flex items-center gap-2.5 rounded-xl px-2 py-1.5',
-								uid === highlightUid && 'bg-white/6'
-							)}
-						>
-							<Avatar
-								displayName={user?.displayName ?? 'Unknown player'}
-								photoURL={user?.photoURL}
-								size='sm'
-							/>
-							<span className='text-ink min-w-0 flex-1 truncate text-sm'>
-								{shortName(user?.displayName ?? 'Unknown player')}
-							</span>
-							{movement(deltas?.get(uid))}
-							<span className='text-faint text-xs tabular-nums'>{toDisplayRating(elos[uid] ?? 0)}</span>
+						<li key={uid}>
+							<Link
+								href={`/u/${uid}`}
+								className={classNames(
+									'flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/5',
+									uid === highlightUid && 'bg-white/6'
+								)}
+							>
+								<Avatar
+									displayName={user?.displayName ?? 'Unknown player'}
+									photoURL={user?.photoURL}
+									size='sm'
+								/>
+								<span className='text-ink min-w-0 flex-1 truncate text-sm'>
+									{shortName(user?.displayName ?? 'Unknown player')}
+								</span>
+								{movement(deltas?.get(uid))}
+								<span className='text-faint text-xs tabular-nums'>
+									{toDisplayRating(elos[uid] ?? 0)}
+								</span>
+							</Link>
 						</li>
 					);
 				})}

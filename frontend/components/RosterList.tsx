@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { AppUser, GameResponse } from '@shared/types';
 import { isConfirmed, sortResponses } from '@shared/game';
 import Avatar from './Avatar';
@@ -59,16 +60,24 @@ const Row = ({
 	tone: 'in' | 'out' | 'pending' | 'extra';
 	trailing?: React.ReactNode;
 }) => (
-	<div className='flex items-center gap-3 px-1 py-2'>
-		<Avatar displayName={entry.displayName} photoURL={entry.photoURL} size='sm' />
-		<span
-			className={classNames(
-				'flex-1 truncate text-sm',
-				tone === 'out' || tone === 'pending' ? 'text-muted' : 'text-ink'
-			)}
+	<div className='flex items-center gap-3 py-2 pr-1'>
+		{/* Only the name is the link, not the whole row: an admin's Drop button
+		    sits in `trailing`, and a <button> inside an <a> is invalid and breaks
+		    keyboard navigation. */}
+		<Link
+			href={`/u/${entry.uid}`}
+			className='flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 transition-colors hover:bg-white/5'
 		>
-			{entry.displayName}
-		</span>
+			<Avatar displayName={entry.displayName} photoURL={entry.photoURL} size='sm' />
+			<span
+				className={classNames(
+					'min-w-0 flex-1 truncate text-sm',
+					tone === 'out' || tone === 'pending' ? 'text-muted' : 'text-ink'
+				)}
+			>
+				{entry.displayName}
+			</span>
+		</Link>
 		{trailing}
 	</div>
 );

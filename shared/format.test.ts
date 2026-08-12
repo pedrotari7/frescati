@@ -5,6 +5,7 @@ import {
 	formatGameWhen,
 	formatRelative,
 	initials,
+	placeLabel,
 	shortName,
 	weekdayName,
 } from './format';
@@ -66,6 +67,25 @@ describe('name helpers', () => {
 
 	it('builds initials from a single name', () => {
 		expect(initials('Ronaldinho')).toBe('R');
+	});
+});
+
+describe('placeLabel', () => {
+	it.each([
+		[0, '1st'],
+		[1, '2nd'],
+		[2, '3rd'],
+		[3, '4th'],
+	])('renders position %i as "%s"', (position, expected) => {
+		expect(placeLabel(position)).toBe(expected);
+	});
+
+	it('marks a place two teams share', () => {
+		expect(placeLabel(0, true)).toBe('=1st');
+	});
+
+	it('still renders something past the four-team ceiling', () => {
+		expect(placeLabel(4)).toBe('5th');
 	});
 });
 

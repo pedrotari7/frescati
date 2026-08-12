@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import type { AppUser } from '@shared/types';
 import { hasPlayed, toDisplayRating } from '@shared/rating';
@@ -258,8 +259,16 @@ const RatingsAdminPage = () => {
 							</p>
 						)}
 
+						{/* Only the earned side is a link: this is where an admin
+						    asks whether a rating looks right, and the games behind
+						    it are the answer. The estimated rows have a Set button,
+						    and a <button> inside an <a> is invalid. */}
 						{rated.map(player => (
-							<div key={player.uid} className='flex items-center gap-3 py-3'>
+							<Link
+								key={player.uid}
+								href={`/u/${player.uid}`}
+								className='flex items-center gap-3 py-3 transition-colors hover:bg-white/5'
+							>
 								<Avatar displayName={player.displayName} photoURL={player.photoURL} />
 
 								<div className='min-w-0 flex-1'>
@@ -272,7 +281,7 @@ const RatingsAdminPage = () => {
 								<span className='text-ink w-10 text-right text-lg font-bold tabular-nums'>
 									{toDisplayRating(player.rating!.elo)}
 								</span>
-							</div>
+							</Link>
 						))}
 					</div>
 

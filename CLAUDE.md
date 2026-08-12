@@ -62,6 +62,7 @@ Games of 8+ split into 2, 3 or 4 teams (`shared/tournament.ts`) and play a gener
 - **Scores** live at `matches/{order}` where the id is the fixture's place in the running order, so two people scoring the same match write the same document. **No match document means "not played"** — same third state as a response, and for the same reason.
 - Anyone holding a response on the game can write a score. Confirming the game (`resultFinalisedAt`) closes it to everyone but a season admin, whose correction triggers a **replay**: `replayRatingsFrom` rewinds the ledger latest-first and replays it in kickoff order. Adjusting only the corrected game would be wrong, because every game after it was rated against the ratings that game produced.
 - Ratings apply on an admin's Confirm, or automatically `AUTO_FINALISE_HOURS` after kickoff via `finaliseDueTournaments`.
+- **A player's record** (`/u/[uid]`) is aggregated from the ledger and nothing else — `shared/player.ts`. Appearances, wins, runs and the rating line all come off the same entries the table reads, so a correction that replays the ladder fixes the profile in the same pass and nothing can drift. It says how a team _placed_, never "2nd of 4": with a tie for last place the number of teams isn't recoverable from `positions`. The query filters on `positions.{uid}` and rides Firestore's automatic map-subfield indexes — no composite index, no mirrored `uids` array, and **no single-field exemption on `positions`**, which would silently break it.
 
 ## Notifications
 

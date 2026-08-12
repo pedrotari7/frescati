@@ -323,6 +323,7 @@ curl -X POST "$DB/backupSchedules" -H "Authorization: Bearer $TOKEN" \
 ## Notes for future work
 
 - **No response document means "no response"** — a real third state. Never write a placeholder.
+- The player screen (`/u/[uid]`) finds somebody's games with `where('positions.<uid>', '>=', 0)` on `ratingLedger`, which needs no index of its own because Firestore indexes every subfield of a map. Adding a single-field **exemption** for `positions` would break that query with nothing in the code to point at.
 - `counts`, `atRisk` and `remindersSent` on a game are written **only** by Cloud Functions; rules reject client writes. Don't compute them on the client.
 - Extras' confirmation is _derived_ (`isConfirmed`), not stored, so no trigger has to write back to the document it fires on. A season admin's override is the only stored part.
 - Kickoffs are ISO 8601 UTC strings, resolved from wall-clock time in the season's timezone so a season spanning a DST change keeps the same local start time.

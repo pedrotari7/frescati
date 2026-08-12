@@ -1,4 +1,4 @@
-import { deleteDoc, increment, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { deleteDoc, FieldPath, increment, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import type { Fixture } from '@shared/tournament';
@@ -91,6 +91,35 @@ export const subscribeToSeasonLedger = (
 ): Unsubscribe =>
 	onSnapshot(
 		query(ratingLedgerCol(), where('seasonId', '==', seasonId)),
+		snapshot => onChange(snapshot.docs.map(d => d.data() as RatingLedgerEntry)),
+		onError
+	);
+
+/**
+ * Every rated game one player appeared in, across every season.
+ *
+ * Filtered on their own key inside `positions` rather than by reading the whole
+ * ledger and discarding most of it — a career is a handful of a group's games,
+ * and this is a screen anybody can open about anybody. Firestore indexes each
+ * subfield of a map on its own, so this needs no composite index and no array
+ * mirrored alongside the map that already holds the answer; the trade is that
+ * `positions` must stay indexed, so don't add a field exemption for it.
+ *
+ * `FieldPath` rather than a dotted string because a uid is not a legal field
+ * path segment — the seeded ones contain a hyphen, and Google's contain digits
+ * — and the string form is parsed.
+ *
+ * Unordered on purpose. An inequality filter forces the first sort onto the
+ * field it filters, which here is a finishing place; kickoff order is put back
+ * by `getPlayerGames`.
+ */
+export const subscribeToPlayerLedger = (
+	uid: string,
+	onChange: (entries: RatingLedgerEntry[]) => void,
+	onError: (error: Error) => void
+): Unsubscribe =>
+	onSnapshot(
+		query(ratingLedgerCol(), where(new FieldPath('positions', uid), '>=', 0)),
 		snapshot => onChange(snapshot.docs.map(d => d.data() as RatingLedgerEntry)),
 		onError
 	);

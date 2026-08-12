@@ -81,11 +81,15 @@ const MembersPage = () => {
 				<div className='p-4'>
 					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
 						{members.map(member => (
-							<div key={member.uid} className='flex items-center gap-3 py-3'>
+							<Link
+								key={member.uid}
+								href={`/u/${member.uid}`}
+								className='flex items-center gap-3 py-3 transition-colors hover:bg-white/5'
+							>
 								<Avatar displayName={member.displayName} photoURL={member.photoURL} />
 								<span className='text-ink flex-1 truncate text-sm'>{member.displayName}</span>
 								{season.adminUids.includes(member.uid) && <StatusPill tone='brand'>Admin</StatusPill>}
-							</div>
+							</Link>
 						))}
 					</div>
 

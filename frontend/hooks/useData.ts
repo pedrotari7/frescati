@@ -14,7 +14,13 @@ import { subscribeToSeason, subscribeToSeasons } from '../lib/db/seasons';
 import { subscribeToGame, subscribeToGames } from '../lib/db/games';
 import { subscribeToResponses } from '../lib/db/responses';
 import { subscribeToWatching } from '../lib/db/watchers';
-import { subscribeToMatches, subscribeToResult, subscribeToSeasonLedger, subscribeToTeams } from '../lib/db/tournament';
+import {
+	subscribeToMatches,
+	subscribeToPlayerLedger,
+	subscribeToResult,
+	subscribeToSeasonLedger,
+	subscribeToTeams,
+} from '../lib/db/tournament';
 import { subscribeToUser, subscribeToUsers } from '../lib/db/users';
 import { useFirestoreSubscription } from './useFirestoreSubscription';
 
@@ -150,6 +156,18 @@ export const useSeasonLedger = (seasonId: string | null) => {
 		seasonId ? (onChange, onError) => subscribeToSeasonLedger(seasonId, onChange, onError) : null,
 		[seasonId],
 		'seasonLedger'
+	);
+
+	return { entries: data, loading, error };
+};
+
+/** Every rated game one player has appeared in, whatever season it was in. */
+export const usePlayerLedger = (uid: string | null) => {
+	const { data, loading, error } = useFirestoreSubscription<RatingLedgerEntry[]>(
+		NO_LEDGER,
+		uid ? (onChange, onError) => subscribeToPlayerLedger(uid, onChange, onError) : null,
+		[uid],
+		'playerLedger'
 	);
 
 	return { entries: data, loading, error };

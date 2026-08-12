@@ -1,10 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { TrophyIcon } from '@heroicons/react/24/outline';
 import { getRatingLadder, getSeasonTable, toDisplayMovement } from '@shared/leaderboard';
 import { toDisplayRating } from '@shared/rating';
-import { shortName } from '@shared/format';
+import { placeLabel, shortName } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useSeasonLedger, useUsers } from '../../../../../hooks/useData';
 import { useAuth } from '../../../../../lib/auth';
@@ -16,10 +17,6 @@ import StatusPill from '../../../../../components/StatusPill';
 import { classNames } from '../../../../../lib/utils/reactHelper';
 
 type Tab = 'season' | 'all-time';
-
-const ORDINALS = ['1st', '2nd', '3rd'];
-
-const place = (position: number, shared: boolean) => `${shared ? '=' : ''}${ORDINALS[position] ?? `${position + 1}th`}`;
 
 const LeaderboardPage = () => {
 	const { seasonId, season, loading } = useSeasonContext();
@@ -93,41 +90,43 @@ const LeaderboardPage = () => {
 							const profile = usersByUid.get(row.uid);
 
 							return (
-								<li
-									key={row.uid}
-									className={classNames(
-										'flex items-center gap-3 px-4 py-3',
-										row.uid === user?.uid && 'bg-white/6'
-									)}
-								>
-									<span className='text-faint w-9 shrink-0 text-xs font-semibold tabular-nums'>
-										{place(row.position, shared)}
-									</span>
+								<li key={row.uid}>
+									<Link
+										href={`/u/${row.uid}`}
+										className={classNames(
+											'flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5',
+											row.uid === user?.uid && 'bg-white/6'
+										)}
+									>
+										<span className='text-faint w-9 shrink-0 text-xs font-semibold tabular-nums'>
+											{placeLabel(row.position, shared)}
+										</span>
 
-									<Avatar
-										displayName={profile?.displayName ?? 'Unknown player'}
-										photoURL={profile?.photoURL}
-										size='sm'
-									/>
+										<Avatar
+											displayName={profile?.displayName ?? 'Unknown player'}
+											photoURL={profile?.photoURL}
+											size='sm'
+										/>
 
-									<div className='min-w-0 flex-1'>
-										<p className='text-ink truncate text-sm font-semibold'>{name(row.uid)}</p>
-										<p className='text-faint text-xs'>
-											{'wins' in row
-												? `${row.appearances} played · ${row.wins} won`
-												: `${row.games} played`}
-										</p>
-									</div>
+										<div className='min-w-0 flex-1'>
+											<p className='text-ink truncate text-sm font-semibold'>{name(row.uid)}</p>
+											<p className='text-faint text-xs'>
+												{'wins' in row
+													? `${row.appearances} played · ${row.wins} won`
+													: `${row.games} played`}
+											</p>
+										</div>
 
-									{'provisional' in row && row.provisional && (
-										<StatusPill tone='pending'>Settling</StatusPill>
-									)}
+										{'provisional' in row && row.provisional && (
+											<StatusPill tone='pending'>Settling</StatusPill>
+										)}
 
-									<span className='text-ink w-10 text-right text-lg font-bold tabular-nums'>
-										{'elo' in row
-											? toDisplayRating(row.elo)
-											: movementLabel(toDisplayMovement(row.movement))}
-									</span>
+										<span className='text-ink w-10 text-right text-lg font-bold tabular-nums'>
+											{'elo' in row
+												? toDisplayRating(row.elo)
+												: movementLabel(toDisplayMovement(row.movement))}
+										</span>
+									</Link>
 								</li>
 							);
 						})}

@@ -51,6 +51,21 @@ export const formatGameTime = (iso: string, timeZone: string): string => {
 export const formatGameWhen = (iso: string, timeZone: string): string =>
 	`${formatGameDate(iso, timeZone)} · ${formatGameTime(iso, timeZone)}`;
 
+/**
+ * Four teams is the ceiling everywhere in the app, so four places is all there
+ * ever is. The fallback exists only so a nonsense index renders something.
+ */
+const ORDINALS = ['1st', '2nd', '3rd', '4th'];
+
+/**
+ * A 0-indexed finishing place, as people read it.
+ *
+ * `shared` prefixes an `=`, because teams nothing could separate genuinely
+ * finished level — promoting one of them would be inventing a result.
+ */
+export const placeLabel = (position: number, shared = false): string =>
+	`${shared ? '=' : ''}${ORDINALS[position] ?? `${position + 1}th`}`;
+
 /** First name only — the roster is full of people you already know. */
 export const shortName = (displayName: string): string => displayName.trim().split(/\s+/)[0] ?? displayName;
 

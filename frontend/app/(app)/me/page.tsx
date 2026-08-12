@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRightStartOnRectangleIcon, BellIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
+import { ArrowRightStartOnRectangleIcon, BellIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { signOutOfApp, useAuth } from '../../../lib/auth';
 import { checkPushSupport, disablePush, enablePush, isPushEnabled } from '../../../lib/push';
 import type { PushSupport } from '../../../lib/push';
@@ -86,9 +87,15 @@ const MePage = () => {
 			backHref={seasonId ? undefined : '/seasons'}
 		>
 			<div className='space-y-4 p-4'>
-				<section className='glass flex items-center gap-4 rounded-2xl p-5'>
+				{/* The card is the way to your own player screen — the same tap as
+				    on your name anywhere else, rather than a row saying "Your
+				    record" that would only ever be about you. */}
+				<Link
+					href={`/u/${user.uid}`}
+					className='glass flex items-center gap-4 rounded-2xl p-5 transition-colors hover:bg-white/5'
+				>
 					<Avatar displayName={user.displayName} photoURL={user.photoURL} size='lg' />
-					<div className='min-w-0'>
+					<div className='min-w-0 flex-1'>
 						<p className='text-ink truncate font-semibold'>{user.displayName}</p>
 						<p className='text-faint truncate text-xs'>{user.email}</p>
 						{user.isAppAdmin && (
@@ -97,7 +104,8 @@ const MePage = () => {
 							</StatusPill>
 						)}
 					</div>
-				</section>
+					<ChevronRightIcon className='text-faint size-5 shrink-0' aria-hidden='true' />
+				</Link>
 
 				<section className='glass rounded-2xl p-5'>
 					<div className='mb-1 flex items-center gap-2'>

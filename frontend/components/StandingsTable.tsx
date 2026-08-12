@@ -1,13 +1,11 @@
 'use client';
 
 import type { TeamStanding } from '@shared/types';
+import { placeLabel } from '@shared/format';
 import { teamName } from './TeamCard';
 import { classNames } from '../lib/utils/reactHelper';
 
 const TEAM_TEXT = ['text-team-a', 'text-team-b', 'text-team-c', 'text-team-d'];
-
-/** `1st`, `2nd`, `3rd`, `4th`. Only ever four, so no need to be clever. */
-const ORDINALS = ['1st', '2nd', '3rd', '4th'];
 
 /**
  * The table.
@@ -42,10 +40,7 @@ const StandingsTable = ({ standings, unequal }: { standings: TeamStanding[]; une
 
 							return (
 								<tr key={row.team} className='border-t border-white/6'>
-									<td className='text-faint py-2 tabular-nums'>
-										{shared && '='}
-										{ORDINALS[row.position] ?? row.position + 1}
-									</td>
+									<td className='text-faint py-2 tabular-nums'>{placeLabel(row.position, shared)}</td>
 									<td className={classNames('py-2 font-bold whitespace-nowrap', TEAM_TEXT[row.team])}>
 										{teamName(row.team)}
 									</td>
