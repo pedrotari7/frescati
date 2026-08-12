@@ -47,3 +47,15 @@ export const subscribeToUser = (
  */
 export const setNotificationPrefs = (uid: string, notificationPrefs: NotificationPrefs) =>
 	updateDoc(userDoc(uid), { notificationPrefs: normaliseNotificationPrefs(notificationPrefs) });
+
+/**
+ * Move somebody's last-visit stamp forward. Self-written, like the rest of the
+ * profile — `shared/visit.ts` says what counts as a visit and `useLastSeen`
+ * decides when one has happened.
+ *
+ * An `updateDoc` rather than a merge, deliberately: this must never be the
+ * write that creates a profile. A document holding a timestamp and nothing else
+ * would be a nameless row in every roster in the app, and `upsertUserDoc` has
+ * already run by the time anything here fires.
+ */
+export const recordVisit = (uid: string, at: string) => updateDoc(userDoc(uid), { lastSeenAt: at });

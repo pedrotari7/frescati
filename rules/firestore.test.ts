@@ -345,6 +345,26 @@ describe('users', () => {
 		await assertSucceeds(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { displayName: 'Anders' }));
 	});
 
+	// `recordVisit` writes this field and nothing else, every time somebody
+	// brings the app back to the foreground. The rest of the update rule reads
+	// the *merged* document, so this is the one write in the app that proves a
+	// single-field update still satisfies it.
+	it('lets a user move their own last-seen stamp', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				lastSeenAt: '2026-08-01T00:00:00.000Z',
+			});
+		});
+
+		await assertSucceeds(
+			updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { lastSeenAt: '2026-08-12T19:00:00.000Z' })
+		);
+		await assertFails(updateDoc(doc(authed(EXTRA), `users/${MEMBER}`), { lastSeenAt: '2026-08-12T19:00:00.000Z' }));
+	});
+
 	it('keeps push tokens private to their owner', async () => {
 		await assertSucceeds(
 			setDoc(doc(authed(MEMBER), `users/${MEMBER}/pushTokens/tok`), { token: 'tok', createdAt: 'now' })

@@ -215,6 +215,18 @@ const DEVICE_PROFILES: DeviceProfile[] = [
 ];
 
 /**
+ * How long ago each player last had the app on screen, spread so the activity
+ * screen has all of its sections to show rather than one full one and the rest
+ * empty. Picked by key, like everything else here, so two runs on the same day
+ * produce the same database.
+ *
+ * Weighted the way a real group is — most of them were here since the last
+ * game, one or two have drifted off entirely. That last pair is the whole point
+ * of the screen, so a seeded database without them makes it untestable.
+ */
+const VISIT_HOURS_AGO = [1, 5, 20, 26, 50, 71, 9 * 24, 20 * 24, 45 * 24, 120 * 24];
+
+/**
  * The device documents for one person, picked by their key so two seed runs on
  * the same day produce the same database.
  */
@@ -774,7 +786,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			createdAt: addHours(now, -24 * 400),
 			// Staggered, but from the key rather than the clock — two seed runs
 			// on the same day should produce the same database.
-			lastSeenAt: addHours(now, -(hashSeed(member.key) % 72)),
+			lastSeenAt: addHours(now, -VISIT_HOURS_AGO[hashSeed(`visit:${member.key}`) % VISIT_HOURS_AGO.length]),
 			isAppAdmin,
 			// The app admin keeps every kind on: they are the only person the
 			// new-player notice is sent to, and a seeded database where nobody

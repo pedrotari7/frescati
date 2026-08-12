@@ -1,12 +1,12 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { GoogleAuthProvider, onIdTokenChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { deleteField, doc, getDoc, setDoc } from 'firebase/firestore';
 import { getDb, getFirebaseAuth } from './firebaseClient';
-import { isStandalone, thisDevice } from './device';
+import { isStandalone, isVisible, thisDevice } from './device';
 import { captureError, setSentryUser } from './sentry';
 import type { AppUser, ClientInfo } from '@shared/types';
 import { normaliseNotificationPrefs } from '@shared/notifications';
@@ -88,7 +88,18 @@ const upsertUserDoc = async (user: AuthUser) => {
 			email: deleteField(),
 			photoURL: user.photoURL,
 			createdAt: existing?.createdAt ?? now,
-			lastSeenAt: now,
+			// Loading the app is a visit — but only if it loaded where somebody
+			// could see it. A link cmd-clicked into a background tab, or an
+			// installed app woken behind the lock screen, is not somebody
+			// coming by, and stamping it here would be the loudest of the false
+			// positives `shared/visit.ts` exists to keep out. Left alone, the
+			// stamp stays where it was until `useLastSeen` sees the app reach
+			// the foreground for real.
+			//
+			// The `?? now` is only ever reached on a profile being created, and
+			// a first sign-in goes through a Google popup, which cannot happen
+			// on a page nobody is looking at.
+			lastSeenAt: isVisible() ? now : (existing?.lastSeenAt ?? now),
 			// Only ever echoed back, never raised: rules reject a client writing
 			// itself the badge. The admin SDK owns this field.
 			isAppAdmin: existing?.isAppAdmin ?? false,
@@ -107,11 +118,26 @@ const upsertUserDoc = async (user: AuthUser) => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const [user, setUser] = useState<AuthState>(null);
 
+	/**
+	 * Who the profile document has already been synced for on this page.
+	 *
+	 * `onIdTokenChanged` fires on every token refresh as well as on sign-in,
+	 * and the refresh below forces one every ten minutes — so without this, a
+	 * tab left open all week re-read and rewrote the same document a thousand
+	 * times to change nothing. Nothing in the profile can move mid-session
+	 * except `lastSeenAt`, which `useLastSeen` now owns and stamps only on a
+	 * real return to the foreground.
+	 */
+	const syncedUid = useRef<string | null>(null);
+
 	useEffect(() => {
 		const auth = getFirebaseAuth();
 
 		return onIdTokenChanged(auth, async firebaseUser => {
 			if (!firebaseUser) {
+				// Signing back in — as the same person or another — has to sync
+				// again; this is a page that has stopped knowing anybody.
+				syncedUid.current = null;
 				setUser(undefined);
 				void setSentryUser(null);
 				return;
@@ -137,10 +163,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			// person's phone or everybody's. See `setSentryUser`.
 			void setSentryUser(authUser.uid);
 
+			if (syncedUid.current === authUser.uid) return;
+			syncedUid.current = authUser.uid;
+
 			// Best-effort: a failure here shouldn't block sign-in. Quiet on
 			// screen, but not quiet to us — a profile that never syncs is how
 			// somebody ends up nameless in every roster in the app.
 			upsertUserDoc(authUser).catch(error => {
+				// Let the next token refresh have another go, ten minutes from
+				// now. Marked before the write rather than after so two
+				// refreshes landing together can't both run it, which means
+				// undoing the mark here is what keeps a blip from being
+				// permanent for the life of the page.
+				syncedUid.current = null;
+
 				console.error('Failed to sync user profile', error);
 				void captureError(error, { stage: 'upsertUserDoc' });
 			});

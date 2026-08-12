@@ -24,6 +24,16 @@ export const isStandalone = (): boolean =>
 		(window.navigator as { standalone?: boolean }).standalone === true);
 
 /**
+ * Whether the app is on screen right now.
+ *
+ * The one signal that separates somebody using Frescati from somebody who
+ * merely has it open: a suspended installed app and a tab behind forty others
+ * both report `hidden`, and neither is a visit. See `shared/visit.ts` for why
+ * that distinction is the whole of the last-seen stamp.
+ */
+export const isVisible = (): boolean => typeof document !== 'undefined' && document.visibilityState === 'visible';
+
+/**
  * iPadOS 13 dropped `iPad` from the user agent and reports itself as a Mac, so
  * the string alone can't tell them apart. A touch-capable "Macintosh" is an
  * iPad: real Macs report zero touch points, including the ones with a Touch Bar.

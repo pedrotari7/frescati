@@ -120,6 +120,14 @@ export interface AppUser {
 	displayName: string;
 	photoURL: string | null;
 	createdAt: string;
+	/**
+	 * The last time they opened the app and could actually see it.
+	 *
+	 * Moved on arrival only — a foreground load, and every return from the
+	 * background afterwards — never on a timer, so a suspended installed app or
+	 * a tab left open behind forty others cannot keep somebody looking active
+	 * long after they stopped turning up. `shared/visit.ts` holds the rule.
+	 */
 	lastSeenAt: string;
 	/**
 	 * Display mirror of the `admin` custom claim. NOT the source of truth —

@@ -263,6 +263,17 @@ const MePage = () => {
 						</section>
 
 						<section className='glass rounded-2xl p-5'>
+							<h2 className='text-ink mb-1 font-semibold'>Activity</h2>
+							<p className='text-muted mb-3 text-sm leading-relaxed'>
+								When everybody last opened the app, so you can see who has quietly stopped turning up
+								before a season is planned around them.
+							</p>
+							<Button variant='secondary' fullWidth onClick={() => router.push('/admin/activity')}>
+								See who&apos;s still around
+							</Button>
+						</section>
+
+						<section className='glass rounded-2xl p-5'>
 							<h2 className='text-ink mb-1 font-semibold'>Debug</h2>
 							<p className='text-muted mb-3 text-sm leading-relaxed'>
 								Send each notification to your own devices, without staging the game state that would
