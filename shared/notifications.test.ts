@@ -68,6 +68,36 @@ describe('buildGamePush', () => {
 		expect(buildGamePush('reminder', CONTEXT).body).toBe('Tue 1 Sep · 19:00 — 0 in so far.');
 	});
 
+	it('names who moved, and says which way, on an availability change', () => {
+		expect(buildGamePush('availability', { ...CONTEXT, who: 'Anna Berg', availability: 'in', playing: 9 })).toEqual(
+			expect.objectContaining({
+				title: 'Anna Berg is in',
+				body: 'Tue 1 Sep · 19:00 — 9 in so far.',
+			})
+		);
+
+		expect(buildGamePush('availability', { ...CONTEXT, who: 'Anna Berg', availability: 'out' }).title).toBe(
+			'Anna Berg is out'
+		);
+	});
+
+	// Taking an answer back is the response document going away, which is a real
+	// state — "Anna is out" would be a different and wrong thing to say.
+	it('says a withdrawal happened rather than stating an answer there no longer is', () => {
+		expect(buildGamePush('availability', { ...CONTEXT, who: 'Anna', availability: 'withdrawn' }).title).toBe(
+			'Anna took their answer back'
+		);
+	});
+
+	// The debug screen renders a title from an empty context, and a profile can
+	// legitimately be mid-write with no name on it.
+	it('still reads as a sentence when nobody was named', () => {
+		expect(buildGamePush('availability', { ...CONTEXT, who: '  ', availability: 'in' }).title).toBe(
+			'Somebody is in'
+		);
+		expect(buildGamePush('availability', CONTEXT).title).toBe('Somebody is in');
+	});
+
 	// The tag is what makes three notifications about one Tuesday replace each
 	// other instead of stacking, so every kind has to agree on it.
 	it('tags every kind by game, and carries the deep link through', () => {
@@ -123,9 +153,25 @@ describe('buildNewPlayerPush', () => {
 });
 
 describe('NOTIFICATION_PREF', () => {
-	it('gates every kind behind a preference', () => {
+	it('gates every kind behind a preference, or explicitly behind none', () => {
 		for (const kind of NOTIFICATIONS) {
-			expect(['reminders', 'gameChanges', 'newPlayers']).toContain(NOTIFICATION_PREF[kind]);
+			expect(['reminders', 'gameChanges', 'newPlayers', null]).toContain(NOTIFICATION_PREF[kind]);
+		}
+	});
+
+	// The one kind whose opt-in is somewhere else entirely: you followed one
+	// game, off by default, and unfollowing is the switch. A profile preference
+	// for it would be a second one nobody could reach without the first.
+	it('leaves the per-game subscription to gate itself', () => {
+		expect(NOTIFICATION_PREF.availability).toBeNull();
+	});
+
+	// `availability` is the only one that may be `null` — everything else goes
+	// out to a standing audience nobody signed up for, so the profile has to be
+	// able to say no to it.
+	it('keeps every standing-audience kind on a preference', () => {
+		for (const kind of NOTIFICATIONS.filter(candidate => candidate !== 'availability')) {
+			expect(NOTIFICATION_PREF[kind]).not.toBeNull();
 		}
 	});
 

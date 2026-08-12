@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { MapPinIcon } from '@heroicons/react/24/outline';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
-import { getGameLifecycle, tallyResponses } from '@shared/game';
+import { getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useResponses } from '../hooks/useData';
+import { useWatchGame } from '../hooks/useWatchGame';
 import HeadcountBar from './HeadcountBar';
 import RespondControl from './RespondControl';
 import StatusPill from './StatusPill';
+import WatchToggle from './WatchToggle';
 
 /**
  * The whole point of the app on one card: when the next game is, whether it's
@@ -43,6 +45,12 @@ const NextGameHero = ({
 	const { responses, loading: responsesLoading } = useResponses(season.id, game.id);
 	const liveGame = responsesLoading ? game : { ...game, counts: tallyResponses(responses) };
 
+	// Only the next game gets a bell. The rows below it are deliberately fed by
+	// the denormalised `counts` rather than a subscription each, and one listener
+	// per row is exactly what that arrangement exists to avoid — so following a
+	// game further out is done from the game's own screen.
+	const { watching, canWatch, toggleWatch } = useWatchGame(season.id, game.id);
+
 	return (
 		<section className='glass animate-rise shadow-glass relative overflow-hidden rounded-3xl p-5'>
 			<div
@@ -51,12 +59,18 @@ const NextGameHero = ({
 			/>
 
 			<div className='relative'>
-				<div className='mb-3 flex items-center gap-2'>
-					<StatusPill tone='brand'>Next game</StatusPill>
-					<span className='text-faint text-xs'>{formatRelative(game.kickoff)}</span>
-					{lifecycle === 'cancelled' && <StatusPill tone='out'>Cancelled</StatusPill>}
-					{lifecycle === 'locked' && <StatusPill tone='neutral'>Locked</StatusPill>}
-					{lifecycle === 'live' && <StatusPill tone='in'>Playing now</StatusPill>}
+				{/* The pills wrap on a narrow phone; the bell stays pinned to the
+				    top-right of the card rather than wrapping with them. */}
+				<div className='mb-3 flex items-center justify-between gap-2'>
+					<div className='flex flex-wrap items-center gap-2'>
+						<StatusPill tone='brand'>Next game</StatusPill>
+						<span className='text-faint text-xs'>{formatRelative(game.kickoff)}</span>
+						{lifecycle === 'cancelled' && <StatusPill tone='out'>Cancelled</StatusPill>}
+						{lifecycle === 'locked' && <StatusPill tone='neutral'>Locked</StatusPill>}
+						{lifecycle === 'live' && <StatusPill tone='in'>Playing now</StatusPill>}
+					</div>
+
+					{canWatch && isWatchable(lifecycle) && <WatchToggle watching={watching} onChange={toggleWatch} />}
 				</div>
 
 				<Link href={`/s/${season.id}/g/${game.id}`} className='block'>

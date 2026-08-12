@@ -1,4 +1,5 @@
 import {
+	getAvailabilityChange,
 	getFormat,
 	getGameLifecycle,
 	getHeadcountState,
@@ -8,6 +9,7 @@ import {
 	getRole,
 	getSilentMembers,
 	isConfirmed,
+	isWatchable,
 	parseReminderHours,
 	sortResponses,
 	tallyResponses,
@@ -197,6 +199,60 @@ describe('sortResponses', () => {
 		sortResponses(input);
 
 		expect(input.map(r => r.uid)).toEqual(['zoe', 'adam']);
+	});
+});
+
+describe('isWatchable', () => {
+	// Wider than `open` deliberately: past the deadline a season admin can still
+	// move the roster, which is exactly when somebody counting on a lift cares.
+	it('covers every game an answer could still move on', () => {
+		expect(isWatchable('open')).toBe(true);
+		expect(isWatchable('locked')).toBe(true);
+		expect(isWatchable('live')).toBe(true);
+	});
+
+	it('stops at a game that is off or already played', () => {
+		expect(isWatchable('cancelled')).toBe(false);
+		expect(isWatchable('finished')).toBe(false);
+	});
+});
+
+describe('getAvailabilityChange', () => {
+	it('reads a first answer as that answer', () => {
+		expect(getAvailabilityChange(undefined, response({ status: 'in' }))).toBe('in');
+		expect(getAvailabilityChange(undefined, response({ status: 'out' }))).toBe('out');
+	});
+
+	it('reads a change of heart as the new answer', () => {
+		expect(getAvailabilityChange(response({ status: 'in' }), response({ status: 'out' }))).toBe('out');
+	});
+
+	// The document going away is the "no response" state, not a gap to paper
+	// over — and it is worth telling a watcher about in its own words.
+	it('reads a deleted response as a withdrawal', () => {
+		expect(getAvailabilityChange(response({ status: 'in' }), undefined)).toBe('withdrawn');
+	});
+
+	// `setResponse` rewrites the whole document every time, so a note edit or an
+	// admin confirming an extra lands here looking exactly like an answer — and
+	// a notification saying somebody's answer moved when it hasn't is the one
+	// that gets muted.
+	it('ignores a rewrite that left the answer where it was', () => {
+		expect(getAvailabilityChange(response({ status: 'in' }), response({ status: 'in', note: 'back by 7' }))).toBe(
+			null
+		);
+		expect(
+			getAvailabilityChange(
+				response({ status: 'in', role: 'extra' }),
+				response({ status: 'in', role: 'extra', confirmOverride: true })
+			)
+		).toBe(null);
+	});
+
+	// Neither side present is a trigger that has nothing to say — the tests for
+	// `onResponseWrite` build events without document data for exactly this.
+	it('reads nothing on either side as nothing having happened', () => {
+		expect(getAvailabilityChange(undefined, undefined)).toBe(null);
 	});
 });
 

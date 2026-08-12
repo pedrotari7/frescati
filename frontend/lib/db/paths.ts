@@ -25,6 +25,10 @@ export const responsesCol = (seasonId: string, gameId: string): CollectionRefere
 export const responseDoc = (seasonId: string, gameId: string, uid: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'responses', uid);
 
+/** Following one game. The id is the uid; the document's presence is the answer. */
+export const watcherDoc = (seasonId: string, gameId: string, uid: string): DocumentReference =>
+	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'watchers', uid);
+
 export const tournamentTeamsDoc = (seasonId: string, gameId: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'tournament', 'teams');
 

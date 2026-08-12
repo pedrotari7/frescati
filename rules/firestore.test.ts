@@ -1359,6 +1359,73 @@ describe('the response deadline', () => {
 	});
 });
 
+describe('watchers', () => {
+	const watcherDoc = (uid: string) => `seasons/${SEASON}/games/${GAME}/watchers/${uid}`;
+
+	const aWatcher = (uid: string, extras: Record<string, unknown> = {}) => ({
+		uid,
+		createdAt: '2026-08-30T09:00:00.000Z',
+		...extras,
+	});
+
+	// Anybody signed in can follow a game, on the same reasoning as responding
+	// to one: extras have to be able to keep an eye on a game they might fill.
+	it('lets anyone signed in follow a game, and stop', async () => {
+		await assertSucceeds(setDoc(doc(authed(EXTRA), watcherDoc(EXTRA)), aWatcher(EXTRA)));
+		await assertSucceeds(deleteDoc(doc(authed(EXTRA), watcherDoc(EXTRA))));
+	});
+
+	it('refuses to let anyone follow on somebody else’s behalf', async () => {
+		await assertFails(setDoc(doc(authed(MEMBER), watcherDoc(OTHER_MEMBER)), aWatcher(OTHER_MEMBER)));
+	});
+
+	// Not because the document grants anything — it doesn't — but because
+	// nothing needs it, and a game the whole group can read has no business
+	// publishing who is quietly keeping an eye on it.
+	it('keeps who is following private to them, season admins included', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), watcherDoc(MEMBER)), aWatcher(MEMBER));
+		});
+
+		await assertSucceeds(getDoc(doc(authed(MEMBER), watcherDoc(MEMBER))));
+		await assertFails(getDoc(doc(authed(OTHER_MEMBER), watcherDoc(MEMBER))));
+		await assertFails(getDoc(doc(authed(SEASON_ADMIN), watcherDoc(MEMBER))));
+	});
+
+	it('refuses to let one be unfollowed by anyone but its owner', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), watcherDoc(MEMBER)), aWatcher(MEMBER));
+		});
+
+		await assertFails(deleteDoc(doc(authed(OTHER_MEMBER), watcherDoc(MEMBER))));
+		await assertSucceeds(deleteDoc(doc(authed(MEMBER), watcherDoc(MEMBER))));
+	});
+
+	// Nobody but the owner reads this, so the bound is about what can be parked
+	// in the database rather than about who would see it.
+	it('bounds what can be written into one', async () => {
+		await assertFails(
+			setDoc(doc(authed(MEMBER), watcherDoc(MEMBER)), aWatcher(MEMBER, { payload: 'x'.repeat(500) }))
+		);
+		await assertFails(setDoc(doc(authed(MEMBER), watcherDoc(MEMBER)), aWatcher(MEMBER, { createdAt: 12345 })));
+	});
+
+	// The id is what `getWatcherUids` reads, so a mismatched field would put a
+	// name to a notification that belongs to somebody else.
+	it('refuses a uid field that disagrees with the document id', async () => {
+		await assertFails(setDoc(doc(authed(MEMBER), watcherDoc(MEMBER)), aWatcher(OTHER_MEMBER)));
+	});
+
+	// Following is about the game, not about answering it — you might be
+	// watching precisely because you haven't decided yet, or because the
+	// deadline has passed and you want to know who dropped out.
+	it('does not need a response, or an open game', async () => {
+		await assertSucceeds(
+			setDoc(doc(authed(MEMBER), `seasons/${SEASON}/games/${LOCKED_GAME}/watchers/${MEMBER}`), aWatcher(MEMBER))
+		);
+	});
+});
+
 describe('collection-group reads', () => {
 	// The games list loads "my answer to every game" in a single listener, which
 	// needs a recursive-wildcard read rule on top of the nested one.

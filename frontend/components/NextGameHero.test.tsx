@@ -1,7 +1,25 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { Game, GameResponse, Season } from '@shared/types';
 import { EMPTY_COUNTS } from '@shared/types';
 import NextGameHero from './NextGameHero';
+
+/**
+ * The bell's wiring is `useWatchGame`'s job; what this file cares about is the
+ * card deciding whether to draw one at all. Mutated per test rather than
+ * re-mocked, so the default — signed in, not following — is what every existing
+ * case above renders against.
+ */
+const mockWatch = { watching: false, canWatch: true, toggleWatch: jest.fn() };
+
+jest.mock('../hooks/useWatchGame', () => ({ useWatchGame: () => mockWatch }));
+
+const bell = () => screen.queryByRole('switch', { name: /notify/i });
+
+beforeEach(() => {
+	mockWatch.watching = false;
+	mockWatch.canWatch = true;
+	mockWatch.toggleWatch.mockClear();
+});
 
 const season = {
 	id: 'season-1',
@@ -152,5 +170,77 @@ describe('NextGameHero', () => {
 		);
 
 		expect(screen.queryByText(/you'll be listed as an extra/)).not.toBeInTheDocument();
+	});
+
+	// The bell is on the card the whole group opens first, so following the next
+	// game never costs a trip to its own screen.
+	it('offers the bell on the next game, and toggles it', () => {
+		render(
+			<NextGameHero
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				isExtra={false}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		fireEvent.click(bell()!);
+
+		expect(mockWatch.toggleWatch).toHaveBeenCalledWith(true);
+	});
+
+	// Still drawn once answers lock: only an admin can move the roster by then,
+	// which is exactly when somebody counting on a lift wants to hear that it did.
+	it('keeps the bell after the response deadline', () => {
+		render(
+			<NextGameHero
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				isExtra={false}
+				now={new Date('2026-08-31T18:00:00.000Z')}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(bell()).toBeInTheDocument();
+	});
+
+	it('drops the bell on a game that is off — there is nothing left to hear about', () => {
+		render(
+			<NextGameHero
+				game={game({ status: 'cancelled' })}
+				season={season}
+				myResponse={undefined}
+				isExtra={false}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(bell()).not.toBeInTheDocument();
+	});
+
+	it('draws no bell at all when nobody is signed in', () => {
+		mockWatch.canWatch = false;
+
+		render(
+			<NextGameHero
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				isExtra={false}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(bell()).not.toBeInTheDocument();
 	});
 });

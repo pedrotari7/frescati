@@ -1,5 +1,10 @@
 import { HttpsError } from 'firebase-functions/v2/https';
-import type { AppNotification, GameNotification, GameNotificationContext, PushPayload } from '../../../shared/notifications';
+import type {
+	AppNotification,
+	GameNotification,
+	GameNotificationContext,
+	PushPayload,
+} from '../../../shared/notifications';
 import { buildGamePush, buildNewPlayerPush } from '../../../shared/notifications';
 import { formatGameWhen } from '../../../shared/format';
 import { getGame, getSeason } from './data';
@@ -12,13 +17,26 @@ import { getGame, getSeason } from './data';
  *
  * `newPlayer` stands `sender` in as the newcomer — sending it as if they had
  * just signed up themselves is the only honest way to see what an admin gets,
- * short of creating an account to throw away.
+ * short of creating an account to throw away. `availability` borrows them the
+ * same way, as the player whose answer moved.
+ *
+ * Those two live here rather than in `buildTestContext` because they describe
+ * the sender, not the game: that one answers "which game is this about", and
+ * folding a name into it would make it answer two questions.
  */
 export const buildTestPayload = async (
 	kind: GameNotification | AppNotification,
 	{ sender, seasonId, gameId }: { sender: { uid: string; displayName: string }; seasonId?: string; gameId?: string }
 ): Promise<PushPayload> =>
-	kind === 'newPlayer' ? buildNewPlayerPush(sender) : buildGamePush(kind, await buildTestContext(seasonId, gameId));
+	kind === 'newPlayer'
+		? buildNewPlayerPush(sender)
+		: buildGamePush(kind, {
+				...(await buildTestContext(seasonId, gameId)),
+				who: sender.displayName,
+				// Stated rather than left to the builder's default, so a test send
+				// goes down the same path a real one does.
+				availability: 'in',
+			});
 
 /**
  * Real game if one was named, a plausible stand-in otherwise.

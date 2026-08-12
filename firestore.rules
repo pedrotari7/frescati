@@ -469,6 +469,35 @@ service cloud.firestore {
                            || (respondedToThisGame() && !isFinalised());
         }
 
+        // ── watchers ─────────────────────────────────────────────────────────
+        // Who has asked to hear when somebody's answer to this game moves. The
+        // document id is the uid and its presence IS the subscription, so
+        // unfollowing is a delete rather than a `false` — the same third state
+        // responses and scorelines use.
+        //
+        // Private to its owner, like a push token. Not because it is sensitive
+        // in the way a token is — it grants nothing — but because nothing needs
+        // it: the only screen that reads this draws one person's own switch, and
+        // a game the whole group can read has no business also publishing who is
+        // quietly keeping an eye on it. `getWatcherUids` reads it with the Admin
+        // SDK, which is not bound by any of this.
+        //
+        // Bounded like every other write a signed-in stranger can make against
+        // any game. Nobody but the owner can read it, so this is about what can
+        // be parked in the database rather than about who sees it.
+        match /watchers/{uid} {
+
+          function watcherShapeOk() {
+            return request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+                   && request.resource.data.uid == uid
+                   && request.resource.data.get('createdAt', '') is string
+                   && request.resource.data.get('createdAt', '').size() <= 40;
+          }
+
+          allow read, delete: if isSelf(uid);
+          allow create, update: if isSelf(uid) && watcherShapeOk();
+        }
+
         // ── responses ────────────────────────────────────────────────────────
         // The document id IS the uid, so one person can only ever hold one
         // response per game. No document at all means "no response" — that is a

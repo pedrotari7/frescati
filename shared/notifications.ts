@@ -1,4 +1,4 @@
-import type { NotificationPrefs } from './types';
+import type { AvailabilityChange, NotificationPrefs } from './types';
 
 /**
  * Every notification the app sends, built in one place.
@@ -31,9 +31,16 @@ export interface PushPayload {
 }
 
 /** The events worth interrupting somebody for. */
-export type GameNotification = 'cancelled' | 'restored' | 'atRisk' | 'kickoffMoved' | 'reminder';
+export type GameNotification = 'cancelled' | 'restored' | 'atRisk' | 'kickoffMoved' | 'reminder' | 'availability';
 
-export const GAME_NOTIFICATIONS: GameNotification[] = ['reminder', 'atRisk', 'cancelled', 'restored', 'kickoffMoved'];
+export const GAME_NOTIFICATIONS: GameNotification[] = [
+	'reminder',
+	'atRisk',
+	'cancelled',
+	'restored',
+	'kickoffMoved',
+	'availability',
+];
 
 /**
  * Notifications about the app itself rather than about one game. Only app
@@ -56,24 +63,39 @@ export interface GameNotificationContext {
 	cancelledReason?: string;
 	/** `atRisk` only: how many more players the game needs. */
 	shortBy?: number;
-	/** `reminder` only: how many have said yes so far. */
+	/** `reminder` and `availability`: how many have said yes so far. */
 	playing?: number;
+	/** `availability` only: whose answer moved. Empty falls back to "Somebody". */
+	who?: string;
+	/** `availability` only: what they moved it to. */
+	availability?: AvailabilityChange;
 }
 
 /**
- * Which preference silences each kind.
+ * Which preference silences each kind, or `null` for one the profile has no say
+ * over.
  *
  * Paired with the payload here rather than passed alongside it at the call
  * site, where a cancellation sent under `reminders` would look perfectly
  * reasonable and reach people who had switched cancellations off.
+ *
+ * `null` is not "ungated". Every other kind here goes to a standing audience
+ * nobody signed up for — the season roster, everyone who answered, every app
+ * admin — so a switch on the profile is the only place to say no to it.
+ * `availability` goes only to people who followed one specific game, and
+ * following is off by default; unfollowing is the switch, and it is one tap
+ * from the notification itself. A second one on the profile would be a setting
+ * that means nothing until you have already opted in somewhere else — the same
+ * reason `relevantPrefs` below hides `newPlayers` from everybody but an admin.
  */
-export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof NotificationPrefs> = {
+export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof NotificationPrefs | null> = {
 	cancelled: 'gameChanges',
 	restored: 'gameChanges',
 	atRisk: 'gameChanges',
 	kickoffMoved: 'gameChanges',
 	reminder: 'reminders',
 	newPlayer: 'newPlayers',
+	availability: null,
 };
 
 /**
@@ -163,6 +185,16 @@ export const normaliseNotificationPrefs = (prefs?: Partial<NotificationPrefs>): 
 
 type Copy = (context: GameNotificationContext) => { title: string; body: string };
 
+/**
+ * How each move reads in a title. `withdrawn` says what happened rather than
+ * what the answer now is, because there is no longer an answer to state.
+ */
+const AVAILABILITY_COPY: Record<AvailabilityChange, string> = {
+	in: 'is in',
+	out: 'is out',
+	withdrawn: 'took their answer back',
+};
+
 const COPY: Record<GameNotification, Copy> = {
 	cancelled: ({ when, cancelledReason }) => ({
 		title: 'Game called off',
@@ -186,6 +218,17 @@ const COPY: Record<GameNotification, Copy> = {
 
 	reminder: ({ when, playing }) => ({
 		title: 'Are you playing?',
+		body: `${when} — ${playing ?? 0} in so far.`,
+	}),
+
+	// The name is the whole notification, so it goes in the title where a lock
+	// screen will not truncate it. Defaults for both halves because this is the
+	// first copy here that interpolates anything required, and the debug screen
+	// renders a title from an empty context — "Somebody is in" is a fair
+	// stand-in, where `undefined is in` would be the drift that comment warns
+	// about.
+	availability: ({ when, who, availability, playing }) => ({
+		title: `${who?.trim() || 'Somebody'} ${AVAILABILITY_COPY[availability ?? 'in']}`,
 		body: `${when} — ${playing ?? 0} in so far.`,
 	}),
 };

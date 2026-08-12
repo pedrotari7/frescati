@@ -25,6 +25,16 @@ export type GameStatus = 'scheduled' | 'cancelled' | 'played';
 export type ResponseStatus = 'in' | 'out';
 export type PlayerRole = 'member' | 'extra';
 
+/**
+ * What one write did to somebody's availability for a game.
+ *
+ * `withdrawn` is the response document going away — the third state spelled
+ * out, because "no answer" is something a watcher wants told about in the same
+ * breath as the other two, and `undefined` is not something copy can be written
+ * against.
+ */
+export type AvailabilityChange = ResponseStatus | 'withdrawn';
+
 /** 0 = Sunday … 6 = Saturday, matching `Date#getDay`. */
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -318,6 +328,22 @@ export interface GameResponse {
 	respondedAt: string;
 	updatedAt: string;
 	note?: string;
+}
+
+/**
+ * Somebody following one game, at `seasons/{id}/games/{id}/watchers/{uid}`.
+ *
+ * The document id is the uid and its **presence** is the whole subscription —
+ * the same third state responses and match scores use. Nothing writes a
+ * `watching: false`; unfollowing deletes the document.
+ *
+ * Private to its owner the way a push token is, and for a softer version of the
+ * same reason: no screen needs to know who is quietly keeping an eye on a game,
+ * so nothing is gained by letting the group read it.
+ */
+export interface GameWatcher {
+	uid: string;
+	createdAt: string;
 }
 
 /**

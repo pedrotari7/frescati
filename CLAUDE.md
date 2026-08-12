@@ -40,6 +40,7 @@ users/{uid}/pushTokens/{token}               FCM registration tokens — private
 seasons/{seasonId}                           slot, venue, minPlayers, balance, memberUids[], adminUids[]
 seasons/{seasonId}/games/{gameId}            kickoff, status, counts (function-owned), atRisk
 seasons/{seasonId}/games/{gameId}/responses/{uid}   status: 'in'|'out', role: 'member'|'extra'
+seasons/{seasonId}/games/{gameId}/watchers/{uid}    following this game — private to its owner
 seasons/{seasonId}/games/{gameId}/tournament/teams  generated lineup (function-owned)
 seasons/{seasonId}/games/{gameId}/tournament/result confirmed table + rating deltas (function-owned)
 seasons/{seasonId}/games/{gameId}/matches/{order}   one scoreline; doc id is the fixture order
@@ -65,6 +66,8 @@ Games of 8+ split into 2, 3 or 4 teams (`shared/tournament.ts`) and play a gener
 ## Notifications
 
 - A push reaches somebody only if all three line up: a **registered device**, the **preference** for that kind switched on, and — on iPhone only — the app **installed** to the home screen, which is the one Safari allows push from at all. `getPushReach` in `shared/notifications.ts` is that rule in one place; a missing preference means opted in, matching `resolveRecipients` on the backend.
+- **`availability` is the one kind with no profile switch**, and `NOTIFICATION_PREF` maps it to `null` to say so. Every other notification goes to a standing audience nobody signed up for — the season roster, everyone who answered, every app admin — so the profile is the only place to say no. This one goes only to whoever tapped the bell on one game, off by default, and unfollowing is the switch. A second one on `NotificationPrefs` would be a setting that means nothing until you have already opted in somewhere else, the same reason `relevantPrefs` hides `newPlayers` from everybody but an admin. `null` skips the **kind** check only: `emailFallback` still applies, because that picks a channel rather than a kind.
+- It is also the only kind that can fire several times an evening, which is what the shared `game-{id}` tag is for — a run of late changes of heart replaces itself on the lock screen rather than stacking. `getAvailabilityChange` in `shared/game.ts` is what keeps it honest: `setResponse` rewrites the whole document, so a note edit and an admin confirming an extra both arrive at `onResponseWrite` looking exactly like an answer, and only a moved `status` is news.
 - **Email is a fallback, never a second channel.** `sendPush` emails exactly the people it reached no device for — none registered, or every token dead — and never somebody a push got to, per person rather than per token. The per-kind preferences gate it first, so an opt-out can't be routed around by turning off push; `emailFallback` on the profile switches the channel off entirely. `canEmail` is that rule in one place.
 - Nothing is composed for email. `buildEmail` takes the `PushPayload` the trigger already built, so there is one wording per notification and no second copy to keep in step.
 - Addresses live in **Firebase Auth only** and are read there with the Admin SDK. `users/{uid}` is readable by every signed-in player, so a mirrored address would be a group-wide address book — see `scripts/stripUserEmails.ts`. The admin screen learns whether somebody _has_ an address, never what it is.

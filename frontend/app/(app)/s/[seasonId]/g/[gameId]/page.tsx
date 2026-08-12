@@ -3,7 +3,7 @@
 import { use, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon, TrophyIcon } from '@heroicons/react/24/outline';
-import { getFormat, getGameLifecycle, tallyResponses } from '@shared/game';
+import { getFormat, getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
@@ -11,6 +11,7 @@ import { useResponses, useUsers } from '../../../../../../hooks/useData';
 import { useMyResponses } from '../../../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../../../hooks/useRespond';
 import { useRespondIntent } from '../../../../../../hooks/useRespondIntent';
+import { useWatchGame } from '../../../../../../hooks/useWatchGame';
 import { useWrite } from '../../../../../../hooks/useWrite';
 import { useNow } from '../../../../../../hooks/useNow';
 import { setConfirmOverride } from '../../../../../../lib/db/responses';
@@ -21,6 +22,7 @@ import HeadcountBar from '../../../../../../components/HeadcountBar';
 import RespondControl from '../../../../../../components/RespondControl';
 import RosterList from '../../../../../../components/RosterList';
 import StatusPill from '../../../../../../components/StatusPill';
+import WatchToggle from '../../../../../../components/WatchToggle';
 
 const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { gameId } = use(params);
@@ -29,6 +31,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const { users } = useUsers();
 	const { myResponses } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
+	const { watching, canWatch, toggleWatch } = useWatchGame(seasonId, gameId);
 	const write = useWrite();
 	const now = useNow();
 
@@ -129,18 +132,33 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 					</Link>
 				)}
 
-				<RosterList
-					memberUids={season.memberUids}
-					responses={responses}
-					usersByUid={usersByUid}
-					canManageExtras={isAdmin}
-					onToggleExtra={async (uid, confirmed) => {
-						await write(
-							() => setConfirmOverride(seasonId, gameId, uid, confirmed),
-							confirmed ? "Couldn't give them a spot." : "Couldn't drop them."
-						);
-					}}
-				/>
+				<div>
+					{/* The bell sits on the roster heading because the roster is
+					    exactly what it notifies about. `isWatchable` is shared
+					    with the trigger, so it can never be drawn on a game
+					    nothing would arrive about — nor hidden on one that is
+					    still sending. */}
+					<div className='mb-3 flex items-center justify-between gap-2 px-1'>
+						<h2 className='text-ink font-semibold'>Who&apos;s playing</h2>
+
+						{canWatch && isWatchable(lifecycle) && (
+							<WatchToggle watching={watching} onChange={toggleWatch} />
+						)}
+					</div>
+
+					<RosterList
+						memberUids={season.memberUids}
+						responses={responses}
+						usersByUid={usersByUid}
+						canManageExtras={isAdmin}
+						onToggleExtra={async (uid, confirmed) => {
+							await write(
+								() => setConfirmOverride(seasonId, gameId, uid, confirmed),
+								confirmed ? "Couldn't give them a spot." : "Couldn't drop them."
+							);
+						}}
+					/>
+				</div>
 			</div>
 		</SeasonShell>
 	);

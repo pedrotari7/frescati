@@ -1,4 +1,4 @@
-import type { Game, GameCounts, GameResponse, PlayerRole, Season } from './types';
+import type { AvailabilityChange, Game, GameCounts, GameResponse, PlayerRole, Season } from './types';
 import { addHours } from './datetime';
 import { describeSquads, getSquadSizes, getTeamCount } from './tournament';
 
@@ -34,6 +34,22 @@ export const getGameLifecycle = (
 
 	return 'open';
 };
+
+/**
+ * Whether an answer moving on this game is still worth telling anybody about.
+ *
+ * The bell and the trigger behind it read this same predicate, which is the
+ * point of it existing rather than each checking a status they happened to
+ * agree on. Two failures fall out of them disagreeing, and both are bad: a
+ * button that is offered on a game where nothing would ever arrive, and — worse
+ * — a button that has vanished while notifications keep coming, with no way
+ * left to stop them.
+ *
+ * Deliberately wider than `open`. Past the deadline a season admin can still
+ * move the roster, and that is exactly when somebody counting on a lift wants
+ * to hear about it.
+ */
+export const isWatchable = (lifecycle: GameLifecycle): boolean => lifecycle !== 'cancelled' && lifecycle !== 'finished';
 
 export const getHeadcountState = (
 	game: Pick<Game, 'counts' | 'minPlayers'>,
@@ -107,6 +123,28 @@ export const sortResponses = <T extends Pick<GameResponse, 'uid' | 'role' | 'con
 
 		return a.uid < b.uid ? -1 : 1;
 	});
+
+/**
+ * What one write to a response document did to somebody's availability, or
+ * `null` when it did nothing to it.
+ *
+ * `undefined` on either side is the absence of the document, which is the real
+ * "no response" state rather than a gap — so signing up, changing your mind and
+ * taking an answer back all read as a change, and each has something to say.
+ *
+ * Editing a note or a season admin confirming an extra do not. Both rewrite the
+ * whole document — `setResponse` never merges — so a trigger comparing anything
+ * coarser than `status` would tell a watcher somebody's answer had moved when it
+ * had sat still, which is exactly the notification that gets muted.
+ */
+export const getAvailabilityChange = (
+	before: Pick<GameResponse, 'status'> | undefined,
+	after: Pick<GameResponse, 'status'> | undefined
+): AvailabilityChange | null => {
+	if (before?.status === after?.status) return null;
+
+	return after ? after.status : 'withdrawn';
+};
 
 /**
  * Recompute a game's counters from its responses. Lives here so the Cloud

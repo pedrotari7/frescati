@@ -142,6 +142,36 @@ describe('sendPush', () => {
 		expect(emailed()).toEqual([ANNA]);
 	});
 
+	// `availability` is gated by following a game rather than by the profile, so
+	// there is no switch here to read — a `null` gate says the caller already
+	// established consent. Every kind switch being off must not silence it, or
+	// the bell would be a control that quietly does nothing for anybody who had
+	// turned the others down.
+	it('sends a kind with no profile switch behind it, whatever the kind preferences say', async () => {
+		await writeUser(ANNA, {
+			notificationPrefs: { reminders: false, gameChanges: false, newPlayers: false, emailFallback: true },
+		});
+		await writeToken(ANNA, 'token-a');
+		fcmReturns(true);
+		const emailed = captureEmails();
+
+		expect(await sendPush([ANNA], PAYLOAD, null)).toEqual({ pushed: 1, emailed: 0 });
+		expect(emailed()).toEqual([]);
+	});
+
+	// It still goes *through* the fallback rather than around it. `emailFallback`
+	// picks a channel rather than a kind, so "never mail me" covers a game you
+	// followed as much as anything else — enforced inside `sendEmail`, which is
+	// stubbed here, so what this pins down is that the person reaches it at all.
+	// `email.test.ts` is where the preference itself is tested.
+	it('hands an unreachable follower to the email fallback like any other kind', async () => {
+		await writeUser(ANNA);
+		const emailed = captureEmails();
+
+		expect(await sendPush([ANNA], PAYLOAD, null)).toEqual({ pushed: 0, emailed: 1 });
+		expect(emailed()).toEqual([ANNA]);
+	});
+
 	it('does nothing at all when nobody was named', async () => {
 		const emailed = captureEmails();
 

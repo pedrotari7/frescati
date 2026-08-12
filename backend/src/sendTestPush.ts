@@ -54,8 +54,12 @@ export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; s
 		]);
 
 		const prefs = userSnap.data()?.notificationPrefs as NotificationPrefs | undefined;
+		const gate = NOTIFICATION_PREF[kind];
 		// Absent prefs means opted in — the defaults are on, same as `tokensFor`.
-		const prefEnabled = prefs?.[NOTIFICATION_PREF[kind]] !== false;
+		// So does a kind with no switch behind it: `availability` is gated by
+		// following a game rather than by the profile, and this screen sends
+		// without one, so there is nothing here that could be off.
+		const prefEnabled = gate === null || prefs?.[gate] !== false;
 
 		// Built here rather than inside `sendGamePush` only so it can be handed
 		// back to the caller: the screen shows the copy that actually went out,
@@ -67,7 +71,7 @@ export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; s
 			seasonId,
 			gameId,
 		});
-		const { pushed, emailed } = await sendPush([uid], payload, NOTIFICATION_PREF[kind]);
+		const { pushed, emailed } = await sendPush([uid], payload, gate);
 
 		logger.info('Sent a test notification', { uid, kind, pushed, emailed, devices: tokensSnap.size, prefEnabled });
 

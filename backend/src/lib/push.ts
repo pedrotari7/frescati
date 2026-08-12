@@ -7,6 +7,16 @@ import { reportError } from './sentry';
 
 export type NotificationKind = keyof NotificationPrefs;
 
+/**
+ * Which profile switch silences a send, or `null` for a kind whose opt-in lives
+ * somewhere more specific than the profile — see `NOTIFICATION_PREF`.
+ *
+ * `null` skips the *kind* check only. `emailFallback` still applies, because
+ * that one picks a channel rather than a kind: somebody who never wants mail
+ * from Frescati doesn't want it for a game they followed either.
+ */
+export type NotificationGate = NotificationKind | null;
+
 export type { PushPayload };
 
 /** What one notification actually managed to do. */
@@ -40,7 +50,7 @@ interface Recipient {
  * list — and the email fallback has to tell them apart. Somebody who switched
  * cancellations off must not be emailed the cancellation instead.
  */
-const resolveRecipients = async (uids: string[], kind: NotificationKind): Promise<Recipient[]> =>
+const resolveRecipients = async (uids: string[], gate: NotificationGate): Promise<Recipient[]> =>
 	Promise.all(
 		uids.map(async uid => {
 			const [userSnap, tokensSnap] = await Promise.all([
@@ -53,8 +63,10 @@ const resolveRecipients = async (uids: string[], kind: NotificationKind): Promis
 			return {
 				uid,
 				tokens: tokensSnap.docs.map(doc => doc.id),
-				// Absent prefs means opted in — the defaults are on.
-				wants: prefs?.[kind] !== false,
+				// Absent prefs means opted in — the defaults are on. So does a
+				// `null` gate, for a kind the caller already established consent
+				// for; the profile has no switch to read.
+				wants: gate === null || prefs?.[gate] !== false,
 			};
 		})
 	);
@@ -74,10 +86,10 @@ const resolveRecipients = async (uids: string[], kind: NotificationKind): Promis
  * of their devices — because they have none registered, or because every token
  * they do have is dead. Anyone a push reached is never also emailed.
  */
-export const sendPush = async (uids: string[], payload: PushPayload, kind: NotificationKind): Promise<SendResult> => {
+export const sendPush = async (uids: string[], payload: PushPayload, gate: NotificationGate): Promise<SendResult> => {
 	if (uids.length === 0) return { pushed: 0, emailed: 0 };
 
-	const recipients = await resolveRecipients(uids, kind);
+	const recipients = await resolveRecipients(uids, gate);
 	const wanted = recipients.filter(recipient => recipient.wants);
 	const targets = wanted.flatMap(({ uid, tokens }) => tokens.map(token => ({ uid, token })));
 
