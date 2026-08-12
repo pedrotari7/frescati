@@ -98,18 +98,16 @@ export interface Fixture {
  * double round robin per lap; four play a single one — both land on six
  * matches, so a lap is the same length whichever of the two it is.
  *
- * The orders within a lap are hand-picked so that, wherever possible, one
- * team stays on the pitch from one match to the next rather than both sides
- * changing over at once — a single substitution is a quicker, calmer
- * changeover than everybody swapping bibs together. Three teams get this for
- * free: only one team ever sits out a match, so the two playing can never
- * both be new. Four teams need the order chosen for it — `[0,1],[0,2],[1,2],
- * [2,3],[0,3],[1,3]` keeps a team on for every single changeover, including
- * the one from a lap's last match into its next lap's first. That is
- * provably the best a lap this shape can do: with only four teams to share
- * six changeovers, holding every one of them means two teams each end up
- * staying on for three matches running rather than resting in between —
- * unavoidable if nobody is ever asked to change over both sides at once.
+ * The orders within a lap are hand-picked so that nobody plays, or waits,
+ * more than two matches running. Three teams get this for free — only one
+ * team ever sits out a match, so the two playing can never both be new, and
+ * whoever just sat out never sits out twice running either. Four teams
+ * cannot have both: forcing a team to stay on for *every* changeover — so
+ * neither side is ever a full swap — proves out to strand some other team
+ * on the sideline for three matches straight, which is worse than the
+ * changeover it was avoiding. So this order takes the changeover on the chin
+ * instead: `[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]` swaps both teams three
+ * times out of five, but nobody — playing or waiting — ever goes three deep.
  */
 const ROTATIONS: Record<number, [number, number][]> = {
 	2: [[0, 1]],
@@ -123,11 +121,11 @@ const ROTATIONS: Record<number, [number, number][]> = {
 	],
 	4: [
 		[0, 1],
-		[0, 2],
-		[1, 2],
 		[2, 3],
-		[0, 3],
+		[0, 2],
 		[1, 3],
+		[0, 3],
+		[1, 2],
 	],
 };
 
