@@ -12,6 +12,7 @@ export { finaliseTournament, finaliseDueTournaments, onMatchWrite } from './fina
 export { onGameDeleted, onSeasonDeleted } from './cascadeDeletes';
 export { sendReminders } from './sendReminders';
 export { auditGameCounts } from './auditCounts';
+export { onBudgetAlert } from './onBudgetAlert';
 export { setAppAdmin } from './setAppAdmin';
 export { setStartingRating } from './setStartingRating';
 export { sendTestPush } from './sendTestPush';
