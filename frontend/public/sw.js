@@ -18,6 +18,20 @@
  * payloads. A returning phone kept navigating around inside the build it first
  * loaded, indefinitely, because nothing in a deploy invalidates a service
  * worker cache.
+ *
+ * A new worker **waits** rather than taking over on its own. `install` used to
+ * end in `skipWaiting()`, which meant a deploy landing mid-session activated
+ * underneath whoever was using the app — and `activate` immediately deletes
+ * every cache from the previous version. The page carried on running the old
+ * build with the old build's chunks no longer cached and, once Vercel had aged
+ * them out, no longer fetchable either: the missing-module crash the error
+ * boundary now reloads out of. Waiting keeps the old build intact until the
+ * person agrees to a reload, which `useServiceWorkerUpdate` asks for and
+ * `SKIP_WAITING` below carries out.
+ *
+ * CACHE_VERSION stays at v2 for that change: nothing about what is stored or
+ * how it is matched moved, so aging out everybody's cache would cost a round of
+ * cold loads to correct entries that were never wrong.
  */
 
 const CACHE_VERSION = 'v2';
@@ -32,8 +46,22 @@ self.addEventListener('install', event => {
 			.then(cache => cache.addAll([OFFLINE_URL, '/manifest.json', '/icon-192.png']))
 			// A missing asset must not wedge the whole worker.
 			.catch(() => undefined)
-			.then(() => self.skipWaiting())
 	);
+	// Note the absence of `skipWaiting()` — see the header. A first install has
+	// nothing to wait behind and activates immediately anyway, so this only
+	// changes what happens to somebody already using the app.
+});
+
+/**
+ * The page asking to be handed over to.
+ *
+ * The only way out of `waiting`, now that installing no longer forces it. The
+ * page posts this after the person taps the update prompt and reloads itself
+ * on `controllerchange`; nothing else sends it, so a deploy can never take a
+ * bundle out from under somebody mid-tap.
+ */
+self.addEventListener('message', event => {
+	if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {

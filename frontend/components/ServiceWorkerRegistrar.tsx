@@ -1,29 +1,25 @@
 'use client';
 
-import { useEffect } from 'react';
-import { captureError } from '../lib/sentry';
+import { useServiceWorkerUpdate } from '../hooks/useServiceWorkerUpdate';
+import UpdatePrompt from './UpdatePrompt';
 
 /**
- * Registers the service worker that backs both offline caching and push.
+ * Registers the service worker that backs both offline caching and push, and
+ * offers the new build once one is waiting.
  *
  * Kept out of the push module on purpose: registration must happen for every
  * visitor so the app works offline, whereas asking for notification permission
  * is a deliberate, user-triggered step.
+ *
+ * It renders now, where it used to render nothing. The prompt belongs to the
+ * registration — only the object returned by `register` knows an update exists
+ * — and putting it anywhere else would mean threading that state up through the
+ * root layout to a sibling.
  */
 const ServiceWorkerRegistrar = () => {
-	useEffect(() => {
-		if (!('serviceWorker' in navigator)) return;
+	const { updateReady, applyUpdate } = useServiceWorkerUpdate();
 
-		navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(error => {
-			// Nothing else observes this. A failed registration means no offline
-			// fallback and no push for this visitor, silently — worth knowing
-			// about even though there's nothing to tell them on screen.
-			console.error('Service worker registration failed', error);
-			void captureError(error, { stage: 'serviceWorkerRegister' });
-		});
-	}, []);
-
-	return null;
+	return updateReady ? <UpdatePrompt onReload={applyUpdate} /> : null;
 };
 
 export default ServiceWorkerRegistrar;
