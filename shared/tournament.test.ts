@@ -112,7 +112,11 @@ describe('getFixtures', () => {
 		expect(oneLap(4).map(fixture => fixture.order)).toEqual([0, 1, 2, 3, 4, 5]);
 	});
 
-	it('never asks four teams to play twice in a row more than the pitch forces', () => {
+	// Every changeover keeps a team on the pitch — the point of the order
+	// `ROTATIONS[4]` is hand-picked in. Three teams get this for free (only one
+	// team ever sits out a match); four need it chosen, at the cost pinned two
+	// tests down.
+	it('never leaves both teams changing over between four-team matches', () => {
 		const fixtures = oneLap(4);
 		const backToBack = fixtures.filter((fixture, index) => {
 			if (index === 0) return false;
@@ -121,7 +125,71 @@ describe('getFixtures', () => {
 			return [previous.teamA, previous.teamB].some(team => team === fixture.teamA || team === fixture.teamB);
 		});
 
-		expect(backToBack).toHaveLength(2);
+		expect(backToBack).toHaveLength(5);
+	});
+
+	it('lays the four-team lap out in the order that gets that', () => {
+		expect(oneLap(4)).toEqual([
+			{ order: 0, teamA: 0, teamB: 1 },
+			{ order: 1, teamA: 0, teamB: 2 },
+			{ order: 2, teamA: 1, teamB: 2 },
+			{ order: 3, teamA: 2, teamB: 3 },
+			{ order: 4, teamA: 0, teamB: 3 },
+			{ order: 5, teamA: 1, teamB: 3 },
+		]);
+	});
+
+	// The trade-off keeping every changeover continuous makes: with only four
+	// teams to cover six of them, two teams end up playing three matches
+	// straight rather than resting in between. Provably the best a lap this
+	// shape can do — see the doc comment above `ROTATIONS`.
+	it('costs two teams a run of three straight matches, to hold every changeover', () => {
+		const fixtures = oneLap(4);
+		const longestRun = (team: number): number => {
+			let longest = 0;
+			let current = 0;
+
+			for (const fixture of fixtures) {
+				current = fixture.teamA === team || fixture.teamB === team ? current + 1 : 0;
+				longest = Math.max(longest, current);
+			}
+
+			return longest;
+		};
+
+		expect([0, 1, 2, 3].map(longestRun)).toEqual([2, 1, 3, 3]);
+	});
+
+	// Every changeover, including a lap folding into the next one — not just
+	// the five inside a single lap.
+	it('keeps a team on across the seam from one lap into the next', () => {
+		const fixtures = getFixtures(4, 5, 60); // two full laps
+		const [lastOfLapOne, firstOfLapTwo] = [fixtures[5], fixtures[6]];
+
+		const continuing = [lastOfLapOne.teamA, lastOfLapOne.teamB].some(
+			team => team === firstOfLapTwo.teamA || team === firstOfLapTwo.teamB
+		);
+
+		expect(continuing).toBe(true);
+	});
+
+	// The general sweep behind the two tests above: every changeover, across
+	// however many laps the slot allows, leaves a team on — three teams for
+	// free, four because the order is chosen for it.
+	it('never leaves both teams changing over, across several laps, three or four teams', () => {
+		for (const teamCount of [3, 4]) {
+			const fixtures = getFixtures(teamCount, 5, 300);
+
+			for (let index = 1; index < fixtures.length; index++) {
+				const previous = fixtures[index - 1];
+				const current = fixtures[index];
+				const continuing = [previous.teamA, previous.teamB].some(
+					team => team === current.teamA || team === current.teamB
+				);
+
+				expect(continuing).toBe(true);
+			}
+		}
 	});
 
 	// The motivating case: a ninety-minute slot at five minutes a match has

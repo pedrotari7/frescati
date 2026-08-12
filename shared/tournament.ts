@@ -98,12 +98,18 @@ export interface Fixture {
  * double round robin per lap; four play a single one — both land on six
  * matches, so a lap is the same length whichever of the two it is.
  *
- * The orders within a lap are hand-picked for rest on a single pitch. Four
- * teams manage all but two changeovers without a team playing twice in a row.
- * Three teams cannot: every match sits out exactly one of them, so somebody
- * always doubles up — the rotation at least spreads it evenly. A second lap
- * starts the same way the first one did, so the rest pattern repeats rather
- * than compounds.
+ * The orders within a lap are hand-picked so that, wherever possible, one
+ * team stays on the pitch from one match to the next rather than both sides
+ * changing over at once — a single substitution is a quicker, calmer
+ * changeover than everybody swapping bibs together. Three teams get this for
+ * free: only one team ever sits out a match, so the two playing can never
+ * both be new. Four teams need the order chosen for it — `[0,1],[0,2],[1,2],
+ * [2,3],[0,3],[1,3]` keeps a team on for every single changeover, including
+ * the one from a lap's last match into its next lap's first. That is
+ * provably the best a lap this shape can do: with only four teams to share
+ * six changeovers, holding every one of them means two teams each end up
+ * staying on for three matches running rather than resting in between —
+ * unavoidable if nobody is ever asked to change over both sides at once.
  */
 const ROTATIONS: Record<number, [number, number][]> = {
 	2: [[0, 1]],
@@ -117,11 +123,11 @@ const ROTATIONS: Record<number, [number, number][]> = {
 	],
 	4: [
 		[0, 1],
-		[2, 3],
 		[0, 2],
-		[1, 3],
-		[0, 3],
 		[1, 2],
+		[2, 3],
+		[0, 3],
+		[1, 3],
 	],
 };
 
