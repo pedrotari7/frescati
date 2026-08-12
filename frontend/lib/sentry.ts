@@ -106,6 +106,15 @@ export const sentryOptions = {
 	tracesSampleRate: 0,
 	/** No IP addresses, no cookies, no headers. See `setSentryUser` below. */
 	sendDefaultPii: false,
+	/*
+	 * Nothing here sets `release`, and that is on purpose rather than an
+	 * oversight. The build plugin already derives one from
+	 * `VERCEL_GIT_COMMIT_SHA` and injects it — grep a built chunk for
+	 * `SENTRY_RELEASE` — so every issue is already stamped with the commit that
+	 * `lib/build.ts` puts on screen. Setting it again here could only agree
+	 * (pointless) or disagree, and disagreeing would detach the uploaded source
+	 * maps and leave every stack trace minified.
+	 */
 	ignoreErrors,
 	/**
 	 * A DSN left blank already disables the SDK; this additionally keeps every

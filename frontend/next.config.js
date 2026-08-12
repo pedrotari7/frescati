@@ -129,6 +129,20 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+	/**
+	 * Which commit this bundle was built from, inlined so the running app can
+	 * say so out loud. See `lib/build.ts`.
+	 *
+	 * Vercel sets `VERCEL_GIT_COMMIT_SHA` on every build. It also exposes a
+	 * `NEXT_PUBLIC_`-prefixed copy, but only when the project has "automatically
+	 * expose System Environment Variables" switched on — a dashboard setting
+	 * nothing in this repo records or can check. Mapping it here means the
+	 * feature works from a fresh clone and a fresh Vercel project, and it is
+	 * `''` anywhere else, which is exactly what a local build should say.
+	 */
+	env: {
+		NEXT_PUBLIC_BUILD_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? '',
+	},
 	// `shared/` lives outside this package, so Next has to be told it may compile
 	// files from the repo root.
 	outputFileTracingRoot: path.join(__dirname, '../'),

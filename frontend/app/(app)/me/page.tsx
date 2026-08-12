@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRightStartOnRectangleIcon, BellIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { signOutOfApp, useAuth } from '../../../lib/auth';
+import { buildLabel } from '../../../lib/build';
 import { checkPushSupport, disablePush, enablePush, isPushEnabled } from '../../../lib/push';
 import type { PushSupport } from '../../../lib/push';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
@@ -297,6 +298,14 @@ const MePage = () => {
 					<ArrowRightStartOnRectangleIcon className='size-4' aria-hidden='true' />
 					Sign out
 				</Button>
+
+				{/* Shown to everybody rather than only to admins, because the point
+				    of it is to be readable off somebody else's phone: "the app is
+				    broken" and "which build are you on" are the same question, and
+				    an admin-only version could never be asked of the person it is
+				    broken for. Faint and last — nobody needs it until they are
+				    asked for it. */}
+				<p className='text-faint pt-1 text-center text-xs'>Build {buildLabel()}</p>
 			</div>
 		</PageShell>
 	);
