@@ -1,4 +1,5 @@
 import {
+	findCountsDrift,
 	getAvailabilityChange,
 	getFormat,
 	getGameLifecycle,
@@ -294,6 +295,57 @@ describe('tallyResponses', () => {
 
 		expect(counts.extrasConfirmed).toBe(0);
 		expect(counts.playing).toBe(0);
+	});
+});
+
+describe('findCountsDrift', () => {
+	const playing = (count: number) => Array.from({ length: count }, () => response({ role: 'member', status: 'in' }));
+
+	// The state every future game in a fresh season is in. A check that flagged
+	// this would report every game in the database on its first run.
+	it('says nothing about an untouched game', () => {
+		expect(findCountsDrift({ counts: { ...EMPTY_COUNTS }, atRisk: true }, [], 10)).toEqual([]);
+	});
+
+	it('says nothing when the stored counters match the responses', () => {
+		const game = { counts: { ...EMPTY_COUNTS, membersIn: 10, playing: 10 }, atRisk: false };
+
+		expect(findCountsDrift(game, playing(10), 10)).toEqual([]);
+	});
+
+	// The failure this exists for: a response landed, the trigger never
+	// managed to write, and the game has under-reported ever since.
+	it('names every counter that has fallen behind', () => {
+		const game = { counts: { ...EMPTY_COUNTS, membersIn: 9, playing: 9 }, atRisk: false };
+
+		expect(findCountsDrift(game, playing(10), 10)).toEqual([
+			{ field: 'membersIn', stored: 9, actual: 10 },
+			{ field: 'playing', stored: 9, actual: 10 },
+		]);
+	});
+
+	// `atRisk` is what decides whether a push goes out at all, so it is checked
+	// against the same comparison the trigger makes rather than against itself.
+	it('catches an at-risk flag that never flipped', () => {
+		const game = { counts: { ...EMPTY_COUNTS, membersIn: 4, playing: 4 }, atRisk: false };
+
+		expect(findCountsDrift(game, playing(4), 10)).toEqual([{ field: 'atRisk', stored: false, actual: true }]);
+	});
+
+	it('catches an at-risk flag left on after the game filled up', () => {
+		const game = { counts: { ...EMPTY_COUNTS, membersIn: 10, playing: 10 }, atRisk: true };
+
+		expect(findCountsDrift(game, playing(10), 10)).toEqual([{ field: 'atRisk', stored: true, actual: false }]);
+	});
+
+	// A half-written document has to be compared, not skipped — it is exactly
+	// the shape a failed trigger leaves behind.
+	it('compares a counter the document is missing entirely', () => {
+		expect(findCountsDrift({}, playing(2), 10)).toEqual([
+			{ field: 'membersIn', stored: 0, actual: 2 },
+			{ field: 'playing', stored: 0, actual: 2 },
+			{ field: 'atRisk', stored: false, actual: true },
+		]);
 	});
 });
 

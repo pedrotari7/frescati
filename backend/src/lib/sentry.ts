@@ -125,10 +125,18 @@ export const reportError = (message: string, context: Record<string, unknown>, e
 };
 
 /**
- * Both sweeps run hourly. Shared so the two monitors can't disagree about what
- * "hourly" means, and so changing it is one edit rather than two.
+ * Both sending sweeps run hourly. Shared so the two monitors can't disagree
+ * about what "hourly" means, and so changing it is one edit rather than two.
  */
 export const HOURLY: MonitorConfig['schedule'] = { type: 'interval', value: 1, unit: 'hour' };
+
+/**
+ * The audit sweep. Nothing it looks at has a deadline — it reports on state
+ * that is already wrong and will stay wrong until somebody repairs it — so a
+ * daily pass catches drift well before the next game without spending a
+ * collection scan every hour to find nothing.
+ */
+export const DAILY: MonitorConfig['schedule'] = { type: 'interval', value: 1, unit: 'day' };
 
 /**
  * Wrap a scheduled function so Sentry notices when it stops running.

@@ -11,6 +11,7 @@ export { rebuildTeams } from './rebuildTeams';
 export { finaliseTournament, finaliseDueTournaments, onMatchWrite } from './finaliseTournament';
 export { onGameDeleted, onSeasonDeleted } from './cascadeDeletes';
 export { sendReminders } from './sendReminders';
+export { auditGameCounts } from './auditCounts';
 export { setAppAdmin } from './setAppAdmin';
 export { setStartingRating } from './setStartingRating';
 export { sendTestPush } from './sendTestPush';

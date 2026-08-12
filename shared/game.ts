@@ -178,6 +178,61 @@ export const tallyResponses = (responses: Pick<GameResponse, 'status' | 'role' |
 	return counts;
 };
 
+/** One stored counter that disagrees with the responses underneath it. */
+export interface CountsDrift {
+	field: keyof GameCounts | 'atRisk';
+	stored: number | boolean;
+	actual: number | boolean;
+}
+
+/**
+ * Where a game's function-owned counters disagree with its own responses.
+ *
+ * `counts` and `atRisk` are written **only** by `onResponseWrite`, which is a
+ * background trigger — and a background trigger that exhausts its retries
+ * leaves no trace anywhere. The game keeps whatever total it last managed to
+ * write, and nothing in the app ever looks again: the screens render the stored
+ * number, the reminder text quotes it, and the first symptom is ten people
+ * turning up to a game that said nine, or an `atRisk` push that never fired for
+ * a game which quietly fell below its minimum.
+ *
+ * So this re-derives the answer and returns the disagreements. Deliberately a
+ * *comparison* and not a repair: `recountGames` already exists for the repair,
+ * and a sweep that silently fixed this every night would erase the evidence
+ * that the trigger is failing while leaving it failing.
+ *
+ * A game with no responses is not a special case. It is created with
+ * `EMPTY_COUNTS` and `atRisk: true` — values the security rules pin exactly —
+ * and an empty tally reproduces both, so an untouched game reports nothing.
+ * The one configuration where it wouldn't is a season with `minPlayers: 0`,
+ * where no game can ever be at risk and the creation default therefore is
+ * wrong; that season has a real problem and hearing about it is correct.
+ */
+export const findCountsDrift = (
+	game: { counts?: GameCounts; atRisk?: boolean },
+	responses: Pick<GameResponse, 'status' | 'role' | 'confirmOverride'>[],
+	minPlayers: number
+): CountsDrift[] => {
+	const actual = tallyResponses(responses);
+	const drift: CountsDrift[] = [];
+
+	// Keyed off the freshly computed tally rather than the stored map, so a
+	// counter the document is missing entirely still gets compared instead of
+	// being skipped for having no key to iterate.
+	for (const field of Object.keys(actual) as (keyof GameCounts)[]) {
+		const stored = game.counts?.[field] ?? 0;
+
+		if (stored !== actual[field]) drift.push({ field, stored, actual: actual[field] });
+	}
+
+	const atRisk = actual.playing < minPlayers;
+	const storedAtRisk = game.atRisk ?? false;
+
+	if (storedAtRisk !== atRisk) drift.push({ field: 'atRisk', stored: storedAtRisk, actual: atRisk });
+
+	return drift;
+};
+
 /**
  * Parse a reminder-window list as typed, e.g. `"72, 24"` into `[72, 24]`.
  *
