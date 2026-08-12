@@ -38,6 +38,29 @@ const ENVIRONMENT = process.env.NEXT_PUBLIC_VERCEL_ENV ?? 'development';
 const useEmulators = process.env.NEXT_PUBLIC_USE_EMULATORS === '1';
 
 /**
+ * Whether a deploy built this. Vercel sets `NEXT_PUBLIC_VERCEL_ENV`; `next dev`
+ * does not, which is what the fallback above is for.
+ *
+ * The emulator check alone was not the "nothing from a local run" rule it read
+ * as: `dev:live` is a local dev server that sets `NEXT_PUBLIC_USE_EMULATORS=0`,
+ * so it passed the check and reported. What it reported was mostly `next dev`
+ * itself — webpack hands every module through HMR, and a chunk swapped under a
+ * page that is still running throws `undefined is not a function` from the
+ * webpack runtime on every hot update. That arrived 112 times in a day, into
+ * the same inbox as production, tagged `development` on `localhost:3000`.
+ *
+ * Filtering the message instead would have been wrong: the same throw from a
+ * real build is a real bug — see the chunk that failed to load on somebody's
+ * phone — and an `ignoreErrors` entry could not tell the two apart. Where it
+ * came from can.
+ *
+ * To report from a local run on purpose, set `NEXT_PUBLIC_VERCEL_ENV` for that
+ * one run — the same shape of escape hatch as `VERCEL=1` for source maps in
+ * `next.config.js`.
+ */
+const isDeployed = Boolean(process.env.NEXT_PUBLIC_VERCEL_ENV);
+
+/**
  * Conditions, not bugs. Every one of these would otherwise arrive constantly
  * and train us to ignore the inbox, which costs more than the handful of real
  * reports hiding behind them.
@@ -85,25 +108,33 @@ export const sentryOptions = {
 	sendDefaultPii: false,
 	ignoreErrors,
 	/**
-	 * A DSN left blank already disables the SDK; this additionally keeps a
-	 * `dev:seeded` run quiet for anybody who *has* configured one.
+	 * A DSN left blank already disables the SDK; this additionally keeps every
+	 * local run quiet for anybody who *has* configured one — `dev:seeded` and
+	 * `dev:live` alike.
 	 */
-	enabled: !useEmulators,
+	enabled: isDeployed && !useEmulators,
 };
 
 /**
  * Load the SDK and do something with it, swallowing anything that goes wrong.
  *
- * Both callers below are fired with `void` from places that have already
- * handled the real failure — a toast is on screen, a fallback is rendered. A
- * rejection here would surface as an unhandled rejection *about the reporter*,
- * on top of the problem being reported, and the import genuinely can fail: it
- * is a lazily fetched chunk, and this app is used at a pitch on one bar of
- * signal. Telemetry that can break the page it watches is not worth having.
+ * Every caller below is invoked from a place that has already handled the real
+ * failure — a toast is on screen, a fallback is rendered. A rejection here
+ * would surface as an unhandled rejection *about the reporter*, on top of the
+ * problem being reported, and the import genuinely can fail: it is a lazily
+ * fetched chunk, and this app is used at a pitch on one bar of signal.
+ * Telemetry that can break the page it watches is not worth having.
+ *
+ * Resolving rather than rejecting is load-bearing for `captureErrorAndFlush`
+ * too, whose caller waits on it before recovering the app. A reporter that
+ * failed must not also strand the person on a broken screen.
  */
-const withSentry = async (run: (sentry: typeof SentryModule) => void) => {
+/** `unknown` rather than `void`: the SDK's calls return ids and flags nobody
+ * here reads, and a `void` return type stops accepting those the moment the
+ * signature also has to allow a promise to await. */
+const withSentry = async (run: (sentry: typeof SentryModule) => unknown) => {
 	try {
-		run(await import('@sentry/nextjs'));
+		await run(await import('@sentry/nextjs'));
 	} catch {
 		// Nothing to escalate to. If the reporter is down, it cannot report that.
 	}
@@ -136,4 +167,26 @@ export const captureError = async (error: unknown, context: Record<string, unkno
 	if (!DSN) return;
 
 	await withSentry(Sentry => Sentry.captureException(error, { extra: context }));
+};
+
+/**
+ * Report something, and wait for it to actually leave the device.
+ *
+ * `captureError` only *queues* — the SDK batches events and sends them on its
+ * own schedule, which is fine everywhere the page carries on afterwards. It is
+ * not fine for the one caller that reports and then reloads: the queue lives in
+ * the page, so the reload takes it, and the report explaining why the reload
+ * happened is the single report guaranteed never to arrive.
+ *
+ * Resolves either way. A flush that times out still hands control back, because
+ * the caller's next move is recovering the app, and telemetry does not get a
+ * veto over that — the same reason `instrument()` rethrows on the backend.
+ */
+export const captureErrorAndFlush = async (error: unknown, context: Record<string, unknown> = {}, timeoutMs = 2000) => {
+	if (!DSN) return;
+
+	await withSentry(async Sentry => {
+		Sentry.captureException(error, { extra: context });
+		await Sentry.flush(timeoutMs);
+	});
 };

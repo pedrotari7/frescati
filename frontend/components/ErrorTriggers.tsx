@@ -53,7 +53,7 @@ const ErrorTriggers = () => {
 			id: 'render',
 			label: 'Render error',
 			description:
-				'Throws while rendering. ErrorBoundary catches it and reports the component stack — so the whole app is replaced by "Something broke" until you reload. That is the test working.',
+				'Throws while rendering. ErrorBoundary catches it, reports the component stack, waits for that to leave, and then reloads the page itself — most of what lands there is a chunk that never arrived. The reload is the test working. Press it twice in a row and the second one stops and shows "Something broke" instead.',
 			run: () => setExploding(true),
 		},
 		{
@@ -172,9 +172,9 @@ const ErrorTriggers = () => {
 			</div>
 
 			<p className='text-faint mt-5 text-xs leading-relaxed'>
-				Nothing is reported when the DSN is unset, and nothing is ever reported from a{' '}
-				<code>pnpm dev:seeded</code> run — the emulator check comes first. These only prove anything against a
-				deployed build.
+				Nothing is reported when the DSN is unset, and nothing at all is reported from a local run —{' '}
+				<code>dev:seeded</code> and <code>dev:live</code> alike, since only a build Vercel made reports. These
+				only prove anything against a deployed build.
 			</p>
 		</section>
 	);

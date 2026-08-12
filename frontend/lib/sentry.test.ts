@@ -26,9 +26,57 @@ const loadSentryModule = async () => {
 
 describe('sentry', () => {
 	const originalDsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+	const originalVercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV;
+	const originalUseEmulators = process.env.NEXT_PUBLIC_USE_EMULATORS;
+
+	/** `delete` rather than `= undefined`, which stringifies to `'undefined'`. */
+	const setEnv = (name: string, value: string | undefined) => {
+		if (value === undefined) delete process.env[name];
+		else process.env[name] = value;
+	};
 
 	afterEach(() => {
-		process.env.NEXT_PUBLIC_SENTRY_DSN = originalDsn;
+		setEnv('NEXT_PUBLIC_SENTRY_DSN', originalDsn);
+		setEnv('NEXT_PUBLIC_VERCEL_ENV', originalVercelEnv);
+		setEnv('NEXT_PUBLIC_USE_EMULATORS', originalUseEmulators);
+	});
+
+	/**
+	 * Which runs are allowed to report.
+	 *
+	 * This one is invisible in the other direction from the rest of the file: a
+	 * regression here does not break the app, it fills the inbox with somebody's
+	 * dev server. That already happened — `dev:live` sets
+	 * `NEXT_PUBLIC_USE_EMULATORS=0`, so an emulator-only check let a local run
+	 * through, and `next dev`'s HMR throws from the webpack runtime constantly.
+	 * The signal that separates them is who built the bundle, not what it talks
+	 * to, and nothing about a passing app would ever reveal it had regressed.
+	 */
+	describe('enabled', () => {
+		const enabledFor = async (env: Record<string, string | undefined>) => {
+			for (const [name, value] of Object.entries(env)) setEnv(name, value);
+
+			return (await loadSentryModule()).sentryOptions.enabled;
+		};
+
+		it('reports from a deploy', async () => {
+			await expect(enabledFor({ NEXT_PUBLIC_VERCEL_ENV: 'production' })).resolves.toBe(true);
+			// A preview reports too — it is tagged apart, not silenced.
+			await expect(enabledFor({ NEXT_PUBLIC_VERCEL_ENV: 'preview' })).resolves.toBe(true);
+		});
+
+		it('stays quiet on a local run against the real project', async () => {
+			// `pnpm dev:live`: no Vercel build, emulators explicitly off.
+			await expect(
+				enabledFor({ NEXT_PUBLIC_VERCEL_ENV: undefined, NEXT_PUBLIC_USE_EMULATORS: '0' })
+			).resolves.toBe(false);
+		});
+
+		it('stays quiet on a seeded local stack', async () => {
+			await expect(
+				enabledFor({ NEXT_PUBLIC_VERCEL_ENV: undefined, NEXT_PUBLIC_USE_EMULATORS: '1' })
+			).resolves.toBe(false);
+		});
 	});
 
 	describe('with no DSN configured', () => {
