@@ -3,6 +3,7 @@ import { join } from 'path';
 import type { RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import {
+	collection,
 	collectionGroup,
 	deleteDoc,
 	deleteField,
@@ -1402,7 +1403,13 @@ describe('watchers', () => {
 	// Not because the document grants anything — it doesn't — but because
 	// nothing needs it, and a game the whole group can read has no business
 	// publishing who is quietly keeping an eye on it.
-	it('keeps who is following private to them, season admins included', async () => {
+	//
+	// The app admin is the one that has to keep failing now that `/s/…/g/…`
+	// shows them exactly this list: the answer arrives through the
+	// `getGameWatchers` callable, reading with the Admin SDK. Relaxing the rule
+	// would have been the shortcut, and it would have published the same list to
+	// every screen and every script holding a signed-in token.
+	it('keeps who is following private to them, admins of every kind included', async () => {
 		await testEnv.withSecurityRulesDisabled(async context => {
 			await setDoc(doc(context.firestore(), watcherDoc(MEMBER)), aWatcher(MEMBER));
 		});
@@ -1410,6 +1417,17 @@ describe('watchers', () => {
 		await assertSucceeds(getDoc(doc(authed(MEMBER), watcherDoc(MEMBER))));
 		await assertFails(getDoc(doc(authed(OTHER_MEMBER), watcherDoc(MEMBER))));
 		await assertFails(getDoc(doc(authed(SEASON_ADMIN), watcherDoc(MEMBER))));
+		await assertFails(getDoc(doc(authed(APP_ADMIN, { admin: true }), watcherDoc(MEMBER))));
+	});
+
+	// The collection, not one document — the shape an admin screen would reach
+	// for first, and the one a rule granting per-document reads would still have
+	// to refuse.
+	it('refuses to list who is following, app admin included', async () => {
+		await assertFails(getDocs(collection(authed(SEASON_ADMIN), `seasons/${SEASON}/games/${GAME}/watchers`)));
+		await assertFails(
+			getDocs(collection(authed(APP_ADMIN, { admin: true }), `seasons/${SEASON}/games/${GAME}/watchers`))
+		);
 	});
 
 	it('refuses to let one be unfollowed by anyone but its owner', async () => {

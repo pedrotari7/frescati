@@ -7,7 +7,9 @@ import { getFormat, getGameLifecycle, isWatchable, tallyResponses } from '@share
 import { MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
+import { useAuth } from '../../../../../../lib/auth';
 import { useResponses, useUsers } from '../../../../../../hooks/useData';
+import { useGameWatchers } from '../../../../../../hooks/useGameWatchers';
 import { useMyResponses } from '../../../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../../../hooks/useRespond';
 import { useRespondIntent } from '../../../../../../hooks/useRespondIntent';
@@ -18,6 +20,7 @@ import { setConfirmOverride } from '../../../../../../lib/db/responses';
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
+import GameWatchers from '../../../../../../components/GameWatchers';
 import HeadcountBar from '../../../../../../components/HeadcountBar';
 import RespondControl from '../../../../../../components/RespondControl';
 import RosterList from '../../../../../../components/RosterList';
@@ -32,8 +35,14 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const { myResponses } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
 	const { watching, canWatch, toggleWatch } = useWatchGame(seasonId, gameId);
+	const { user } = useAuth();
 	const write = useWrite();
 	const now = useNow();
+
+	// The global role, not `isAdmin` from the season — that one is true for a
+	// season admin too, and a season admin is still one of the players whose own
+	// following is private from the person sitting next to them.
+	const isAppAdmin = user?.isAppAdmin === true;
 
 	const rawGame = games.find(candidate => candidate.id === gameId) ?? null;
 	const usersByUid = useMemo(() => new Map(users.map(user => [user.uid, user])), [users]);
@@ -50,15 +59,26 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 		[rawGame, responsesLoading, responses]
 	);
 
+	// Both hooks below run before the early returns, so the lifecycle they need
+	// is resolved up here — `null` until the game has loaded, which each of them
+	// reads as "nothing to do yet".
+	const currentLifecycle = season && game ? getGameLifecycle(game, season, now) : null;
+
 	// Arriving from a notification's "I'm in" button. Runs before the early
 	// returns below so it isn't skipped while the page is still loading.
-	const lifecycleForIntent = season && game ? getGameLifecycle(game, season, now) : null;
-
 	useRespondIntent({
 		ready: !loading && !!season && !!game,
-		isOpen: lifecycleForIntent === 'open',
+		isOpen: currentLifecycle === 'open',
 		onRespond: useCallback(status => respond(gameId, status), [respond, gameId]),
 	});
+
+	// Who else hears when an answer moves. Gated on the same `isWatchable` as the
+	// bell, so the list can't outlive the notifications it describes.
+	const watchers = useGameWatchers(
+		seasonId,
+		gameId,
+		isAppAdmin && currentLifecycle !== null && isWatchable(currentLifecycle)
+	);
 
 	if (loading) {
 		return (
@@ -87,13 +107,26 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 		>
 			<div className='space-y-6 p-4'>
 				<section className='glass rounded-3xl p-5'>
-					<div className='mb-4 flex flex-wrap items-center gap-2'>
-						<span className='text-faint text-xs'>{formatRelative(game.kickoff)}</span>
-						{game.isOneOff && <StatusPill tone='extra'>One-off</StatusPill>}
-						{lifecycle === 'cancelled' && <StatusPill tone='out'>Cancelled</StatusPill>}
-						{lifecycle === 'locked' && <StatusPill tone='neutral'>Answers closed</StatusPill>}
-						{lifecycle === 'live' && <StatusPill tone='in'>Playing now</StatusPill>}
-						{lifecycle === 'finished' && <StatusPill tone='neutral'>Played</StatusPill>}
+					{/* The pills wrap on a narrow phone; the bell stays pinned to the
+					    top-right of the card rather than wrapping with them. It sits
+					    here, on the game itself, because that is what it follows —
+					    every answer on this game, not the roster it happens to be
+					    listed in. `isWatchable` is shared with the trigger, so it can
+					    never be drawn on a game nothing would arrive about — nor
+					    hidden on one that is still sending. */}
+					<div className='mb-4 flex items-center justify-between gap-2'>
+						<div className='flex flex-wrap items-center gap-2'>
+							<span className='text-faint text-xs'>{formatRelative(game.kickoff)}</span>
+							{game.isOneOff && <StatusPill tone='extra'>One-off</StatusPill>}
+							{lifecycle === 'cancelled' && <StatusPill tone='out'>Cancelled</StatusPill>}
+							{lifecycle === 'locked' && <StatusPill tone='neutral'>Answers closed</StatusPill>}
+							{lifecycle === 'live' && <StatusPill tone='in'>Playing now</StatusPill>}
+							{lifecycle === 'finished' && <StatusPill tone='neutral'>Played</StatusPill>}
+						</div>
+
+						{canWatch && isWatchable(lifecycle) && (
+							<WatchToggle watching={watching} onChange={toggleWatch} />
+						)}
 					</div>
 
 					<p className='text-muted mb-4 flex items-center gap-1.5 text-sm'>
@@ -133,18 +166,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 				)}
 
 				<div>
-					{/* The bell sits on the roster heading because the roster is
-					    exactly what it notifies about. `isWatchable` is shared
-					    with the trigger, so it can never be drawn on a game
-					    nothing would arrive about — nor hidden on one that is
-					    still sending. */}
-					<div className='mb-3 flex items-center justify-between gap-2 px-1'>
-						<h2 className='text-ink font-semibold'>Who&apos;s playing</h2>
-
-						{canWatch && isWatchable(lifecycle) && (
-							<WatchToggle watching={watching} onChange={toggleWatch} />
-						)}
-					</div>
+					<h2 className='text-ink mb-3 px-1 font-semibold'>Who&apos;s playing</h2>
 
 					<RosterList
 						memberUids={season.memberUids}
@@ -159,6 +181,19 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 						}}
 					/>
 				</div>
+
+				{/* Below the roster, not above it: this is the answer to a question
+				    an admin brings to the screen, and everybody else — the whole
+				    group, deciding about this game — is who the screen is for. */}
+				{isAppAdmin && isWatchable(lifecycle) && (
+					<GameWatchers
+						uids={watchers.uids}
+						usersByUid={usersByUid}
+						loading={watchers.loading}
+						error={watchers.error}
+						onReload={watchers.reload}
+					/>
+				)}
 			</div>
 		</SeasonShell>
 	);

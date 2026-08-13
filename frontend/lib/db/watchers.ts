@@ -1,5 +1,7 @@
 import { deleteDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { getFunctionsClient } from '../firebaseClient';
 import { watcherDoc } from './paths';
 
 /**
@@ -28,3 +30,23 @@ export const watchGame = (seasonId: string, gameId: string, uid: string): Promis
 
 export const unwatchGame = (seasonId: string, gameId: string, uid: string): Promise<void> =>
 	deleteDoc(watcherDoc(seasonId, gameId, uid));
+
+/**
+ * Everyone following one game, for an app admin.
+ *
+ * A callable for the same reason `getNotificationReach` is one — the collection
+ * is closed to every client and stays closed — but read once rather than
+ * subscribed, which is a compromise this one makes and the bell above does not.
+ * The rule that keeps this private is exactly the rule that makes an
+ * `onSnapshot` impossible, so a refresh is what a screen gets offered instead.
+ */
+export const getGameWatchers = async (seasonId: string, gameId: string): Promise<string[]> => {
+	const call = httpsCallable<{ seasonId: string; gameId: string }, { uids: string[] }>(
+		getFunctionsClient(),
+		'getGameWatchers'
+	);
+
+	const { data } = await call({ seasonId, gameId });
+
+	return data.uids ?? [];
+};

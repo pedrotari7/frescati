@@ -36,6 +36,13 @@ export interface GamePin {
 	venue?: Venue;
 	reshuffleCount?: number;
 	balance?: Partial<BalanceSettings>;
+	/**
+	 * Cast keys who tapped the bell on this game. Nobody by default, which is
+	 * the honest starting point — following is off until somebody turns it on —
+	 * but a game with none is also a game where the admin card that lists them
+	 * has nothing to say, so at least one pin should carry a few.
+	 */
+	watcherKeys?: string[];
 }
 
 export interface SeasonPlan {
@@ -188,8 +195,23 @@ const full: Scenario = {
 				// state the auto-confirm sweep exists for.
 				[-1]: { outcome: 'scored', note: 'Floodlight on pitch B was out, played the far end' },
 				// The game everyone is actually looking at.
-				[0]: { responses: 'partial', playing: 15, reshuffleCount: 1 },
-				[1]: { responses: 'partial', playing: 7, note: 'Half the squad is away for the long weekend' },
+				[0]: {
+					responses: 'partial',
+					playing: 15,
+					reshuffleCount: 1,
+					// Three members and an extra, picked without regard to how any
+					// of them answered — following is not answering, and the admin
+					// card that lists them should look like its own thing rather
+					// than a slice of the roster.
+					watcherKeys: ['anna', 'tobias', 'kwame', 'ingrid'],
+				},
+				// Short of players, so somebody is watching for a late yes.
+				[1]: {
+					responses: 'partial',
+					playing: 7,
+					note: 'Half the squad is away for the long weekend',
+					watcherKeys: ['pedro'],
+				},
 				[2]: { status: 'cancelled', cancelledReason: 'Pitch double-booked with a youth tournament' },
 				[3]: {
 					oneOff: true,

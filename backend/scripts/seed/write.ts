@@ -359,6 +359,8 @@ interface PlannedGame {
 	/** Where it sits relative to the next upcoming game. */
 	offset: number;
 	responses: GameResponse[];
+	/** Uids following this game. Presence is the whole subscription. */
+	watchers: string[];
 }
 
 /**
@@ -491,6 +493,10 @@ const buildGames = (plan: SeasonPlan, season: Season, createdBy: string): Planne
 			pin,
 			offset,
 			responses,
+			// Following is deliberately unrelated to answering — you might be
+			// watching precisely because you haven't decided yet — so these are
+			// named outright rather than drawn from whoever said In.
+			watchers: (pin.watcherKeys ?? []).map(uidFor),
 		};
 	});
 };
@@ -823,6 +829,14 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 
 		for (const response of entry.responses) {
 			documents.push(batch => batch.set(gameRef.collection('responses').doc(response.uid), response));
+		}
+
+		// The id is the uid — that is what `getWatcherUids` reads, and what the
+		// rules bind the `uid` field to.
+		for (const uid of entry.watchers) {
+			documents.push(batch =>
+				batch.set(gameRef.collection('watchers').doc(uid), { uid, createdAt: entry.game.createdAt })
+			);
 		}
 
 		const game = games.get(entry.game.id);

@@ -13,10 +13,10 @@ import { hapticLight } from '../lib/utils/haptics';
  * notification deep-links to, so turning it off is one tap from the thing that
  * prompted you to.
  *
- * A button rather than a `Toggle` because it belongs on the roster heading
- * beside a section title, not in a list of labelled settings rows — but it
- * still reports itself as a switch, so a screen reader gets the state and not
- * just "button".
+ * A button rather than a `Toggle` because it belongs in the corner of a game
+ * card beside the status pills, not in a list of labelled settings rows — but
+ * it still reports itself as a switch, so a screen reader gets the state and
+ * not just "button".
  */
 const WatchToggle = ({
 	watching,
