@@ -4,7 +4,6 @@ import Link from 'next/link';
 import type { AppUser, TournamentTeam } from '@shared/types';
 import { toDisplayRating } from '@shared/rating';
 import { toDisplayMovement } from '@shared/leaderboard';
-import { shortName } from '@shared/format';
 import Avatar from './Avatar';
 import { classNames } from '../lib/utils/reactHelper';
 
@@ -100,8 +99,10 @@ const TeamCard = ({
 									photoURL={user?.photoURL}
 									size='sm'
 								/>
+								{/* Full name, not the first-name shorthand used elsewhere: a team
+								    sheet is where two Davids have to be told apart. */}
 								<span className='text-ink min-w-0 flex-1 truncate text-sm'>
-									{shortName(user?.displayName ?? 'Unknown player')}
+									{user?.displayName ?? 'Unknown player'}
 								</span>
 								{movement(deltas?.get(uid))}
 								<span className='text-faint text-xs tabular-nums'>

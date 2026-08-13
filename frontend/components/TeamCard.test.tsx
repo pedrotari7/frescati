@@ -46,7 +46,7 @@ describe('TeamCard', () => {
 		expect(screen.getByText('avg 50')).toBeInTheDocument();
 	});
 
-	it('lists every squad member by first name with their rating', () => {
+	it('lists every squad member by full name with their rating', () => {
 		render(
 			<TeamCard
 				team={team}
@@ -56,8 +56,8 @@ describe('TeamCard', () => {
 			/>
 		);
 
-		expect(screen.getByText('Alice')).toBeInTheDocument();
-		expect(screen.getByText('Bob')).toBeInTheDocument();
+		expect(screen.getByText('Alice Ng')).toBeInTheDocument();
+		expect(screen.getByText('Bob Lee')).toBeInTheDocument();
 		expect(screen.getByText('50')).toBeInTheDocument();
 		expect(screen.getByText('100')).toBeInTheDocument();
 	});
@@ -65,7 +65,7 @@ describe('TeamCard', () => {
 	it('falls back to a placeholder name for a uid missing from the user map', () => {
 		render(<TeamCard team={{ index: 0, uids: ['ghost'] }} elos={{}} usersByUid={usersByUid} sideSize={1} />);
 
-		expect(screen.getByText('Unknown')).toBeInTheDocument();
+		expect(screen.getByText('Unknown player')).toBeInTheDocument();
 	});
 
 	it('names the rotating surplus when the squad is bigger than the side', () => {
