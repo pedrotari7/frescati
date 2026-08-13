@@ -70,6 +70,26 @@ describe('NextGameHero', () => {
 		expect(screen.getByText('Frescati IP')).toBeInTheDocument();
 	});
 
+	// The roster is a tap away and nothing on the card used to say so.
+	it('says what is behind the card, and links there', () => {
+		render(
+			<NextGameHero
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				isExtra={false}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.getByRole('link', { name: /see who's playing/i })).toHaveAttribute(
+			'href',
+			'/s/season-1/g/game-1'
+		);
+	});
+
 	it('offers the respond control while the game is open', () => {
 		render(
 			<NextGameHero
@@ -138,6 +158,24 @@ describe('NextGameHero', () => {
 		);
 
 		expect(screen.getByText('This game is off.')).toBeInTheDocument();
+	});
+
+	// Nobody is playing a game that is off, but the details still open.
+	it('stops promising a roster on a cancelled game', () => {
+		render(
+			<NextGameHero
+				game={game({ status: 'cancelled' })}
+				season={season}
+				myResponse={undefined}
+				isExtra={false}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.getByRole('link', { name: /game details/i })).toBeInTheDocument();
+		expect(screen.queryByText(/see who's playing/i)).not.toBeInTheDocument();
 	});
 
 	it('warns an extra that they need admin confirmation to hold their spot', () => {

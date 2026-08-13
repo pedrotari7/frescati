@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { MapPinIcon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
@@ -73,17 +73,39 @@ const NextGameHero = ({
 					{canWatch && isWatchable(lifecycle) && <WatchToggle watching={watching} onChange={toggleWatch} />}
 				</div>
 
-				<Link href={`/s/${season.id}/g/${game.id}`} className='block'>
-					<h2 className='text-ink text-2xl leading-tight font-bold'>
-						{formatGameDateLong(game.kickoff, timezone)}
-					</h2>
-					<p className='text-brand mt-0.5 text-3xl font-bold tabular-nums'>
-						{formatGameTime(game.kickoff, timezone)}
-					</p>
-					<p className='text-muted mt-2 flex items-center gap-1.5 text-sm'>
-						<MapPinIcon className='size-4 shrink-0' aria-hidden='true' />
-						{game.venue.name}
-					</p>
+				{/* The card is the one screen most people ever look at, so the way
+				    through to the roster has to announce itself: the same chevron
+				    the game rows use, a surface that answers a tap, and a line
+				    saying what is on the other side. Negative margins cancel the
+				    padding, so the panel is bigger than the text without moving it.
+				    Only this block is a link — the bell and the answer buttons are
+				    inside the card too, and nesting them in one would swallow them. */}
+				<Link
+					href={`/s/${season.id}/g/${game.id}`}
+					className='group focus-visible:ring-brand/60 -mx-2 -my-2 block rounded-2xl px-2 py-2 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none active:bg-white/5'
+				>
+					<div className='flex items-center gap-3'>
+						<div className='min-w-0 flex-1'>
+							<h2 className='text-ink text-2xl leading-tight font-bold'>
+								{formatGameDateLong(game.kickoff, timezone)}
+							</h2>
+							<p className='text-brand mt-0.5 text-3xl font-bold tabular-nums'>
+								{formatGameTime(game.kickoff, timezone)}
+							</p>
+							<p className='text-muted mt-2 flex items-center gap-1.5 text-sm'>
+								<MapPinIcon className='size-4 shrink-0' aria-hidden='true' />
+								{game.venue.name}
+							</p>
+							<p className='text-brand mt-2 text-xs font-semibold'>
+								{lifecycle === 'cancelled' ? 'Game details' : "See who's playing"}
+							</p>
+						</div>
+
+						<ChevronRightIcon
+							className='text-faint size-5 shrink-0 transition-transform group-hover:translate-x-0.5'
+							aria-hidden='true'
+						/>
+					</div>
 				</Link>
 
 				<HeadcountBar game={liveGame} season={season} className='mt-5' />
