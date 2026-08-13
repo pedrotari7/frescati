@@ -89,6 +89,12 @@ const ignoreErrors = [
 	// with the page, referencing it throws — a Mozilla-authored global no app
 	// code ever touches, so this never correlates with anything of ours.
 	/__firefox__/,
+	// Brave injects `window.ethereum` for its built-in wallet, into a page that
+	// has never asked for one, and its own script then assigns through that
+	// global before it exists. Exactly the case above with a different vendor:
+	// this repo contains no reference to `ethereum` at all, so a report naming
+	// it is never about us.
+	/ethereum/,
 ];
 
 export const sentryOptions = {
