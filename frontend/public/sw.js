@@ -204,6 +204,35 @@ self.addEventListener('push', event => {
 	);
 });
 
+/**
+ * How long to give a page to say it took the route change itself.
+ *
+ * Short, because guessing wrong costs only the full navigation this was trying
+ * to avoid — whereas not waiting at all would mean a tap that opens the app and
+ * then sits on whatever screen it was left on.
+ */
+const ROUTE_ACK_MS = 500;
+
+/**
+ * Hand a URL to a window that is already open, without loading a page into it.
+ *
+ * Resolves true once the page has answered on the port, false if nothing does
+ * in time: a bundle too old to listen, or one whose JS has died. Both of those
+ * want the real navigation instead.
+ */
+const routeInPage = (client, url) =>
+	new Promise(resolve => {
+		const channel = new MessageChannel();
+		const timer = setTimeout(() => resolve(false), ROUTE_ACK_MS);
+
+		channel.port1.onmessage = () => {
+			clearTimeout(timer);
+			resolve(true);
+		};
+
+		client.postMessage({ type: 'NAVIGATE', url }, [channel.port2]);
+	});
+
 self.addEventListener('notificationclick', event => {
 	event.notification.close();
 
@@ -216,17 +245,47 @@ self.addEventListener('notificationclick', event => {
 	const target = event.action === 'in' ? `${base}${base.includes('?') ? '&' : '?'}respond=in` : base;
 
 	event.waitUntil(
-		self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-			// Focus an existing tab if there is one; opening a second copy of an
-			// installed PWA is disorienting.
-			for (const client of clientList) {
-				if ('focus' in client) {
-					client.navigate(target);
-					return client.focus();
-				}
+		(async () => {
+			const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+			// Focus an existing window if there is one; opening a second copy of
+			// an installed PWA is disorienting.
+			const existing = clientList.find(client => 'focus' in client);
+
+			if (!existing) {
+				await self.clients.openWindow(target);
+				return;
 			}
 
-			return self.clients.openWindow(target);
-		})
+			// Focus *before* pointing it anywhere.
+			//
+			// This used to start the navigation first and focus second. On iOS
+			// that meant loading a page into a web view the system had not yet
+			// brought to the front, and the layout it settled on was measured
+			// against the viewport that view had while it was off screen. Nothing
+			// remeasures once the app is presented — no resize is reported — so
+			// `position: fixed` carried on resolving against a rectangle that was
+			// no longer the viewport, and the top bar and tab bar scrolled away
+			// with the content instead of staying put.
+			//
+			// It needed a window to have survived in the background to reuse,
+			// which is why it happened on some notification taps and not others.
+			//
+			// A browser that refuses to focus — no user activation it recognises —
+			// leaves the window unfocused rather than leaving the tap unanswered.
+			const focused = (await existing.focus().catch(() => null)) || existing;
+
+			// Better still, don't load a page at all. A route change inside the
+			// running app cannot be laid out against the wrong viewport because it
+			// is not laid out again — and it skips a network-first navigation on a
+			// phone that, given where this app gets opened, may have no signal.
+			if (await routeInPage(focused, target)) return;
+
+			// `navigate()` rejects on a window this worker does not control, which
+			// is every window opened before it first activated. Focused and still
+			// on the screen it was left on is a worse answer than focused and
+			// where it was asked for, but it is a long way from nothing.
+			await focused.navigate(target).catch(() => undefined);
+		})()
 	);
 });

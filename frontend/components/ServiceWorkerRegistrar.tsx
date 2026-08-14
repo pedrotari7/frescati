@@ -1,5 +1,6 @@
 'use client';
 
+import { useNotificationRoute } from '../hooks/useNotificationRoute';
 import { useServiceWorkerUpdate } from '../hooks/useServiceWorkerUpdate';
 import UpdatePrompt from './UpdatePrompt';
 
@@ -15,9 +16,16 @@ import UpdatePrompt from './UpdatePrompt';
  * registration — only the object returned by `register` knows an update exists
  * — and putting it anywhere else would mean threading that state up through the
  * root layout to a sibling.
+ *
+ * The other half of the worker's conversation with the page lives here too: a
+ * notification tap that reuses this window arrives as a message rather than as
+ * a navigation. It is mounted at the root because a notification can point at
+ * any screen, and the listener has to already exist when the tap lands.
  */
 const ServiceWorkerRegistrar = () => {
 	const { updateReady, applyUpdate } = useServiceWorkerUpdate();
+
+	useNotificationRoute();
 
 	return updateReady ? <UpdatePrompt onReload={applyUpdate} /> : null;
 };
