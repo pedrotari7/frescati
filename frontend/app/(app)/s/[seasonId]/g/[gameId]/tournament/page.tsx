@@ -37,7 +37,7 @@ import StandingsTable from '../../../../../../../components/StandingsTable';
 
 const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { seasonId, gameId } = use(params);
-	const { season, games, loading, isAdmin } = useSeasonContext();
+	const { season, games, loading, isAdmin, isSeasonAdmin } = useSeasonContext();
 	const { teams: lineup, loading: teamsLoading } = useTournamentTeams(seasonId, gameId);
 	const { matches } = useMatches(seasonId, gameId);
 	const { result } = useTournamentResult(seasonId, gameId);
@@ -156,7 +156,12 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 						</p>
 					)}
 
-					{isAdmin && (
+					{/* Season admins only, rather than everyone `isAdmin` covers: re-picking
+					    a lineup is a decision about one group's game, and an app admin
+					    passing through a season they don't run has no standing to make it.
+					    The rules still let them — `isSeasonAdmin` there includes app admins,
+					    as it does everywhere — so this is about who is offered the button. */}
+					{isSeasonAdmin && (
 						<Button
 							variant='secondary'
 							className='mt-4'

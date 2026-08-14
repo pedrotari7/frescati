@@ -19,6 +19,8 @@ interface SeasonContextValue {
 	isMember: boolean;
 	/** True when they can edit the season: a season admin or a global app admin. */
 	isAdmin: boolean;
+	/** True when they are named on this season's own `adminUids`, app admins aside. */
+	isSeasonAdmin: boolean;
 	/** What role their response would be recorded under. */
 	role: 'member' | 'extra';
 }
@@ -31,6 +33,7 @@ const SeasonContext = createContext<SeasonContextValue>({
 	error: null,
 	isMember: false,
 	isAdmin: false,
+	isSeasonAdmin: false,
 	role: 'extra',
 });
 
@@ -64,6 +67,7 @@ export const SeasonProvider = ({ seasonId, children }: { seasonId: string; child
 			error: seasonError ?? gamesError,
 			isMember,
 			isAdmin: isSeasonAdmin || user?.isAppAdmin === true,
+			isSeasonAdmin,
 			role: season && uid ? getRole(uid, season) : 'extra',
 		};
 	}, [seasonId, season, games, seasonLoading, gamesLoading, seasonError, gamesError, uid, user?.isAppAdmin]);
