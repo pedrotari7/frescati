@@ -60,8 +60,14 @@ const NextGameHero = ({
 
 			<div className='relative'>
 				{/* The pills wrap on a narrow phone; the bell stays pinned to the
-				    top-right of the card rather than wrapping with them. */}
-				<div className='mb-3 flex items-center justify-between gap-2'>
+				    top-right of the card rather than wrapping with them.
+
+				    The gap below is wider than it looks: both neighbours paint
+				    outside their layout box — the bell's 44px circle hangs 8px
+				    below this row, and the link panel's hover surface reaches
+				    8px above its text — so anything under 16px has the panel's
+				    corner painting over the bell. */}
+				<div className='mb-5 flex items-center justify-between gap-2'>
 					<div className='flex flex-wrap items-center gap-2'>
 						<StatusPill tone='brand'>Next game</StatusPill>
 						<span className='text-faint text-xs'>{formatRelative(game.kickoff)}</span>
