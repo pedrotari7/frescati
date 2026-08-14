@@ -232,6 +232,7 @@ describe('getScheduleFit', () => {
 	it('fills the slot with as many matches as fit, not just one lap', () => {
 		expect(getScheduleFit(4, 12, 90)).toEqual({
 			matchCount: 7,
+			matchMinutes: 12,
 			totalMinutes: 84,
 			slotMinutes: 90,
 			overrunMinutes: 0,
@@ -241,6 +242,7 @@ describe('getScheduleFit', () => {
 	it('lands exactly on a slot divisible into whole laps', () => {
 		expect(getScheduleFit(4, 15, 90)).toEqual({
 			matchCount: 6,
+			matchMinutes: 15,
 			totalMinutes: 90,
 			slotMinutes: 90,
 			overrunMinutes: 0,
@@ -257,22 +259,30 @@ describe('getScheduleFit', () => {
 	it('fills a ninety-minute slot at five minutes a match', () => {
 		expect(getScheduleFit(4, 5, 90)).toEqual({
 			matchCount: 18,
+			matchMinutes: 5,
 			totalMinutes: 90,
 			slotMinutes: 90,
 			overrunMinutes: 0,
 		});
 	});
 
-	// Deliberate under-report, not a bug: two teams never lap, so `matchCount`
-	// stays 1 and `totalMinutes` is one `matchMinutes` regardless of how much
-	// of the ninety the two sides actually spend on the pitch.
-	it('under-reports for two teams, since there is no lap to fill the slot with', () => {
+	// Two teams never lap, so the one fixture they get is the evening: five
+	// minutes of it and eighty-five of nothing is not what happens, and the
+	// badge saying so read as a bug.
+	it('gives a lone fixture the whole slot', () => {
 		expect(getScheduleFit(2, 5, 90)).toEqual({
 			matchCount: 1,
-			totalMinutes: 5,
+			matchMinutes: 90,
+			totalMinutes: 90,
 			slotMinutes: 90,
 			overrunMinutes: 0,
 		});
+	});
+
+	// The match length can't overrun a slot it was taken from, however short
+	// the admin set the rotation.
+	it('never reports an overrun for a lone fixture', () => {
+		expect(getScheduleFit(2, 120, 90)).toMatchObject({ matchMinutes: 90, overrunMinutes: 0 });
 	});
 });
 

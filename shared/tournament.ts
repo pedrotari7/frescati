@@ -227,6 +227,8 @@ export const selectPlayedMatches = (
 
 export interface ScheduleFit {
 	matchCount: number;
+	/** How long each match actually runs for, which is the whole slot when there is only one. */
+	matchMinutes: number;
 	totalMinutes: number;
 	slotMinutes: number;
 	/** Minutes past the end of the slot, `0` when it fits. */
@@ -238,9 +240,11 @@ export interface ScheduleFit {
  *
  * `matchCount` already accounts for the slot for three or four teams, since
  * `getFixtures` laps the rotation to use the time available there. Two teams
- * never lap — `matchCount` is always 1 — so this honestly under-reports for
- * them: `totalMinutes` is one `matchMinutes`, not however long the two sides
- * actually end up playing.
+ * never lap — `matchCount` is always 1 — and a single fixture is not five
+ * minutes of football followed by an empty hour: the two sides play the slot
+ * out. So the match runs for `slotMinutes` there, which is what the badge
+ * shows and what keeps `totalMinutes` describing the evening rather than the
+ * admin's rotation length, which has nothing to rotate.
  *
  * Otherwise reported rather than enforced, and the fixture list is generated
  * at the requested match length either way. Changeovers are deliberately not
@@ -249,10 +253,12 @@ export interface ScheduleFit {
  */
 export const getScheduleFit = (teamCount: number, matchMinutes: number, slotMinutes: number): ScheduleFit => {
 	const matchCount = getFixtures(teamCount, matchMinutes, slotMinutes).length;
-	const totalMinutes = matchCount * matchMinutes;
+	const runMinutes = matchCount === 1 ? slotMinutes : matchMinutes;
+	const totalMinutes = matchCount * runMinutes;
 
 	return {
 		matchCount,
+		matchMinutes: runMinutes,
 		totalMinutes,
 		slotMinutes,
 		overrunMinutes: Math.max(0, totalMinutes - slotMinutes),
