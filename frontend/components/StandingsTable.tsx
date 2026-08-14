@@ -2,10 +2,7 @@
 
 import type { TeamStanding } from '@shared/types';
 import { placeLabel } from '@shared/format';
-import { teamName } from './TeamCard';
-import { classNames } from '../lib/utils/reactHelper';
-
-const TEAM_TEXT = ['text-team-a', 'text-team-b', 'text-team-c', 'text-team-d'];
+import TeamBadge from './TeamBadge';
 
 /**
  * The table.
@@ -41,8 +38,8 @@ const StandingsTable = ({ standings, unequal }: { standings: TeamStanding[]; une
 							return (
 								<tr key={row.team} className='border-t border-white/6'>
 									<td className='text-faint py-2 tabular-nums'>{placeLabel(row.position, shared)}</td>
-									<td className={classNames('py-2 font-bold whitespace-nowrap', TEAM_TEXT[row.team])}>
-										{teamName(row.team)}
+									<td className='py-2 whitespace-nowrap'>
+										<TeamBadge index={row.team} />
 									</td>
 									<td className='text-muted py-2 text-center tabular-nums'>{row.played}</td>
 									<td className='text-muted py-2 text-center tabular-nums'>{row.won}</td>

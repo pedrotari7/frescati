@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import type { AppUser, TournamentTeam } from '@shared/types';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
 import { BASE_ELO } from '@shared/rating';
-import TeamCard, { teamName } from './TeamCard';
+import TeamCard from './TeamCard';
 
 const user = (uid: string, displayName: string): AppUser => ({
 	uid,
@@ -20,28 +20,18 @@ const usersByUid = new Map([
 	['carol', user('carol', 'Carol Diaz')],
 ]);
 
-describe('teamName', () => {
-	it('names the first four teams A through D', () => {
-		expect([0, 1, 2, 3].map(teamName)).toEqual(['A', 'B', 'C', 'D']);
-	});
-
-	it('falls back to a 1-indexed number past the known styles', () => {
-		expect(teamName(4)).toBe('5');
-	});
-});
-
 describe('TeamCard', () => {
 	const team: TournamentTeam = { index: 0, uids: ['alice', 'bob'] };
 
+	it('names the team beside its badge', () => {
+		render(<TeamCard team={team} elos={{}} usersByUid={usersByUid} sideSize={2} />);
+
+		expect(screen.getByText('Team A')).toBeInTheDocument();
+		expect(screen.getByText('A')).toBeInTheDocument();
+	});
+
 	it('shows the squad average on the displayed 0-100 scale', () => {
-		render(
-			<TeamCard
-				team={team}
-				elos={{ alice: BASE_ELO, bob: BASE_ELO }}
-				usersByUid={usersByUid}
-				sideSize={2}
-			/>
-		);
+		render(<TeamCard team={team} elos={{ alice: BASE_ELO, bob: BASE_ELO }} usersByUid={usersByUid} sideSize={2} />);
 
 		expect(screen.getByText('avg 50')).toBeInTheDocument();
 	});
@@ -82,9 +72,7 @@ describe('TeamCard', () => {
 	});
 
 	it('says nothing about rotation when the whole squad plays at once', () => {
-		render(
-			<TeamCard team={team} elos={{ alice: BASE_ELO, bob: BASE_ELO }} usersByUid={usersByUid} sideSize={2} />
-		);
+		render(<TeamCard team={team} elos={{ alice: BASE_ELO, bob: BASE_ELO }} usersByUid={usersByUid} sideSize={2} />);
 
 		expect(screen.queryByText(/rotating/)).not.toBeInTheDocument();
 	});

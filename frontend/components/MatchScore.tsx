@@ -3,10 +3,8 @@
 import { MinusIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { Fixture } from '@shared/tournament';
 import type { TournamentMatch } from '@shared/types';
-import { teamName } from './TeamCard';
+import TeamBadge, { teamName, teamStyle } from './TeamBadge';
 import { classNames } from '../lib/utils/reactHelper';
-
-const TEAM_TEXT = ['text-team-a', 'text-team-b', 'text-team-c', 'text-team-d'];
 
 /** Big enough to hit with a cold thumb, in a coat, in the dark. */
 const Stepper = ({
@@ -14,11 +12,14 @@ const Stepper = ({
 	onChange,
 	disabled,
 	label,
+	tone,
 }: {
 	value: number | null;
 	onChange: (next: number) => void;
 	disabled: boolean;
 	label: string;
+	/** The scoring team's colour, so the number itself says whose it is. */
+	tone: string;
 }) => (
 	<div className='flex items-center gap-1'>
 		<button
@@ -33,8 +34,8 @@ const Stepper = ({
 
 		<span
 			className={classNames(
-				'w-8 text-center text-xl font-bold tabular-nums',
-				value === null ? 'text-faint' : 'text-ink'
+				'w-7 text-center text-xl font-bold tabular-nums',
+				value === null ? 'text-faint' : tone
 			)}
 		>
 			{value ?? '–'}
@@ -76,9 +77,20 @@ const MatchScore = ({
 	onClear: () => Promise<void> | void;
 }) => {
 	const [scoreA, scoreB] = [match?.scoreA ?? null, match?.scoreB ?? null];
+	const [styleA, styleB] = [teamStyle(fixture.teamA), teamStyle(fixture.teamB)];
 
 	return (
-		<li className='glass-card rounded-2xl p-3'>
+		// Each half of the row is washed in the colour of the side that owns it,
+		// so which stepper belongs to whom survives a glance rather than needing
+		// the letter read. `glass-card` sets a background *colour*; this is an
+		// image over it, so the frosting stays.
+		<li
+			className={classNames(
+				'glass-card rounded-2xl bg-gradient-to-r via-transparent p-3',
+				styleA.washFrom,
+				styleB.washTo
+			)}
+		>
 			<div className='mb-2 flex items-center justify-between gap-2'>
 				<span className='text-faint text-xs'>
 					Match {fixture.order + 1} · {sideSize} a side
@@ -95,14 +107,13 @@ const MatchScore = ({
 				)}
 			</div>
 
-			<div className='flex items-center justify-between gap-2'>
-				<span className={classNames('w-14 text-sm font-bold', TEAM_TEXT[fixture.teamA])}>
-					{teamName(fixture.teamA)}
-				</span>
+			<div className='flex items-center justify-between gap-1'>
+				<TeamBadge index={fixture.teamA} />
 
 				<Stepper
 					value={scoreA}
 					disabled={!canScore}
+					tone={styleA.text}
 					label={`Team ${teamName(fixture.teamA)}`}
 					onChange={next => onScore(next, scoreB ?? 0)}
 				/>
@@ -112,13 +123,12 @@ const MatchScore = ({
 				<Stepper
 					value={scoreB}
 					disabled={!canScore}
+					tone={styleB.text}
 					label={`Team ${teamName(fixture.teamB)}`}
 					onChange={next => onScore(scoreA ?? 0, next)}
 				/>
 
-				<span className={classNames('w-14 text-right text-sm font-bold', TEAM_TEXT[fixture.teamB])}>
-					{teamName(fixture.teamB)}
-				</span>
+				<TeamBadge index={fixture.teamB} />
 			</div>
 		</li>
 	);
