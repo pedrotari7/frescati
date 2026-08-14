@@ -6,6 +6,7 @@ import { getGameLifecycle } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
 import { useMyResponses } from '../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../hooks/useRespond';
+import { useLiveGameRedirect } from '../../../../hooks/useLiveGameRedirect';
 import { useNow } from '../../../../hooks/useNow';
 import SeasonShell from '../../../../components/SeasonShell';
 import Skeleton from '../../../../components/Skeleton';
@@ -17,11 +18,22 @@ import CalendarSubscribeSheet from '../../../../components/CalendarSubscribeShee
 
 const SeasonHomePage = () => {
 	const { seasonId, season, games, loading, isAdmin, role } = useSeasonContext();
-	const { myResponses } = useMyResponses();
+	const { myResponses, loading: responsesLoading } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
 	const [showPast, setShowPast] = useState(false);
 	const [subscribeOpen, setSubscribeOpen] = useState(false);
 	const now = useNow();
+
+	// This is the screen the app lands on, so it's where somebody arriving during
+	// a game they're playing in gets taken to it. Above the early returns, so a
+	// slow first snapshot doesn't skip it — it waits for `ready` instead.
+	useLiveGameRedirect({
+		seasonId,
+		season,
+		games,
+		myResponses,
+		ready: !loading && !responsesLoading,
+	});
 
 	const { next, upcoming, past } = useMemo(() => {
 		if (!season) return { next: null, upcoming: [], past: [] };

@@ -51,6 +51,28 @@ export const getGameLifecycle = (
  */
 export const isWatchable = (lifecycle: GameLifecycle): boolean => lifecycle !== 'cancelled' && lifecycle !== 'finished';
 
+/**
+ * The game being played right now that somebody said they'd be at, or `null`.
+ *
+ * `myResponses` is one person's answers keyed by game id — this asks about the
+ * player holding them, never about the group.
+ *
+ * Deliberately `status === 'in'` rather than `isConfirmed`: an extra waiting on
+ * an admin's nod doesn't hold a spot and isn't in the lineup, but they put their
+ * hand up and are as likely as anyone to be stood at the touchline. Being sent
+ * to the page that says whether they got on is the answer they came for.
+ *
+ * `find` rather than a filter because a weekly slot can't overlap itself, and
+ * games arrive in kickoff order, so the earliest live one is the only one.
+ */
+export const findLiveGame = <T extends Pick<Game, 'id' | 'kickoff' | 'endsAt' | 'status'>>(
+	games: T[],
+	season: Pick<Season, 'responseDeadlineHours'>,
+	myResponses: Record<string, Pick<GameResponse, 'status'>>,
+	now: Date = new Date()
+): T | null =>
+	games.find(game => myResponses[game.id]?.status === 'in' && getGameLifecycle(game, season, now) === 'live') ?? null;
+
 export const getHeadcountState = (
 	game: Pick<Game, 'counts' | 'minPlayers'>,
 	season: Pick<Season, 'minPlayers'>

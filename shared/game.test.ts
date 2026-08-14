@@ -1,5 +1,6 @@
 import {
 	findCountsDrift,
+	findLiveGame,
 	getAvailabilityChange,
 	getFormat,
 	getGameLifecycle,
@@ -215,6 +216,45 @@ describe('isWatchable', () => {
 	it('stops at a game that is off or already played', () => {
 		expect(isWatchable('cancelled')).toBe(false);
 		expect(isWatchable('finished')).toBe(false);
+	});
+});
+
+describe('findLiveGame', () => {
+	const kickedOff = new Date('2026-09-01T17:30:00Z');
+	const games = [
+		{ ...game, id: 'earlier', kickoff: '2026-08-25T17:00:00.000Z', endsAt: '2026-08-25T18:30:00.000Z' },
+		{ ...game, id: 'tonight' },
+	] as Game[];
+	const inTonight: Record<string, Pick<GameResponse, 'status'>> = { tonight: { status: 'in' } };
+
+	it('finds the game in progress that they answered In to', () => {
+		expect(findLiveGame(games, season, inTonight, kickedOff)?.id).toBe('tonight');
+	});
+
+	// The point of the whole thing: somebody who is not at this game gets left
+	// exactly where they are.
+	it('ignores a live game they said Out to, or never answered', () => {
+		expect(findLiveGame(games, season, { tonight: { status: 'out' } }, kickedOff)).toBeNull();
+		expect(findLiveGame(games, season, {}, kickedOff)).toBeNull();
+	});
+
+	it.each([
+		['before kickoff', '2026-09-01T16:00:00Z'],
+		['after the final whistle', '2026-09-01T19:00:00Z'],
+	])('finds nothing %s', (_when, now) => {
+		expect(findLiveGame(games, season, inTonight, new Date(now))).toBeNull();
+	});
+
+	// A game called off doesn't become live at kickoff, so nobody is sent to it.
+	it('ignores a cancelled game at its own kickoff time', () => {
+		const cancelled = [{ ...games[1], status: 'cancelled' }] as Game[];
+
+		expect(findLiveGame(cancelled, season, inTonight, kickedOff)).toBeNull();
+	});
+
+	// Answers to other games are not answers to this one.
+	it('does not match a response belonging to a different game', () => {
+		expect(findLiveGame(games, season, { earlier: { status: 'in' } }, kickedOff)).toBeNull();
 	});
 });
 
