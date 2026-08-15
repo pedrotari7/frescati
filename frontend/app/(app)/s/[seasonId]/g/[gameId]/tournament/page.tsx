@@ -14,6 +14,7 @@ import {
 } from '@shared/tournament';
 import { getStandings } from '@shared/standings';
 import { formatGameDateLong, formatRelative } from '@shared/format';
+import { isMotmVotingOpen } from '@shared/motm';
 import { useSeasonContext } from '../../../../../../../components/SeasonProvider';
 import {
 	useMatches,
@@ -150,9 +151,45 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// enforce too — being an admin is not being on the pitch.
 	const playedInThis = !!user && lineup.teams.some(team => team.uids.includes(user.uid));
 
+	// Where the panel goes depends on whether it is a ballot or a record. While
+	// the vote is open it is the only thing on the screen with a deadline, and
+	// the notification that opened it lands here — so it goes first, above a
+	// lineup and a scoreboard that are both already settled. Once it is decided
+	// it drops back to sitting with the table, which is the other thing the
+	// evening produced. Drawn once either way: the panel returns nothing at all
+	// until there is a vote to hold or a result to report.
+	const motmPanel = (
+		<MotmPanel
+			teams={lineup.teams}
+			usersByUid={usersByUid}
+			motm={motm}
+			vote={vote}
+			votingUntil={game.motmVotingUntilMillis}
+			now={now}
+			canVote={playedInThis}
+			onVote={async uid => {
+				if (!user) return;
+
+				// Tapping your own pick again takes it back — abstaining is a
+				// real position, and there is nowhere else to express it.
+				await write(
+					() =>
+						vote?.votedFor === uid
+							? clearMotmVote(seasonId, gameId, user.uid)
+							: setMotmVote(seasonId, gameId, user.uid, uid),
+					"Couldn't save your vote."
+				);
+			}}
+		/>
+	);
+
+	const voting = isMotmVotingOpen(game.motmVotingUntilMillis, now.getTime());
+
 	return (
 		<SeasonShell title='Teams' subtitle={subtitle} backHref={backHref}>
 			<div className='space-y-6 p-4'>
+				{voting && motmPanel}
+
 				<section className='glass rounded-3xl p-5'>
 					<div className='flex flex-wrap items-center gap-2'>
 						<StatusPill tone='brand'>{describeSquads(squadSizes)}</StatusPill>
@@ -258,31 +295,9 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					</ol>
 				</section>
 
-				{/* Above the table on purpose. The vote is the one thing on this
-				    screen with a deadline on it, and the table is not going
-				    anywhere. */}
-				<MotmPanel
-					teams={lineup.teams}
-					usersByUid={usersByUid}
-					motm={motm}
-					vote={vote}
-					votingUntil={game.motmVotingUntilMillis}
-					now={now}
-					canVote={playedInThis}
-					onVote={async uid => {
-						if (!user) return;
-
-						// Tapping your own pick again takes it back — abstaining is a
-						// real position, and there is nowhere else to express it.
-						await write(
-							() =>
-								vote?.votedFor === uid
-									? clearMotmVote(seasonId, gameId, user.uid)
-									: setMotmVote(seasonId, gameId, user.uid, uid),
-							"Couldn't save your vote."
-						);
-					}}
-				/>
+				{/* Above the table on purpose: the winner is the part of the
+				    evening the table can't show. */}
+				{!voting && motmPanel}
 
 				{(played > 0 || finalised) && (
 					<section className='glass rounded-3xl p-5'>
