@@ -58,6 +58,15 @@ const MotmPanel = ({
 	const candidates = teams.flatMap(team => team.uids.map(uid => ({ uid, team: team.index })));
 	const votes = new Map((motm?.counts ?? []).map(count => [count.uid, count.votes]));
 
+	// Decided, the list stops being a ballot and becomes a result, so it is
+	// ordered like one: most votes first. While the vote is open it stays in team
+	// order, because there is nothing to rank by that anybody is allowed to see.
+	// The sort is stable, so everybody level — including the whole tail nobody
+	// voted for — keeps the team order they were drawn in.
+	const ordered = motm
+		? [...candidates].sort((a, b) => (votes.get(b.uid) ?? 0) - (votes.get(a.uid) ?? 0))
+		: candidates;
+
 	return (
 		<section className='glass rounded-3xl p-5'>
 			<div className='mb-1 flex items-center justify-between gap-2'>
@@ -88,9 +97,10 @@ const MotmPanel = ({
 			)}
 
 			{/* The list stays up after the vote closes, carrying the counts — the
-			    same list, now answering a different question. */}
+			    same list, now answering a different question, and reordered to
+			    answer it. */}
 			<ul className='mt-3 grid gap-1.5 sm:grid-cols-2'>
-				{candidates.map(candidate => {
+				{ordered.map(candidate => {
 					const picked = vote?.votedFor === candidate.uid;
 					const won = motm?.winners.includes(candidate.uid) ?? false;
 					const count = votes.get(candidate.uid) ?? 0;

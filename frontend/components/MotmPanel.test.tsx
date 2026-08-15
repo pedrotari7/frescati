@@ -122,6 +122,28 @@ describe('MotmPanel', () => {
 			expect(screen.getByText('Decided')).toBeInTheDocument();
 		});
 
+		// The ballot was in team order because there was nothing to rank by. A
+		// result is ranked, and everybody level keeps the order they were drawn
+		// in — including the tail nobody voted for.
+		it('reorders the list by votes, most first', () => {
+			renderPanel({
+				motm: decided(
+					['erik'],
+					[
+						{ uid: 'erik', votes: 3 },
+						{ uid: 'johan', votes: 1 },
+					]
+				),
+				votingUntil: undefined,
+			});
+
+			const order = screen
+				.getAllByRole('button')
+				.map(button => [...USERS.values()].find(u => button.textContent?.includes(u.displayName))?.uid);
+
+			expect(order).toEqual(['erik', 'johan', 'anna', 'zara']);
+		});
+
 		// A tie is stated as a tie rather than resolved — the group produced two
 		// names, and they share the bonus.
 		it('names both when the vote tied', () => {
