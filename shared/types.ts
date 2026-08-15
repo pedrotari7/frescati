@@ -91,6 +91,17 @@ export interface NotificationPrefs {
 	 */
 	newPlayers: boolean;
 	/**
+	 * The one-tap vote that opens when a game is confirmed.
+	 *
+	 * A switch of its own rather than borrowing `reminders`, which covers the
+	 * nudge to say whether you're playing: somebody who has muted being chased
+	 * for an answer has said nothing about whether they want to be asked who was
+	 * best on the pitch. It needs *a* switch because the audience is everybody
+	 * who played, which nobody signed up for — the same test `availability`
+	 * fails, and why that one has none.
+	 */
+	motm: boolean;
+	/**
 	 * Whether to fall back to email when a push can't be delivered.
 	 *
 	 * Not a kind, unlike the three above — it picks the *channel* for kinds
@@ -295,6 +306,21 @@ export interface Game {
 	 */
 	resultFinalisedAt?: string;
 	/**
+	 * When the man-of-the-match vote closes, as epoch milliseconds. Set by the
+	 * confirmation that opened it; **deleted** by the sweep that counts the
+	 * votes, which is what takes the game out of that sweep's query for good.
+	 *
+	 * Milliseconds, and no ISO twin, for the reason `kickoffMillis` has one: a
+	 * security rule cannot parse an instant, and the deadline is what the rule
+	 * enforces. Nothing sorts on it, so the string half would be dead weight.
+	 *
+	 * Absent means the vote is shut — a game not yet confirmed and a game
+	 * already decided are both closed, and the decision document says which.
+	 *
+	 * Written only by the functions; client writes are rejected.
+	 */
+	motmVotingUntilMillis?: number;
+	/**
 	 * Bumped by an admin tapping Reshuffle. Feeds the optimizer's seed, so the
 	 * same pool re-rolls into a different — equally balanced — split. Admin
 	 * writable, unlike `teamsGeneration`.
@@ -352,6 +378,51 @@ export interface GameResponse {
 export interface GameWatcher {
 	uid: string;
 	createdAt: string;
+}
+
+/**
+ * One player's vote for man of the match, at
+ * `seasons/{id}/games/{id}/motmVotes/{uid}`.
+ *
+ * The document id is the voter, so nobody holds two votes for one game and
+ * changing your mind overwrites rather than stuffs the ballot. Absence is "has
+ * not voted" — the same third state a response uses — and withdrawing a vote
+ * deletes the document.
+ *
+ * **Private to its owner**, like a watcher and for a firmer version of the same
+ * reason: a running count visible while the vote is open turns an early lead
+ * into a bandwagon. Nobody but the voter can read one until the sweep counts
+ * them and publishes the totals on `TournamentMotm`.
+ *
+ * Voting for yourself is allowed. The group can be trusted to have an opinion
+ * about that, and a rule against it is one more thing that can go wrong for a
+ * player who genuinely was the best one out there.
+ */
+export interface MotmVote {
+	uid: string;
+	/** Who they picked. Always somebody in this game's lineup. */
+	votedFor: string;
+	votedAt: string;
+}
+
+/**
+ * The counted vote, at `seasons/{id}/games/{id}/tournament/motm`.
+ *
+ * Written only by the sweep that closes the vote, and its **existence** is what
+ * says the counting has happened — which is why one is written even when nobody
+ * voted, with no winners in it. "Nobody voted" is a decision; "not counted yet"
+ * is not, and the two would otherwise look identical.
+ *
+ * Stored rather than re-tallied on demand because the ratings hang off it: a
+ * replay reads this back exactly as a rewind reads `before` back, so the ladder
+ * cannot quietly settle on a different answer than the one the app announced.
+ */
+export interface TournamentMotm {
+	/** Everybody level on the most votes; empty when nobody voted. */
+	winners: string[];
+	/** Every player who got a vote, most first. Sums to the turnout. */
+	counts: { uid: string; votes: number }[];
+	decidedAt: string;
 }
 
 /**
@@ -461,6 +532,17 @@ export interface RatingLedgerEntry {
 	 * which is what this entry records.
 	 */
 	positions: Record<string, number>;
+	/**
+	 * Who the group voted man of the match, if the vote had closed by the time
+	 * this entry was written. Shared on a tie, like `positions`.
+	 *
+	 * Recorded here for the same reason positions are — it is part of what the
+	 * game did to these players, and a career screen reads this collection and
+	 * nothing else. The ratings do not come from it: they come from the decision
+	 * document, which a replay re-reads. Absent on every entry written before a
+	 * vote existed, and on any game confirmed while its vote was still open.
+	 */
+	motm?: string[];
 }
 
 /** One row of the table. */
@@ -495,5 +577,6 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
 	reminders: true,
 	gameChanges: true,
 	newPlayers: true,
+	motm: true,
 	emailFallback: true,
 };

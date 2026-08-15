@@ -15,17 +15,27 @@ import {
 import { getStandings } from '@shared/standings';
 import { formatGameDateLong, formatRelative } from '@shared/format';
 import { useSeasonContext } from '../../../../../../../components/SeasonProvider';
-import { useMatches, useTournamentResult, useTournamentTeams, useUsers } from '../../../../../../../hooks/useData';
+import {
+	useMatches,
+	useMotm,
+	useMyMotmVote,
+	useTournamentResult,
+	useTournamentTeams,
+	useUsers,
+} from '../../../../../../../hooks/useData';
 import { useMyResponses } from '../../../../../../../hooks/useMyResponses';
+import { useNow } from '../../../../../../../hooks/useNow';
 import { useWrite } from '../../../../../../../hooks/useWrite';
 import { useAuth } from '../../../../../../../lib/auth';
 import { classNames } from '../../../../../../../lib/utils/reactHelper';
+import { clearMotmVote, setMotmVote } from '../../../../../../../lib/db/motm';
 import {
 	clearMatchScore,
 	finaliseTournament,
 	reshuffleTeams,
 	setMatchScore,
 } from '../../../../../../../lib/db/tournament';
+import MotmPanel from '../../../../../../../components/MotmPanel';
 import SeasonShell from '../../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../../components/EmptyState';
@@ -37,14 +47,20 @@ import StandingsTable from '../../../../../../../components/StandingsTable';
 
 const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { seasonId, gameId } = use(params);
+	const { user } = useAuth();
 	const { season, games, loading, isAdmin, isSeasonAdmin } = useSeasonContext();
 	const { teams: lineup, loading: teamsLoading } = useTournamentTeams(seasonId, gameId);
 	const { matches } = useMatches(seasonId, gameId);
 	const { result } = useTournamentResult(seasonId, gameId);
+	const { motm } = useMotm(seasonId, gameId);
+	const { vote } = useMyMotmVote(seasonId, gameId, user?.uid ?? null);
 	const { users } = useUsers();
 	const { myResponses } = useMyResponses();
-	const { user } = useAuth();
 	const write = useWrite();
+	// The vote closes on a deadline, so the panel needs a clock that moves —
+	// anything off `new Date()` would keep offering the buttons for as long as
+	// the page stayed open.
+	const now = useNow();
 
 	const game = games.find(candidate => candidate.id === gameId) ?? null;
 	const usersByUid = useMemo(() => new Map(users.map(person => [person.uid, person])), [users]);
@@ -129,6 +145,10 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 
 	// Only worth explaining when it is actually happening.
 	const unequal = new Set(standings.map(row => row.played)).size > 1;
+
+	// Only the people on the team sheet get a vote, which is what the rules
+	// enforce too — being an admin is not being on the pitch.
+	const playedInThis = !!user && lineup.teams.some(team => team.uids.includes(user.uid));
 
 	return (
 		<SeasonShell title='Teams' subtitle={subtitle} backHref={backHref}>
@@ -237,6 +257,32 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 						))}
 					</ol>
 				</section>
+
+				{/* Above the table on purpose. The vote is the one thing on this
+				    screen with a deadline on it, and the table is not going
+				    anywhere. */}
+				<MotmPanel
+					teams={lineup.teams}
+					usersByUid={usersByUid}
+					motm={motm}
+					vote={vote}
+					votingUntil={game.motmVotingUntilMillis}
+					now={now}
+					canVote={playedInThis}
+					onVote={async uid => {
+						if (!user) return;
+
+						// Tapping your own pick again takes it back — abstaining is a
+						// real position, and there is nowhere else to express it.
+						await write(
+							() =>
+								vote?.votedFor === uid
+									? clearMotmVote(seasonId, gameId, user.uid)
+									: setMotmVote(seasonId, gameId, user.uid, uid),
+							"Couldn't save your vote."
+						);
+					}}
+				/>
 
 				{(played > 0 || finalised) && (
 					<section className='glass rounded-3xl p-5'>

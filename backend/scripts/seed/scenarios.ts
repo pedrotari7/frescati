@@ -43,6 +43,17 @@ export interface GamePin {
 	 * has nothing to say, so at least one pin should carry a few.
 	 */
 	watcherKeys?: string[];
+	/**
+	 * Where the man-of-the-match vote has got to. Only meaningful on a
+	 * `confirmed` game — the vote opens when the scores are confirmed.
+	 *
+	 * `decided` is the default and what every past game looks like: counted,
+	 * with the winner's bonus already in the ratings. `open` is the state
+	 * somebody would actually be looking at — votes cast, nothing counted, no
+	 * bonus applied yet — and needs at least one pin carrying it or the voting
+	 * screen can only ever be seen by confirming a game by hand.
+	 */
+	motm?: 'open' | 'decided';
 }
 
 export interface SeasonPlan {
@@ -194,6 +205,11 @@ const full: Scenario = {
 				// Played, scored, and waiting on somebody to hit Confirm — the
 				// state the auto-confirm sweep exists for.
 				[-1]: { outcome: 'scored', note: 'Floodlight on pitch B was out, played the far end' },
+				// Confirmed late, so its man-of-the-match vote is still running.
+				// The one game in a seeded database where the voting screen has
+				// anything to do — everything older has been counted, and the
+				// game after this one hasn't been confirmed at all.
+				[-2]: { motm: 'open' },
 				// The game everyone is actually looking at.
 				[0]: {
 					responses: 'partial',

@@ -166,10 +166,33 @@ describe('buildNewPlayerPush', () => {
 	});
 });
 
+describe('the man-of-the-match vote', () => {
+	// The only game notification sent after the football rather than before it,
+	// so "I'm in" has nothing left to answer.
+	it('carries no respond shortcut either', () => {
+		expect(buildGamePush('motm', CONTEXT).respondable).toBe(false);
+	});
+
+	it('says which game it is asking about', () => {
+		expect(buildGamePush('motm', CONTEXT).body).toContain(CONTEXT.when);
+	});
+
+	// A player opening it two days later needs the vote, not the headcount.
+	it('opens wherever the caller pointed it', () => {
+		expect(buildGamePush('motm', { ...CONTEXT, url: '/s/s1/g/g1/tournament' }).url).toBe('/s/s1/g/g1/tournament');
+	});
+
+	// Late enough after the game that any availability notice about it is stale,
+	// so replacing that on the lock screen is the right thing to do.
+	it('shares the one tag per game', () => {
+		expect(buildGamePush('motm', CONTEXT).tag).toBe(buildGamePush('reminder', CONTEXT).tag);
+	});
+});
+
 describe('NOTIFICATION_PREF', () => {
 	it('gates every kind behind a preference, or explicitly behind none', () => {
 		for (const kind of NOTIFICATIONS) {
-			expect(['reminders', 'gameChanges', 'newPlayers', null]).toContain(NOTIFICATION_PREF[kind]);
+			expect(['reminders', 'gameChanges', 'newPlayers', 'motm', null]).toContain(NOTIFICATION_PREF[kind]);
 		}
 	});
 
@@ -193,6 +216,12 @@ describe('NOTIFICATION_PREF', () => {
 		expect(NOTIFICATION_PREF.reminder).toBe('reminders');
 		expect(NOTIFICATION_PREF.cancelled).toBe('gameChanges');
 		expect(NOTIFICATION_PREF.atRisk).toBe('gameChanges');
+	});
+
+	// Muting the chase for an answer says nothing about wanting to be asked who
+	// played well, so the vote carries its own switch rather than borrowing one.
+	it('keeps the vote off the pre-game nudge', () => {
+		expect(NOTIFICATION_PREF.motm).toBe('motm');
 	});
 
 	// Otherwise an admin switching game changes off would stop hearing about
@@ -222,7 +251,7 @@ describe('getPushReach', () => {
 		expect(getPushReach({ prefs: { ...ALL_ON, reminders: false }, devices: 2, isAppAdmin: false })).toBe('partly');
 		expect(
 			getPushReach({
-				prefs: { ...ALL_ON, reminders: false, gameChanges: false },
+				prefs: { ...ALL_ON, reminders: false, gameChanges: false, motm: false },
 				devices: 2,
 				isAppAdmin: false,
 			})
@@ -248,8 +277,8 @@ describe('getPushReach', () => {
 
 describe('relevantPrefs', () => {
 	it('hides the admin notice from everybody else', () => {
-		expect(relevantPrefs(false)).toEqual(['reminders', 'gameChanges']);
-		expect(relevantPrefs(true)).toEqual(['reminders', 'gameChanges', 'newPlayers']);
+		expect(relevantPrefs(false)).toEqual(['reminders', 'gameChanges', 'motm']);
+		expect(relevantPrefs(true)).toEqual(['reminders', 'gameChanges', 'motm', 'newPlayers']);
 	});
 
 	// It picks a channel, not a kind. Counted here, somebody who wants push and
@@ -282,21 +311,22 @@ describe('normaliseNotificationPrefs', () => {
 				reminders: false,
 				gameChanges: true,
 				newPlayers: false,
+				motm: true,
 				emailFallback: true,
 			})
-		).toEqual({ reminders: false, gameChanges: true, newPlayers: false, emailFallback: true });
+		).toEqual({ reminders: false, gameChanges: true, newPlayers: false, motm: true, emailFallback: true });
 	});
 
-	// The whole point: security rules bound this map to these four keys, and a
-	// writer that spread a stored one forward could carry anything else with it.
-	it('drops anything that is not one of the four switches', () => {
+	// The whole point: security rules bound this map to exactly these keys, and
+	// a writer that spread a stored one forward could carry anything else with it.
+	it('drops anything that is not one of the switches', () => {
 		const prefs = normaliseNotificationPrefs({
 			reminders: false,
 			junk: 'x'.repeat(1000),
 			nested: { anything: [1, 2, 3] },
 		} as never);
 
-		expect(Object.keys(prefs).sort()).toEqual(['emailFallback', 'gameChanges', 'newPlayers', 'reminders']);
+		expect(Object.keys(prefs).sort()).toEqual(['emailFallback', 'gameChanges', 'motm', 'newPlayers', 'reminders']);
 		expect(prefs.reminders).toBe(false);
 	});
 
@@ -307,6 +337,7 @@ describe('normaliseNotificationPrefs', () => {
 			reminders: false,
 			gameChanges: true,
 			newPlayers: true,
+			motm: true,
 			emailFallback: true,
 		});
 	});

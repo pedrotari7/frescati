@@ -57,6 +57,7 @@ const DESCRIPTIONS: Record<GameNotification | AppNotification, string> = {
 	newPlayer: 'Really goes to every app admin, once, when somebody first signs in. Sends as if you had just joined.',
 	availability:
 		'Really goes to whoever tapped the bell on that game, every time an answer moves. Sends as if you had just said you were in.',
+	motm: 'Really goes to everybody in the lineup, once, when a game is confirmed. Opens the team sheet, where the vote is.',
 };
 
 const STATUS_TONE: Record<EmailTestStatus, PillTone> = { sent: 'in', noAddress: 'out', emailOff: 'neutral' };

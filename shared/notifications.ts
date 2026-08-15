@@ -1,4 +1,5 @@
 import type { AvailabilityChange, NotificationPrefs } from './types';
+import { MOTM_VOTING_HOURS } from './motm';
 
 /**
  * Every notification the app sends, built in one place.
@@ -31,7 +32,14 @@ export interface PushPayload {
 }
 
 /** The events worth interrupting somebody for. */
-export type GameNotification = 'cancelled' | 'restored' | 'atRisk' | 'kickoffMoved' | 'reminder' | 'availability';
+export type GameNotification =
+	| 'cancelled'
+	| 'restored'
+	| 'atRisk'
+	| 'kickoffMoved'
+	| 'reminder'
+	| 'availability'
+	| 'motm';
 
 export const GAME_NOTIFICATIONS: GameNotification[] = [
 	'reminder',
@@ -40,6 +48,7 @@ export const GAME_NOTIFICATIONS: GameNotification[] = [
 	'restored',
 	'kickoffMoved',
 	'availability',
+	'motm',
 ];
 
 /**
@@ -95,6 +104,7 @@ export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof
 	kickoffMoved: 'gameChanges',
 	reminder: 'reminders',
 	newPlayer: 'newPlayers',
+	motm: 'motm',
 	availability: null,
 };
 
@@ -110,7 +120,7 @@ export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof
  * partially muted.
  */
 export const relevantPrefs = (isAppAdmin: boolean): (keyof NotificationPrefs)[] =>
-	isAppAdmin ? ['reminders', 'gameChanges', 'newPlayers'] : ['reminders', 'gameChanges'];
+	isAppAdmin ? ['reminders', 'gameChanges', 'motm', 'newPlayers'] : ['reminders', 'gameChanges', 'motm'];
 
 /**
  * Why nothing is arriving, for the three reasons that aren't a bug.
@@ -180,6 +190,7 @@ export const normaliseNotificationPrefs = (prefs?: Partial<NotificationPrefs>): 
 	reminders: prefs?.reminders !== false,
 	gameChanges: prefs?.gameChanges !== false,
 	newPlayers: prefs?.newPlayers !== false,
+	motm: prefs?.motm !== false,
 	emailFallback: prefs?.emailFallback !== false,
 });
 
@@ -231,6 +242,14 @@ const COPY: Record<GameNotification, Copy> = {
 		title: `${who?.trim() || 'Somebody'} ${AVAILABILITY_COPY[availability ?? 'in']}`,
 		body: `${when} — ${playing ?? 0} in so far.`,
 	}),
+
+	// The only one of these that arrives after the football rather than before
+	// it, so the date is what places it — "which Tuesday is this about" is a
+	// real question two days later.
+	motm: ({ when }) => ({
+		title: 'Who was man of the match?',
+		body: `${when} — pick whoever stood out. Voting closes in ${MOTM_VOTING_HOURS} hours.`,
+	}),
 };
 
 export const buildGamePush = (kind: GameNotification, context: GameNotificationContext): PushPayload => ({
@@ -239,7 +258,11 @@ export const buildGamePush = (kind: GameNotification, context: GameNotificationC
 	// One tag per game, so three notifications about the same Tuesday replace
 	// each other on the lock screen instead of stacking up.
 	tag: `game-${context.gameId}`,
-	respondable: true,
+	// Every kind here asks a question about a game somebody can still answer —
+	// except the vote, which arrives once the game is over and the question is a
+	// different one. Offering "I'm in" on it would open the app and silently do
+	// nothing.
+	respondable: kind !== 'motm',
 });
 
 export interface NewPlayerContext {

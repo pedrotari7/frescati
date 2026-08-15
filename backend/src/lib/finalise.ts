@@ -11,12 +11,13 @@ import type {
 	TournamentTeams,
 } from '../../../shared/types';
 import type { RatingInput } from '../../../shared/rating';
-import { applyRatingChange, getRatingChanges, getSeedElo } from '../../../shared/rating';
+import { applyMotmBonus, applyRatingChange, getRatingChanges, getSeedElo } from '../../../shared/rating';
 import { getPositions, getStandings } from '../../../shared/standings';
 import { selectPlayedMatches } from '../../../shared/tournament';
 import { db } from './firebase';
 import { getGame, getSeason } from './data';
 import { clearPendingIfUnmoved, readPendingFrom, withDrainedLadderLock, withLadderLock } from './ladderLock';
+import { getMotmDecision, openMotmVoting } from './motm';
 
 /**
  * Turning a scoreboard into ratings.
@@ -38,6 +39,8 @@ interface GameRatings {
 	before: Record<string, PlayerRating | null>;
 	after: Record<string, PlayerRating>;
 	positions: Record<string, number>;
+	/** Who the group voted for, once its vote has been counted. */
+	motm: string[];
 }
 
 const getProfiles = async (uids: string[]): Promise<Map<string, AppUser>> => {
@@ -69,9 +72,14 @@ export const computeGameRatings = async (
 ): Promise<GameRatings | null> => {
 	const gameRef = db.doc(`seasons/${seasonId}/games/${gameId}`);
 
-	const [teamsSnap, matchesSnap] = await Promise.all([
+	const [teamsSnap, matchesSnap, decision] = await Promise.all([
 		gameRef.collection('tournament').doc('teams').get(),
 		gameRef.collection('matches').get(),
+		// The counted vote, or nothing while it is still open. Read here rather
+		// than tallied here on purpose: a replay must land on the same winner the
+		// app announced, and re-counting is a different operation from reading
+		// back what was counted.
+		getMotmDecision(seasonId, gameId),
 	]);
 
 	if (!teamsSnap.exists) return null;
@@ -112,11 +120,18 @@ export const computeGameRatings = async (
 	);
 
 	const positions = getPositions(standings);
-	const changes = getRatingChanges(players, positions, seedElo);
+	const motm = decision?.winners ?? [];
+
+	// The football first, then the vote — two separate statements about the
+	// evening, added together into the one movement a player sees. A game
+	// confirmed while its vote is still open simply skips the second, and picks
+	// it up when the count closes and asks for a replay.
+	const changes = applyMotmBonus(getRatingChanges(players, positions, seedElo), motm);
 
 	return {
 		standings,
 		changes,
+		motm,
 		before: Object.fromEntries(changes.map(change => [change.uid, profiles.get(change.uid)?.rating ?? null])),
 		after: Object.fromEntries(
 			changes.map(change => [change.uid, applyRatingChange(profiles.get(change.uid)?.rating, change, at)])
@@ -159,6 +174,11 @@ const commitGameRatings = async (
 		before: ratings.before,
 		after: ratings.after,
 		positions: ratings.positions,
+		// Left off entirely while the vote is open, rather than written as an
+		// empty list: a career screen reads this collection and nothing else, and
+		// "nobody won it" and "it hadn't been counted yet" are different things
+		// that would otherwise look identical.
+		...(ratings.motm.length > 0 ? { motm: ratings.motm } : {}),
 	};
 
 	await commitAll([
@@ -236,6 +256,24 @@ export const finaliseGame = async (
 
 		return 'finalised';
 	});
+
+	// Outside the lock, and only for a confirmation that actually applied.
+	//
+	// Outside because it sends a notification to everybody who played, and the
+	// ladder has nothing to do with that — holding a global lock open for the
+	// length of a multicast would block every correction in the app behind a
+	// push. Only for a real confirmation because `already-finalised` is the
+	// answer a second attempt gets, and a Tuesday six weeks ago must not ask the
+	// squad to vote on it again.
+	//
+	// The season is read again rather than carried out of the closure: this
+	// happens once in a game's life, and one extra read beats a captured
+	// variable that only holds a season on one of five paths.
+	if (outcome === 'finalised') {
+		const season = await getSeason(seasonId);
+
+		if (season) await openMotmVoting(seasonId, gameId, season);
+	}
 
 	return outcome ?? 'busy';
 };

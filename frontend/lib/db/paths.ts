@@ -32,6 +32,18 @@ export const watcherDoc = (seasonId: string, gameId: string, uid: string): Docum
 export const tournamentTeamsDoc = (seasonId: string, gameId: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'tournament', 'teams');
 
+/**
+ * One person's man-of-the-match vote. The id is the voter, and the document is
+ * readable by nobody else — the totals arrive on `tournamentMotmDoc` once the
+ * vote has been counted.
+ */
+export const motmVoteDoc = (seasonId: string, gameId: string, uid: string): DocumentReference =>
+	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'motmVotes', uid);
+
+/** The counted vote. Its existence is what says the counting has happened. */
+export const tournamentMotmDoc = (seasonId: string, gameId: string): DocumentReference =>
+	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'tournament', 'motm');
+
 /** Top-level: ratings are global, so a replay walks this regardless of season. */
 export const ratingLedgerCol = (): CollectionReference => collection(getDb(), 'ratingLedger');
 

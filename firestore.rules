@@ -87,9 +87,15 @@ service cloud.firestore {
     // debounced team rebuild reads: a client that could move it could make
     // every queued rebuild believe it had been superseded, and the teams would
     // silently stop updating.
+    // `motmVotingUntilMillis` is in here for the same reason `teamsGeneration`
+    // is: it is not a setting, it is the deadline this file enforces the
+    // man-of-the-match vote against. An admin who could move it could hold a
+    // vote open forever, or reopen a decided one and have the ladder replayed
+    // against a different winner.
     function touchesDerivedGameFields() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['counts', 'atRisk', 'remindersSent', 'teamsGeneration', 'resultFinalisedAt']);
+        .hasAny(['counts', 'atRisk', 'remindersSent', 'teamsGeneration', 'resultFinalisedAt',
+                 'motmVotingUntilMillis']);
     }
 
     // A brand new game has nobody in it, so every counter starts at zero — not
@@ -174,10 +180,11 @@ service cloud.firestore {
       function notificationPrefsShapeOk() {
         return !request.resource.data.keys().hasAny(['notificationPrefs'])
                || (request.resource.data.notificationPrefs.keys()
-                     .hasOnly(['reminders', 'gameChanges', 'newPlayers', 'emailFallback'])
+                     .hasOnly(['reminders', 'gameChanges', 'newPlayers', 'motm', 'emailFallback'])
                    && request.resource.data.notificationPrefs.get('reminders', true) is bool
                    && request.resource.data.notificationPrefs.get('gameChanges', true) is bool
                    && request.resource.data.notificationPrefs.get('newPlayers', true) is bool
+                   && request.resource.data.notificationPrefs.get('motm', true) is bool
                    && request.resource.data.notificationPrefs.get('emailFallback', true) is bool);
       }
 
@@ -310,8 +317,9 @@ service cloud.firestore {
           return request.resource.data.keys().hasOnly(
                    ['id', 'seasonId', 'kickoff', 'kickoffMillis', 'endsAt', 'venue', 'status',
                     'minPlayers', 'balance', 'teamsGeneration', 'resultFinalisedAt',
-                    'reshuffleCount', 'isOneOff', 'note', 'cancelledReason', 'counts',
-                    'atRisk', 'remindersSent', 'createdAt', 'createdBy'])
+                    'motmVotingUntilMillis', 'reshuffleCount', 'isOneOff', 'note',
+                    'cancelledReason', 'counts', 'atRisk', 'remindersSent',
+                    'createdAt', 'createdBy'])
                  && request.resource.data.get('seasonId', '') is string
                  && request.resource.data.get('seasonId', '').size() <= 128
                  && request.resource.data.get('kickoff', '') is string
@@ -357,7 +365,8 @@ service cloud.firestore {
                       && countsStartEmpty()
                       && request.resource.data.atRisk == true
                       && !request.resource.data.keys().hasAny(['remindersSent', 'teamsGeneration',
-                                                               'resultFinalisedAt'])
+                                                               'resultFinalisedAt',
+                                                               'motmVotingUntilMillis'])
                       && gameShapeOk();
 
         allow update: if isSeasonAdmin(seasonId) && !touchesDerivedGameFields() && gameShapeOk();
@@ -467,6 +476,87 @@ service cloud.firestore {
           // and towards everyone's rating, where a gap is visible on screen.
           allow delete: if isSeasonAdmin(seasonId)
                            || (respondedToThisGame() && !isFinalised());
+        }
+
+        // ── man of the match ─────────────────────────────────────────────────
+        // One vote per player, the document id being the voter — so nobody
+        // holds two, and changing your mind overwrites rather than stuffs the
+        // ballot. No document means they haven't voted, the same third state
+        // responses and scorelines use.
+        //
+        // Private to its owner, and this is the one place in the app where that
+        // privacy is load-bearing rather than merely tidy: a running count
+        // visible while the vote is open turns an early lead into a bandwagon.
+        // The totals are published by the sweep that counts them, onto
+        // `tournament/motm`, which everybody can read. Season admins and app
+        // admins are shut out here like everyone else — an admin who could read
+        // the votes as they arrived is exactly the leak this prevents.
+        match /motmVotes/{uid} {
+
+          // Everybody who was picked for this game, as up to four squads.
+          //
+          // The lineup rather than the responses: a vote is about who was on
+          // the pitch, and the team sheet is the only record of that. It is
+          // also function-written and unforgeable, where a response is
+          // self-written — so this cannot be talked into counting somebody who
+          // never played.
+          //
+          // A rule cannot flatten a list of maps, so the four-team ceiling is
+          // mirrored here the way `matches` already mirrors it on `teamA`:
+          // `MAX_TEAMS` in shared/tournament.ts is the number this tracks. The
+          // guards are load-bearing rather than tidy — indexing past the end of
+          // the list errors, and an error denies.
+          function playedIn(squads, candidate) {
+            return (squads.size() > 0 && candidate in squads[0].uids)
+                   || (squads.size() > 1 && candidate in squads[1].uids)
+                   || (squads.size() > 2 && candidate in squads[2].uids)
+                   || (squads.size() > 3 && candidate in squads[3].uids);
+          }
+
+          // Both ends of the vote in one read of the team sheet: only somebody
+          // who played may vote, and only for somebody who played.
+          function isAValidVote() {
+            let squads = get(/databases/$(database)/documents/seasons/$(seasonId)/games/$(gameId)/tournament/teams)
+                           .data.teams;
+
+            return playedIn(squads, request.auth.uid)
+                   && playedIn(squads, request.resource.data.votedFor);
+          }
+
+          // Read live off the game, against the numeric deadline the function
+          // put there — the same arrangement `kickoffMillis` exists for, and
+          // for the same reason: a rule cannot parse an instant.
+          //
+          // Defaulting to 0 closes the vote for every game that has no window,
+          // which is both a game nobody has confirmed yet and one whose votes
+          // have already been counted. The sweep deletes the field as it writes
+          // the decision, and that is what shuts the door behind it.
+          function votingIsOpen() {
+            return request.time.toMillis()
+                   < get(/databases/$(database)/documents/seasons/$(seasonId)/games/$(gameId))
+                       .data.get('motmVotingUntilMillis', 0);
+          }
+
+          function voteShapeOk() {
+            return request.resource.data.keys().hasOnly(['uid', 'votedFor', 'votedAt'])
+                   && request.resource.data.uid == uid
+                   && request.resource.data.votedFor is string
+                   && request.resource.data.votedFor.size() <= 128
+                   && request.resource.data.get('votedAt', '') is string
+                   && request.resource.data.get('votedAt', '').size() <= 40;
+          }
+
+          allow read: if isSelf(uid);
+
+          allow create, update: if isSelf(uid)
+                                && voteShapeOk()
+                                && votingIsOpen()
+                                && isAValidVote();
+
+          // Taking a vote back is on the same terms as casting one. Abstaining
+          // is a real position, and the absence of a document is the only thing
+          // that says it.
+          allow delete: if isSelf(uid) && votingIsOpen();
         }
 
         // ── watchers ─────────────────────────────────────────────────────────

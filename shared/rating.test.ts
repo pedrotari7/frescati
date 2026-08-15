@@ -1,4 +1,5 @@
 import {
+	applyMotmBonus,
 	applyRatingChange,
 	BASE_ELO,
 	createStartingRating,
@@ -10,6 +11,7 @@ import {
 	getWinProbability,
 	hasPlayed,
 	isProvisional,
+	MOTM_BONUS_ELO,
 	PROVISIONAL_GAMES,
 	toDisplayRating,
 } from './rating';
@@ -262,5 +264,64 @@ describe('applyRatingChange', () => {
 		const change = { uid: 'a', before: 1000, after: 1030, delta: 30 };
 
 		expect(applyRatingChange(undefined, change, '2026-09-01T19:00:00.000Z').games).toBe(1);
+	});
+});
+
+describe('applyMotmBonus', () => {
+	const changes = (count: number) =>
+		Array.from({ length: count }, (_, index) => ({
+			uid: `p-${index}`,
+			before: BASE_ELO,
+			after: BASE_ELO,
+			delta: 0,
+		}));
+
+	it('pays the winner the bonus, less their own share of it', () => {
+		const after = applyMotmBonus(changes(10), ['p-0']);
+
+		expect(after[0].delta).toBeCloseTo(MOTM_BONUS_ELO - MOTM_BONUS_ELO / 10, 9);
+		expect(after[0].after).toBeCloseTo(BASE_ELO + MOTM_BONUS_ELO * 0.9, 9);
+	});
+
+	it('takes an equal share off everybody who played', () => {
+		const after = applyMotmBonus(changes(10), ['p-0']);
+
+		for (const change of after.slice(1)) expect(change.delta).toBeCloseTo(-MOTM_BONUS_ELO / 10, 9);
+	});
+
+	it('leaves the ladder where it found it', () => {
+		expect(sum(applyMotmBonus(changes(12), ['p-3']).map(change => change.delta))).toBeCloseTo(0, 9);
+		expect(sum(applyMotmBonus(changes(12), ['p-3', 'p-8']).map(change => change.delta))).toBeCloseTo(0, 9);
+	});
+
+	it('splits the pot between everybody level on the vote', () => {
+		const after = applyMotmBonus(changes(10), ['p-0', 'p-1']);
+
+		expect(after[0].delta).toBeCloseTo(MOTM_BONUS_ELO / 2 - MOTM_BONUS_ELO / 10, 9);
+		expect(after[0].delta).toBeCloseTo(after[1].delta, 9);
+	});
+
+	it('adds to whatever the football already did rather than replacing it', () => {
+		const played = [{ uid: 'a', before: BASE_ELO, after: BASE_ELO + 30, delta: 30 }];
+
+		expect(applyMotmBonus(played, ['a'])[0].delta).toBe(30);
+	});
+
+	it('leaves everyone alone when nobody won it', () => {
+		expect(applyMotmBonus(changes(8), [])).toEqual(changes(8));
+	});
+
+	// A reshuffle after somebody was voted for can leave a winner who is no
+	// longer in the game. Charging everyone for a pot nobody collects would
+	// quietly deflate the whole ladder.
+	it('leaves everyone alone when the winner is not in the game', () => {
+		expect(applyMotmBonus(changes(8), ['stranger'])).toEqual(changes(8));
+	});
+
+	it('funds the pot from the winners it can actually pay', () => {
+		const after = applyMotmBonus(changes(10), ['p-0', 'stranger']);
+
+		expect(after[0].delta).toBeCloseTo(MOTM_BONUS_ELO - MOTM_BONUS_ELO / 10, 9);
+		expect(sum(after.map(change => change.delta))).toBeCloseTo(0, 9);
 	});
 });

@@ -21,12 +21,14 @@ import type {
 	ClientInfo,
 	Game,
 	GameResponse,
+	MotmVote,
 	NotificationPrefs,
 	PlayerRating,
 	PushToken,
 	RatingLedgerEntry,
 	Season,
 	TournamentMatch,
+	TournamentMotm,
 	TournamentResult,
 	TournamentTeams,
 } from '../../../shared/types';
@@ -37,8 +39,9 @@ import { getMinPlayers, isConfirmed, tallyResponses } from '../../../shared/game
 import { getSeed, pickTeams } from '../../../shared/optimizer';
 import type { OptimizerPlayer } from '../../../shared/optimizer';
 import { getFixtures, getSquadSizes, getTeamCount } from '../../../shared/tournament';
-import { applyRatingChange, getRatingChanges, getSeedElo } from '../../../shared/rating';
+import { applyMotmBonus, applyRatingChange, getRatingChanges, getSeedElo } from '../../../shared/rating';
 import type { RatingInput } from '../../../shared/rating';
+import { MOTM_VOTING_HOURS, tallyMotmVotes } from '../../../shared/motm';
 import { getPositions, getStandings } from '../../../shared/standings';
 import { CAST, avatarPath, castMember, emailFor, googleSubFor, uidFor } from './cast';
 import type { CastMember } from './cast';
@@ -508,6 +511,12 @@ interface PlayedGame {
 	matches: TournamentMatch[];
 	result?: TournamentResult;
 	ledger?: RatingLedgerEntry;
+	/** Cast on a confirmed game, whether or not they have been counted yet. */
+	motmVotes: MotmVote[];
+	/** Present once the vote has been counted. */
+	motm?: TournamentMotm;
+	/** Set while the vote is still running, exactly as the function would leave it. */
+	motmVotingUntilMillis?: number;
 }
 
 const resolveSettings = (season: Season, game: Game): BalanceSettings => ({
@@ -539,6 +548,45 @@ const playMatch = (squadA: string[], squadB: string[], rng: () => number): [numb
 	const base = 2.2;
 
 	return [poisson(Math.max(0.3, base + edge), rng), poisson(Math.max(0.3, base - edge), rng)];
+};
+
+/**
+ * Who the squad voted man of the match.
+ *
+ * Weighted by the same hidden `strength` the scorelines come from, sharpened so
+ * the standout usually — not always — takes it. Which is the same trick the
+ * scorelines use, and for the same reason: a seeded ladder that ends up roughly
+ * sorted by ability without ever being told to be is the best evidence
+ * available that the maths behind it works.
+ *
+ * Turnout is deliberately short of everybody. A vote where all fourteen people
+ * answer is not one this app will ever see, and a screen that only ever renders
+ * a full turnout hides what a thin one looks like.
+ */
+const runMotmVote = (uids: string[], kickoff: string, rng: () => number): MotmVote[] => {
+	const weights = uids.map(uid => strengthOf(uid) ** 4);
+	const total = weights.reduce((sum, weight) => sum + weight, 0);
+
+	const pick = (): string => {
+		let target = rng() * total;
+
+		for (const [index, weight] of weights.entries()) {
+			target -= weight;
+			if (target <= 0) return uids[index];
+		}
+
+		return uids[uids.length - 1];
+	};
+
+	return uids
+		.filter(() => rng() < 0.65)
+		.map((uid, rank) => ({
+			uid,
+			votedFor: pick(),
+			// Spread over the evening and the morning after, which is when a
+			// notification sent at confirmation actually gets answered.
+			votedAt: addHours(kickoff, 3 + rank * 1.5),
+		}));
 };
 
 /**
@@ -598,7 +646,7 @@ const playGame = (
 
 	const outcome = pin.outcome ?? (offset < 0 && planned.plan.history === 'played' ? 'confirmed' : 'unplayed');
 
-	if (outcome === 'unplayed') return { teams: lineup, matches: [] };
+	if (outcome === 'unplayed') return { teams: lineup, matches: [], motmVotes: [] };
 
 	const rng = createRng(seed ^ 0x5f3759df);
 	const scoredBy = pool[Math.floor(rng() * pool.length)]?.uid ?? season.adminUids[0];
@@ -619,7 +667,7 @@ const playGame = (
 		};
 	});
 
-	if (outcome === 'scored') return { teams: lineup, matches };
+	if (outcome === 'scored') return { teams: lineup, matches, motmVotes: [] };
 
 	const finalisedAt = addHours(game.kickoff, 2.5);
 	const standings = getStandings(teamCount, matches);
@@ -629,7 +677,19 @@ const playGame = (
 		team.uids.map(uid => ({ uid, rating: ratings.get(uid), team: team.index }))
 	);
 
-	const changes = getRatingChanges(inputs, positions, seedElo);
+	// Confirming is what opens the vote, so every confirmed game has one. An
+	// `open` pin is a game somebody confirmed late: the votes are in, nothing
+	// has counted them, and the bonus is therefore *not* in these ratings —
+	// which is exactly the state `closeMotmVoting` will find and replay.
+	const motmVotes = runMotmVote(
+		teams.flatMap(team => team.uids),
+		game.kickoff,
+		rng
+	);
+	const counted = (pin.motm ?? 'decided') === 'decided';
+	const tally = tallyMotmVotes(motmVotes);
+
+	const changes = applyMotmBonus(getRatingChanges(inputs, positions, seedElo), counted ? tally.winners : []);
 
 	const before = Object.fromEntries(changes.map(change => [change.uid, ratings.get(change.uid) ?? null]));
 	const after = Object.fromEntries(
@@ -641,6 +701,12 @@ const playGame = (
 	return {
 		teams: lineup,
 		matches,
+		motmVotes,
+		...(counted
+			? { motm: { winners: tally.winners, counts: tally.counts, decidedAt: addHours(finalisedAt, 48) } }
+			: // Still running, so the window is ahead of now rather than behind the
+				// game — the state a game confirmed a moment ago is in.
+				{ motmVotingUntilMillis: Date.now() + MOTM_VOTING_HOURS * 3_600_000 }),
 		result: {
 			standings,
 			changes,
@@ -658,6 +724,10 @@ const playGame = (
 			before,
 			after,
 			positions: Object.fromEntries(inputs.map(input => [input.uid, positions[input.team]])),
+			// Left off entirely while the vote is open, the same way
+			// `commitGameRatings` leaves it off — "nobody won it" and "it hasn't
+			// been counted" must not look the same on a career screen.
+			...(counted && tally.winners.length > 0 ? { motm: tally.winners } : {}),
 		},
 	};
 };
@@ -824,8 +894,13 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 	for (const entry of planned) {
 		const gameRef = db().doc(`seasons/${entry.season.id}/games/${entry.game.id}`);
 		const { id: _id, ...gameData } = entry.game;
+		const open = games.get(entry.game.id)?.motmVotingUntilMillis;
 
-		documents.push(batch => batch.set(gameRef, gameData));
+		// The vote window belongs on the game document, where the security rules
+		// and the closing sweep both read it. Written here rather than in
+		// `buildGames` because whether there is a vote at all depends on how the
+		// game was played, which is worked out afterwards.
+		documents.push(batch => batch.set(gameRef, { ...gameData, ...(open ? { motmVotingUntilMillis: open } : {}) }));
 
 		for (const response of entry.responses) {
 			documents.push(batch => batch.set(gameRef.collection('responses').doc(response.uid), response));
@@ -846,6 +921,16 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 
 		for (const match of game.matches) {
 			documents.push(batch => batch.set(gameRef.collection('matches').doc(String(match.order)), match));
+		}
+
+		// The id is the voter, exactly as the rules require — and the votes stay
+		// on a decided game too, because counting them is not consuming them.
+		for (const vote of game.motmVotes) {
+			documents.push(batch => batch.set(gameRef.collection('motmVotes').doc(vote.uid), vote));
+		}
+
+		if (game.motm) {
+			documents.push(batch => batch.set(gameRef.collection('tournament').doc('motm'), game.motm!));
 		}
 
 		if (game.result) {

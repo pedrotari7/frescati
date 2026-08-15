@@ -4,6 +4,7 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import type { Game, Season } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
+import { EMAIL_SECRETS } from './lib/email';
 import { AUTO_FINALISE_HOURS } from '../../shared/tournament';
 import { drainAbandonedReplays, finaliseGame, requestRatingReplay } from './lib/finalise';
 import { HOURLY, instrument, instrumentSchedule, reportError } from './lib/sentry';
@@ -27,7 +28,11 @@ const isSeasonAdmin = async (seasonId: string, uid: string, isAppAdmin: boolean)
  * privileged actions arrive this way.
  */
 export const finaliseTournament = onCall<{ seasonId?: string; gameId?: string }>(
-	{ region: REGION, timeoutSeconds: 300 },
+	// `EMAIL_SECRETS` because confirming a game opens the man-of-the-match vote
+	// and asks everybody who played to have their say. Without the secret
+	// declared here that notification's email fallback would silently mail
+	// nobody — see `sendPush`.
+	{ region: REGION, timeoutSeconds: 300, secrets: EMAIL_SECRETS },
 	instrument('finaliseTournament', async request => {
 		const uid = request.auth?.uid;
 		if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
@@ -78,7 +83,9 @@ export const finaliseTournament = onCall<{ seasonId?: string; gameId?: string }>
  * another one. This already exists to catch what got missed.
  */
 export const finaliseDueTournaments = onSchedule(
-	{ schedule: 'every 1 hours', region: REGION, timeoutSeconds: 300 },
+	// Same reason as the callable above: what this confirms, it also opens a
+	// vote on.
+	{ schedule: 'every 1 hours', region: REGION, timeoutSeconds: 300, secrets: EMAIL_SECRETS },
 	// Two consecutive misses before raising, unlike the reminders: nothing here
 	// has a deadline — a game confirmed an hour late rates identically — so one
 	// skipped run costs nothing and isn't worth waking anybody for.

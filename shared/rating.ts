@@ -42,6 +42,18 @@ const K_FACTOR = 20;
 /** New players swing harder so they find their level in weeks, not a season. */
 const PROVISIONAL_K_FACTOR = 40;
 
+/**
+ * What being voted man of the match is worth, in Elo.
+ *
+ * Half a `K_FACTOR` win — two points of the displayed 0–100 — which is enough
+ * to be worth winning and short of enough to outrank the football. Somebody
+ * voted best on the pitch every single week gains about as much from the votes
+ * as from consistently beating a stacked field, which is the balance intended:
+ * this is a correction the scoreboard cannot make on its own, not a second
+ * ladder running alongside the first.
+ */
+export const MOTM_BONUS_ELO = 10;
+
 /** Rated games before the provisional period ends. */
 export const PROVISIONAL_GAMES = 5;
 
@@ -198,6 +210,47 @@ export const getRatingChanges = (players: RatingInput[], positions: number[], se
 		const delta = kFactor(player.rating) * teamSwing[player.team];
 
 		return { uid: player.uid, before, after: before + delta, delta };
+	});
+};
+
+/**
+ * Pay the man-of-the-match bonus out of the game it was won in.
+ *
+ * The pot is `MOTM_BONUS_ELO` and it is **funded by everybody who played**,
+ * winner included, in equal shares. So the group's average rating does not move
+ * — which matters more here than anywhere else in this file, because the
+ * displayed 0–100 is mapped from a *fixed* Elo span: a bonus minted from
+ * nowhere every week would drift the whole group up the scale over a season and
+ * everybody's number would creep without anybody playing better. What man of
+ * the match says is that this player was better than the rest of them that
+ * evening, and that is a statement about the difference, not the level.
+ *
+ * A tie splits the pot rather than the coin. Two names on the sheet is a
+ * divided vote and worth less each, the same way `getActualWins` splits the
+ * places a tie covers instead of inventing a winner.
+ *
+ * Applied after `getRatingChanges` rather than inside it, so the football and
+ * the vote stay separately explicable — the screen shows one movement, but the
+ * two halves of it are computed where they belong, and a game whose vote never
+ * closed simply never has this called on it.
+ *
+ * A winner who isn't in `changes` — voted for and then dropped from the lineup
+ * by a reshuffle — pays in like everyone else and takes nothing out, which
+ * would leave the pot half-distributed. So the funding is worked out from the
+ * winners actually present, and an empty list is left entirely alone.
+ */
+export const applyMotmBonus = (changes: RatingChange[], winners: string[]): RatingChange[] => {
+	const paid = winners.filter(uid => changes.some(change => change.uid === uid));
+
+	if (paid.length === 0 || changes.length === 0) return changes;
+
+	const share = MOTM_BONUS_ELO / paid.length;
+	const levy = MOTM_BONUS_ELO / changes.length;
+
+	return changes.map(change => {
+		const adjustment = (paid.includes(change.uid) ? share : 0) - levy;
+
+		return { ...change, after: change.after + adjustment, delta: change.delta + adjustment };
 	});
 };
 

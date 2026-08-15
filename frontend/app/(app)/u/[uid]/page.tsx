@@ -135,6 +135,14 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 
 						<div className='mt-2 flex flex-wrap gap-1.5'>
 							{isYou && <StatusPill tone='brand'>You</StatusPill>}
+							{/* Only when there is one to show. A "0" here would put the
+							    absence of an award on every profile in the group. */}
+							{record.motm > 0 && (
+								<StatusPill tone='pending'>
+									<TrophyIcon className='size-3' aria-hidden='true' />
+									{record.motm} man of the match
+								</StatusPill>
+							)}
 							{rating && !hasPlayed(rating) && <StatusPill tone='pending'>Estimate</StatusPill>}
 							{isProvisional(rating) && hasPlayed(rating) && (
 								<StatusPill tone='pending'>Settling</StatusPill>
@@ -303,6 +311,16 @@ const GameRow = ({ game, seasonName, timezone }: { game: PlayerGame; seasonName?
 			</span>
 
 			<span className='text-ink min-w-0 flex-1 truncate text-sm'>{formatGameDate(game.kickoff, timezone)}</span>
+
+			{game.motm && (
+				<TrophyIcon
+					className='text-pending size-4 shrink-0'
+					aria-label='Man of the match'
+					// A title as well as a label: on a desktop this is the only
+					// explanation a hover can offer, and the row is otherwise numbers.
+					title='Man of the match'
+				/>
+			)}
 
 			<Movement delta={game.delta} />
 

@@ -25,6 +25,8 @@ export interface PlayerGame {
 	position: number;
 	/** Their team finished top, shared firsts included — as the season table counts it. */
 	won: boolean;
+	/** The group voted them man of the match, shared on a tie. */
+	motm: boolean;
 	/** Elo carried in, `null` when they arrived with no rating at all. */
 	before: number | null;
 	/** Elo carried out. */
@@ -43,6 +45,8 @@ export interface PlayerRecord {
 	games: PlayerGame[];
 	appearances: number;
 	wins: number;
+	/** Games the group voted them man of the match. */
+	motm: number;
 	/** The longest run of consecutive wins. */
 	bestRun: number;
 	/** Wins at the end of the run — zero unless the last game was one. */
@@ -74,6 +78,11 @@ export const getPlayerGames = (entries: RatingLedgerEntry[], uid: string): Playe
 				kickoffMillis: entry.kickoffMillis,
 				position,
 				won: position === 0,
+				// Absent on an entry written before the vote existed, and on one
+				// confirmed while its own vote was still open. Neither is a game
+				// they lost the vote in, but neither is one they won it in either,
+				// so both read as false.
+				motm: entry.motm?.includes(uid) ?? false,
 				before,
 				after,
 				delta: before === null ? 0 : after - before,
@@ -99,6 +108,7 @@ export const getPlayerRecord = (entries: RatingLedgerEntry[], uid: string): Play
 		games,
 		appearances: games.length,
 		wins: games.filter(game => game.won).length,
+		motm: games.filter(game => game.motm).length,
 		bestRun,
 		currentRun,
 		peak: games.length === 0 ? null : Math.max(...games.map(game => game.after)),

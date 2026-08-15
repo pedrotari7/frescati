@@ -179,6 +179,20 @@ const MePage = () => {
 							}
 						/>
 
+						<Toggle
+							label='Man of the match'
+							description='When a game is confirmed and it is time to vote.'
+							checked={prefs.motm}
+							disabled={!uid}
+							onChange={next =>
+								uid &&
+								write(
+									() => setNotificationPrefs(uid, { ...prefs, motm: next }),
+									"Couldn't save that preference."
+								)
+							}
+						/>
+
 						{/* Nobody else is ever sent one, so showing this to them
 						    would be a switch with nothing behind it. */}
 						{user.isAppAdmin && (

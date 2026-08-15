@@ -1380,6 +1380,187 @@ describe('the response deadline', () => {
 	});
 });
 
+describe('the man-of-the-match vote', () => {
+	const voteDoc = (uid: string) => `seasons/${SEASON}/games/${GAME}/motmVotes/${uid}`;
+
+	const aVote = (uid: string, votedFor: string, extras: Record<string, unknown> = {}) => ({
+		uid,
+		votedFor,
+		votedAt: '2026-09-02T09:00:00.000Z',
+		...extras,
+	});
+
+	/**
+	 * A played game: the lineup up, and the vote open for another hour.
+	 *
+	 * `APP_ADMIN` is deliberately left out of it — they are this suite's person
+	 * who wasn't there, and the badge buys them nothing here.
+	 */
+	const openTheVote = async (until: number = Date.now() + 3_600_000) => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			const db = context.firestore();
+
+			await setDoc(doc(db, `seasons/${SEASON}/games/${GAME}/tournament/teams`), {
+				teams: [
+					{ index: 0, uids: [MEMBER, SEASON_ADMIN] },
+					{ index: 1, uids: [OTHER_MEMBER, EXTRA] },
+				],
+				elos: { [MEMBER]: 1000, [OTHER_MEMBER]: 1000, [SEASON_ADMIN]: 1000, [EXTRA]: 1000 },
+				seed: 1,
+				settings: { randomness: 0.3, repeatPenalty: 0.4, repeatLookback: 4, matchMinutes: 5 },
+				generation: 1,
+				builtAt: '2026-08-30T10:00:00.000Z',
+			});
+
+			await updateDoc(doc(db, gameDoc()), { motmVotingUntilMillis: until });
+		});
+	};
+
+	it('lets somebody who played vote for somebody who played', async () => {
+		await openTheVote();
+
+		await assertSucceeds(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, OTHER_MEMBER)));
+	});
+
+	// The team sheet is the only record of who was on the pitch, and unlike a
+	// response it is function-written and unforgeable.
+	it('refuses a vote from somebody who was not in the lineup', async () => {
+		await openTheVote();
+
+		await assertFails(
+			setDoc(doc(authed(APP_ADMIN, { admin: true }), voteDoc(APP_ADMIN)), aVote(APP_ADMIN, MEMBER))
+		);
+	});
+
+	it('refuses a vote for somebody who was not in the lineup', async () => {
+		await openTheVote();
+
+		await assertFails(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, APP_ADMIN)));
+	});
+
+	// Deliberately allowed. A rule against it is one more thing to go wrong for
+	// the player who genuinely was the best one out there, and the group can be
+	// trusted to have an opinion about somebody who does it every week.
+	it('lets somebody vote for themselves', async () => {
+		await openTheVote();
+
+		await assertSucceeds(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, MEMBER)));
+	});
+
+	it('refuses to let anyone vote on somebody else’s behalf', async () => {
+		await openTheVote();
+
+		await assertFails(setDoc(doc(authed(MEMBER), voteDoc(OTHER_MEMBER)), aVote(OTHER_MEMBER, MEMBER)));
+	});
+
+	// The one place privacy here is load-bearing rather than tidy: a running
+	// count visible while the vote is open turns an early lead into a bandwagon.
+	// The totals are published on `tournament/motm` once the sweep counts them.
+	it('keeps a vote private to the voter, admins of every kind included', async () => {
+		await openTheVote();
+		await setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, OTHER_MEMBER));
+
+		await assertSucceeds(getDoc(doc(authed(MEMBER), voteDoc(MEMBER))));
+		await assertFails(getDoc(doc(authed(OTHER_MEMBER), voteDoc(MEMBER))));
+		await assertFails(getDoc(doc(authed(SEASON_ADMIN), voteDoc(MEMBER))));
+		await assertFails(getDoc(doc(authed(APP_ADMIN, { admin: true }), voteDoc(MEMBER))));
+	});
+
+	// The shape a bandwagon would actually be built from.
+	it('refuses to list who has voted for whom', async () => {
+		await openTheVote();
+
+		await assertFails(getDocs(collection(authed(MEMBER), `seasons/${SEASON}/games/${GAME}/motmVotes`)));
+		await assertFails(
+			getDocs(collection(authed(APP_ADMIN, { admin: true }), `seasons/${SEASON}/games/${GAME}/motmVotes`))
+		);
+	});
+
+	it('lets a voter change their mind, and take it back, while it is open', async () => {
+		await openTheVote();
+		await setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, OTHER_MEMBER));
+
+		await assertSucceeds(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, EXTRA)));
+		await assertSucceeds(deleteDoc(doc(authed(MEMBER), voteDoc(MEMBER))));
+	});
+
+	// The window is what the sweep counted against, so a late vote would change
+	// an answer the ladder has already been replayed against.
+	it('refuses a vote once the window has passed', async () => {
+		await openTheVote(Date.now() - 1_000);
+
+		await assertFails(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, OTHER_MEMBER)));
+	});
+
+	it('refuses to let a counted vote be withdrawn afterwards', async () => {
+		await openTheVote();
+		await setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, OTHER_MEMBER));
+
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await updateDoc(doc(context.firestore(), gameDoc()), { motmVotingUntilMillis: deleteField() });
+		});
+
+		await assertFails(deleteDoc(doc(authed(MEMBER), voteDoc(MEMBER))));
+	});
+
+	// No window at all is the state of every game nobody has confirmed yet, as
+	// well as every game already counted.
+	it('refuses a vote on a game that has not been confirmed', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `seasons/${SEASON}/games/${GAME}/tournament/teams`), {
+				teams: [
+					{ index: 0, uids: [MEMBER, SEASON_ADMIN] },
+					{ index: 1, uids: [OTHER_MEMBER, EXTRA] },
+				],
+				elos: {},
+				seed: 1,
+				settings: { randomness: 0.3, repeatPenalty: 0.4, repeatLookback: 4, matchMinutes: 5 },
+				generation: 1,
+				builtAt: '2026-08-30T10:00:00.000Z',
+			});
+		});
+
+		await assertFails(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, OTHER_MEMBER)));
+	});
+
+	// Held open, an admin could keep collecting votes after the ladder had been
+	// replayed against the ones already counted.
+	it('refuses to let an admin move the deadline', async () => {
+		await openTheVote();
+
+		await assertFails(
+			updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { motmVotingUntilMillis: Date.now() + 86_400_000 })
+		);
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { motmVotingUntilMillis: deleteField() }));
+	});
+
+	// A game is created with no vote open on it, the same way it is created with
+	// no reminders sent.
+	it('refuses a game created with the vote already open', async () => {
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), `seasons/${SEASON}/games/game-new`), {
+				...aGame('2026-10-01T17:00:00.000Z', '2026-10-01T18:30:00.000Z'),
+				motmVotingUntilMillis: Date.now() + 86_400_000,
+			})
+		);
+	});
+
+	it('bounds what can be written into one', async () => {
+		await openTheVote();
+
+		await assertFails(
+			setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, OTHER_MEMBER, { payload: 'x'.repeat(500) }))
+		);
+		await assertFails(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, OTHER_MEMBER, { votedAt: 1 })));
+	});
+
+	it('refuses a uid field that disagrees with the document id', async () => {
+		await openTheVote();
+
+		await assertFails(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(OTHER_MEMBER, EXTRA)));
+	});
+});
+
 describe('watchers', () => {
 	const watcherDoc = (uid: string) => `seasons/${SEASON}/games/${GAME}/watchers/${uid}`;
 

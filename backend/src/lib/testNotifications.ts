@@ -32,16 +32,25 @@ import { getGame, getMostRecentActiveSeasonId, getSeason } from './data';
 export const buildTestPayload = async (
 	kind: GameNotification | AppNotification,
 	{ sender, seasonId, gameId }: { sender: { uid: string; displayName: string }; seasonId?: string; gameId?: string }
-): Promise<PushPayload> =>
-	kind === 'newPlayer'
-		? buildNewPlayerPush({ ...sender, seasonId: await getMostRecentActiveSeasonId() })
-		: buildGamePush(kind, {
-				...(await buildTestContext(seasonId, gameId)),
-				who: sender.displayName,
-				// Stated rather than left to the builder's default, so a test send
-				// goes down the same path a real one does.
-				availability: 'in',
-			});
+): Promise<PushPayload> => {
+	if (kind === 'newPlayer') return buildNewPlayerPush({ ...sender, seasonId: await getMostRecentActiveSeasonId() });
+
+	const context = await buildTestContext(seasonId, gameId);
+
+	return buildGamePush(kind, {
+		...context,
+		// The vote lives on the team sheet rather than the game page, so a test
+		// send has to land there too — same reasoning as `newPlayer` resolving
+		// its own deep link: a test that opens somewhere else is a test of
+		// something else. Only when a real game was named; the stand-in context
+		// has no team sheet to point at.
+		...(kind === 'motm' && seasonId && gameId ? { url: `${context.url}/tournament` } : {}),
+		who: sender.displayName,
+		// Stated rather than left to the builder's default, so a test send
+		// goes down the same path a real one does.
+		availability: 'in',
+	});
+};
 
 /**
  * Real game if one was named, a plausible stand-in otherwise.

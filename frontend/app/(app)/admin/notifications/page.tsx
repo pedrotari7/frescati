@@ -63,6 +63,7 @@ const PREF_LABEL: Record<keyof NotificationPrefs, string> = {
 	reminders: 'Reminders',
 	gameChanges: 'Game changes',
 	newPlayers: 'New players',
+	motm: 'Man of the match',
 	emailFallback: 'Email fallback',
 };
 

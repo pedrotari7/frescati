@@ -4,9 +4,11 @@ import type {
 	AppUser,
 	Game,
 	GameResponse,
+	MotmVote,
 	Season,
 	RatingLedgerEntry,
 	TournamentMatch,
+	TournamentMotm,
 	TournamentResult,
 	TournamentTeams,
 } from '@shared/types';
@@ -21,6 +23,7 @@ import {
 	subscribeToSeasonLedger,
 	subscribeToTeams,
 } from '../lib/db/tournament';
+import { subscribeToMotm, subscribeToMyMotmVote } from '../lib/db/motm';
 import { subscribeToUser, subscribeToUsers } from '../lib/db/users';
 import { useFirestoreSubscription } from './useFirestoreSubscription';
 
@@ -148,6 +151,37 @@ export const useTournamentResult = (seasonId: string | null, gameId: string | nu
 	);
 
 	return { result: data, loading, error };
+};
+
+/**
+ * The counted man-of-the-match vote, or `null` while it is still open.
+ *
+ * `null` covers a game nobody has confirmed as well as one still being voted
+ * on; the window on the game document is what tells those apart.
+ */
+export const useMotm = (seasonId: string | null, gameId: string | null) => {
+	const { data, loading, error } = useFirestoreSubscription<TournamentMotm | null>(
+		null,
+		seasonId && gameId ? (onChange, onError) => subscribeToMotm(seasonId, gameId, onChange, onError) : null,
+		[seasonId, gameId],
+		'motm'
+	);
+
+	return { motm: data, loading, error };
+};
+
+/** Your own vote. Nobody else's is readable, deliberately. */
+export const useMyMotmVote = (seasonId: string | null, gameId: string | null, uid: string | null) => {
+	const { data, loading, error } = useFirestoreSubscription<MotmVote | null>(
+		null,
+		seasonId && gameId && uid
+			? (onChange, onError) => subscribeToMyMotmVote(seasonId, gameId, uid, onChange, onError)
+			: null,
+		[seasonId, gameId, uid],
+		'motmVote'
+	);
+
+	return { vote: data, loading, error };
 };
 
 export const useSeasonLedger = (seasonId: string | null) => {

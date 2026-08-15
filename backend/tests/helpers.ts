@@ -6,6 +6,7 @@ import type {
 	RatingLedgerEntry,
 	Season,
 	TournamentMatch,
+	TournamentMotm,
 	TournamentTeams,
 } from '../../shared/types';
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_NOTIFICATION_PREFS, EMPTY_COUNTS } from '../../shared/types';
@@ -241,4 +242,15 @@ export const writeMatch = async (
 export const readRatingLedger = async (gameId: string): Promise<RatingLedgerEntry | undefined> => {
 	const snapshot = await db.doc(`ratingLedger/${gameId}`).get();
 	return snapshot.exists ? (snapshot.data() as RatingLedgerEntry) : undefined;
+};
+
+export const writeMotmVote = async (seasonId: string, gameId: string, uid: string, votedFor: string): Promise<void> => {
+	await db
+		.doc(`seasons/${seasonId}/games/${gameId}/motmVotes/${uid}`)
+		.set({ uid, votedFor, votedAt: '2026-09-02T09:00:00.000Z' });
+};
+
+export const readMotm = async (seasonId: string, gameId: string): Promise<TournamentMotm | undefined> => {
+	const snapshot = await db.doc(`seasons/${seasonId}/games/${gameId}/tournament/motm`).get();
+	return snapshot.exists ? (snapshot.data() as TournamentMotm) : undefined;
 };
