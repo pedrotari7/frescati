@@ -38,9 +38,12 @@ jobs:
 
   # Deploys functions and rules together, so it must wait on both suites — and
   # on `shared`, whose code is compiled into the functions being deployed. Left
-  # out, a red shared suite still shipped the backend that embeds it.
+  # out, a red shared suite still shipped the backend that embeds it. `frontend`
+  # is in here for a different reason: nothing it builds is deployed from this
+  # job, but a commit that breaks the app is one Vercel is about to reject, and
+  # shipping the backend half of it leaves the deployed pair mismatched.
   deploy:
-    needs: [changes, shared, backend, rules]
+    needs: [changes, shared, frontend, backend, rules]
     if: >-
       ${{ always() && !failure() && !cancelled()
       && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.rules == 'true') }}
