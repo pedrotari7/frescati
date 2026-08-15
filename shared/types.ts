@@ -256,6 +256,55 @@ export interface Season {
 	createdBy: string;
 }
 
+/**
+ * What a piece of kit is, as far as "can we actually play?" is concerned.
+ *
+ * A small closed set rather than a free-text label, because the whole point of
+ * a kind is that it *groups*: a game needs **a** ball, not every ball, so two
+ * items have to be interchangeable before either can count as cover. A typed
+ * label would never group — "Ball", "ball" and "Match ball" are three kinds.
+ *
+ * `other` is the escape hatch for things worth keeping track of but never worth
+ * warning about — a pump, the gate key, the first-aid bag. It is deliberately
+ * outside `REQUIRED_KIT_KINDS`: a register that cried wolf about the pump is one
+ * people stop reading in the week it matters.
+ */
+export type KitKind = 'ball' | 'vests' | 'other';
+
+/**
+ * Something the group owns and somebody has to remember to bring, at
+ * `seasons/{seasonId}/kit/{itemId}`.
+ *
+ * A register rather than an inventory: the only question it answers is *who has
+ * it*, which is why `holderUid` is required and there is no "in the cupboard"
+ * state. Kit in a cupboard is still somebody's to fetch, and an item nobody
+ * holds is precisely the situation the register exists to prevent — making it a
+ * state you could save would legitimise it, and would give every screen a
+ * second empty case to render for nothing.
+ *
+ * The holder is always on `season.memberUids`, checked by the security rules on
+ * every handover. Extras come and go by definition; the squad is the list of
+ * people who will still be around next week to hand it on.
+ *
+ * There is no id field on the document — `id` here is the document id, the way
+ * a response's is the uid. Nothing needs to query kit by anything but its
+ * season.
+ */
+export interface KitItem {
+	id: string;
+	/** What it gets called out loud — "Match ball", "Blue vests". */
+	name: string;
+	kind: KitKind;
+	/** Who has it right now. Always somebody on the season's roster. */
+	holderUid: string;
+	/**
+	 * Who recorded the handover. Signed for the same reason a scoreline is:
+	 * anybody in the squad can move an item, so a wrong one needs a face on it.
+	 */
+	updatedBy: string;
+	updatedAt: string;
+}
+
 export interface GameCounts {
 	membersIn: number;
 	membersOut: number;

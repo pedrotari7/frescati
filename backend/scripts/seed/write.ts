@@ -21,6 +21,7 @@ import type {
 	ClientInfo,
 	Game,
 	GameResponse,
+	KitItem,
 	MotmVote,
 	NotificationPrefs,
 	PlayerRating,
@@ -45,7 +46,7 @@ import { MOTM_VOTING_HOURS, tallyMotmVotes } from '../../../shared/motm';
 import { getPositions, getStandings } from '../../../shared/standings';
 import { CAST, avatarPath, castMember, emailFor, googleSubFor, uidFor } from './cast';
 import type { CastMember } from './cast';
-import type { GamePin, Scenario, SeasonPlan } from './scenarios';
+import type { GamePin, KitPlan, Scenario, SeasonPlan } from './scenarios';
 
 /** Firestore caps a batch at 500 writes; leave room for the odd extra. */
 const BATCH_LIMIT = 400;
@@ -350,6 +351,59 @@ const buildSeason = (plan: SeasonPlan, createdBy: string, runId: string): Season
 		createdAt: addHours(`${startDate}T12:00:00.000Z`, -24 * 14),
 		createdBy,
 	};
+};
+
+/* --------------------------------------------------------------------- kit */
+
+/**
+ * The season's kit register.
+ *
+ * A scenario declares each item's holder as a *state* — in, out, silent, gone —
+ * and this resolves it against the answers already generated for the next
+ * upcoming game. That way round because the person is arbitrary and the state
+ * is not: naming Pedro in the scenario would produce whatever coverage the
+ * shuffle happened to give him that run, and the screen worth looking at is the
+ * one where the vests are with somebody who is out.
+ *
+ * `left` deliberately writes a holder who is *not* on `memberUids`, which the
+ * security rules would refuse — the seeder holds an Admin SDK handle and is not
+ * bound by them. That is the right call here: a stranded item is a real state,
+ * reached by a roster moving underneath a register rather than by a bad write,
+ * and it is the only way to see that screen without editing Firestore by hand.
+ */
+const pickKitHolder = (item: KitPlan, plan: SeasonPlan, season: Season, next: PlannedGame | undefined): string => {
+	if (item.holder === 'left') return uidFor(plan.extraKeys[0] ?? CAST[CAST.length - 1].key);
+
+	const answers = new Map((next?.responses ?? []).map(response => [response.uid, response.status]));
+
+	// Roster order rather than shuffled: two seed runs of the same scenario
+	// should hand the ball to the same person.
+	const holder = season.memberUids.find(uid => {
+		if (item.holder === 'silent') return !answers.has(uid);
+
+		return answers.get(uid) === item.holder;
+	});
+
+	// A season with no games yet, or one where everybody answered the same way,
+	// has nobody to fill the requested state. Somebody still has the ball.
+	return holder ?? season.memberUids[0];
+};
+
+const buildKit = (plan: SeasonPlan, season: Season, planned: PlannedGame[]): (KitItem & { seasonId: string })[] => {
+	const next = planned.find(entry => entry.season.id === season.id && entry.offset === 0);
+	const owner = uidFor(plan.adminKeys[0] ?? plan.memberKeys[0]);
+
+	return (plan.kit ?? []).map((item, index) => ({
+		id: `kit-${index}`,
+		seasonId: season.id,
+		name: item.name,
+		kind: item.kind,
+		holderUid: pickKitHolder(item, plan, season, next),
+		// The admin who set the register up. Every handover after this one is
+		// signed by whoever made it, which is what the rules pin.
+		updatedBy: owner,
+		updatedAt: season.createdAt,
+	}));
 };
 
 /* ------------------------------------------------------------------- games */
@@ -768,6 +822,7 @@ export interface SeedSummary {
 	seasons: number;
 	games: number;
 	responses: number;
+	kit: number;
 	confirmedGames: number;
 	ratedPlayers: number;
 	devUsers: DevUser[];
@@ -883,11 +938,21 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 		];
 	});
 
+	// Built after the games, because a scenario says who holds a piece of kit in
+	// terms of how they answered the next one.
+	const kit = scenario.seasons.flatMap((plan, index) => buildKit(plan, seasons[index], planned));
+
 	const documents: ((batch: WriteBatch) => void)[] = [
 		...profiles,
 		...seasons.map(season => (batch: WriteBatch) => {
 			const { id: _id, ...data } = season;
 			batch.set(db().doc(`seasons/${season.id}`), data);
+		}),
+		// The document id is the id, exactly as the app writes it — nothing
+		// stores a copy of it in the document.
+		...kit.map(item => (batch: WriteBatch) => {
+			const { id, seasonId, ...data } = item;
+			batch.set(db().doc(`seasons/${seasonId}/kit/${id}`), data);
 		}),
 	];
 
@@ -958,6 +1023,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 		seasons: seasons.length,
 		games: planned.length,
 		responses: planned.reduce((total, entry) => total + entry.responses.length, 0),
+		kit: kit.length,
 		confirmedGames: [...games.values()].filter(game => game.result).length,
 		ratedPlayers: ratings.size,
 		devUsers,

@@ -69,9 +69,7 @@ const resolveProjectId = (): string => {
  * address and the database only knows uids.
  */
 const resolveUid = async (identifier: string): Promise<{ uid: string; email?: string; hasAccount: boolean }> => {
-	const lookUp = identifier.includes('@')
-		? getAuth().getUserByEmail(identifier)
-		: getAuth().getUser(identifier);
+	const lookUp = identifier.includes('@') ? getAuth().getUserByEmail(identifier) : getAuth().getUser(identifier);
 
 	const user = await lookUp.catch(() => null);
 
@@ -94,16 +92,21 @@ interface Plan {
 	notes: QueryDocumentSnapshot[];
 	memberOf: QueryDocumentSnapshot[];
 	adminOf: QueryDocumentSnapshot[];
+	/** Kit still recorded as theirs. Reported, never cleared — see `describe`. */
+	holds: QueryDocumentSnapshot[];
 }
 
 const buildPlan = async (db: Firestore, uid: string): Promise<Plan> => {
-	const [profileSnap, tokensSnap, responsesSnap, seasonsSnap] = await Promise.all([
+	const [profileSnap, tokensSnap, responsesSnap, seasonsSnap, kitSnap] = await Promise.all([
 		db.doc(`users/${uid}`).get(),
 		db.collection(`users/${uid}/pushTokens`).get(),
 		// Every answer they ever gave, across every season, in one query — the
 		// same collection-group index the app's own "my answers" listener uses.
 		db.collectionGroup('responses').where('uid', '==', uid).get(),
 		db.collection('seasons').get(),
+		// Same shape of query, and it rides the same automatic single-field
+		// index — nothing has to be declared for either.
+		db.collectionGroup('kit').where('holderUid', '==', uid).get(),
 	]);
 
 	const profile = profileSnap.exists ? (profileSnap as QueryDocumentSnapshot) : null;
@@ -125,6 +128,7 @@ const buildPlan = async (db: Firestore, uid: string): Promise<Plan> => {
 		notes: responsesSnap.docs.filter(doc => doc.get('note')),
 		memberOf: seasonsSnap.docs.filter(doc => (doc.get('memberUids') ?? []).includes(uid)),
 		adminOf: seasonsSnap.docs.filter(doc => (doc.get('adminUids') ?? []).includes(uid)),
+		holds: kitSnap.docs,
 	};
 };
 
@@ -144,6 +148,18 @@ const describe = (plan: Plan, email: string | undefined, hasAccount: boolean): v
 	console.log(row('pushTokens', `${plan.tokens.length} to delete`));
 	console.log(row('responses', `${plan.notes.length} note${plan.notes.length === 1 ? '' : 's'} to clear`));
 	console.log(row('seasons', `member of ${plan.memberOf.length}, admin of ${plan.adminOf.length}`));
+
+	// Left exactly where it is, and said out loud because it is the one thing
+	// here that somebody has to act on in the real world. Coming off the roster
+	// strands whatever they were holding, which the season's kit screen then
+	// flags — reassigning it here would guess who has the ball, and quietly
+	// guessing wrong is worse than a register that says it doesn't know.
+	if (plan.holds.length > 0) {
+		console.log(
+			row('kit', `${plan.holds.map(doc => doc.get('name')).join(', ')} — still recorded as theirs, chase it`)
+		);
+	}
+
 	console.log('\n  Kept: rating, and the uid wherever it appears in shared history —');
 	console.log('  ratingLedger, lineups, scores and the in/out of each response.');
 };

@@ -19,6 +19,12 @@ export const gamesCol = (seasonId: string): CollectionReference => collection(ge
 export const gameDoc = (seasonId: string, gameId: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'games', gameId);
 
+/** What the group owns and who has it. One document per item; the id is generated. */
+export const kitCol = (seasonId: string): CollectionReference => collection(getDb(), 'seasons', seasonId, 'kit');
+
+export const kitItemDoc = (seasonId: string, itemId: string): DocumentReference =>
+	doc(getDb(), 'seasons', seasonId, 'kit', itemId);
+
 export const responsesCol = (seasonId: string, gameId: string): CollectionReference =>
 	collection(getDb(), 'seasons', seasonId, 'games', gameId, 'responses');
 

@@ -5,6 +5,7 @@ Mobile-first PWA for running a recurring football group. A **season** defines a 
 - **Members** are the season squad — no cap, always ranked first.
 - **Extras** are any other signed-in user. They can put their hand up for any game and sit below the members, unless a season admin drops them.
 - The headcount flexes (10, 15, 20 — whatever turns up). A season sets a **minimum**; below it a game reads "at risk", and the app derives the format from the count (14 → 7v7).
+- A season also keeps a **kit register** — which balls and vests the group owns and who currently has each. Anyone in the squad can record a handover, and a game is flagged when nobody bringing a ball or the vests has said they're playing.
 
 ## Stack
 
@@ -256,6 +257,7 @@ It draws a line between data that is **about a person** and data that is a **sha
 
 - **Erased** — the Firebase Auth account and the address in it, their display name, avatar and device notes, every registered push token, and the free-text note on every response they wrote.
 - **Kept** — the uid itself, wherever it appears in something more than one person took part in: `ratingLedger`, the generated lineups, the scoreboard's `updatedBy`, and the in/out of each response.
+- **Reported, not touched** — any kit still recorded as theirs. Coming off the roster strands it, which the season's kit screen then flags; the script names it so somebody chases the ball, because reassigning it here would be guessing who has it and quietly guessing wrong is worse than a register that admits it doesn't know.
 
 That second list is not stubbornness. The ledger is the undo history for the **whole** ladder — `replayRatingsFrom` rebuilds each game from the state the one before it left — so deleting one player's entries wouldn't only lose their history, it would corrupt every replay for everybody who ever played alongside them. What survives is an opaque id with nothing attached to it, which is the most that can be taken away without rewriting other people's results.
 

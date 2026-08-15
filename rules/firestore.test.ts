@@ -1645,6 +1645,157 @@ describe('watchers', () => {
 	});
 });
 
+describe('kit', () => {
+	const kitDoc = (itemId: string) => `seasons/${SEASON}/kit/${itemId}`;
+
+	const anItem = (updatedBy: string, extras: Record<string, unknown> = {}) => ({
+		name: 'Match ball',
+		kind: 'ball',
+		holderUid: MEMBER,
+		updatedBy,
+		updatedAt: '2026-08-30T09:00:00.000Z',
+		...extras,
+	});
+
+	const seedItem = async (extras: Record<string, unknown> = {}) => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), kitDoc('ball-1')), anItem(SEASON_ADMIN, extras));
+		});
+	};
+
+	// A team sheet nobody can see is no use, and neither is a register: an extra
+	// turning up for one game still wants to know whether to bring a ball.
+	it('lets anyone signed in read the register', async () => {
+		await seedItem();
+
+		await assertSucceeds(getDoc(doc(authed(EXTRA), kitDoc('ball-1'))));
+		await assertSucceeds(getDocs(collection(authed(EXTRA), `seasons/${SEASON}/kit`)));
+	});
+
+	it('lets a season admin add and remove items', async () => {
+		await assertSucceeds(setDoc(doc(authed(SEASON_ADMIN), kitDoc('vests-1')), anItem(SEASON_ADMIN)));
+		await assertSucceeds(deleteDoc(doc(authed(SEASON_ADMIN), kitDoc('vests-1'))));
+	});
+
+	it('refuses to let a member add or remove one', async () => {
+		await assertFails(setDoc(doc(authed(MEMBER), kitDoc('vests-1')), anItem(MEMBER)));
+
+		await seedItem();
+		await assertFails(deleteDoc(doc(authed(MEMBER), kitDoc('ball-1'))));
+	});
+
+	// The whole feature: a handover happens at the pitch between two people, and
+	// routing it through an admin means it never gets recorded at all.
+	it('lets any member hand an item to any other member', async () => {
+		await seedItem();
+
+		await assertSucceeds(
+			updateDoc(doc(authed(OTHER_MEMBER), kitDoc('ball-1')), {
+				holderUid: OTHER_MEMBER,
+				updatedBy: OTHER_MEMBER,
+				updatedAt: '2026-08-31T09:00:00.000Z',
+			})
+		);
+	});
+
+	it('refuses a handover from somebody outside the squad', async () => {
+		await seedItem();
+
+		await assertFails(
+			updateDoc(doc(authed(EXTRA), kitDoc('ball-1')), {
+				holderUid: MEMBER,
+				updatedBy: EXTRA,
+				updatedAt: '2026-08-31T09:00:00.000Z',
+			})
+		);
+	});
+
+	// An item is always with somebody who will still be around next week.
+	// Extras come and go by definition.
+	it('refuses to hand an item to somebody outside the squad', async () => {
+		await seedItem();
+
+		await assertFails(
+			updateDoc(doc(authed(MEMBER), kitDoc('ball-1')), {
+				holderUid: EXTRA,
+				updatedBy: MEMBER,
+				updatedAt: '2026-08-31T09:00:00.000Z',
+			})
+		);
+
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), kitDoc('vests-1')), anItem(SEASON_ADMIN, { holderUid: EXTRA }))
+		);
+	});
+
+	// The kind is what decides whether a game gets warned about a missing ball.
+	// A member who could re-kind the vests as `other` could switch that warning
+	// off for the whole squad, which is a different power from carrying a bag
+	// home — so a member's write is a handover and nothing else.
+	it('refuses to let a member rename an item or change its kind', async () => {
+		await seedItem();
+
+		await assertFails(
+			updateDoc(doc(authed(MEMBER), kitDoc('ball-1')), {
+				name: 'Flat ball',
+				updatedBy: MEMBER,
+				updatedAt: '2026-08-31T09:00:00.000Z',
+			})
+		);
+
+		await assertFails(
+			updateDoc(doc(authed(MEMBER), kitDoc('ball-1')), {
+				kind: 'other',
+				updatedBy: MEMBER,
+				updatedAt: '2026-08-31T09:00:00.000Z',
+			})
+		);
+	});
+
+	it('lets a season admin rename one and change its kind', async () => {
+		await seedItem();
+
+		await assertSucceeds(
+			updateDoc(doc(authed(SEASON_ADMIN), kitDoc('ball-1')), {
+				name: 'Spare ball',
+				kind: 'other',
+				updatedBy: SEASON_ADMIN,
+				updatedAt: '2026-08-31T09:00:00.000Z',
+			})
+		);
+	});
+
+	// Anybody in the squad can move an item, so a wrong handover needs a face on
+	// it — the same reason the scoreboard pins `updatedBy` to the caller.
+	it('refuses a handover signed as somebody else', async () => {
+		await seedItem();
+
+		await assertFails(
+			updateDoc(doc(authed(OTHER_MEMBER), kitDoc('ball-1')), {
+				holderUid: OTHER_MEMBER,
+				updatedBy: MEMBER,
+				updatedAt: '2026-08-31T09:00:00.000Z',
+			})
+		);
+	});
+
+	it('bounds what can be parked on an item', async () => {
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), kitDoc('x')), anItem(SEASON_ADMIN, { name: '' })));
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), kitDoc('x')), anItem(SEASON_ADMIN, { name: 'x'.repeat(61) }))
+		);
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), kitDoc('x')), anItem(SEASON_ADMIN, { kind: 'trophy' })));
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), kitDoc('x')), anItem(SEASON_ADMIN, { payload: 'x'.repeat(200) }))
+		);
+	});
+
+	// An app admin runs every season whether or not they play in one.
+	it('lets an app admin who is not in the squad manage the register', async () => {
+		await assertSucceeds(setDoc(doc(authed(APP_ADMIN, { admin: true }), kitDoc('vests-1')), anItem(APP_ADMIN)));
+	});
+});
+
 describe('collection-group reads', () => {
 	// The games list loads "my answer to every game" in a single listener, which
 	// needs a recursive-wildcard read rule on top of the nested one.

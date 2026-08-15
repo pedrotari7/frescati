@@ -1,12 +1,14 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
-import { useResponses } from '../hooks/useData';
+import { useKit, useResponses, useUsers } from '../hooks/useData';
 import { useWatchGame } from '../hooks/useWatchGame';
+import GameKit from './GameKit';
 import HeadcountBar from './HeadcountBar';
 import RespondControl from './RespondControl';
 import StatusPill from './StatusPill';
@@ -50,6 +52,15 @@ const NextGameHero = ({
 	// per row is exactly what that arrangement exists to avoid — so following a
 	// game further out is done from the game's own screen.
 	const { watching, canWatch, toggleWatch } = useWatchGame(season.id, game.id);
+
+	// The register and the profiles behind the names in it. Both are small and
+	// both are already cached by the time this card is the second screen
+	// somebody has opened — and `GameKit` draws nothing at all here unless
+	// something required is genuinely missing, so the usual cost is a listener
+	// and no pixels.
+	const { kit } = useKit(season.id);
+	const { users } = useUsers();
+	const usersByUid = useMemo(() => new Map(users.map(person => [person.uid, person])), [users]);
 
 	return (
 		<section className='glass animate-rise shadow-glass relative overflow-hidden rounded-3xl p-5'>
@@ -115,6 +126,14 @@ const NextGameHero = ({
 				</Link>
 
 				<HeadcountBar game={liveGame} season={season} className='mt-5' />
+
+				{/* Only ever drawn when something required is genuinely missing,
+				    which is the point: this card is what most people ever look
+				    at, and a green tick confirming the ball exists is not what
+				    they opened the app for. Nothing to bring to a game that's off. */}
+				{lifecycle !== 'cancelled' && (
+					<GameKit seasonId={season.id} items={kit} responses={responses} usersByUid={usersByUid} compact />
+				)}
 
 				{lifecycle === 'cancelled' ? (
 					<p className='text-out mt-5 text-sm'>{game.cancelledReason || 'This game is off.'}</p>

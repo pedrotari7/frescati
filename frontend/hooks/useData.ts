@@ -4,6 +4,7 @@ import type {
 	AppUser,
 	Game,
 	GameResponse,
+	KitItem,
 	MotmVote,
 	Season,
 	RatingLedgerEntry,
@@ -15,6 +16,7 @@ import type {
 import { subscribeToSeason, subscribeToSeasons } from '../lib/db/seasons';
 import { subscribeToGame, subscribeToGames } from '../lib/db/games';
 import { subscribeToResponses } from '../lib/db/responses';
+import { subscribeToKit } from '../lib/db/kit';
 import { subscribeToWatching } from '../lib/db/watchers';
 import {
 	subscribeToMatches,
@@ -33,6 +35,7 @@ const NO_RESPONSES: GameResponse[] = [];
 const NO_USERS: AppUser[] = [];
 const NO_MATCHES: TournamentMatch[] = [];
 const NO_LEDGER: RatingLedgerEntry[] = [];
+const NO_KIT: KitItem[] = [];
 
 export const useSeasons = () => {
 	const { data, loading, error } = useFirestoreSubscription<Season[]>(
@@ -107,6 +110,27 @@ export const useWatching = (seasonId: string | null, gameId: string | null, uid:
 	);
 
 	return { watching: data, loading, error };
+};
+
+/**
+ * What the season owns and who has it.
+ *
+ * Subscribed where it's needed rather than hoisted into `SeasonProvider`, on
+ * the same reasoning `NextGameHero` subscribes to its own responses: the
+ * provider holds what every screen under /s/ reads to draw its chrome, and only
+ * three of them ever ask about kit. A register is a handful of documents, so a
+ * listener that comes and goes with the screen costs less than one every screen
+ * carries whether or not it looks at it.
+ */
+export const useKit = (seasonId: string | null) => {
+	const { data, loading, error } = useFirestoreSubscription<KitItem[]>(
+		NO_KIT,
+		seasonId ? (onChange, onError) => subscribeToKit(seasonId, onChange, onError) : null,
+		[seasonId],
+		'kit'
+	);
+
+	return { kit: data, loading, error };
 };
 
 export const useUsers = () => {

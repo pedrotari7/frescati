@@ -2,9 +2,10 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { Cog6ToothIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon, Cog6ToothIcon, ShoppingBagIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { KIT_KIND_LABELS, groupKitByKind } from '@shared/kit';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
-import { useUsers } from '../../../../../hooks/useData';
+import { useKit, useUsers } from '../../../../../hooks/useData';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
@@ -14,6 +15,7 @@ import StatusPill from '../../../../../components/StatusPill';
 const MembersPage = () => {
 	const { seasonId, season, loading, isAdmin } = useSeasonContext();
 	const { users } = useUsers();
+	const { kit } = useKit(seasonId);
 
 	const members = useMemo(() => {
 		if (!season) return [];
@@ -48,6 +50,33 @@ const MembersPage = () => {
 			</SeasonShell>
 		);
 	}
+
+	// Kit lives behind the Squad tab rather than a fifth one of its own: it is a
+	// property of the squad — who is holding what — and the tab bar deliberately
+	// never grows or reflows, so a new tab would move every tab beside it on
+	// every screen in the app. Shown to everyone, because anybody in the squad
+	// can hand a bag on.
+	const kitLink = (
+		<Link
+			href={`/s/${seasonId}/kit`}
+			className='glass-card flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-white/5'
+		>
+			<ShoppingBagIcon className='text-brand size-5 shrink-0' aria-hidden='true' />
+			<div className='min-w-0 flex-1'>
+				<p className='text-ink text-sm font-semibold'>Kit</p>
+				{/* Which kinds, not how many of each — "1 vests" is the sort of
+				    thing a count can't say. The screen itself has the detail. */}
+				<p className='text-faint text-xs'>
+					{kit.length === 0
+						? 'Nothing listed yet'
+						: groupKitByKind(kit)
+								.map(group => KIT_KIND_LABELS[group.kind])
+								.join(' · ')}
+				</p>
+			</div>
+			<ChevronRightIcon className='text-faint size-4 shrink-0' aria-hidden='true' />
+		</Link>
+	);
 
 	// In the body rather than the top bar: an admin-only control up there appears
 	// on this screen and no other, which drags the tabs beside it around.
@@ -93,7 +122,10 @@ const MembersPage = () => {
 						))}
 					</div>
 
-					{manageLink && <div className='mt-4'>{manageLink}</div>}
+					<div className='mt-4 space-y-3'>
+						{kitLink}
+						{manageLink}
+					</div>
 
 					<p className='text-faint mt-4 px-1 text-xs leading-relaxed'>
 						Anyone signed in who isn&apos;t on this list can still put their hand up for a game — they show

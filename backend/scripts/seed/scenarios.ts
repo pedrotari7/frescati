@@ -12,7 +12,24 @@
  * months as it is now. Weeks are the unit because the slot repeats weekly.
  */
 
-import type { BalanceSettings, GameStatus, SeasonSlot, SeasonStatus, Venue } from '../../../shared/types';
+import type { BalanceSettings, GameStatus, KitKind, SeasonSlot, SeasonStatus, Venue } from '../../../shared/types';
+
+/**
+ * One thing the group owns, in the season's kit register.
+ *
+ * The holder is declared as a *state* rather than a name, because who happens
+ * to have the ball is arbitrary and what a screen shows is not: `out` is the
+ * warning on the next game, `silent` is the amber "nobody has confirmed"
+ * version of it, and `left` is the stranded-kit callout, which otherwise can
+ * only be reached by removing somebody from a squad by hand. The seeder
+ * resolves each against the answers it has already generated for the next game.
+ */
+export interface KitPlan {
+	name: string;
+	kind: KitKind;
+	/** Against the next upcoming game: has said in, said out, hasn't answered, or has left the squad. */
+	holder: 'in' | 'out' | 'silent' | 'left';
+}
 
 /** A game that differs from the ordinary run of the season. */
 export interface GamePin {
@@ -79,6 +96,8 @@ export interface SeasonPlan {
 	turnout: [number, number];
 	/** `empty` leaves every past game unplayed — a season with no ladder yet. */
 	history: 'played' | 'empty';
+	/** What the group owns. Left out for a season that keeps no register. */
+	kit?: KitPlan[];
 	/** Keyed by offset from the next upcoming game: `0` is next, `-1` is last. */
 	pins?: Record<number, GamePin>;
 }
@@ -201,6 +220,16 @@ const full: Scenario = {
 			endWeeks: 10,
 			turnout: [12, 17],
 			history: 'played',
+			// Every state the register can be in, on the season somebody
+			// actually opens: a ball that is covered by one of two, vests that
+			// nobody is bringing, a pump whose holder has gone quiet, and one
+			// item stranded with somebody who has left the squad.
+			kit: [
+				{ name: 'Match ball', kind: 'ball', holder: 'in' },
+				{ name: 'Spare ball', kind: 'ball', holder: 'left' },
+				{ name: 'Blue vests', kind: 'vests', holder: 'out' },
+				{ name: 'Pump', kind: 'other', holder: 'silent' },
+			],
 			pins: {
 				// Played, scored, and waiting on somebody to hit Confirm — the
 				// state the auto-confirm sweep exists for.
@@ -260,6 +289,9 @@ const full: Scenario = {
 			endWeeks: 12,
 			turnout: [8, 11],
 			history: 'played',
+			// The amber middle state on its own, with nothing else going wrong:
+			// one ball, and the person holding it hasn't answered yet.
+			kit: [{ name: 'Ball', kind: 'ball', holder: 'silent' }],
 			pins: {
 				[0]: { responses: 'partial', playing: 9 },
 				[1]: { responses: 'none' },
@@ -338,6 +370,13 @@ const big: Scenario = {
 			endWeeks: 12,
 			turnout: [18, 24],
 			history: 'played',
+			// Nothing wrong here on purpose — a register that is doing its job
+			// draws nothing at all on the next-game card, and that is worth
+			// being able to see too.
+			kit: [
+				{ name: 'Match ball', kind: 'ball', holder: 'in' },
+				{ name: 'Bibs', kind: 'vests', holder: 'in' },
+			],
 			pins: {
 				[-1]: { outcome: 'scored' },
 				[0]: { responses: 'partial', playing: 21 },

@@ -677,6 +677,68 @@ service cloud.firestore {
         }
       }
 
+      // ── kit ────────────────────────────────────────────────────────────────
+      // What the group owns and who currently has it. One document per item.
+      //
+      // This is the second place in the app where somebody writes something
+      // that isn't theirs, and it is the same bargain the scoreboard strikes:
+      // a handover happens at the pitch between two people, and routing it
+      // through an admin means it simply never gets recorded. So any member of
+      // the season can move any item to any other member.
+      //
+      // What they cannot do is change what an item *is*. Naming, re-kinding,
+      // adding and deleting stay with the season admins, because the kind is
+      // what decides whether a game gets warned about a missing ball — a member
+      // who could re-kind the vests as `other` could silence that warning for
+      // the whole squad, which is a different power from carrying a bag home.
+      match /kit/{itemId} {
+
+        // `id` is deliberately not on this list: the document id is the id, the
+        // way a response's is the uid. Nothing queries kit by anything but its
+        // season, so a stored copy would only be a second thing to keep in step.
+        function kitShapeOk() {
+          return request.resource.data.keys().hasOnly(
+                   ['name', 'kind', 'holderUid', 'updatedBy', 'updatedAt'])
+                 && request.resource.data.name is string
+                 && request.resource.data.name.size() > 0
+                 && request.resource.data.name.size() <= 60
+                 && request.resource.data.kind in ['ball', 'vests', 'other']
+                 && request.resource.data.holderUid is string
+                 && request.resource.data.holderUid.size() <= 128
+                 // Signed, so a wrong handover has a face on it — the same
+                 // reason `matches` pins `updatedBy` to the caller.
+                 && request.resource.data.updatedBy == request.auth.uid
+                 && request.resource.data.updatedAt is string
+                 && request.resource.data.updatedAt.size() <= 40;
+        }
+
+        // An item is always with somebody on the roster. Checked on the way in
+        // only: a member who leaves afterwards strands whatever they were
+        // holding, which `findStrandedKit` surfaces rather than repairs — the
+        // app has no idea who has it now, and guessing would replace a visible
+        // problem with an invisible wrong answer.
+        function holderIsInTheSquad() {
+          return request.resource.data.holderUid in seasonData(seasonId).memberUids;
+        }
+
+        // A handover and nothing else. Without this a member could rename an
+        // item or move it between kinds on the way past.
+        function onlyHandsItOver() {
+          return request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['holderUid', 'updatedBy', 'updatedAt']);
+        }
+
+        allow read: if isSignedIn();
+
+        allow create: if isSeasonAdmin(seasonId) && kitShapeOk() && holderIsInTheSquad();
+
+        allow update: if kitShapeOk()
+                      && holderIsInTheSquad()
+                      && (isSeasonAdmin(seasonId) || (isSeasonMember(seasonId) && onlyHandsItOver()));
+
+        allow delete: if isSeasonAdmin(seasonId);
+      }
+
       // The subscribable calendar's token. Closed to every client, season
       // admin included — the only doors in are `getCalendarLink` and
       // `rotateCalendarToken`, which read and write it with the Admin SDK.

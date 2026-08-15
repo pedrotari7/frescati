@@ -8,7 +8,7 @@ import { MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
 import { useAuth } from '../../../../../../lib/auth';
-import { useResponses, useUsers } from '../../../../../../hooks/useData';
+import { useKit, useResponses, useUsers } from '../../../../../../hooks/useData';
 import { useGameWatchers } from '../../../../../../hooks/useGameWatchers';
 import { useMyResponses } from '../../../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../../../hooks/useRespond';
@@ -20,6 +20,7 @@ import { setConfirmOverride } from '../../../../../../lib/db/responses';
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
+import GameKit from '../../../../../../components/GameKit';
 import GameWatchers from '../../../../../../components/GameWatchers';
 import HeadcountBar from '../../../../../../components/HeadcountBar';
 import RespondControl from '../../../../../../components/RespondControl';
@@ -31,6 +32,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const { gameId } = use(params);
 	const { seasonId, season, games, loading, isAdmin, role } = useSeasonContext();
 	const { responses, loading: responsesLoading } = useResponses(seasonId, gameId);
+	const { kit } = useKit(seasonId);
 	const { users } = useUsers();
 	const { myResponses } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
@@ -151,6 +153,16 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 						</div>
 					)}
 				</section>
+
+				{/* Directly under the headcount, because it is the same question:
+				    whether this game can actually go ahead. Hidden once it is off
+				    or over — spelled out rather than borrowing `isWatchable`,
+				    which answers a question about notifications and only happens
+				    to agree. There is nobody left to hand a ball to on a game
+				    that has finished. */}
+				{lifecycle !== 'cancelled' && lifecycle !== 'finished' && (
+					<GameKit seasonId={seasonId} items={kit} responses={responses} usersByUid={usersByUid} />
+				)}
 
 				{lifecycle !== 'cancelled' && game.counts.playing >= MIN_TOURNAMENT_PLAYERS && (
 					<Link href={`/s/${seasonId}/g/${gameId}/tournament`} className='glass-card block rounded-2xl p-4'>
