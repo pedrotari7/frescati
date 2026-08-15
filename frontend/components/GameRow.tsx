@@ -5,6 +5,7 @@ import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { getFormat, getGameLifecycle, getHeadcountState } from '@shared/game';
 import { formatGameDate, formatGameTime } from '@shared/format';
+import { isMotmVotingOpen } from '@shared/motm';
 import { classNames } from '../lib/utils/reactHelper';
 import RespondControl from './RespondControl';
 import StatusPill from './StatusPill';
@@ -13,6 +14,7 @@ const GameRow = ({
 	game,
 	season,
 	myResponse,
+	href,
 	now,
 	onRespond,
 	onClear,
@@ -20,6 +22,8 @@ const GameRow = ({
 	game: Game;
 	season: Season;
 	myResponse: GameResponse | undefined;
+	/** Where the row leads. Defaults to the game itself. */
+	href?: string;
 	/** Passed in rather than read here, so every row on a screen agrees. */
 	now: Date;
 	onRespond: (status: ResponseStatus) => Promise<void>;
@@ -27,6 +31,7 @@ const GameRow = ({
 }) => {
 	const lifecycle = getGameLifecycle(game, season, now);
 	const isPast = lifecycle === 'finished';
+	const voting = isMotmVotingOpen(game.motmVotingUntilMillis, now.getTime());
 	const atRisk = getHeadcountState(game, season) === 'at-risk';
 	const timezone = season.slot.timezone;
 
@@ -35,10 +40,13 @@ const GameRow = ({
 			className={classNames(
 				'glass-card rounded-2xl p-4',
 				lifecycle === 'cancelled' && 'opacity-55',
-				isPast && 'opacity-70'
+				// Faded because it is behind us — but not while the vote is out, or
+				// the one row on the screen still asking for something would be the
+				// quietest thing on it.
+				isPast && !voting && 'opacity-70'
 			)}
 		>
-			<Link href={`/s/${season.id}/g/${game.id}`} className='flex items-center gap-3'>
+			<Link href={href ?? `/s/${season.id}/g/${game.id}`} className='flex items-center gap-3'>
 				<div className='min-w-0 flex-1'>
 					<div className='flex items-center gap-2'>
 						<span className='text-ink text-sm font-semibold'>{formatGameDate(game.kickoff, timezone)}</span>
@@ -64,6 +72,11 @@ const GameRow = ({
 								{atRisk && !isPast && <StatusPill tone='pending'>Short</StatusPill>}
 							</>
 						)}
+
+						{/* Says why a played game is still up here, and stays honest
+						    for somebody who wasn't in the lineup: the vote is open,
+						    not that they have one. */}
+						{voting && <StatusPill tone='pending'>Vote open</StatusPill>}
 
 						{myResponse && (
 							<StatusPill tone={myResponse.status === 'in' ? 'in' : 'out'}>

@@ -1,5 +1,6 @@
 import type { AvailabilityChange, Game, GameCounts, GameResponse, PlayerRole, Season } from './types';
 import { addHours } from './datetime';
+import { isMotmVotingOpen } from './motm';
 import { describeSquads, getSquadSizes, getTeamCount } from './tournament';
 
 /**
@@ -50,6 +51,60 @@ export const getGameLifecycle = (
  * to hear about it.
  */
 export const isWatchable = (lifecycle: GameLifecycle): boolean => lifecycle !== 'cancelled' && lifecycle !== 'finished';
+
+/** A season's games, split into the groups the home screen draws. */
+export interface GameGroups<T> {
+	/** The soonest game that hasn't ended, or `null` when there isn't one. */
+	next: T | null;
+	/** Every game after it, in kickoff order. */
+	upcoming: T[];
+	/** Played, but the man-of-the-match vote is still out. Most recent first. */
+	voting: T[];
+	/** Done with. Most recent first. */
+	played: T[];
+}
+
+/**
+ * Where each of a season's games belongs on that screen.
+ *
+ * `games` arrive in kickoff order and the two groups ahead of us keep it; the
+ * two behind us are reversed, because looking back you want the last game
+ * first.
+ *
+ * The group that isn't obvious is `voting`. A game with its man-of-the-match
+ * vote open has finished — there is nothing left to answer and nobody to bring
+ * a ball — but there is still a question out to the people who played it, and
+ * `played` is a collapsed list, which is where a two-day vote goes to be
+ * missed. So a game stays up until the count lands and moves itself the moment
+ * `closeMotmVoting` deletes the window. What it does not do is take the top
+ * card: `next` is still the game people opened the app for.
+ *
+ * A game nobody confirmed has no window either, so it is `played` from the
+ * final whistle exactly as it was before — a vote that never opened is not
+ * something to wait on.
+ *
+ * `next` is the soonest game that hasn't ended whether it is cancelled or not:
+ * a cancellation is exactly the thing people open the app to find out.
+ */
+export const groupGames = <T extends Pick<Game, 'kickoff' | 'endsAt' | 'status' | 'motmVotingUntilMillis'>>(
+	games: T[],
+	season: Pick<Season, 'responseDeadlineHours'>,
+	now: Date = new Date()
+): GameGroups<T> => {
+	const scheduled: T[] = [];
+	const voting: T[] = [];
+	const played: T[] = [];
+
+	for (const game of games) {
+		if (getGameLifecycle(game, season, now) !== 'finished') scheduled.push(game);
+		else if (isMotmVotingOpen(game.motmVotingUntilMillis, now.getTime())) voting.push(game);
+		else played.push(game);
+	}
+
+	const [next = null, ...upcoming] = scheduled;
+
+	return { next, upcoming, voting: voting.reverse(), played: played.reverse() };
+};
 
 /**
  * The game being played right now that somebody said they'd be at, or `null`.

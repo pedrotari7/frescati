@@ -100,7 +100,14 @@ describe('GameRow', () => {
 
 	it('prompts an answer for an open game with no response yet', () => {
 		render(
-			<GameRow game={game({})} season={season} myResponse={undefined} now={now} onRespond={jest.fn()} onClear={jest.fn()} />
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
 		);
 
 		expect(screen.getByText('No answer')).toBeInTheDocument();
@@ -111,10 +118,71 @@ describe('GameRow', () => {
 		const past = new Date('2026-09-01T19:00:00.000Z');
 
 		render(
-			<GameRow game={game({})} season={season} myResponse={undefined} now={past} onRespond={jest.fn()} onClear={jest.fn()} />
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				now={past}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
 		);
 
 		expect(screen.queryByRole('button', { name: /I'm in/ })).not.toBeInTheDocument();
+	});
+
+	it('follows a caller that points the row somewhere else', () => {
+		render(
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				href='/s/season-1/g/game-1/tournament'
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.getByRole('link')).toHaveAttribute('href', '/s/season-1/g/game-1/tournament');
+	});
+
+	// A played game is faded, but not while it is still asking the squad for
+	// something — that row is the one thing on the screen with a deadline.
+	it('flags a played game whose man-of-the-match vote is open, undimmed', () => {
+		const afterwards = new Date('2026-09-01T19:00:00.000Z');
+
+		const { container } = render(
+			<GameRow
+				game={game({ motmVotingUntilMillis: new Date('2026-09-03T19:00:00.000Z').getTime() })}
+				season={season}
+				myResponse={undefined}
+				now={afterwards}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.getByText('Vote open')).toBeInTheDocument();
+		expect(container.firstElementChild).not.toHaveClass('opacity-70');
+	});
+
+	it('fades a played game once the vote has been counted', () => {
+		const afterwards = new Date('2026-09-01T19:00:00.000Z');
+
+		const { container } = render(
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				now={afterwards}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.queryByText('Vote open')).not.toBeInTheDocument();
+		expect(container.firstElementChild).toHaveClass('opacity-70');
 	});
 
 	it('marks a one-off game', () => {

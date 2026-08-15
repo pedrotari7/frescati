@@ -10,6 +10,7 @@ import {
 	getResponseDeadline,
 	getRole,
 	getSilentMembers,
+	groupGames,
 	isConfirmed,
 	isWatchable,
 	parseReminderHours,
@@ -216,6 +217,83 @@ describe('isWatchable', () => {
 	it('stops at a game that is off or already played', () => {
 		expect(isWatchable('cancelled')).toBe(false);
 		expect(isWatchable('finished')).toBe(false);
+	});
+});
+
+describe('groupGames', () => {
+	const played = { ...game, id: 'played', kickoff: '2026-08-25T17:00:00.000Z', endsAt: '2026-08-25T18:30:00.000Z' };
+	const older = { ...game, id: 'older', kickoff: '2026-08-18T17:00:00.000Z', endsAt: '2026-08-18T18:30:00.000Z' };
+	const later = { ...game, id: 'later', kickoff: '2026-09-08T17:00:00.000Z', endsAt: '2026-09-08T18:30:00.000Z' };
+	const tuesday = { ...game, id: 'tuesday' };
+	const games = [older, played, tuesday, later] as Game[];
+
+	// Kickoff order in, so the top card is the game people opened the app for
+	// and everything behind us reads most recent first.
+	const now = new Date('2026-08-28T12:00:00Z');
+
+	it('puts the soonest game that has not ended on top', () => {
+		const groups = groupGames(games, season, now);
+
+		expect(groups.next?.id).toBe('tuesday');
+		expect(groups.upcoming.map(entry => entry.id)).toEqual(['later']);
+	});
+
+	it('lists the games behind us most recent first', () => {
+		expect(groupGames(games, season, now).played.map(entry => entry.id)).toEqual(['played', 'older']);
+	});
+
+	// The whole point: a two-day vote inside a list that is collapsed by default
+	// is a vote nobody sees.
+	it('keeps a played game out of the archive while its vote is open', () => {
+		const voting = [{ ...played, motmVotingUntilMillis: new Date('2026-08-30T12:00:00Z').getTime() }] as Game[];
+		const groups = groupGames(voting, season, now);
+
+		expect(groups.voting.map(entry => entry.id)).toEqual(['played']);
+		expect(groups.played).toEqual([]);
+	});
+
+	// It waits its turn rather than taking the top card — the next game is still
+	// the thing the screen is for.
+	it('does not let a game awaiting its vote displace the next one', () => {
+		const voting = [
+			{ ...played, motmVotingUntilMillis: new Date('2026-08-30T12:00:00Z').getTime() },
+			tuesday,
+		] as Game[];
+
+		expect(groupGames(voting, season, now).next?.id).toBe('tuesday');
+	});
+
+	it('archives it the moment the count deletes the window', () => {
+		const counted = [{ ...played, motmVotingUntilMillis: undefined }] as Game[];
+		const groups = groupGames(counted, season, now);
+
+		expect(groups.voting).toEqual([]);
+		expect(groups.played.map(entry => entry.id)).toEqual(['played']);
+	});
+
+	// A vote that never opened is not something to wait on: an unconfirmed game
+	// is archived from the final whistle, exactly as it always was.
+	it('archives a game whose voting window has already passed', () => {
+		const stale = [{ ...played, motmVotingUntilMillis: new Date('2026-08-27T12:00:00Z').getTime() }] as Game[];
+
+		expect(groupGames(stale, season, now).played.map(entry => entry.id)).toEqual(['played']);
+	});
+
+	// A cancellation is exactly what people open the app to find out, so it is
+	// still the card on top rather than something tidied away.
+	it('leaves a cancelled game ahead of us', () => {
+		const cancelled = [{ ...tuesday, status: 'cancelled' }] as Game[];
+		const groups = groupGames(cancelled, season, now);
+
+		expect(groups.next?.id).toBe('tuesday');
+		expect(groups.played).toEqual([]);
+	});
+
+	it('has nothing on top when every game has been played', () => {
+		const groups = groupGames([older, played] as Game[], season, now);
+
+		expect(groups.next).toBeNull();
+		expect(groups.upcoming).toEqual([]);
 	});
 });
 

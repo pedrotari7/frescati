@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { CalendarDaysIcon, CalendarIcon } from '@heroicons/react/24/outline';
-import { getGameLifecycle } from '@shared/game';
+import { groupGames } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
 import { useMyResponses } from '../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../hooks/useRespond';
@@ -35,18 +35,10 @@ const SeasonHomePage = () => {
 		ready: !loading && !responsesLoading,
 	});
 
-	const { next, upcoming, past } = useMemo(() => {
-		if (!season) return { next: null, upcoming: [], past: [] };
-
-		const notFinished = games.filter(game => getGameLifecycle(game, season, now) !== 'finished');
-		const finished = games.filter(game => getGameLifecycle(game, season, now) === 'finished').reverse();
-
-		// The next game is the soonest one that hasn't ended, cancelled or not —
-		// a cancellation is exactly the thing people open the app to find out.
-		const [first, ...rest] = notFinished;
-
-		return { next: first ?? null, upcoming: rest, past: finished };
-	}, [games, season, now]);
+	const { next, upcoming, voting, played } = useMemo(
+		() => (season ? groupGames(games, season, now) : { next: null, upcoming: [], voting: [], played: [] }),
+		[games, season, now]
+	);
 
 	if (loading) {
 		return (
@@ -95,6 +87,33 @@ const SeasonHomePage = () => {
 						Subscribe to calendar
 					</Button>
 
+					{/* Above the games still to come, because it is the only thing on
+					    this screen with a deadline on it — and straight to the team
+					    sheet, where the vote is, the same place the notification
+					    lands. The game page is a headcount for a game already
+					    played. */}
+					{voting.length > 0 && (
+						<section>
+							<h2 className='text-faint mb-3 px-1 text-xs font-semibold tracking-wider uppercase'>
+								Man of the match
+							</h2>
+							<div className='space-y-2'>
+								{voting.map(game => (
+									<GameRow
+										key={game.id}
+										game={game}
+										season={season}
+										myResponse={myResponses[game.id]}
+										href={`/s/${seasonId}/g/${game.id}/tournament`}
+										now={now}
+										onRespond={status => respond(game.id, status)}
+										onClear={() => clear(game.id)}
+									/>
+								))}
+							</div>
+						</section>
+					)}
+
 					{upcoming.length > 0 && (
 						<section>
 							<h2 className='text-faint mb-3 px-1 text-xs font-semibold tracking-wider uppercase'>
@@ -116,11 +135,11 @@ const SeasonHomePage = () => {
 						</section>
 					)}
 
-					{past.length > 0 && (
+					{played.length > 0 && (
 						<section>
 							<div className='mb-3 flex items-center justify-between px-1'>
 								<h2 className='text-faint text-xs font-semibold tracking-wider uppercase'>
-									Played ({past.length})
+									Played ({played.length})
 								</h2>
 								<Button variant='ghost' size='sm' onClick={() => setShowPast(!showPast)}>
 									{showPast ? 'Hide' : 'Show'}
@@ -129,7 +148,7 @@ const SeasonHomePage = () => {
 
 							{showPast && (
 								<div className='space-y-2'>
-									{past.map(game => (
+									{played.map(game => (
 										<GameRow
 											key={game.id}
 											game={game}
