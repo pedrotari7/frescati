@@ -1,7 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ExclamationTriangleIcon, PlusIcon, ShoppingBagIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+	ExclamationTriangleIcon,
+	PencilSquareIcon,
+	PlusIcon,
+	ShoppingBagIcon,
+	TrashIcon,
+} from '@heroicons/react/24/outline';
 import type { KitItem, KitKind } from '@shared/types';
 import { KIT_KINDS, KIT_KIND_LABELS, findStrandedKit, groupKitByKind } from '@shared/kit';
 import { getGameLifecycle } from '@shared/game';
@@ -12,7 +18,7 @@ import { useKit, useResponses, useUsers } from '../../../../../hooks/useData';
 import { useNow } from '../../../../../hooks/useNow';
 import { useWrite } from '../../../../../hooks/useWrite';
 import { useConfirm } from '../../../../../components/ConfirmDialog';
-import { addKitItem, deleteKitItem, transferKitItem } from '../../../../../lib/db/kit';
+import { addKitItem, deleteKitItem, renameKitItem, transferKitItem } from '../../../../../lib/db/kit';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
@@ -21,6 +27,7 @@ import Button from '../../../../../components/Button';
 import StatusPill from '../../../../../components/StatusPill';
 import GameKit from '../../../../../components/GameKit';
 import KitTransferSheet from '../../../../../components/KitTransferSheet';
+import KitRenameSheet from '../../../../../components/KitRenameSheet';
 import { Field, Select, TextInput } from '../../../../../components/Field';
 
 /**
@@ -29,8 +36,9 @@ import { Field, Select, TextInput } from '../../../../../components/Field';
  * Open to everybody, and the handover control with it. A ball changes hands at
  * the side of a pitch between two people, neither of whom is necessarily an
  * admin — routing that through one means it never gets recorded and the whole
- * thing goes stale in a fortnight. Adding and removing items stays with the
- * admins, because that is a decision about the season rather than about a bag.
+ * thing goes stale in a fortnight. Adding, naming and removing items stays with
+ * the admins, because that is a decision about the season rather than about a
+ * bag.
  *
  * The next game sits at the top rather than the bottom: "who has the ball" is
  * only ever asked as a way of asking "is there a ball on Tuesday", and this is
@@ -46,6 +54,7 @@ const KitPage = () => {
 	const now = useNow();
 
 	const [transferring, setTransferring] = useState<KitItem | null>(null);
+	const [renaming, setRenaming] = useState<KitItem | null>(null);
 	const [adding, setAdding] = useState(false);
 	const [form, setForm] = useState<{ name: string; kind: KitKind; holderUid: string }>({
 		name: '',
@@ -267,9 +276,29 @@ const KitPage = () => {
 														/>
 
 														<div className='min-w-0 flex-1'>
-															<p className='text-ink truncate text-sm font-medium'>
-																{item.name}
-															</p>
+															{/* The name is its own control for an
+															    admin rather than a third button on
+															    the row: this row already carries two
+															    on a phone, and the thing being
+															    renamed is the obvious place to tap. */}
+															{isAdmin ? (
+																<button
+																	type='button'
+																	onClick={() => setRenaming(item)}
+																	aria-label={`Rename ${item.name}`}
+																	className='text-ink -mx-1.5 -my-1 flex max-w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-sm font-medium hover:bg-white/5 active:bg-white/10'
+																>
+																	<span className='truncate'>{item.name}</span>
+																	<PencilSquareIcon
+																		className='text-faint size-3.5 shrink-0'
+																		aria-hidden='true'
+																	/>
+																</button>
+															) : (
+																<p className='text-ink truncate text-sm font-medium'>
+																	{item.name}
+																</p>
+															)}
 															<p className='text-faint mt-0.5 flex items-center gap-1.5 truncate text-xs'>
 																{holder?.displayName ?? 'Unknown player'}
 																{!inSquad && (
@@ -318,6 +347,20 @@ const KitPage = () => {
 					)}
 				</div>
 			</SeasonShell>
+
+			<KitRenameSheet
+				item={renaming}
+				open={!!renaming}
+				onClose={() => setRenaming(null)}
+				onRename={async name => {
+					if (!renaming) return;
+
+					await write(
+						() => renameKitItem(seasonId, renaming.id, name, uid),
+						`Couldn't rename ${renaming.name}.`
+					);
+				}}
+			/>
 
 			<KitTransferSheet
 				item={transferring}

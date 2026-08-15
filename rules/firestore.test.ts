@@ -1765,6 +1765,31 @@ describe('kit', () => {
 		);
 	});
 
+	// The squad check is on handovers, not on the document. Enforced on every
+	// write it froze exactly the item the register is complaining about: an
+	// admin couldn't correct the name of something stranded until they had
+	// invented a holder for it.
+	it('lets an item that is already stranded be renamed without inventing a holder', async () => {
+		await seedItem({ holderUid: 'left-the-squad' });
+
+		await assertSucceeds(
+			updateDoc(doc(authed(SEASON_ADMIN), kitDoc('ball-1')), {
+				name: 'Old blue ball',
+				updatedBy: SEASON_ADMIN,
+				updatedAt: '2026-08-31T09:00:00.000Z',
+			})
+		);
+
+		// And still can't be handed anywhere but the squad.
+		await assertFails(
+			updateDoc(doc(authed(SEASON_ADMIN), kitDoc('ball-1')), {
+				holderUid: EXTRA,
+				updatedBy: SEASON_ADMIN,
+				updatedAt: '2026-08-31T09:00:00.000Z',
+			})
+		);
+	});
+
 	// Anybody in the squad can move an item, so a wrong handover needs a face on
 	// it — the same reason the scoreboard pins `updatedBy` to the caller.
 	it('refuses a handover signed as somebody else', async () => {

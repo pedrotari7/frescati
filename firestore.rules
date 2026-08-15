@@ -712,13 +712,23 @@ service cloud.firestore {
                  && request.resource.data.updatedAt.size() <= 40;
         }
 
-        // An item is always with somebody on the roster. Checked on the way in
-        // only: a member who leaves afterwards strands whatever they were
+        // An item is always handed to somebody on the roster. Checked on the way
+        // in only: a member who leaves afterwards strands whatever they were
         // holding, which `findStrandedKit` surfaces rather than repairs — the
         // app has no idea who has it now, and guessing would replace a visible
         // problem with an invisible wrong answer.
+        //
+        // Which is why an update that leaves the holder alone skips it. Applied
+        // to every write it stopped being a check on handovers and became a
+        // freeze on the whole document: an admin couldn't fix a typo in the
+        // name of the one item the register is actively complaining about until
+        // they had first invented a new holder for it.
         function holderIsInTheSquad() {
           return request.resource.data.holderUid in seasonData(seasonId).memberUids;
+        }
+
+        function keepsItsHolder() {
+          return request.resource.data.holderUid == resource.data.holderUid;
         }
 
         // A handover and nothing else. Without this a member could rename an
@@ -733,7 +743,7 @@ service cloud.firestore {
         allow create: if isSeasonAdmin(seasonId) && kitShapeOk() && holderIsInTheSquad();
 
         allow update: if kitShapeOk()
-                      && holderIsInTheSquad()
+                      && (keepsItsHolder() || holderIsInTheSquad())
                       && (isSeasonAdmin(seasonId) || (isSeasonMember(seasonId) && onlyHandsItOver()));
 
         allow delete: if isSeasonAdmin(seasonId);
