@@ -146,6 +146,13 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const finalised = !!game.resultFinalisedAt;
 	const canScore = (isAdmin || !!myResponses[gameId]) && (isAdmin || !finalised);
 
+	// A score is recorded against a fixture — "match 1, team A v team B" — so
+	// re-picking the squads underneath one would leave the scoreboard describing
+	// a game nobody played. The lineup is settled from the first score in, and
+	// frozen outright once the game is confirmed, which `runTeamRebuild` enforces
+	// on its side too.
+	const canReshuffle = played === 0 && !finalised;
+
 	// Only worth explaining when it is actually happening.
 	const unequal = new Set(standings.map(row => row.played)).size > 1;
 
@@ -222,16 +229,31 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					    The rules still let them — `isSeasonAdmin` there includes app admins,
 					    as it does everywhere — so this is about who is offered the button. */}
 					{isSeasonAdmin && (
-						<Button
-							variant='secondary'
-							className='mt-4'
-							onClick={async () => {
-								await write(() => reshuffleTeams(seasonId, gameId), "Couldn't reshuffle the teams.");
-							}}
-						>
-							<ArrowPathIcon className='size-4' aria-hidden='true' />
-							Reshuffle
-						</Button>
+						<>
+							<Button
+								variant='secondary'
+								className='mt-4'
+								disabled={!canReshuffle}
+								onClick={async () => {
+									await write(
+										() => reshuffleTeams(seasonId, gameId),
+										"Couldn't reshuffle the teams."
+									);
+								}}
+							>
+								<ArrowPathIcon className='size-4' aria-hidden='true' />
+								Reshuffle
+							</Button>
+
+							{/* A greyed-out button with no reason beside it reads as a bug. */}
+							{!canReshuffle && (
+								<p className='text-faint mt-2 text-xs'>
+									{finalised
+										? 'The lineup is frozen now the game is confirmed.'
+										: 'Scores are in — clear them to re-pick the teams.'}
+								</p>
+							)}
+						</>
 					)}
 				</section>
 
