@@ -35,6 +35,8 @@ import {
 const SEASON_ID = 'season-1';
 const GAME_ID = 'game-1';
 const ADMIN = 'season-admin-1';
+/** Somebody carrying the app-admin badge who is not in this season at all. */
+const APP_ADMIN = 'app-admin-1';
 
 const TEAM_A = ['p1', 'p2', 'p3', 'p4'];
 const TEAM_B = ['p5', 'p6', 'p7', 'p8'];
@@ -78,6 +80,31 @@ describe('opening the vote', () => {
 		expect(sendSpy).toHaveBeenCalledTimes(1);
 		expect(sendSpy.mock.calls[0][0].sort()).toEqual([...EVERYONE].sort());
 		expect(sendSpy.mock.calls[0][1]).toBe('motm');
+	});
+
+	// They own the correction if it goes wrong, and knowing the window is running
+	// is what makes chasing a turnout possible before it shuts rather than after.
+	// Told, not asked: the rules only let the lineup actually vote.
+	it('tells an app admin who did not play that it is open', async () => {
+		await setUpGame();
+		await writeUser(APP_ADMIN, { isAppAdmin: true });
+		const sendSpy = jest.spyOn(push, 'sendGamePush');
+
+		await confirm();
+
+		expect(sendSpy.mock.calls[0][0].sort()).toEqual([...EVERYONE, APP_ADMIN].sort());
+	});
+
+	// `sendPush` resolves one recipient per uid, so twice would be two lookups
+	// and — for anybody it falls back to email for — two identical mails.
+	it('names an app admin who played once rather than twice', async () => {
+		await setUpGame();
+		await writeUser('p1', { isAppAdmin: true });
+		const sendSpy = jest.spyOn(push, 'sendGamePush');
+
+		await confirm();
+
+		expect(sendSpy.mock.calls[0][0].sort()).toEqual([...EVERYONE].sort());
 	});
 
 	// The game page is a headcount for a game that has already been played.
@@ -349,5 +376,122 @@ describe('closing the vote', () => {
 		await expect(closeMotmVoting.run({} as never)).resolves.toBeUndefined();
 
 		expect((await readGame(SEASON_ID, GAME_ID))?.motmVotingUntilMillis).toBeLessThan(Date.now());
+	});
+});
+
+/**
+ * The other half of the exchange. Everybody here was interrupted two days ago to
+ * be asked a question, and until this went in the answer only ever reached the
+ * ones who happened to open the app again.
+ */
+describe('announcing the result', () => {
+	/** A confirmed game with votes in, wound past its deadline and ready to count. */
+	const voteAndExpire = async (votes: [string, string][]) => {
+		await setUpGame();
+		await confirm();
+		for (const [voter, pick] of votes) await writeMotmVote(SEASON_ID, GAME_ID, voter, pick);
+		await expireTheVote();
+	};
+
+	// The lineup rather than the voters: somebody who never got round to voting
+	// still played, and scoping it to people who answered would quietly turn the
+	// result into a reward for having answered.
+	it('tells everybody who played, whether or not they voted', async () => {
+		await voteAndExpire([['p1', 'p5']]);
+		const sendSpy = jest.spyOn(push, 'sendGamePush');
+
+		await closeMotmVoting.run({} as never);
+
+		expect(sendSpy).toHaveBeenCalledTimes(1);
+		expect(sendSpy.mock.calls[0][0].sort()).toEqual([...EVERYONE].sort());
+		expect(sendSpy.mock.calls[0][1]).toBe('motmResult');
+	});
+
+	// The same standing that has them hearing the vote open: they are the only
+	// people who can do anything about a wrong answer, since the bonus reaches a
+	// rating through a replay.
+	it('tells an app admin who did not play', async () => {
+		await writeUser(APP_ADMIN, { isAppAdmin: true });
+		await voteAndExpire([['p1', 'p5']]);
+		const sendSpy = jest.spyOn(push, 'sendGamePush');
+
+		await closeMotmVoting.run({} as never);
+
+		expect(sendSpy.mock.calls[0][0].sort()).toEqual([...EVERYONE, APP_ADMIN].sort());
+	});
+
+	// By display name rather than uid: this is the one payload whose subject is
+	// not the person reading it.
+	it('carries the winner’s name and how close it was', async () => {
+		await writeUser('p5', { displayName: 'Anders' });
+		await voteAndExpire([
+			['p1', 'p5'],
+			['p2', 'p5'],
+			['p3', 'p1'],
+		]);
+		const sendSpy = jest.spyOn(push, 'sendGamePush');
+
+		await closeMotmVoting.run({} as never);
+
+		expect(sendSpy.mock.calls[0][2]).toMatchObject({ winners: ['Anders'], votes: 2 });
+	});
+
+	// Everybody level on the most votes is level by construction, so one number
+	// covers a tie however many people share it.
+	it('names everybody who tied', async () => {
+		await writeUser('p5', { displayName: 'Anders' });
+		await writeUser('p6', { displayName: 'Björn' });
+		await voteAndExpire([
+			['p1', 'p5'],
+			['p2', 'p6'],
+		]);
+		const sendSpy = jest.spyOn(push, 'sendGamePush');
+
+		await closeMotmVoting.run({} as never);
+
+		expect(sendSpy.mock.calls[0][2]).toMatchObject({ winners: ['Anders', 'Björn'], votes: 1 });
+	});
+
+	// The same place the question landed, so tapping the answer goes where
+	// tapping the ask did — and where the totals now are.
+	it('points at the team sheet, where the totals are', async () => {
+		await voteAndExpire([['p1', 'p5']]);
+		const sendSpy = jest.spyOn(push, 'sendGamePush');
+
+		await closeMotmVoting.run({} as never);
+
+		expect(sendSpy.mock.calls[0][2].url).toBe(`/s/${SEASON_ID}/g/${GAME_ID}/tournament`);
+	});
+
+	// There is a decision document either way — that is what says the counting
+	// happened — but "nobody voted" is not news anybody needs a phone to buzz for.
+	it('says nothing when nobody voted', async () => {
+		await voteAndExpire([]);
+		const sendSpy = jest.spyOn(push, 'sendGamePush');
+
+		await closeMotmVoting.run({} as never);
+
+		expect(await readMotm(SEASON_ID, GAME_ID)).toMatchObject({ winners: [] });
+		expect(sendSpy).not.toHaveBeenCalled();
+	});
+
+	// The decision is written and the window is gone by the time this sends, so a
+	// throw would cost the winner their bonus over a notification that failed —
+	// and the sweep would log a misleading "could not count" for a vote it
+	// counted correctly.
+	it('still pays the winner when the notification fails', async () => {
+		for (const uid of EVERYONE) await writeUser(uid);
+		await voteAndExpire([['p1', 'p5']]);
+
+		const before = (await readUser('p5'))!.rating!.elo;
+		jest.spyOn(push, 'sendGamePush').mockRejectedValueOnce(new Error('fcm is having a day'));
+
+		await expect(closeMotmVoting.run({} as never)).resolves.toBeUndefined();
+
+		expect((await readUser('p5'))!.rating!.elo - before).toBeCloseTo(
+			MOTM_BONUS_ELO - MOTM_BONUS_ELO / EVERYONE.length,
+			6
+		);
+		expect((await readRatingLedger(GAME_ID))?.motm).toEqual(['p5']);
 	});
 });

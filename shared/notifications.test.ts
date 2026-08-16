@@ -189,6 +189,67 @@ describe('the man-of-the-match vote', () => {
 	});
 });
 
+describe('the man-of-the-match result', () => {
+	const RESULT: GameNotificationContext = { ...CONTEXT, winners: ['Anders'], votes: 4 };
+
+	// The name is the whole notification, and the body is the half a lock screen
+	// truncates — so the one thing somebody has to be able to read at a glance
+	// goes in the title, the same way `availability` puts one there.
+	it('leads with who the group picked', () => {
+		expect(buildGamePush('motmResult', RESULT)).toMatchObject({
+			title: 'Anders is man of the match',
+			body: 'Tue 1 Sep · 19:00 — 4 votes.',
+		});
+	});
+
+	// "1 votes" on the one notification most likely to be read by the person who
+	// cast that vote.
+	it('counts a single vote in the singular', () => {
+		expect(buildGamePush('motmResult', { ...RESULT, votes: 1 }).body).toBe('Tue 1 Sep · 19:00 — 1 vote.');
+	});
+
+	// A real outcome rather than an edge case: `tallyMotmVotes` publishes every
+	// winner level on the most votes, and a small turnout ties often.
+	it('shares it between everybody who tied', () => {
+		expect(buildGamePush('motmResult', { ...RESULT, winners: ['Anders', 'Björn'], votes: 2 })).toMatchObject({
+			title: 'Anders and Björn share man of the match',
+			body: 'Tue 1 Sep · 19:00 — 2 votes each.',
+		});
+	});
+
+	it('lists three the way anybody would say it', () => {
+		expect(buildGamePush('motmResult', { ...RESULT, winners: ['Anders', 'Björn', 'Chris'] }).title).toBe(
+			'Anders, Björn and Chris share man of the match'
+		);
+	});
+
+	// A profile caught mid-write, or one that has never had a name on it. Dropped
+	// instead, a tie would become a title claiming a single winner — the one thing
+	// here that reads as wrong rather than as missing.
+	it('keeps a nameless winner in the list rather than losing them', () => {
+		expect(buildGamePush('motmResult', { ...RESULT, winners: ['Anders', '  '] }).title).toBe(
+			'Anders and Somebody share man of the match'
+		);
+	});
+
+	// Nothing to answer and nobody to bring a ball: the worker's "I'm in"
+	// shortcut would open the app and silently do nothing.
+	it('carries no respond shortcut', () => {
+		expect(buildGamePush('motmResult', RESULT).respondable).toBe(false);
+	});
+
+	// One exchange, one switch. Somebody who wanted to be asked wants to hear how
+	// it went, and somebody who muted being asked has already said they don't.
+	it('goes out on the same preference as the question', () => {
+		expect(NOTIFICATION_PREF.motmResult).toBe(NOTIFICATION_PREF.motm);
+	});
+
+	// It lands days after the ask, on a lock screen that may still be showing it.
+	it('replaces the ask rather than stacking on it', () => {
+		expect(buildGamePush('motmResult', RESULT).tag).toBe(buildGamePush('motm', CONTEXT).tag);
+	});
+});
+
 describe('NOTIFICATION_PREF', () => {
 	it('gates every kind behind a preference, or explicitly behind none', () => {
 		for (const kind of NOTIFICATIONS) {

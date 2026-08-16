@@ -39,7 +39,8 @@ export type GameNotification =
 	| 'kickoffMoved'
 	| 'reminder'
 	| 'availability'
-	| 'motm';
+	| 'motm'
+	| 'motmResult';
 
 export const GAME_NOTIFICATIONS: GameNotification[] = [
 	'reminder',
@@ -49,6 +50,7 @@ export const GAME_NOTIFICATIONS: GameNotification[] = [
 	'kickoffMoved',
 	'availability',
 	'motm',
+	'motmResult',
 ];
 
 /**
@@ -78,6 +80,17 @@ export interface GameNotificationContext {
 	who?: string;
 	/** `availability` only: what they moved it to. */
 	availability?: AvailabilityChange;
+	/**
+	 * `motmResult` only: who the group picked, by display name rather than uid,
+	 * because this is the one payload whose subject isn't the person reading it.
+	 * More than one is a tie, which is a real outcome — see `MotmTally`.
+	 */
+	winners?: string[];
+	/**
+	 * `motmResult` only: how many votes the winners got. One number covers a tie,
+	 * since everybody level on the most votes is level by construction.
+	 */
+	votes?: number;
 }
 
 /**
@@ -105,6 +118,14 @@ export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof
 	reminder: 'reminders',
 	newPlayer: 'newPlayers',
 	motm: 'motm',
+	// The answer shares the question's switch rather than earning one of its own.
+	// A kind needs a switch when it goes to a standing audience, which this does
+	// — but it goes to *the same* standing audience, about the same vote, as the
+	// half that asked. Somebody who wanted to be asked wants to hear how it went,
+	// and somebody who muted being asked has already said they don't. A second
+	// switch would only offer the two settings nobody wants: to be canvassed and
+	// never told, or told about a vote you were never invited to.
+	motmResult: 'motm',
 	availability: null,
 };
 
@@ -206,6 +227,24 @@ const AVAILABILITY_COPY: Record<AvailabilityChange, string> = {
 	withdrawn: 'took their answer back',
 };
 
+/**
+ * "Anders", "Anders and Björn", "Anders, Björn and Chris".
+ *
+ * Only a tie ever brings more than one name here, and a tie between more than
+ * two is vanishingly rare — but a vote of one, two or three all being level is
+ * exactly the shape a small turnout takes, so this handles the list rather than
+ * the pair.
+ */
+const formatNames = (names: string[]): string => {
+	// A blank is a profile caught mid-write rather than somebody to leave out —
+	// see `getDisplayName`. Dropping it would turn a tie into a title claiming a
+	// single winner, which is the one thing here that would be read as wrong
+	// rather than as missing.
+	const named = names.map(name => name.trim() || 'Somebody');
+
+	return named.length <= 1 ? (named[0] ?? '') : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`;
+};
+
 const COPY: Record<GameNotification, Copy> = {
 	cancelled: ({ when, cancelledReason }) => ({
 		title: 'Game called off',
@@ -243,14 +282,44 @@ const COPY: Record<GameNotification, Copy> = {
 		body: `${when} — ${playing ?? 0} in so far.`,
 	}),
 
-	// The only one of these that arrives after the football rather than before
-	// it, so the date is what places it — "which Tuesday is this about" is a
-	// real question two days later.
+	// Arrives after the football rather than before it, so the date is what
+	// places it — "which Tuesday is this about" is a real question two days
+	// later, and the same goes for the result below.
 	motm: ({ when }) => ({
 		title: 'Who was man of the match?',
 		body: `${when} — pick whoever stood out. Voting closes in ${MOTM_VOTING_HOURS} hours.`,
 	}),
+
+	// The other half of that exchange, and the only thing the app sends that is
+	// purely news: nothing to answer, nobody to bring a ball. It is here because
+	// everybody in the lineup was interrupted to vote and the result otherwise
+	// reached them only if they happened to open the app again — a question asked
+	// and never answered back is the kind people stop replying to.
+	//
+	// The name goes in the title for the same reason `availability` puts one
+	// there: it is the whole notification, and the body is what a lock screen
+	// truncates. `votes` is in the body because how close it was is the first
+	// thing anybody asks next, and it is what makes the tap worth it.
+	motmResult: ({ when, winners = [], votes = 0 }) => ({
+		title:
+			winners.length > 1
+				? `${formatNames(winners)} share man of the match`
+				: `${formatNames(winners) || 'Somebody'} is man of the match`,
+		body: `${when} — ${votes} ${votes === 1 ? 'vote' : 'votes'}${winners.length > 1 ? ' each' : ''}.`,
+	}),
 };
+
+/**
+ * The kinds that arrive after the football rather than before it.
+ *
+ * The service worker's "I'm in" shortcut belongs on a notification asking a
+ * question somebody can still answer, and by the time either of these lands
+ * there is nothing left to be in for — the button would open the app and
+ * silently do nothing. A list rather than a `!== 'motm'` because the vote
+ * stopped being the only one the moment its result was sent too, and the next
+ * post-game kind added here should not have to rediscover that.
+ */
+const AFTER_THE_GAME: GameNotification[] = ['motm', 'motmResult'];
 
 export const buildGamePush = (kind: GameNotification, context: GameNotificationContext): PushPayload => ({
 	...COPY[kind](context),
@@ -258,11 +327,7 @@ export const buildGamePush = (kind: GameNotification, context: GameNotificationC
 	// One tag per game, so three notifications about the same Tuesday replace
 	// each other on the lock screen instead of stacking up.
 	tag: `game-${context.gameId}`,
-	// Every kind here asks a question about a game somebody can still answer —
-	// except the vote, which arrives once the game is over and the question is a
-	// different one. Offering "I'm in" on it would open the app and silently do
-	// nothing.
-	respondable: kind !== 'motm',
+	respondable: !AFTER_THE_GAME.includes(kind),
 });
 
 export interface NewPlayerContext {

@@ -4,7 +4,9 @@ import type { MotmVote, Season, TournamentMotm, TournamentMotmVoters, Tournament
 import { MOTM_VOTING_HOURS, tallyMotmVotes } from '../../../shared/motm';
 import { formatGameWhen } from '../../../shared/format';
 import { db } from './firebase';
+import { getAppAdminUids, getDisplayName, getGame, getSeason } from './data';
 import { sendGamePush } from './push';
+import { reportError } from './sentry';
 
 /**
  * Running the man-of-the-match vote.
@@ -121,13 +123,23 @@ export const openMotmVoting = async (seasonId: string, gameId: string, season: S
 
 	if (!teamsSnap.exists || decision) return false;
 
-	const lineup = teamsSnap.data() as TournamentTeams;
-	const uids = lineup.teams.flatMap(team => team.uids);
+	const lineup = (teamsSnap.data() as TournamentTeams).teams.flatMap(team => team.uids);
 
-	if (uids.length === 0) return false;
+	if (lineup.length === 0) return false;
 
-	const game = await gameRef(seasonId, gameId).get();
+	const [game, admins] = await Promise.all([gameRef(seasonId, gameId).get(), getAppAdminUids()]);
 	const kickoff = (game.data()?.kickoff as string | undefined) ?? new Date().toISOString();
+
+	// App admins hear the vote open whether or not they played, the same as they
+	// hear it close. They own the correction if it goes wrong, and knowing the
+	// window is running is what makes chasing a turnout possible before it shuts
+	// rather than after. Deduplicated because an admin who played is in both.
+	//
+	// The one thing to know about this: only the lineup can actually vote — the
+	// rules check the team sheet at both ends — so an admin who sat this one out
+	// is being told, not asked, and the team sheet will show them the turnout
+	// with no ballot on it.
+	const uids = [...new Set([...lineup, ...admins])];
 
 	// Counted from now rather than from kickoff: the window is time to answer a
 	// question that is only being asked at this moment, and a game confirmed
@@ -147,6 +159,76 @@ export const openMotmVoting = async (seasonId: string, gameId: string, season: S
 	logger.info('Opened the man-of-the-match vote', { seasonId, gameId, players: uids.length, ...sent });
 
 	return true;
+};
+
+/**
+ * Tell the people who played how the vote went.
+ *
+ * The half that was missing. Everybody in this lineup was interrupted two days
+ * ago to be asked a question, and until now the answer only ever reached the
+ * ones who happened to open the app again — a group asked something and never
+ * told the outcome is a group that stops answering.
+ *
+ * The audience is the lineup rather than the voters. Somebody who didn't get
+ * round to voting still played the game and is still owed the result, and
+ * scoping it to people who answered would quietly make the notification a
+ * reward for having answered.
+ *
+ * **App admins are told whether or not they played.** They are the only people
+ * here who have something to do about a wrong answer — the vote feeds a rating
+ * bonus, and a correction means a replay — so they are the one audience for
+ * which this is closer to an alert than to news. It is the same standing that
+ * puts `newPlayer` in front of them, and it stays behind the `motm` switch, so
+ * an admin who doesn't want any of this still says so in one place.
+ *
+ * Silent when nobody voted. There is a decision document either way — that is
+ * what says the counting happened — but "nobody voted" is not news anybody
+ * needs a phone to buzz for.
+ */
+const announceMotmResult = async (seasonId: string, gameId: string, { winners, counts }: TournamentMotm) => {
+	if (winners.length === 0) return;
+
+	const [teamsSnap, game, season, admins] = await Promise.all([
+		gameRef(seasonId, gameId).collection('tournament').doc('teams').get(),
+		getGame(seasonId, gameId),
+		getSeason(seasonId),
+		getAppAdminUids(),
+	]);
+
+	// No lineup is nobody to tell, and a missing game or season means the whole
+	// subtree is on its way out — `onSeasonDeleted` cascades. None of the three
+	// is worth reporting: a vote can only ever have been opened on a game that
+	// had teams, so this is the shape of a deletion, not of a fault.
+	if (!teamsSnap.exists || !game || !season) return;
+
+	const lineup = (teamsSnap.data() as TournamentTeams).teams.flatMap(team => team.uids);
+	// Deduplicated, because an admin who played is in both lists and `sendPush`
+	// resolves one recipient per uid — twice would be two lookups and, for
+	// anybody it has to fall back to email for, two identical mails.
+	const uids = [...new Set([...lineup, ...admins])];
+	const names = await Promise.all(winners.map(getDisplayName));
+
+	const sent = await sendGamePush(uids, 'motmResult', {
+		when: formatGameWhen(game.kickoff, season.slot.timezone),
+		// The team sheet, where the totals are — the same place the question
+		// landed, so tapping the answer lands where tapping the ask did.
+		url: `/s/${seasonId}/g/${gameId}/tournament`,
+		gameId,
+		winners: names,
+		// Everybody level on the most votes is level by construction, so the top
+		// of the ordered tally is the winning number whether one person won it or
+		// three shared it.
+		votes: counts[0]?.votes ?? 0,
+	});
+
+	logger.info('Announced the man-of-the-match result', {
+		seasonId,
+		gameId,
+		winners,
+		players: lineup.length,
+		recipients: uids.length,
+		...sent,
+	});
 };
 
 /**
@@ -181,6 +263,18 @@ export const closeMotmVote = async (seasonId: string, gameId: string): Promise<b
 	await votersRef(seasonId, gameId).delete();
 
 	logger.info('Counted a man-of-the-match vote', { seasonId, gameId, votes: votes.length, winners });
+
+	// Reported and swallowed, unlike everything above it. By this point the
+	// decision is written and the window is gone, so the sweep will never bring
+	// this game back round — and the caller reads what this function returns to
+	// decide whether to replay the ladder. A throw here would cost the winner
+	// their bonus over a notification that didn't send, which is the wrong way
+	// round. It is also exactly the failure nothing else would ever show: the
+	// sweep logs a success, the vote is correctly counted, and the only symptom
+	// is a group who never hear the results.
+	await announceMotmResult(seasonId, gameId, decision).catch(error =>
+		reportError('Could not announce a man-of-the-match result', { seasonId, gameId }, error)
+	);
 
 	return winners.length > 0;
 };

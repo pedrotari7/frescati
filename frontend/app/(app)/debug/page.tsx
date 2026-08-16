@@ -57,7 +57,9 @@ const DESCRIPTIONS: Record<GameNotification | AppNotification, string> = {
 	newPlayer: 'Really goes to every app admin, once, when somebody first signs in. Sends as if you had just joined.',
 	availability:
 		'Really goes to whoever tapped the bell on that game, every time an answer moves. Sends as if you had just said you were in.',
-	motm: 'Really goes to everybody in the lineup, once, when a game is confirmed. Opens the team sheet, where the vote is.',
+	motm: 'Really goes to everybody in the lineup and every app admin, once, when a game is confirmed. Opens the team sheet, where the vote is.',
+	motmResult:
+		'Really goes to the same people when the vote is counted, two days later. Sends as if you had won it. Opens the team sheet, where the totals are.',
 };
 
 const STATUS_TONE: Record<EmailTestStatus, PillTone> = { sent: 'in', noAddress: 'out', emailOff: 'neutral' };
@@ -113,10 +115,7 @@ const DebugPage = () => {
 	// Who a real reminder would actually nudge for this game — the quick way
 	// into "email exactly the people who haven't answered" without hand-picking
 	// them from the full roster.
-	const silentUids = useMemo(
-		() => (season ? getSilentMembers(season, responses) : []),
-		[season, responses]
-	);
+	const silentUids = useMemo(() => (season ? getSilentMembers(season, responses) : []), [season, responses]);
 
 	const uid = user?.uid;
 
@@ -361,7 +360,11 @@ const DebugPage = () => {
 
 							<div className='flex gap-1'>
 								{gameId && silentUids.length > 0 && (
-									<Button size='sm' variant='ghost' onClick={() => setSelectedUids(new Set(silentUids))}>
+									<Button
+										size='sm'
+										variant='ghost'
+										onClick={() => setSelectedUids(new Set(silentUids))}
+									>
 										Hasn&apos;t answered ({silentUids.length})
 									</Button>
 								)}
@@ -384,7 +387,11 @@ const DebugPage = () => {
 										checked={selectedUids.has(candidate.uid)}
 										onChange={() => toggleRecipient(candidate.uid)}
 									/>
-									<Avatar displayName={candidate.displayName} photoURL={candidate.photoURL} size='sm' />
+									<Avatar
+										displayName={candidate.displayName}
+										photoURL={candidate.photoURL}
+										size='sm'
+									/>
 									<span className='text-ink flex-1 truncate text-sm'>
 										{shortName(candidate.displayName)}
 									</span>
@@ -394,7 +401,8 @@ const DebugPage = () => {
 					</div>
 
 					<Button variant='primary' fullWidth disabled={selectedUids.size === 0} onClick={sendEmailTest}>
-						Email {selectedUids.size > 0 && selectedUids.size} {selectedUids.size === 1 ? 'person' : 'people'}
+						Email {selectedUids.size > 0 && selectedUids.size}{' '}
+						{selectedUids.size === 1 ? 'person' : 'people'}
 					</Button>
 
 					{emailResult && (

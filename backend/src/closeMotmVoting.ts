@@ -2,6 +2,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import type { Game } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
+import { EMAIL_SECRETS } from './lib/email';
 import { closeMotmVote } from './lib/motm';
 import { requestRatingReplay } from './lib/finalise';
 import { HOURLY, instrumentSchedule, reportError } from './lib/sentry';
@@ -26,7 +27,11 @@ import { HOURLY, instrumentSchedule, reportError } from './lib/sentry';
  * correction quietly erases.
  */
 export const closeMotmVoting = onSchedule(
-	{ schedule: 'every 1 hours', region: REGION, timeoutSeconds: 300 },
+	// `EMAIL_SECRETS` because counting a vote announces the result to everybody
+	// who played, and without the secret declared here that notification's email
+	// fallback would silently mail nobody — the same reason the two confirmation
+	// entry points declare it. See `sendPush`.
+	{ schedule: 'every 1 hours', region: REGION, timeoutSeconds: 300, secrets: EMAIL_SECRETS },
 	// Two consecutive misses before raising, like the confirmation sweep beside
 	// it: nothing here has a deadline. A vote counted an hour late reaches the
 	// same answer, because what can still be voted on is decided by the window

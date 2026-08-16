@@ -18,10 +18,11 @@ import { getGame, getMostRecentActiveSeasonId, getSeason } from './data';
  * `newPlayer` stands `sender` in as the newcomer — sending it as if they had
  * just signed up themselves is the only honest way to see what an admin gets,
  * short of creating an account to throw away. `availability` borrows them the
- * same way, as the player whose answer moved.
+ * same way, as the player whose answer moved, and `motmResult` as the player
+ * the group picked.
  *
- * Those two live here rather than in `buildTestContext` because they describe
- * the sender, not the game: that one answers "which game is this about", and
+ * Those live here rather than in `buildTestContext` because they describe the
+ * sender, not the game: that one answers "which game is this about", and
  * folding a name into it would make it answer two questions.
  *
  * `newPlayer` resolves its own deep link through `getMostRecentActiveSeasonId`
@@ -29,6 +30,9 @@ import { getGame, getMostRecentActiveSeasonId, getSeason } from './data';
  * for the game kinds, and a test send is only honest if it deep-links exactly
  * where the real trigger would.
  */
+/** The kinds whose deep link is the team sheet rather than the game page. */
+const ON_THE_TEAM_SHEET: (GameNotification | AppNotification)[] = ['motm', 'motmResult'];
+
 export const buildTestPayload = async (
 	kind: GameNotification | AppNotification,
 	{ sender, seasonId, gameId }: { sender: { uid: string; displayName: string }; seasonId?: string; gameId?: string }
@@ -39,16 +43,22 @@ export const buildTestPayload = async (
 
 	return buildGamePush(kind, {
 		...context,
-		// The vote lives on the team sheet rather than the game page, so a test
-		// send has to land there too — same reasoning as `newPlayer` resolving
-		// its own deep link: a test that opens somewhere else is a test of
-		// something else. Only when a real game was named; the stand-in context
-		// has no team sheet to point at.
-		...(kind === 'motm' && seasonId && gameId ? { url: `${context.url}/tournament` } : {}),
+		// The vote and its result both live on the team sheet rather than the
+		// game page, so a test send has to land there too — same reasoning as
+		// `newPlayer` resolving its own deep link: a test that opens somewhere
+		// else is a test of something else. Only when a real game was named; the
+		// stand-in context has no team sheet to point at.
+		...(ON_THE_TEAM_SHEET.includes(kind) && seasonId && gameId ? { url: `${context.url}/tournament` } : {}),
 		who: sender.displayName,
+		winners: [sender.displayName],
 		// Stated rather than left to the builder's default, so a test send
-		// goes down the same path a real one does.
+		// goes down the same path a real one does. The vote count has nothing
+		// real to derive from — a game that has not been voted on has no totals,
+		// and reading a decision back would test the read rather than the copy —
+		// so it is a plausible number, chosen odd enough to be recognisable as
+		// the stand-in it is.
 		availability: 'in',
+		votes: 5,
 	});
 };
 

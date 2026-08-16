@@ -91,7 +91,8 @@ export interface NotificationPrefs {
 	 */
 	newPlayers: boolean;
 	/**
-	 * The one-tap vote that opens when a game is confirmed.
+	 * The one-tap vote that opens when a game is confirmed, and the result when
+	 * it closes.
 	 *
 	 * A switch of its own rather than borrowing `reminders`, which covers the
 	 * nudge to say whether you're playing: somebody who has muted being chased
@@ -99,6 +100,10 @@ export interface NotificationPrefs {
 	 * best on the pitch. It needs *a* switch because the audience is everybody
 	 * who played, which nobody signed up for — the same test `availability`
 	 * fails, and why that one has none.
+	 *
+	 * One switch for both halves because they are one exchange: being asked and
+	 * being told how it went are not two things anybody wants separately. See
+	 * `NOTIFICATION_PREF`.
 	 */
 	motm: boolean;
 	/**
