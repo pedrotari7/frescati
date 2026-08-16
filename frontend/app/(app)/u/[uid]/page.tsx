@@ -4,10 +4,11 @@ import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, TrophyIcon } from '@heroicons/react/24/outline';
 import { getRatingLadder, toDisplayMovement } from '@shared/leaderboard';
-import { getPlayerRecord, getRatingTrend } from '@shared/player';
-import type { PlayerGame } from '@shared/player';
+import { getPlayerChemistry, getPlayerLinks, getPlayerRecord, getRatingTrend } from '@shared/player';
+import type { PlayerGame, PlayerLink } from '@shared/player';
+import type { AppUser } from '@shared/types';
 import { hasPlayed, isProvisional, toDisplayRating } from '@shared/rating';
-import { formatGameDate, placeLabel } from '@shared/format';
+import { formatGameDate, placeLabel, shortName } from '@shared/format';
 import { usePlayerLedger, useSeasons, useUsers } from '../../../../hooks/useData';
 import { useAuth } from '../../../../lib/auth';
 import { useSeasonScope } from '../../../../components/SeasonScope';
@@ -40,6 +41,18 @@ const FORM_LENGTH = 5;
 
 /** Games listed before the list asks whether you really want the rest. */
 const INITIAL_GAMES = 12;
+
+/** Teammates and opponents listed before the same question. */
+const INITIAL_LINKS = 6;
+
+/**
+ * Games with somebody before their record together is called a pattern.
+ *
+ * One game together is a hundred per cent partnership. The list below shows
+ * everybody regardless — a single game is a fact — but the two lines that name
+ * a name out loud need enough behind them to still be true next month.
+ */
+const MIN_LINK_GAMES = 4;
 
 const Stat = ({ label, value, hint }: { label: string; value: string; hint?: string }) => (
 	<div className='glass rounded-2xl p-3 text-center'>
@@ -75,10 +88,24 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 	const { seasons } = useSeasons();
 	const { entries, loading: ledgerLoading } = usePlayerLedger(uid);
 	const [showAll, setShowAll] = useState(false);
+	const [showAllLinks, setShowAllLinks] = useState(false);
 
 	const player = users.find(candidate => candidate.uid === uid) ?? null;
 	const record = useMemo(() => getPlayerRecord(entries, uid), [entries, uid]);
 	const seasonsById = useMemo(() => new Map(seasons.map(season => [season.id, season])), [seasons]);
+	const usersById = useMemo(() => new Map(users.map(candidate => [candidate.uid, candidate])), [users]);
+
+	// Everybody they have ever shared a game with, and the two of those worth
+	// saying out loud. Off the same entries as the record above — but only the
+	// ones carrying a team map, since a shared finishing place cannot say which
+	// side of it two players were on.
+	const links = useMemo(() => getPlayerLinks(entries, uid), [entries, uid]);
+	const chemistry = useMemo(() => getPlayerChemistry(links, MIN_LINK_GAMES), [links]);
+
+	// Counted rather than assumed equal to `appearances`: entries written before
+	// the team map existed are absent here, and a panel quietly built on half a
+	// career should say so instead of looking complete.
+	const linkedGames = useMemo(() => entries.filter(entry => entry.teams?.[uid] !== undefined).length, [entries, uid]);
 
 	// The all-time ladder, purely to say where this player stands on it. Built
 	// from the same `useUsers` subscription the name came from, so the rank costs
@@ -249,6 +276,72 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 							</p>
 						</section>
 
+						{links.length > 0 && (
+							<section>
+								<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
+									Played with ({links.length})
+								</h2>
+
+								{(chemistry.bestWith || chemistry.nemesis) && (
+									<div className='mb-2 space-y-1 px-1'>
+										{chemistry.bestWith && (
+											<p className='text-faint text-xs'>
+												Wins most alongside{' '}
+												<span className='text-ink font-semibold'>
+													{nameOf(usersById, chemistry.bestWith.uid)}
+												</span>{' '}
+												— {chemistry.bestWith.wonTogether} of {chemistry.bestWith.together}{' '}
+												together.
+											</p>
+										)}
+										{chemistry.nemesis && (
+											<p className='text-faint text-xs'>
+												Comes off worst against{' '}
+												<span className='text-ink font-semibold'>
+													{nameOf(usersById, chemistry.nemesis.uid)}
+												</span>{' '}
+												— {chemistry.nemesis.beat}–{chemistry.nemesis.drewWith}–
+												{chemistry.nemesis.lostTo} in {chemistry.nemesis.against} games.
+											</p>
+										)}
+									</div>
+								)}
+
+								<ul className='glass divide-y divide-white/6 overflow-hidden rounded-3xl'>
+									{/* Two numbers need saying which is which, and the
+									    caption strip is already how this page labels a
+									    run of rows. */}
+									<li className='text-faint flex items-center gap-3 bg-white/5 px-4 py-1.5 text-[11px] font-semibold tracking-wider uppercase'>
+										<span className='flex-1'>Player</span>
+										<span className='w-11 text-right'>With</span>
+										<span className='w-11 text-right'>Vs</span>
+									</li>
+
+									{(showAllLinks ? links : links.slice(0, INITIAL_LINKS)).map(link => (
+										<LinkRow key={link.uid} link={link} profile={usersById.get(link.uid) ?? null} />
+									))}
+								</ul>
+
+								<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
+									Games their team won out of games on the same team, then games they finished above
+									out of games on opposite teams. A level finish counts for neither.
+									{linkedGames < record.appearances &&
+										` Worked out from ${linkedGames} of ${record.appearances} games — the rest were rated before the app recorded who was on which team.`}
+								</p>
+
+								{links.length > INITIAL_LINKS && !showAllLinks && (
+									<Button
+										variant='secondary'
+										fullWidth
+										className='mt-3'
+										onClick={() => setShowAllLinks(true)}
+									>
+										Show all {links.length}
+									</Button>
+								)}
+							</section>
+						)}
+
 						<section>
 							<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
 								Every game ({record.appearances})
@@ -279,6 +372,55 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 				)}
 			</div>
 		</PageShell>
+	);
+};
+
+/**
+ * Somebody's first name, or a stand-in for an account that no longer exists.
+ *
+ * First name only because this row has an avatar and two number columns beside
+ * it on a phone, and a truncated surname helps nobody pick a face out of a
+ * squad who mostly know each other by one.
+ */
+const nameOf = (usersById: Map<string, AppUser>, uid: string): string =>
+	shortName(usersById.get(uid)?.displayName ?? 'Unknown player');
+
+/**
+ * One other player, and how the two of them have got on.
+ *
+ * Wins over games in both columns rather than a percentage, because the numbers
+ * behind these are small enough that "67%" flatters two games out of three. The
+ * titles are for a desktop hover, where the column headings are the only other
+ * explanation on offer.
+ */
+const LinkRow = ({ link, profile }: { link: PlayerLink; profile: AppUser | null }) => {
+	const name = profile?.displayName ?? 'Unknown player';
+
+	return (
+		<li>
+			<Link
+				href={`/u/${link.uid}`}
+				className='flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5'
+			>
+				<Avatar displayName={name} photoURL={profile?.photoURL} size='sm' />
+
+				<span className='text-ink min-w-0 flex-1 truncate text-sm'>{shortName(name)}</span>
+
+				<span
+					className='text-muted w-11 text-right text-xs tabular-nums'
+					title={`${link.wonTogether} of ${link.together} won on the same team`}
+				>
+					{link.together === 0 ? '—' : `${link.wonTogether}/${link.together}`}
+				</span>
+
+				<span
+					className='text-muted w-11 text-right text-xs tabular-nums'
+					title={`Finished above them in ${link.beat} of ${link.against}, level in ${link.drewWith}`}
+				>
+					{link.against === 0 ? '—' : `${link.beat}/${link.against}`}
+				</span>
+			</Link>
+		</li>
 	);
 };
 

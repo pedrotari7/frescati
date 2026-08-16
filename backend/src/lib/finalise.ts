@@ -39,6 +39,8 @@ interface GameRatings {
 	before: Record<string, PlayerRating | null>;
 	after: Record<string, PlayerRating>;
 	positions: Record<string, number>;
+	/** Which team each player was on, by its place in the lineup. */
+	teams: Record<string, number>;
 	/** Who the group voted for, once its vote has been counted. */
 	motm: string[];
 }
@@ -137,6 +139,10 @@ export const computeGameRatings = async (
 			changes.map(change => [change.uid, applyRatingChange(profiles.get(change.uid)?.rating, change, at)])
 		),
 		positions: Object.fromEntries(players.map(player => [player.uid, positions[player.team]])),
+		// The team itself, not only where it came. `positions` is shared on a tie,
+		// so it cannot say who somebody actually played alongside — see
+		// `RatingLedgerEntry.teams`.
+		teams: Object.fromEntries(players.map(player => [player.uid, player.team])),
 	};
 };
 
@@ -174,6 +180,7 @@ const commitGameRatings = async (
 		before: ratings.before,
 		after: ratings.after,
 		positions: ratings.positions,
+		teams: ratings.teams,
 		// Left off entirely while the vote is open, rather than written as an
 		// empty list: a career screen reads this collection and nothing else, and
 		// "nobody won it" and "it hadn't been counted yet" are different things

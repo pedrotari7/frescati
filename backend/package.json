@@ -17,6 +17,7 @@
 		"set-admin": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/setAdmin.ts",
 		"backfill-kickoff-millis": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillKickoffMillis.ts",
 		"backfill-motm-voters": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillMotmVoters.ts",
+		"backfill-ledger-teams": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillLedgerTeams.ts",
 		"strip-user-emails": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/stripUserEmails.ts",
 		"forget-player": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/forgetPlayer.ts",
 		"recount-games": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/recountGames.ts",

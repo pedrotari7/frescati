@@ -608,6 +608,20 @@ export interface RatingLedgerEntry {
 	 */
 	positions: Record<string, number>;
 	/**
+	 * Which team each player was on, by the team's 0-indexed place in the lineup.
+	 *
+	 * Not derivable from `positions`, which is the whole reason it is here: that
+	 * records where a team *finished*, shared on a tie, so two players level on 0
+	 * may have been on the same team or on two teams that drew — and in a
+	 * two-team game that ends level, everybody looks like a teammate. Anything
+	 * asking who somebody actually played *with* needs this.
+	 *
+	 * Absent on every entry written before it existed. `backfill-ledger-teams`
+	 * fills those in from the team sheet, which is safe because a confirmed
+	 * game's lineup is never rebuilt.
+	 */
+	teams?: Record<string, number>;
+	/**
 	 * Who the group voted man of the match, if the vote had closed by the time
 	 * this entry was written. Shared on a tie, like `positions`.
 	 *

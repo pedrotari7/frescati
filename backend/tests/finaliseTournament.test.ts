@@ -106,6 +106,20 @@ describe('finaliseTournament', () => {
 		expect(ledger?.positions).toMatchObject({ p1: 0, p5: 1 });
 	});
 
+	it('records who was on which team, which the finishing places cannot say', async () => {
+		await setUpGame();
+		// Level, so both teams share first place and `positions` says the same
+		// thing about all eight — the case that needs the team map.
+		await writeGameMatches([[1, 1]]);
+
+		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
+
+		const ledger = await readRatingLedger(GAME_ID);
+
+		expect(ledger?.positions).toMatchObject({ p1: 0, p5: 0 });
+		expect(ledger?.teams).toEqual({ p1: 0, p2: 0, p3: 0, p4: 0, p5: 1, p6: 1, p7: 1, p8: 1 });
+	});
+
 	it('lets an app admin confirm even without season adminUids', async () => {
 		await writeSeason(SEASON_ID, { memberUids: [...TEAM_A, ...TEAM_B], adminUids: [] });
 		await writeGame(SEASON_ID, GAME_ID);

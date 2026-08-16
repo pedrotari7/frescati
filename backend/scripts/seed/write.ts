@@ -778,6 +778,11 @@ const playGame = (
 			before,
 			after,
 			positions: Object.fromEntries(inputs.map(input => [input.uid, positions[input.team]])),
+			// The team itself as well as where it came, because a shared place
+			// cannot say which side of it two players were on — see
+			// `RatingLedgerEntry.teams`. Without this the seeded ladder looks
+			// right and every profile's teammates panel is empty.
+			teams: Object.fromEntries(inputs.map(input => [input.uid, input.team])),
 			// Left off entirely while the vote is open, the same way
 			// `commitGameRatings` leaves it off — "nobody won it" and "it hasn't
 			// been counted" must not look the same on a career screen.
