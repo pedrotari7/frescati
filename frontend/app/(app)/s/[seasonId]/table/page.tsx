@@ -6,7 +6,7 @@ import { TrophyIcon } from '@heroicons/react/24/outline';
 import { getRatingLadder, getSeasonTable, toDisplayMovement } from '@shared/leaderboard';
 import type { SeasonResult } from '@shared/leaderboard';
 import { toDisplayRating } from '@shared/rating';
-import { formatGameDate, placeLabel, shortName } from '@shared/format';
+import { formatGameDate, placeLabel } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useSeasonLedger, useUsers } from '../../../../../hooks/useData';
 import { useAuth } from '../../../../../lib/auth';
@@ -80,7 +80,10 @@ const LeaderboardPage = () => {
 
 	const rows = tab === 'season' ? seasonTable : ladder;
 
-	const name = (uid: string) => shortName(usersByUid.get(uid)?.displayName ?? 'Unknown player');
+	// Full name here, unlike the squad screens: a table is read down the column
+	// rather than glanced at, and two Marcos in the same season are two rows
+	// nobody can tell apart on a first name.
+	const name = (uid: string) => usersByUid.get(uid)?.displayName ?? 'Unknown player';
 
 	return (
 		<SeasonShell title='Table' subtitle={season.name} backHref={`/s/${seasonId}`}>
