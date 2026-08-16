@@ -1,4 +1,4 @@
-import { getRatingLadder, getSeasonTable, toDisplayMovement } from './leaderboard';
+import { FORM_LENGTH, getRatingLadder, getSeasonTable, toDisplayMovement } from './leaderboard';
 import { BASE_ELO, PROVISIONAL_GAMES } from './rating';
 import type { AppUser, PlayerRating, RatingLedgerEntry } from './types';
 
@@ -167,6 +167,76 @@ describe('getSeasonTable', () => {
 
 	it('has nothing to show for a season nobody has played', () => {
 		expect(getSeasonTable([], 's1')).toEqual([]);
+	});
+});
+
+describe('the form guide', () => {
+	/** A one-team game on a given day — enough to say won or lost, and when. */
+	const result = (gameId: string, day: number, position: number): RatingLedgerEntry => ({
+		...entry(gameId, 's1', { a: position }, { a: 1000 }, { a: 1000 }),
+		kickoff: `2026-09-${String(day).padStart(2, '0')}T17:00:00.000Z`,
+		kickoffMillis: Date.parse(`2026-09-${String(day).padStart(2, '0')}T17:00:00.000Z`),
+	});
+
+	const formOf = (entries: RatingLedgerEntry[]) => getSeasonTable(entries, 's1')[0].form;
+
+	it('reads oldest first, the way a form guide reads', () => {
+		const form = formOf([result('g1', 1, 0), result('g2', 8, 1), result('g3', 15, 0)]);
+
+		expect(form.map(game => game.gameId)).toEqual(['g1', 'g2', 'g3']);
+		expect(form.map(game => game.won)).toEqual([true, false, true]);
+	});
+
+	// The query behind this doesn't order anything, so whatever Firestore
+	// happened to return would otherwise be the run somebody reads as a streak.
+	it('puts the games in kickoff order rather than the order they arrived in', () => {
+		const form = formOf([result('g3', 15, 0), result('g1', 1, 1), result('g2', 8, 0)]);
+
+		expect(form.map(game => game.gameId)).toEqual(['g1', 'g2', 'g3']);
+	});
+
+	// Two pitches at seven, which a season with a split slot really does have.
+	// Something has to break the tie or the same season draws two different runs
+	// on two phones.
+	it('falls back to the game id for two games kicking off at once', () => {
+		const form = formOf([result('g2', 1, 1), result('g1', 1, 0)]);
+
+		expect(form.map(game => game.gameId)).toEqual(['g1', 'g2']);
+	});
+
+	it('keeps only the last few, and keeps the newest of them', () => {
+		const form = formOf(Array.from({ length: 9 }, (_, index) => result(`g${index}`, index + 1, 0)));
+
+		expect(form).toHaveLength(FORM_LENGTH);
+		expect(form.map(game => game.gameId)).toEqual(['g4', 'g5', 'g6', 'g7', 'g8']);
+	});
+
+	it('has room for a season shorter than the guide', () => {
+		expect(formOf([result('g1', 1, 0), result('g2', 8, 1)])).toHaveLength(2);
+	});
+
+	// Whatever the dot claims has to be what the win column beside it claims,
+	// or the row argues with itself.
+	it('counts a shared first as a win, exactly as the wins column does', () => {
+		const table = getSeasonTable(
+			[entry('g1', 's1', { a: 0, b: 0 }, { a: 1000, b: 1000 }, { a: 1000, b: 1000 })],
+			's1'
+		);
+
+		expect(table.map(row => row.form.map(game => game.won))).toEqual([[true], [true]]);
+	});
+
+	// A place only means something against the number of teams that played,
+	// which the ledger cannot say — so the place is carried through untouched
+	// and it is the screen's business what to do with it.
+	it('carries the finishing place through as it was recorded', () => {
+		expect(formOf([result('g1', 1, 2)])[0]).toMatchObject({ position: 2, won: false });
+	});
+
+	it('counts nothing from another season', () => {
+		const form = formOf([result('g1', 1, 0), { ...result('g2', 8, 0), seasonId: 's2' }, result('g3', 15, 1)]);
+
+		expect(form.map(game => game.gameId)).toEqual(['g1', 'g3']);
 	});
 });
 

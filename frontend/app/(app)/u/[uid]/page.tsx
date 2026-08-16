@@ -3,7 +3,7 @@
 import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, TrophyIcon } from '@heroicons/react/24/outline';
-import { getRatingLadder, toDisplayMovement } from '@shared/leaderboard';
+import { FORM_LENGTH, getRatingLadder, toDisplayMovement } from '@shared/leaderboard';
 import { getPlayerChemistry, getPlayerLinks, getPlayerRecord, getRatingTrend } from '@shared/player';
 import type { PlayerGame, PlayerLink } from '@shared/player';
 import type { AppUser } from '@shared/types';
@@ -35,9 +35,6 @@ import { classNames } from '../../../../lib/utils/reactHelper';
  * the table, because a correction that replays the ladder rewrites the same
  * entries this reads.
  */
-
-/** Games in the form guide. Enough to show a run, short enough to scan. */
-const FORM_LENGTH = 5;
 
 /** Games listed before the list asks whether you really want the rest. */
 const INITIAL_GAMES = 12;

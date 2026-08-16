@@ -4,8 +4,9 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { TrophyIcon } from '@heroicons/react/24/outline';
 import { getRatingLadder, getSeasonTable, toDisplayMovement } from '@shared/leaderboard';
+import type { SeasonResult } from '@shared/leaderboard';
 import { toDisplayRating } from '@shared/rating';
-import { placeLabel, shortName } from '@shared/format';
+import { formatGameDate, placeLabel, shortName } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useSeasonLedger, useUsers } from '../../../../../hooks/useData';
 import { useAuth } from '../../../../../lib/auth';
@@ -17,6 +18,38 @@ import StatusPill from '../../../../../components/StatusPill';
 import { classNames } from '../../../../../lib/utils/reactHelper';
 
 type Tab = 'season' | 'all-time';
+
+/**
+ * The last few games, oldest on the left, the way a form guide reads.
+ *
+ * Won or nothing, with no shade in between: a finishing place only means
+ * something against the number of teams that played, and the ledger cannot say
+ * how many there were — a tie for last is indistinguishable from a smaller
+ * field. So the dot claims exactly what the win column beside it claims, and
+ * the place goes in the title for anybody who wants it.
+ *
+ * Right-aligned in a fixed width so a newcomer's two dots line up under
+ * everybody else's fifth, which is the one every eye goes to.
+ */
+const FormDots = ({ form, timezone }: { form: SeasonResult[]; timezone: string }) => (
+	<span
+		role='img'
+		// Read out as places rather than as won-and-not-won, which is the one
+		// thing a dot can say and a sentence doesn't have to.
+		aria-label={`Last ${form.length} ${form.length === 1 ? 'game' : 'games'}, oldest first: ${form
+			.map(game => placeLabel(game.position))
+			.join(', ')}`}
+		className='flex w-12 shrink-0 items-center justify-end gap-1'
+	>
+		{form.map(game => (
+			<span
+				key={game.gameId}
+				title={`${placeLabel(game.position)} — ${formatGameDate(game.kickoff, timezone)}`}
+				className={classNames('size-1.5 rounded-full', game.won ? 'bg-brand' : 'bg-white/20')}
+			/>
+		))}
+	</span>
+);
 
 const LeaderboardPage = () => {
 	const { seasonId, season, loading } = useSeasonContext();
@@ -117,6 +150,10 @@ const LeaderboardPage = () => {
 											</p>
 										</div>
 
+										{'form' in row && row.form.length > 0 && (
+											<FormDots form={row.form} timezone={season.slot.timezone} />
+										)}
+
 										{'provisional' in row && row.provisional && (
 											<StatusPill tone='pending'>Settling</StatusPill>
 										)}
@@ -135,7 +172,7 @@ const LeaderboardPage = () => {
 
 				<p className='text-faint px-1 text-xs'>
 					{tab === 'season'
-						? 'Ordered on games won, then on how much rating you gained — who had a good season, rather than who is best.'
+						? 'Ordered on games won, then on how much rating you gained — who had a good season, rather than who is best. The dots are the last five games, oldest first, and a filled one is a win.'
 						: 'Your rating follows you across every season. It moves on how your team did against how it was expected to, so beating a stronger side is worth more.'}
 				</p>
 			</div>
