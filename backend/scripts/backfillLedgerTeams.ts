@@ -138,8 +138,10 @@ const main = async () => {
 		console.log(`  wrote ${Math.min(start + BATCH_LIMIT, writes.length)}/${writes.length}`);
 	}
 
+	const one = writes.length === 1;
+
 	console.log(
-		`\nDone. ${writes.length} entr${writes.length === 1 ? 'y' : 'ies'} now say who played with whom` +
+		`\nDone. ${writes.length} entr${one ? 'y' : 'ies'} now ${one ? 'says' : 'say'} who played with whom` +
 			`${skipped > 0 ? `, ${skipped} skipped` : ''}.`
 	);
 	if (skipped > 0) console.error(`${skipped} could not be filled in — see above.`);
