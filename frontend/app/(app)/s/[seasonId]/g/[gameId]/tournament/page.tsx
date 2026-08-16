@@ -19,6 +19,7 @@ import { useSeasonContext } from '../../../../../../../components/SeasonProvider
 import {
 	useMatches,
 	useMotm,
+	useMotmVoters,
 	useMyMotmVote,
 	useTournamentResult,
 	useTournamentTeams,
@@ -55,6 +56,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const { result } = useTournamentResult(seasonId, gameId);
 	const { motm } = useMotm(seasonId, gameId);
 	const { vote } = useMyMotmVote(seasonId, gameId, user?.uid ?? null);
+	const { voterUids } = useMotmVoters(seasonId, gameId);
 	const { users } = useUsers();
 	const { myResponses } = useMyResponses();
 	const write = useWrite();
@@ -164,6 +166,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 			usersByUid={usersByUid}
 			motm={motm}
 			vote={vote}
+			voterUids={voterUids}
 			votingUntil={game.motmVotingUntilMillis}
 			now={now}
 			canVote={playedInThis}

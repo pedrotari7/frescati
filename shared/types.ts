@@ -455,6 +455,27 @@ export interface MotmVote {
 }
 
 /**
+ * Who has voted so far, at `seasons/{id}/games/{id}/tournament/motmVoters`.
+ *
+ * Turnout, and deliberately nothing more: it says Anders has answered, never
+ * who he answered with. That is what makes it publishable while the vote is
+ * still running — the reason the votes themselves are sealed is that a visible
+ * lead is a lead people fall in behind, and a list of names with no picks
+ * attached offers nothing to fall in behind.
+ *
+ * Function-owned, like `counts` on the game and for the same reason: a client
+ * cannot read anybody else's vote, so it cannot work this out for itself. The
+ * absence of the document means nobody has voted yet, and `closeMotmVote`
+ * deletes it as it publishes the totals — after which the turnout is the sum of
+ * `TournamentMotm.counts` and this would be a second copy to keep in step.
+ */
+export interface TournamentMotmVoters {
+	/** Every voter, by uid, sorted. Never who any of them picked. */
+	uids: string[];
+	updatedAt: string;
+}
+
+/**
  * The counted vote, at `seasons/{id}/games/{id}/tournament/motm`.
  *
  * Written only by the sweep that closes the vote, and its **existence** is what

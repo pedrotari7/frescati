@@ -1,6 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
-import type { MotmVote, Season, TournamentMotm, TournamentTeams } from '../../../shared/types';
+import type { MotmVote, Season, TournamentMotm, TournamentMotmVoters, TournamentTeams } from '../../../shared/types';
 import { MOTM_VOTING_HOURS, tallyMotmVotes } from '../../../shared/motm';
 import { formatGameWhen } from '../../../shared/format';
 import { db } from './firebase';
@@ -20,6 +20,10 @@ import { sendGamePush } from './push';
  *    what keeps it survivable: a correction to a scoreline months later rewinds
  *    past this game and rebuilds it, vote included, rather than losing it.
  *
+ * Between them the only thing published is the turnout: who has answered, never
+ * what they answered. That is the whole of what a vote in progress may say about
+ * itself.
+ *
  * The decision document is the record, not the votes. They stay where they are
  * — a replay is not a recount — but nothing reads them again.
  */
@@ -27,6 +31,9 @@ import { sendGamePush } from './push';
 const gameRef = (seasonId: string, gameId: string) => db.doc(`seasons/${seasonId}/games/${gameId}`);
 
 const motmRef = (seasonId: string, gameId: string) => gameRef(seasonId, gameId).collection('tournament').doc('motm');
+
+const votersRef = (seasonId: string, gameId: string) =>
+	gameRef(seasonId, gameId).collection('tournament').doc('motmVoters');
 
 /**
  * The counted vote for a game, or `null` while it is still open — or was never
@@ -41,6 +48,55 @@ export const getMotmDecision = async (seasonId: string, gameId: string): Promise
 
 	return snapshot.exists ? (snapshot.data() as TournamentMotm) : null;
 };
+
+/**
+ * Re-derive the public turnout list from the votes actually stored under the
+ * game, and return how many there are.
+ *
+ * The votes are private to their owners, so nobody's client can work out that
+ * eight people have answered — this is the same situation `counts` on the game
+ * document is in, and it gets the same answer: a function writes down what a
+ * client is not allowed to read. What it writes down is uids and nothing else.
+ * The picks stay where they are.
+ *
+ * Recomputed from scratch rather than added to, like every other counter here:
+ * a delta applied twice, and triggers do retry, silently corrupts the list.
+ * Transactional for the same reason `recountGame` is — two votes landing
+ * together would otherwise each write the total they read before the other.
+ *
+ * Read off the document ids rather than the `uid` field, the way `closeMotmVote`
+ * does: the id is the voter by construction.
+ *
+ * A counted vote is left with no list at all. The turnout is the sum of the
+ * published totals by then, so keeping this would be a second copy of a number
+ * already on screen — and the decision, not the clock, is what says the counting
+ * has happened, which is what makes a vote landing in the same moment as the
+ * sweep unable to resurrect it.
+ */
+export const recountMotmVoters = async (seasonId: string, gameId: string): Promise<number> =>
+	db.runTransaction(async transaction => {
+		const [decision, votesSnap] = await Promise.all([
+			transaction.get(motmRef(seasonId, gameId)),
+			transaction.get(gameRef(seasonId, gameId).collection('motmVotes')),
+		]);
+
+		const uids = decision.exists ? [] : votesSnap.docs.map(doc => doc.id).sort();
+
+		// No document rather than an empty list, the same third state the vote
+		// itself uses: nobody has answered yet, which is not the same as a vote
+		// that has been counted.
+		if (uids.length === 0) {
+			transaction.delete(votersRef(seasonId, gameId));
+
+			return 0;
+		}
+
+		const voters: TournamentMotmVoters = { uids, updatedAt: new Date().toISOString() };
+
+		transaction.set(votersRef(seasonId, gameId), voters);
+
+		return uids.length;
+	});
 
 /**
  * Open the vote and tell the people who played that it is open.
@@ -118,6 +174,11 @@ export const closeMotmVote = async (seasonId: string, gameId: string): Promise<b
 
 	await motmRef(seasonId, gameId).set(decision);
 	await gameRef(seasonId, gameId).update({ motmVotingUntilMillis: FieldValue.delete() });
+
+	// Last, and after the decision on purpose: from here the turnout is the sum
+	// of the totals just published, so a list of who answered is a second copy of
+	// a number already on screen. It goes for the same reason the window does.
+	await votersRef(seasonId, gameId).delete();
 
 	logger.info('Counted a man-of-the-match vote', { seasonId, gameId, votes: votes.length, winners });
 

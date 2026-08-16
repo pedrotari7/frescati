@@ -1523,6 +1523,47 @@ describe('the man-of-the-match vote', () => {
 		await assertFails(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, OTHER_MEMBER)));
 	});
 
+	// Turnout is the one thing about a vote in progress everybody may see, and
+	// the split is the whole point: the picks are unreadable, the fact that
+	// somebody has made one is not. It rides the `tournament/{docId}` rule, so
+	// what these pin is that it stays on the readable side of that line and that
+	// nobody can put themselves on the list without voting.
+	describe('who has voted', () => {
+		const votersDoc = () => `seasons/${SEASON}/games/${GAME}/tournament/motmVoters`;
+
+		const seedVoters = async () => {
+			await testEnv.withSecurityRulesDisabled(async context => {
+				await setDoc(doc(context.firestore(), votersDoc()), {
+					uids: [MEMBER],
+					updatedAt: '2026-09-02T09:00:00.000Z',
+				});
+			});
+		};
+
+		it('is readable by anybody signed in, including somebody who did not play', async () => {
+			await seedVoters();
+
+			await assertSucceeds(getDoc(doc(authed(EXTRA), votersDoc())));
+		});
+
+		it('is readable by nobody signed out', async () => {
+			await seedVoters();
+
+			await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), votersDoc())));
+		});
+
+		// Function-written like the team sheet beside it. A voter who could edit
+		// this could claim to have voted without voting, or quietly drop somebody
+		// else off the chase list.
+		it('is writable by nobody, the voters and a season admin included', async () => {
+			const turnout = { uids: [MEMBER], updatedAt: '2026-09-02T09:00:00.000Z' };
+
+			await assertFails(setDoc(doc(authed(MEMBER), votersDoc()), turnout));
+			await assertFails(setDoc(doc(authed(SEASON_ADMIN), votersDoc()), turnout));
+			await assertFails(setDoc(doc(authed(APP_ADMIN, { admin: true }), votersDoc()), turnout));
+		});
+	});
+
 	// Held open, an admin could keep collecting votes after the ladder had been
 	// replayed against the ones already counted.
 	it('refuses to let an admin move the deadline', async () => {

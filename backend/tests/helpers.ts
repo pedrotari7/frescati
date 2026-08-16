@@ -7,6 +7,7 @@ import type {
 	Season,
 	TournamentMatch,
 	TournamentMotm,
+	TournamentMotmVoters,
 	TournamentTeams,
 } from '../../shared/types';
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_NOTIFICATION_PREFS, EMPTY_COUNTS } from '../../shared/types';
@@ -250,7 +251,16 @@ export const writeMotmVote = async (seasonId: string, gameId: string, uid: strin
 		.set({ uid, votedFor, votedAt: '2026-09-02T09:00:00.000Z' });
 };
 
+export const clearMotmVote = async (seasonId: string, gameId: string, uid: string): Promise<void> => {
+	await db.doc(`seasons/${seasonId}/games/${gameId}/motmVotes/${uid}`).delete();
+};
+
 export const readMotm = async (seasonId: string, gameId: string): Promise<TournamentMotm | undefined> => {
 	const snapshot = await db.doc(`seasons/${seasonId}/games/${gameId}/tournament/motm`).get();
 	return snapshot.exists ? (snapshot.data() as TournamentMotm) : undefined;
+};
+
+export const readMotmVoters = async (seasonId: string, gameId: string): Promise<TournamentMotmVoters | undefined> => {
+	const snapshot = await db.doc(`seasons/${seasonId}/games/${gameId}/tournament/motmVoters`).get();
+	return snapshot.exists ? (snapshot.data() as TournamentMotmVoters) : undefined;
 };

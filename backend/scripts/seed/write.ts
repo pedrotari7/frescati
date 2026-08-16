@@ -996,6 +996,18 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 
 		if (game.motm) {
 			documents.push(batch => batch.set(gameRef.collection('tournament').doc('motm'), game.motm!));
+		} else if (game.motmVotes.length > 0) {
+			// The turnout, but only while the vote is open — `closeMotmVote` takes
+			// this document with the window, so a decided game must not have one.
+			// Written here rather than left to `onMotmVoteWrite` for the reason the
+			// counters are: a seed that only looked right once the triggers had
+			// caught up is a seed with a race in it.
+			documents.push(batch =>
+				batch.set(gameRef.collection('tournament').doc('motmVoters'), {
+					uids: game.motmVotes.map(vote => vote.uid).sort(),
+					updatedAt: entry.game.createdAt,
+				})
+			);
 		}
 
 		if (game.result) {

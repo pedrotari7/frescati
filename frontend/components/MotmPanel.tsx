@@ -3,7 +3,7 @@
 import { CheckCircleIcon, TrophyIcon } from '@heroicons/react/24/outline';
 import type { AppUser, MotmVote, TournamentMotm, TournamentTeam } from '@shared/types';
 import { formatRelative } from '@shared/format';
-import { isMotmVotingOpen } from '@shared/motm';
+import { getMotmTurnout, isMotmVotingOpen } from '@shared/motm';
 import Avatar from './Avatar';
 import StatusPill from './StatusPill';
 import TeamBadge from './TeamBadge';
@@ -13,11 +13,17 @@ import { hapticLight } from '../lib/utils/haptics';
 /**
  * Man of the match: the vote while it is open, the result once it is decided.
  *
- * Deliberately shows **no running total**. Until the vote is counted the only
- * thing on screen is your own pick — not how many others have voted, not who is
- * leading — because a visible lead is a lead people vote for. That is a rule
- * rather than a layout choice: nobody else's vote is readable at all, so this
+ * Deliberately shows **no running total**. Until the vote is counted, what is on
+ * screen is your own pick and how many people have made one — never who is
+ * leading, because a visible lead is a lead people vote for. That is a rule
+ * rather than a layout choice: nobody else's pick is readable at all, so this
  * screen could not draw a tally if it wanted to.
+ *
+ * Turnout is the one thing about a vote in progress that is published, and it is
+ * a different question with a different answer — eight names with nothing
+ * attached to them is not a leaderboard. What it is instead is the list the
+ * group would otherwise reconstruct by asking each other, which is who still
+ * hasn't voted.
  *
  * Whoever is looking is not necessarily in it. A game is public to the whole
  * group, so somebody who didn't play sees the same panel with no buttons in it —
@@ -28,6 +34,7 @@ const MotmPanel = ({
 	usersByUid,
 	motm,
 	vote,
+	voterUids,
 	votingUntil,
 	now,
 	canVote,
@@ -39,6 +46,8 @@ const MotmPanel = ({
 	motm: TournamentMotm | null;
 	/** Your own vote, or `null` if you haven't cast one. */
 	vote: MotmVote | null;
+	/** Who has voted so far. Empty once it is counted — see `Decided`. */
+	voterUids: string[];
 	/** When the vote closes, as epoch milliseconds. Absent means it is shut. */
 	votingUntil?: number;
 	now: Date;
@@ -154,6 +163,8 @@ const MotmPanel = ({
 				})}
 			</ul>
 
+			{open && <Turnout teams={teams} usersByUid={usersByUid} voterUids={voterUids} />}
+
 			{open && canVote && (
 				<p className='text-faint mt-3 text-xs'>
 					{vote
@@ -162,6 +173,74 @@ const MotmPanel = ({
 				</p>
 			)}
 		</section>
+	);
+};
+
+/**
+ * Who has answered, while the vote is still open.
+ *
+ * The one thing about a vote in progress everybody may see, and it is worth
+ * being clear about why it is not the thing the rest of the panel withholds:
+ * this says eight people have voted, never that four of them voted for the same
+ * man. There is no lead in it to fall in behind, which is the only reason the
+ * picks are sealed at all.
+ *
+ * Drawn as the lineup with the people who haven't voted faded, rather than as a
+ * list of names: the question is asked at a glance, on a phone, by somebody
+ * deciding whether to nudge the group chat — and a sentence with eleven names in
+ * it is not read at a glance. Everybody stays on screen either way, so the strip
+ * is the same size all week and nobody's absence is a gap they have to be
+ * counted to notice.
+ *
+ * Not drawn once the vote is counted. The turnout is the sum of the published
+ * totals by then, and the document behind this is deleted with the window.
+ */
+const Turnout = ({
+	teams,
+	usersByUid,
+	voterUids,
+}: {
+	teams: TournamentTeam[];
+	usersByUid: Map<string, AppUser>;
+	voterUids: string[];
+}) => {
+	const { voted, pending } = getMotmTurnout(teams, voterUids);
+	const total = voted.length + pending.length;
+	const answered = new Set(voted);
+
+	if (total === 0) return null;
+
+	const summary =
+		pending.length === 0
+			? 'Everybody has voted'
+			: voted.length === 0
+				? 'Nobody has voted yet'
+				: `${voted.length} of ${total} voted`;
+
+	return (
+		<div className='mt-4 border-t border-white/5 pt-3'>
+			<p className='text-muted text-xs font-medium tabular-nums'>{summary}</p>
+
+			<ul className='mt-2 flex flex-wrap gap-1.5'>
+				{[...voted, ...pending].map(uid => {
+					const displayName = usersByUid.get(uid)?.displayName ?? 'Unknown player';
+					const hasVoted = answered.has(uid);
+
+					return (
+						<li key={uid} aria-label={`${displayName} — ${hasVoted ? 'voted' : 'not yet'}`}>
+							<Avatar
+								displayName={displayName}
+								photoURL={usersByUid.get(uid)?.photoURL}
+								size='sm'
+								// Faded rather than hidden: the people still to answer
+								// are the reason anybody looks at this.
+								className={classNames(!hasVoted && 'opacity-30')}
+							/>
+						</li>
+					);
+				})}
+			</ul>
+		</div>
 	);
 };
 

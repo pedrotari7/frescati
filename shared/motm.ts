@@ -12,7 +12,7 @@
  * evening two people tie.
  */
 
-import type { MotmVote } from './types';
+import type { MotmVote, TournamentTeam } from './types';
 
 /**
  * How long the vote stays open after the game is confirmed.
@@ -69,6 +69,37 @@ export const tallyMotmVotes = (votes: MotmVote[]): MotmTally => {
 	const most = counts[0]?.votes ?? 0;
 
 	return { winners: counts.filter(count => count.votes === most).map(count => count.uid), counts };
+};
+
+/** Who has answered and who hasn't, both in team-sheet order. */
+export interface MotmTurnout {
+	voted: string[];
+	pending: string[];
+}
+
+/**
+ * Split the lineup by who has voted.
+ *
+ * The one thing about a vote in progress that everybody may see. Turnout is not
+ * a tally: knowing that eight people have answered says nothing about what any
+ * of them said, so there is no early lead here for the rest of the squad to
+ * fall in behind — which is the only reason the votes themselves are sealed.
+ * What it does answer is the question the group actually asks on a Thursday,
+ * which is who still needs chasing.
+ *
+ * Read against the lineup rather than taken at face value, so both halves are
+ * drawn from the same set of people and always sum to it. A vote from somebody
+ * who never played cannot be cast — rules check the team sheet at both ends —
+ * but the arithmetic on screen should not depend on that holding.
+ */
+export const getMotmTurnout = (teams: TournamentTeam[], voterUids: string[]): MotmTurnout => {
+	const voters = new Set(voterUids);
+	const lineup = teams.flatMap(team => team.uids);
+
+	return {
+		voted: lineup.filter(uid => voters.has(uid)),
+		pending: lineup.filter(uid => !voters.has(uid)),
+	};
 };
 
 /**

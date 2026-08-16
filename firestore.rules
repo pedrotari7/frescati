@@ -491,6 +491,14 @@ service cloud.firestore {
         // `tournament/motm`, which everybody can read. Season admins and app
         // admins are shut out here like everyone else — an admin who could read
         // the votes as they arrived is exactly the leak this prevents.
+        //
+        // What is published while the vote runs is the turnout, on
+        // `tournament/motmVoters` — who has answered, never what they answered.
+        // That is not a hole in the rule above but the other side of it: a list
+        // of names with no picks attached offers nothing to fall in behind, and
+        // it is the only way the group can be told who still needs asking, since
+        // this collection cannot be listed by anybody. `onMotmVoteWrite` derives
+        // it, and no client may write it.
         match /motmVotes/{uid} {
 
           // Everybody who was picked for this game, as up to four squads.

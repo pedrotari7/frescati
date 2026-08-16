@@ -1,15 +1,19 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { closeMotmVoting } from '../src/closeMotmVoting';
 import { finaliseTournament } from '../src/finaliseTournament';
+import { onMotmVoteWrite } from '../src/onMotmVoteWrite';
 import { MOTM_BONUS_ELO } from '../../shared/rating';
 import * as push from '../src/lib/push';
 import {
 	callRequest,
 	clearAuth,
 	clearFirestore,
+	clearMotmVote,
 	getDb,
+	paramsEvent,
 	readGame,
 	readMotm,
+	readMotmVoters,
 	readRatingLedger,
 	readUser,
 	writeGame,
@@ -121,6 +125,95 @@ describe('opening the vote', () => {
 
 		expect((await readGame(SEASON_ID, GAME_ID))?.motmVotingUntilMillis).toBeUndefined();
 		expect(sendSpy).not.toHaveBeenCalled();
+	});
+});
+
+/**
+ * The one thing about a vote in progress that is published. Every test here is
+ * really the same test twice over: that it says who, and that it never says
+ * what.
+ */
+describe('the turnout while the vote is open', () => {
+	const recount = (uid: string) => onMotmVoteWrite.run(paramsEvent({ seasonId: SEASON_ID, gameId: GAME_ID, uid }));
+
+	it('publishes who has voted and nothing about their picks', async () => {
+		await setUpGame();
+		await confirm();
+		await writeMotmVote(SEASON_ID, GAME_ID, 'p1', 'p5');
+		await writeMotmVote(SEASON_ID, GAME_ID, 'p3', 'p5');
+
+		await recount('p3');
+
+		const voters = await readMotmVoters(SEASON_ID, GAME_ID);
+
+		expect(voters?.uids).toEqual(['p1', 'p3']);
+		// The whole bargain in one assertion: two people voted for p5 and no
+		// document anybody can read says so until the sweep counts them.
+		expect(JSON.stringify(voters)).not.toContain('p5');
+	});
+
+	// The same third state the vote itself uses. An empty list would be a claim
+	// that the vote has been looked at; no document is "nobody yet".
+	it('writes nothing at all before the first vote', async () => {
+		await setUpGame();
+		await confirm();
+
+		await recount('p1');
+
+		expect(await readMotmVoters(SEASON_ID, GAME_ID)).toBeUndefined();
+	});
+
+	it('takes somebody off it when they withdraw', async () => {
+		await setUpGame();
+		await confirm();
+		await writeMotmVote(SEASON_ID, GAME_ID, 'p1', 'p5');
+		await writeMotmVote(SEASON_ID, GAME_ID, 'p2', 'p6');
+		await recount('p2');
+
+		await clearMotmVote(SEASON_ID, GAME_ID, 'p1');
+		await recount('p1');
+
+		expect((await readMotmVoters(SEASON_ID, GAME_ID))?.uids).toEqual(['p2']);
+	});
+
+	// Recomputed rather than added to: a retried trigger must not count anybody
+	// twice, and there is no delta here that could.
+	it('arrives at the same list however many times it runs', async () => {
+		await setUpGame();
+		await confirm();
+		await writeMotmVote(SEASON_ID, GAME_ID, 'p1', 'p5');
+
+		await recount('p1');
+		await recount('p1');
+
+		expect((await readMotmVoters(SEASON_ID, GAME_ID))?.uids).toEqual(['p1']);
+	});
+
+	it('goes when the votes are counted, because the totals carry it from then on', async () => {
+		await setUpGame();
+		await confirm();
+		await writeMotmVote(SEASON_ID, GAME_ID, 'p1', 'p5');
+		await recount('p1');
+		await expireTheVote();
+
+		await closeMotmVoting.run({} as never);
+
+		expect(await readMotmVoters(SEASON_ID, GAME_ID)).toBeUndefined();
+	});
+
+	// A vote cast in the last moment of the window, whose trigger lands after the
+	// sweep has been past. The decision is what says the counting has happened,
+	// so a late recount tidies up rather than republishing the voters for good.
+	it('is not resurrected by a trigger that runs after the count', async () => {
+		await setUpGame();
+		await confirm();
+		await writeMotmVote(SEASON_ID, GAME_ID, 'p1', 'p5');
+		await expireTheVote();
+		await closeMotmVoting.run({} as never);
+
+		await recount('p1');
+
+		expect(await readMotmVoters(SEASON_ID, GAME_ID)).toBeUndefined();
 	});
 });
 

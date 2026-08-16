@@ -35,6 +35,7 @@ const renderPanel = (props: Partial<React.ComponentProps<typeof MotmPanel>> = {}
 			usersByUid={USERS}
 			motm={null}
 			vote={null}
+			voterUids={[]}
 			votingUntil={OPEN_UNTIL}
 			now={NOW}
 			canVote
@@ -102,6 +103,58 @@ describe('MotmPanel', () => {
 		expect(screen.getByText(/Closes tomorrow|Closes in \d+ hours/)).toBeInTheDocument();
 	});
 
+	// Turnout is not a tally. Every test here is the same pair of claims: that the
+	// panel says who has answered, and that it still says nothing about what any
+	// of them answered.
+	describe('the turnout while it is open', () => {
+		const voted = (name: string) => screen.getByRole('listitem', { name: `${name} — voted` });
+		const notYet = (name: string) => screen.getByRole('listitem', { name: `${name} — not yet` });
+
+		it('says how many of the lineup have voted', () => {
+			renderPanel({ voterUids: ['anna', 'zara'] });
+
+			expect(screen.getByText('2 of 4 voted')).toBeInTheDocument();
+		});
+
+		it('marks who has answered and who has not, without saying what they said', () => {
+			renderPanel({ voterUids: ['anna', 'zara'] });
+
+			expect(voted('Anna')).toBeInTheDocument();
+			expect(voted('Zara')).toBeInTheDocument();
+			expect(notYet('Johan')).toBeInTheDocument();
+			expect(notYet('Erik')).toBeInTheDocument();
+		});
+
+		// The document behind this carries uids and no picks at all, so there is
+		// nothing for the panel to leak — this pins that it stays that way.
+		it('still shows no count of who is leading', () => {
+			renderPanel({ voterUids: ['anna', 'zara'], vote: vote('erik') });
+
+			expect(screen.queryByText(/votes/)).not.toBeInTheDocument();
+		});
+
+		it('reads as nobody rather than zero before the first vote', () => {
+			renderPanel({ voterUids: [] });
+
+			expect(screen.getByText('Nobody has voted yet')).toBeInTheDocument();
+			expect(notYet('Anna')).toBeInTheDocument();
+		});
+
+		it('says so when the whole lineup has answered', () => {
+			renderPanel({ voterUids: ['anna', 'johan', 'zara', 'erik'] });
+
+			expect(screen.getByText('Everybody has voted')).toBeInTheDocument();
+		});
+
+		// Somebody who never played cannot vote — rules check the team sheet at
+		// both ends — but the two halves on screen must sum to the lineup anyway.
+		it('counts against the lineup rather than against the votes stored', () => {
+			renderPanel({ voterUids: ['anna', 'ghost'] });
+
+			expect(screen.getByText('1 of 4 voted')).toBeInTheDocument();
+		});
+	});
+
 	describe('once it is decided', () => {
 		it('names the winner and publishes the counts', () => {
 			renderPanel({
@@ -166,6 +219,14 @@ describe('MotmPanel', () => {
 			renderPanel({ motm: decided([], []), votingUntil: undefined });
 
 			expect(screen.getByText(/Nobody voted/)).toBeInTheDocument();
+		});
+
+		// The turnout is the sum of the published totals from here on, and the
+		// document behind the strip is deleted with the window.
+		it('drops the turnout strip, which the totals now carry', () => {
+			renderPanel({ motm: decided(['zara'], [{ uid: 'zara', votes: 1 }]), votingUntil: undefined });
+
+			expect(screen.queryByRole('listitem', { name: /voted|not yet/ })).not.toBeInTheDocument();
 		});
 
 		it('stops taking votes', () => {

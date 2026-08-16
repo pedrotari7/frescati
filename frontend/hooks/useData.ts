@@ -25,7 +25,7 @@ import {
 	subscribeToSeasonLedger,
 	subscribeToTeams,
 } from '../lib/db/tournament';
-import { subscribeToMotm, subscribeToMyMotmVote } from '../lib/db/motm';
+import { subscribeToMotm, subscribeToMotmVoters, subscribeToMyMotmVote } from '../lib/db/motm';
 import { subscribeToUser, subscribeToUsers } from '../lib/db/users';
 import { useFirestoreSubscription } from './useFirestoreSubscription';
 
@@ -36,6 +36,7 @@ const NO_USERS: AppUser[] = [];
 const NO_MATCHES: TournamentMatch[] = [];
 const NO_LEDGER: RatingLedgerEntry[] = [];
 const NO_KIT: KitItem[] = [];
+const NO_VOTERS: string[] = [];
 
 export const useSeasons = () => {
 	const { data, loading, error } = useFirestoreSubscription<Season[]>(
@@ -192,6 +193,24 @@ export const useMotm = (seasonId: string | null, gameId: string | null) => {
 	);
 
 	return { motm: data, loading, error };
+};
+
+/**
+ * Who has voted, while the vote is open. Never who they voted for — that is the
+ * one thing about it nobody may see until it closes.
+ *
+ * Empty covers both ends of it: nobody has answered yet, and a vote that has
+ * been counted, whose turnout is in the published totals instead.
+ */
+export const useMotmVoters = (seasonId: string | null, gameId: string | null) => {
+	const { data, loading, error } = useFirestoreSubscription<string[]>(
+		NO_VOTERS,
+		seasonId && gameId ? (onChange, onError) => subscribeToMotmVoters(seasonId, gameId, onChange, onError) : null,
+		[seasonId, gameId],
+		'motmVoters'
+	);
+
+	return { voterUids: data, loading, error };
 };
 
 /** Your own vote. Nobody else's is readable, deliberately. */

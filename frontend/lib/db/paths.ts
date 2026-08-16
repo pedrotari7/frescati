@@ -46,6 +46,13 @@ export const tournamentTeamsDoc = (seasonId: string, gameId: string): DocumentRe
 export const motmVoteDoc = (seasonId: string, gameId: string, uid: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'motmVotes', uid);
 
+/**
+ * Who has voted so far — uids only, written by the trigger behind the votes.
+ * Turnout is public while the vote runs; what anybody voted for is not.
+ */
+export const tournamentMotmVotersDoc = (seasonId: string, gameId: string): DocumentReference =>
+	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'tournament', 'motmVoters');
+
 /** The counted vote. Its existence is what says the counting has happened. */
 export const tournamentMotmDoc = (seasonId: string, gameId: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'tournament', 'motm');
