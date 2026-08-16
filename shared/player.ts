@@ -32,15 +32,19 @@ export interface PlayerGame {
 	won: boolean;
 	/** The group voted them man of the match, shared on a tie. */
 	motm: boolean;
-	/** Elo carried in, `null` when they arrived with no rating at all. */
+	/**
+	 * Elo carried in — their own rating, or the seed the game rated them off when
+	 * they arrived with none. `null` only on an entry written before the seed was
+	 * stored, where what they were rated off is genuinely not recoverable.
+	 */
 	before: number | null;
 	/** Elo carried out. */
 	after: number;
 	/**
-	 * What the game moved them, in Elo. Zero on a first appearance: somebody who
-	 * carried no rating in had nothing to move, and measuring the distance from a
-	 * seed nobody stored would credit them with a gain they never made — the same
-	 * rule the season table applies.
+	 * What the game moved them, in Elo — the same number the team sheet showed on
+	 * the night, including on a first appearance. Zero only where `before` is
+	 * `null` and there is no distance to measure, the same rule the season table
+	 * applies.
 	 */
 	delta: number;
 }
@@ -72,7 +76,10 @@ export const getPlayerGames = (entries: RatingLedgerEntry[], uid: string): Playe
 	entries
 		.filter(entry => entry.positions?.[uid] !== undefined && entry.after?.[uid] !== undefined)
 		.map(entry => {
-			const before = entry.before?.[uid]?.elo ?? null;
+			// The rating they were rated off, which for somebody arriving unrated
+			// is the seed rather than nothing. `null` only where the entry
+			// predates the seed being stored and there is genuinely no answer.
+			const before = entry.before?.[uid]?.elo ?? entry.seedElo ?? null;
 			const after = entry.after[uid].elo;
 			const position = entry.positions[uid];
 
@@ -255,9 +262,9 @@ export const getPlayerChemistry = (links: PlayerLink[], minimum: number): Player
  * front of it.
  *
  * That leading point is what makes the first game visible as a movement rather
- * than as the flat start of the line — except for somebody who arrived unrated,
- * who genuinely had no rating before it and whose line therefore starts where
- * their first game left them.
+ * than as the flat start of the line. Somebody who arrived unrated gets one too,
+ * at the seed the game rated them off — except on an entry written before that
+ * seed was stored, whose line has nowhere to start but where the game left them.
  */
 export const getRatingTrend = (games: PlayerGame[]): number[] => {
 	if (games.length === 0) return [];

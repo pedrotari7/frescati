@@ -12,6 +12,7 @@ import {
 	writeMatch,
 	writeSeason,
 	writeTeams,
+	writeUser,
 } from './helpers';
 
 const SEASON_ID = 'season-1';
@@ -118,6 +119,38 @@ describe('finaliseTournament', () => {
 
 		expect(ledger?.positions).toMatchObject({ p1: 0, p5: 0 });
 		expect(ledger?.teams).toEqual({ p1: 0, p2: 0, p3: 0, p4: 0, p5: 1, p6: 1, p7: 1, p8: 1 });
+	});
+
+	// `before: null` says they carried nothing in, which is what a rewind needs.
+	// It cannot also say what the game rated them off, so the seed is recorded
+	// beside it — without which a first appearance reads as no movement at all
+	// on every screen aggregating this collection.
+	it('records what the unrated were seeded at', async () => {
+		await setUpGame();
+		await writeUser('p1', { rating: { elo: 1100, games: 3, updatedAt: hoursFromNow(-48) } });
+		await writeGameMatches([[2, 1]]);
+
+		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
+
+		const ledger = await readRatingLedger(GAME_ID);
+
+		// The live average of the season's rated members, which is p1 alone.
+		expect(ledger?.seedElo).toBe(1100);
+		expect(ledger?.before.p2).toBeNull();
+	});
+
+	// Nothing reached for the seed, so storing one would claim the game used a
+	// number it never saw — the same reason `motm` is left off while a vote runs.
+	it('leaves the seed off a game where everybody arrived rated', async () => {
+		await setUpGame();
+		for (const uid of [...TEAM_A, ...TEAM_B]) {
+			await writeUser(uid, { rating: { elo: 1000, games: 6, updatedAt: hoursFromNow(-48) } });
+		}
+		await writeGameMatches([[2, 1]]);
+
+		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
+
+		expect(await readRatingLedger(GAME_ID)).not.toHaveProperty('seedElo');
 	});
 
 	it('lets an app admin confirm even without season adminUids', async () => {

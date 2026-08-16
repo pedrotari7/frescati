@@ -599,6 +599,30 @@ export interface RatingLedgerEntry {
 	before: Record<string, PlayerRating | null>;
 	after: Record<string, PlayerRating>;
 	/**
+	 * The Elo an unrated player was seeded at for this game — the live average of
+	 * the season's rated members, as it stood when the game was rated.
+	 *
+	 * Stored because `before: null` answers a different question. That field
+	 * exists so a rewind can restore *nothing*, which is what somebody with no
+	 * rating had, and it must keep meaning exactly that. But the game itself did
+	 * not treat them as having nothing: it rated them from this number, and the
+	 * result document's `changes` records the movement that produced. Without the
+	 * seed here, every screen aggregating the ledger has to score a first
+	 * appearance as no movement at all, and disagrees with the team sheet beside
+	 * it — a player and their teammates showing different numbers for the same
+	 * ninety minutes.
+	 *
+	 * One number per entry rather than one per player, because it is one number:
+	 * everybody unrated in a game seeds at the same average, and a per-player copy
+	 * would be a second thing to keep in step for no extra fidelity.
+	 *
+	 * Absent on every entry written before it existed, and left off entirely when
+	 * nobody in the game was unrated — there is no seed to record when it was
+	 * never reached for. `backfill-ledger-seed` fills in the historic entries that
+	 * need one, from the result document the game was rated into.
+	 */
+	seedElo?: number;
+	/**
 	 * Where each player's team finished, 0-indexed and sharing on a tie.
 	 *
 	 * Here as well as in the result document so a season table is one query

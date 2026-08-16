@@ -16,7 +16,8 @@ const entry = (
 	positions: Record<string, number>,
 	before: Record<string, number | null>,
 	after: Record<string, number>,
-	seasonId = 's1'
+	seasonId = 's1',
+	seedElo?: number
 ): RatingLedgerEntry => {
 	const kickoff = new Date(Date.parse('2026-09-01T17:00:00.000Z') + week * 604_800_000).toISOString();
 
@@ -31,6 +32,7 @@ const entry = (
 			Object.entries(before).map(([uid, elo]) => [uid, elo === null ? null : rating(elo)])
 		),
 		after: Object.fromEntries(Object.entries(after).map(([uid, elo]) => [uid, rating(elo)])),
+		...(seedElo === undefined ? {} : { seedElo }),
 	};
 };
 
@@ -90,9 +92,17 @@ describe('getPlayerGames', () => {
 		expect(games.map(game => game.gameId)).toEqual(['frescati', 'sunday']);
 	});
 
-	// They had no rating to move, so the whole distance from a seed nobody stored
-	// is not a gain they made.
-	it('counts no movement for a player who arrived unrated', () => {
+	// The seed is the rating the game rated them off, so it is what they carried
+	// in — and the movement matches the one the team sheet showed on the night.
+	it('reads a player who arrived unrated from the seed the game used', () => {
+		const games = getPlayerGames([entry('g1', 0, { a: 0 }, { a: null }, { a: 1030 }, 's1', 1010)], 'a');
+
+		expect(games[0]).toMatchObject({ before: 1010, after: 1030, delta: 20 });
+	});
+
+	// Nothing to measure from, so the game reads as no movement rather than as a
+	// gain out of a seed nobody wrote down.
+	it('counts no movement for an unrated arrival on an entry written before the seed was stored', () => {
 		const games = getPlayerGames([entry('g1', 0, { a: 0 }, { a: null }, { a: 1030 })], 'a');
 
 		expect(games[0]).toMatchObject({ before: null, after: 1030, delta: 0 });
@@ -161,9 +171,23 @@ describe('getRatingTrend', () => {
 		expect(getRatingTrend(games)).toEqual([1000, 1020, 1005]);
 	});
 
-	// There was no rating before their first game, so a line drawn from one would
-	// show a movement that never happened.
-	it('starts at the first result for somebody who arrived unrated', () => {
+	// They took the seed into that game, so the line starts there and the first
+	// result reads as a movement like every one after it.
+	it('opens on the seed for somebody who arrived unrated', () => {
+		const games = getPlayerGames(
+			[
+				entry('g1', 0, { a: 0 }, { a: null }, { a: 1030 }, 's1', 1010),
+				entry('g2', 1, { a: 1 }, { a: 1030 }, { a: 1015 }),
+			],
+			'a'
+		);
+
+		expect(getRatingTrend(games)).toEqual([1010, 1030, 1015]);
+	});
+
+	// No seed was recorded, so a line drawn from one would show a movement
+	// nothing can vouch for.
+	it('starts at the first result on an entry written before the seed was stored', () => {
 		const games = getPlayerGames(
 			[entry('g1', 0, { a: 0 }, { a: null }, { a: 1030 }), entry('g2', 1, { a: 1 }, { a: 1030 }, { a: 1015 })],
 			'a'

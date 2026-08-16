@@ -15,7 +15,8 @@ const entry = (
 	seasonId: string,
 	positions: Record<string, number>,
 	before: Record<string, number | null>,
-	after: Record<string, number>
+	after: Record<string, number>,
+	seedElo?: number
 ): RatingLedgerEntry => ({
 	seasonId,
 	gameId,
@@ -25,6 +26,7 @@ const entry = (
 	positions,
 	before: Object.fromEntries(Object.entries(before).map(([uid, elo]) => [uid, elo === null ? null : rating(elo)])),
 	after: Object.fromEntries(Object.entries(after).map(([uid, elo]) => [uid, rating(elo)])),
+	...(seedElo === undefined ? {} : { seedElo }),
 });
 
 describe('getRatingLadder', () => {
@@ -111,12 +113,39 @@ describe('getSeasonTable', () => {
 		expect(table[0].movement).toBe(10);
 	});
 
-	// Their first game had no rating to move; counting the distance from a
-	// seed nobody stored would invent a gain they never made.
-	it('contributes nothing for a player who arrived unrated', () => {
+	// The seed is what the game rated them off, so their first appearance moved
+	// them exactly as far as it moved everybody they played with.
+	it('counts a player who arrived unrated from the seed the game used', () => {
+		const table = getSeasonTable([entry('g1', 's1', { a: 0 }, { a: null }, { a: 1030 }, 1010)], 's1');
+
+		expect(table[0]).toMatchObject({ appearances: 1, wins: 1, movement: 20 });
+	});
+
+	// Which is the whole point of storing it: without the seed the newcomer sat
+	// on nothing while their teammates showed the same evening as a movement.
+	it('moves an unrated arrival by the same amount as the teammates beside them', () => {
+		const table = getSeasonTable(
+			[entry('g1', 's1', { a: 0, b: 0 }, { a: null, b: 1010 }, { a: 1030, b: 1030 }, 1010)],
+			's1'
+		);
+
+		expect(table.map(row => row.movement)).toEqual([20, 20]);
+	});
+
+	// Nothing to measure the distance from, so the first appearance counts
+	// nothing rather than inventing a gain from a seed nobody wrote down.
+	it('contributes nothing for an unrated arrival on an entry written before the seed was stored', () => {
 		const table = getSeasonTable([entry('g1', 's1', { a: 0 }, { a: null }, { a: 1030 })], 's1');
 
 		expect(table[0]).toMatchObject({ appearances: 1, wins: 1, movement: 0 });
+	});
+
+	// The seed only ever answers for somebody who arrived without a rating —
+	// a rated player's own `before` is the only thing that can speak for them.
+	it('ignores the seed for a player who carried a rating in', () => {
+		const table = getSeasonTable([entry('g1', 's1', { a: 0 }, { a: 1000 }, { a: 1030 }, 900)], 's1');
+
+		expect(table[0].movement).toBe(30);
 	});
 
 	it('shares a win with everyone on a joint-first team', () => {

@@ -783,6 +783,10 @@ const playGame = (
 			// `RatingLedgerEntry.teams`. Without this the seeded ladder looks
 			// right and every profile's teammates panel is empty.
 			teams: Object.fromEntries(inputs.map(input => [input.uid, input.team])),
+			// Only where somebody arrived unrated, exactly as `commitGameRatings`
+			// decides it — a seeded first appearance has to move a season table by
+			// the same amount the real thing would.
+			...(Object.values(before).some(rating => rating === null) ? { seedElo } : {}),
 			// Left off entirely while the vote is open, the same way
 			// `commitGameRatings` leaves it off — "nobody won it" and "it hasn't
 			// been counted" must not look the same on a career screen.

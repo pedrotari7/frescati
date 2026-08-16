@@ -123,10 +123,13 @@ export const getSeasonTable = (entries: RatingLedgerEntry[], seasonId: string): 
 			row.form.push({ gameId: entry.gameId, kickoff: entry.kickoff, position, won: position === 0 });
 			if (row.form.length > FORM_LENGTH) row.form.shift();
 
-			// A player with no rating before the game had nothing to move, so
-			// their first appearance contributes nothing rather than counting
-			// the whole distance from a seed nobody stored.
-			if (after !== undefined) row.movement += after - (entry.before[uid]?.elo ?? after);
+			// Somebody who arrived unrated moved from the seed the game rated
+			// them off, which `seedElo` records — so a first appearance counts
+			// exactly what the team sheet showed them, rather than leaving a
+			// player on nothing while their teammates show the same result as a
+			// loss. Falls back to no movement on an entry written before the
+			// seed was stored, where the distance really is unrecoverable.
+			if (after !== undefined) row.movement += after - (entry.before[uid]?.elo ?? entry.seedElo ?? after);
 
 			rows.set(uid, row);
 		}

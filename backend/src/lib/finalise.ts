@@ -38,6 +38,11 @@ interface GameRatings {
 	changes: TournamentResult['changes'];
 	before: Record<string, PlayerRating | null>;
 	after: Record<string, PlayerRating>;
+	/**
+	 * What the unrated were seeded at, or `null` when everybody arrived rated and
+	 * the seed was never reached for.
+	 */
+	seedElo: number | null;
 	positions: Record<string, number>;
 	/** Which team each player was on, by its place in the lineup. */
 	teams: Record<string, number>;
@@ -130,11 +135,17 @@ export const computeGameRatings = async (
 	// it up when the count closes and asks for a replay.
 	const changes = applyMotmBonus(getRatingChanges(players, positions, seedElo), motm);
 
+	const before = Object.fromEntries(changes.map(change => [change.uid, profiles.get(change.uid)?.rating ?? null]));
+
 	return {
 		standings,
 		changes,
 		motm,
-		before: Object.fromEntries(changes.map(change => [change.uid, profiles.get(change.uid)?.rating ?? null])),
+		before,
+		// Only when somebody actually arrived unrated. Recording it on every game
+		// would store a number the game never used, and one that looks like an
+		// answer to a question nobody asked of it.
+		seedElo: Object.values(before).some(rating => rating === null) ? seedElo : null,
 		after: Object.fromEntries(
 			changes.map(change => [change.uid, applyRatingChange(profiles.get(change.uid)?.rating, change, at)])
 		),
@@ -181,6 +192,10 @@ const commitGameRatings = async (
 		after: ratings.after,
 		positions: ratings.positions,
 		teams: ratings.teams,
+		// Left off when nobody was unrated, for the same reason `motm` is left off
+		// while a vote is open: absent says the game never needed one, where a
+		// stored number would claim it did.
+		...(ratings.seedElo !== null ? { seedElo: ratings.seedElo } : {}),
 		// Left off entirely while the vote is open, rather than written as an
 		// empty list: a career screen reads this collection and nothing else, and
 		// "nobody won it" and "it hadn't been counted yet" are different things
