@@ -11,6 +11,8 @@ on:
         value: ${{ jobs.changes.outputs.shared }}
       rules:
         value: ${{ jobs.changes.outputs.rules }}
+      e2e:
+        value: ${{ jobs.changes.outputs.e2e }}
 
 jobs:
   changes:
@@ -20,6 +22,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       shared: ${{ steps.filter.outputs.shared }}
       rules: ${{ steps.filter.outputs.rules }}
+      e2e: ${{ steps.filter.outputs.e2e }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4.0.1
@@ -55,6 +58,19 @@ jobs:
               # drift it exists to catch is exactly a client that moved while
               # the rules stayed put.
               - 'frontend/lib/db/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - '.github/**'
+            # Deliberately the widest filter here: this is the only job that runs
+            # the whole stack together, so any half of it moving is a reason to
+            # re-check that the halves still meet.
+            e2e:
+              - 'frontend/**'
+              - 'backend/**'
+              - 'shared/**'
+              - 'firestore.rules'
+              - 'e2e/**'
+              - 'playwright.config.ts'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - '.github/**'
