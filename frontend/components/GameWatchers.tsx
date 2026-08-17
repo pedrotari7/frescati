@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowPathIcon, BellAlertIcon } from '@heroicons/react/24/outline';
 import type { AppUser } from '@shared/types';
+import { byDisplayName } from '@shared/format';
 import Avatar from './Avatar';
 import Button from './Button';
 import { SkeletonBlock } from './Skeleton';
@@ -45,7 +46,7 @@ const GameWatchers = ({
 			displayName: user?.displayName ?? 'Unknown player',
 			photoURL: user?.photoURL ?? null,
 		}))
-		.sort((a, b) => a.displayName.localeCompare(b.displayName));
+		.sort(byDisplayName);
 
 	return (
 		<section className='glass rounded-2xl p-4'>

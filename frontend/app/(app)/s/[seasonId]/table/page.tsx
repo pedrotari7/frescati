@@ -6,7 +6,7 @@ import { TrophyIcon } from '@heroicons/react/24/outline';
 import { getRatingLadder, getSeasonTable, toDisplayMovement } from '@shared/leaderboard';
 import type { SeasonResult } from '@shared/leaderboard';
 import { toDisplayRating } from '@shared/rating';
-import { formatGameDate, placeLabel } from '@shared/format';
+import { counted, formatGameDate, placeLabel } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useSeasonLedger, useUsers } from '../../../../../hooks/useData';
 import { useAuth } from '../../../../../lib/auth';
@@ -36,7 +36,7 @@ const FormDots = ({ form, timezone }: { form: SeasonResult[]; timezone: string }
 		role='img'
 		// Read out as places rather than as won-and-not-won, which is the one
 		// thing a dot can say and a sentence doesn't have to.
-		aria-label={`Last ${form.length} ${form.length === 1 ? 'game' : 'games'}, oldest first: ${form
+		aria-label={`Last ${counted(form.length, 'game')}, oldest first: ${form
 			.map(game => placeLabel(game.position))
 			.join(', ')}`}
 		className='flex w-12 shrink-0 items-center justify-end gap-1'

@@ -5,7 +5,7 @@ import { BellAlertIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import type { AppNotification, GameNotification, PushPayload } from '@shared/notifications';
 import { NOTIFICATIONS, buildGamePush, buildNewPlayerPush } from '@shared/notifications';
 import { getSilentMembers } from '@shared/game';
-import { formatGameWhen } from '@shared/format';
+import { counted, formatGameWhen, plural } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
 import { checkPushSupport, isPushEnabled } from '../../../lib/push';
 import type { PushSupport } from '../../../lib/push';
@@ -157,7 +157,7 @@ const DebugPage = () => {
 			// identical from here — nothing arrives. Saying which it was is the
 			// entire point of the screen.
 			if (result.sent > 0) {
-				notify(`Sent to ${result.sent} device${result.sent === 1 ? '' : 's'}.`);
+				notify(`Sent to ${counted(result.sent, 'device')}.`);
 			} else if (result.emailed > 0) {
 				// Checked before the two push failures below, because when the
 				// fallback caught it neither of them is what happened.
@@ -195,7 +195,7 @@ const DebugPage = () => {
 		// The one send on this screen that reaches somebody other than the
 		// person tapping it — worth a second tap before it actually goes.
 		const ok = await confirm({
-			title: `Email ${uids.length} ${uids.length === 1 ? 'person' : 'people'}?`,
+			title: `Email ${counted(uids.length, 'person', 'people')}?`,
 			message: 'This sends a real email right now, to their real inbox — not a preview.',
 			confirmLabel: 'Send',
 		});
@@ -399,8 +399,11 @@ const DebugPage = () => {
 					</div>
 
 					<Button variant='primary' fullWidth disabled={selectedUids.size === 0} onClick={sendEmailTest}>
+						{/* The count is hidden at zero rather than rendered as "0 people" —
+						    the button is disabled there, and "Email people" is the label
+						    for a control you haven't picked anybody for yet. */}
 						Email {selectedUids.size > 0 && selectedUids.size}{' '}
-						{selectedUids.size === 1 ? 'person' : 'people'}
+						{plural(selectedUids.size, 'person', 'people')}
 					</Button>
 
 					{emailResult && (

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { AppUser, TournamentTeam } from '@shared/types';
 import { toDisplayRating } from '@shared/rating';
 import { toDisplayMovement } from '@shared/leaderboard';
+import { counted } from '@shared/format';
 import Avatar from './Avatar';
 import TeamBadge, { teamName, teamStyle } from './TeamBadge';
 import { classNames } from '../lib/utils/reactHelper';
@@ -71,9 +72,7 @@ const TeamCard = ({
 							<p className={classNames('text-lg leading-tight font-bold', style.text)}>
 								Team {teamName(team.index)}
 							</p>
-							<p className='text-faint text-xs'>
-								{team.uids.length} player{team.uids.length === 1 ? '' : 's'}
-							</p>
+							<p className='text-faint text-xs'>{counted(team.uids.length, 'player')}</p>
 						</div>
 					</div>
 

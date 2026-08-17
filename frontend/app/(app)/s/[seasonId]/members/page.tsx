@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, Cog6ToothIcon, ShoppingBagIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { KIT_KIND_LABELS, groupKitByKind } from '@shared/kit';
+import { byDisplayName } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useKit, useUsers } from '../../../../../hooks/useData';
 import SeasonShell from '../../../../../components/SeasonShell';
@@ -32,7 +33,7 @@ const MembersPage = () => {
 					photoURL: user?.photoURL ?? null,
 				};
 			})
-			.sort((a, b) => a.displayName.localeCompare(b.displayName));
+			.sort(byDisplayName);
 	}, [season, users]);
 
 	if (loading) {

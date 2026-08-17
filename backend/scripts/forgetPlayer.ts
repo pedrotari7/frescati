@@ -46,6 +46,7 @@ import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import type { Firestore, QueryDocumentSnapshot } from 'firebase-admin/firestore';
+import { counted } from '../../shared/format';
 
 /** What a roster shows where the name used to be. */
 const FORMER_PLAYER = 'Former player';
@@ -146,7 +147,7 @@ const describe = (plan: Plan, email: string | undefined, hasAccount: boolean): v
 	console.log(row('Firebase Auth', hasAccount ? `delete account${email ? ` (${email})` : ''}` : 'already gone'));
 	console.log(row('profile', describeProfile(plan)));
 	console.log(row('pushTokens', `${plan.tokens.length} to delete`));
-	console.log(row('responses', `${plan.notes.length} note${plan.notes.length === 1 ? '' : 's'} to clear`));
+	console.log(row('responses', `${counted(plan.notes.length, 'note')} to clear`));
 	console.log(row('seasons', `member of ${plan.memberOf.length}, admin of ${plan.adminOf.length}`));
 
 	// Left exactly where it is, and said out loud because it is the one thing

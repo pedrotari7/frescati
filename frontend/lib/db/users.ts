@@ -2,12 +2,11 @@ import { onSnapshot, updateDoc } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { AppUser, NotificationPrefs } from '@shared/types';
 import { normaliseNotificationPrefs } from '@shared/notifications';
+import { byDisplayName } from '@shared/format';
 import { userDoc, usersCol } from './paths';
 
 /** The document id *is* the uid — trust it over a field that could be missing. */
 const toUser = (id: string, data: DocumentData): AppUser => ({ ...(data as AppUser), uid: id });
-
-const byDisplayName = (a: AppUser, b: AppUser) => (a.displayName ?? '').localeCompare(b.displayName ?? '');
 
 /**
  * Everyone who has ever signed in. Small by design — this is one football

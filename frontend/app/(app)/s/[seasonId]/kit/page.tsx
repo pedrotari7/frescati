@@ -11,7 +11,7 @@ import {
 import type { KitItem, KitKind } from '@shared/types';
 import { KIT_KINDS, KIT_KIND_LABELS, findStrandedKit, groupKitByKind } from '@shared/kit';
 import { getGameLifecycle } from '@shared/game';
-import { formatGameDate } from '@shared/format';
+import { byDisplayName, formatGameDate } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useAuth } from '../../../../../lib/auth';
 import { useKit, useResponses, useUsers } from '../../../../../hooks/useData';
@@ -73,7 +73,7 @@ const KitPage = () => {
 				displayName: usersByUid.get(uid)?.displayName ?? 'Unknown player',
 				photoURL: usersByUid.get(uid)?.photoURL ?? null,
 			}))
-			.sort((a, b) => a.displayName.localeCompare(b.displayName));
+			.sort(byDisplayName);
 	}, [season, usersByUid]);
 
 	// The soonest game that hasn't been played, cancelled or not — the same one

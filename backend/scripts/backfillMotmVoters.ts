@@ -36,6 +36,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { counted } from '../../shared/format';
 
 const resolveProjectId = (): string => {
 	if (process.env.GOOGLE_CLOUD_PROJECT) return process.env.GOOGLE_CLOUD_PROJECT;
@@ -67,7 +68,7 @@ const main = async () => {
 	// handful currently voting however long the back catalogue gets.
 	const open = await getFirestore().collectionGroup('games').where('motmVotingUntilMillis', '>', 0).get();
 
-	console.log(`${open.size} game${open.size === 1 ? '' : 's'} with a vote open.`);
+	console.log(`${counted(open.size, 'game')} with a vote open.`);
 
 	if (open.empty) return;
 
@@ -100,7 +101,7 @@ const main = async () => {
 			continue;
 		}
 
-		const change = `${has.length} -> ${should.length} voter${should.length === 1 ? '' : 's'}`;
+		const change = `${has.length} -> ${counted(should.length, 'voter')}`;
 
 		if (dryRun) {
 			console.log(`  would write ${change} — ${label}`);
@@ -110,7 +111,7 @@ const main = async () => {
 		try {
 			const voted = await recountMotmVoters(seasonId, doc.id);
 			written++;
-			console.log(`  wrote ${has.length} -> ${voted} voter${voted === 1 ? '' : 's'} — ${label}`);
+			console.log(`  wrote ${has.length} -> ${counted(voted, 'voter')} — ${label}`);
 		} catch (error) {
 			failed++;
 			console.error(`  failed ${doc.ref.path}:`, error);
@@ -123,7 +124,7 @@ const main = async () => {
 	}
 
 	console.log(
-		`\nDone. Rebuilt the turnout for ${written} game${written === 1 ? '' : 's'}` +
+		`\nDone. Rebuilt the turnout for ${counted(written, 'game')}` +
 			`${skipped > 0 ? `, ${skipped} already correct` : ''}.`
 	);
 	if (failed > 0) console.error(`${failed} failed — see above.`);

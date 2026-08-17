@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import type { AppUser } from '@shared/types';
 import { hasPlayed, toDisplayRating } from '@shared/rating';
+import { counted } from '@shared/format';
 import { useAuth } from '../../../../lib/auth';
 import { useUsers } from '../../../../hooks/useData';
 import { useWrite } from '../../../../hooks/useWrite';
@@ -47,8 +48,7 @@ const SCALE_HINT = [
 	{ from: 0, label: 'Still learning' },
 ];
 
-const describeRating = (display: number): string =>
-	SCALE_HINT.find(step => display >= step.from)!.label;
+const describeRating = (display: number): string => SCALE_HINT.find(step => display >= step.from)!.label;
 
 /**
  * The slider, mounted only while a row is open.
@@ -224,7 +224,9 @@ const RatingsAdminPage = () => {
 					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
 						{estimated.length === 0 && (
 							<p className='text-faint py-4 text-sm'>
-								{search ? 'Nobody matches that search.' : 'Everybody signed up has played a rated game.'}
+								{search
+									? 'Nobody matches that search.'
+									: 'Everybody signed up has played a rated game.'}
 							</p>
 						)}
 
@@ -273,9 +275,7 @@ const RatingsAdminPage = () => {
 
 								<div className='min-w-0 flex-1'>
 									<p className='text-ink truncate text-sm'>{player.displayName}</p>
-									<p className='text-faint text-xs'>
-										{player.rating!.games} rated {player.rating!.games === 1 ? 'game' : 'games'}
-									</p>
+									<p className='text-faint text-xs'>{counted(player.rating!.games, 'rated game')}</p>
 								</div>
 
 								<span className='text-ink w-10 text-right text-lg font-bold tabular-nums'>

@@ -43,6 +43,7 @@ import { join } from 'path';
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import type { RatingLedgerEntry, TournamentTeams } from '../../shared/types';
+import { counted, plural } from '../../shared/format';
 
 /** Firestore caps a batch at 500 writes. */
 const BATCH_LIMIT = 500;
@@ -82,7 +83,7 @@ const main = async () => {
 	const ledger = await db.collection('ratingLedger').get();
 	const missing = ledger.docs.filter(doc => !(doc.data() as RatingLedgerEntry).teams);
 
-	console.log(`${ledger.size} rated game${ledger.size === 1 ? '' : 's'}, ${missing.length} with no team map.`);
+	console.log(`${counted(ledger.size, 'rated game')}, ${missing.length} with no team map.`);
 
 	if (missing.length === 0) {
 		console.log('Nothing to do.');
@@ -138,10 +139,8 @@ const main = async () => {
 		console.log(`  wrote ${Math.min(start + BATCH_LIMIT, writes.length)}/${writes.length}`);
 	}
 
-	const one = writes.length === 1;
-
 	console.log(
-		`\nDone. ${writes.length} entr${one ? 'y' : 'ies'} now ${one ? 'says' : 'say'} who played with whom` +
+		`\nDone. ${counted(writes.length, 'entry', 'entries')} now ${plural(writes.length, 'says', 'say')} who played with whom` +
 			`${skipped > 0 ? `, ${skipped} skipped` : ''}.`
 	);
 	if (skipped > 0) console.error(`${skipped} could not be filled in — see above.`);

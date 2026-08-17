@@ -1,4 +1,6 @@
 import {
+	byDisplayName,
+	counted,
 	formatCivilDate,
 	formatGameDate,
 	formatGameTime,
@@ -6,6 +8,7 @@ import {
 	formatRelative,
 	initials,
 	placeLabel,
+	plural,
 	weekdayName,
 } from './format';
 
@@ -58,6 +61,56 @@ describe('name helpers', () => {
 
 	it('builds initials from a single name', () => {
 		expect(initials('Ronaldinho')).toBe('R');
+	});
+});
+
+describe('byDisplayName', () => {
+	it('sorts people alphabetically', () => {
+		const sorted = [{ displayName: 'Pedro' }, { displayName: 'Anna' }, { displayName: 'Marco' }].sort(
+			byDisplayName
+		);
+
+		expect(sorted.map(person => person.displayName)).toEqual(['Anna', 'Marco', 'Pedro']);
+	});
+
+	// A profile mid-write has no name yet. It has to sort somewhere rather than
+	// throw — that is the whole reason `subscribeToUsers` sorts in the client.
+	it('keeps a nameless profile in the list', () => {
+		const sorted = [{ displayName: 'Anna' }, {}].sort(byDisplayName);
+
+		expect(sorted).toEqual([{}, { displayName: 'Anna' }]);
+	});
+});
+
+describe('plural', () => {
+	it('picks the singular for exactly one', () => {
+		expect(plural(1, 'game')).toBe('game');
+	});
+
+	it.each([0, 2, 11])('picks the plural for %i', count => {
+		expect(plural(count, 'game')).toBe('games');
+	});
+
+	it('takes an irregular plural', () => {
+		expect(plural(1, 'person', 'people')).toBe('person');
+		expect(plural(3, 'person', 'people')).toBe('people');
+	});
+
+	it('handles a verb agreement, which is the same problem', () => {
+		expect(plural(1, 'says', 'say')).toBe('says');
+		expect(plural(2, 'says', 'say')).toBe('say');
+	});
+});
+
+describe('counted', () => {
+	it('puts the count in front of the word', () => {
+		expect(counted(1, 'game')).toBe('1 game');
+		expect(counted(3, 'game')).toBe('3 games');
+		expect(counted(0, 'game')).toBe('0 games');
+	});
+
+	it('carries an irregular plural through', () => {
+		expect(counted(2, 'person', 'people')).toBe('2 people');
 	});
 });
 

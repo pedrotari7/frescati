@@ -46,6 +46,7 @@ import { join } from 'path';
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import type { RatingLedgerEntry, TournamentResult } from '../../shared/types';
+import { counted, plural } from '../../shared/format';
 
 /** Firestore caps a batch at 500 writes. */
 const BATCH_LIMIT = 500;
@@ -96,7 +97,7 @@ const main = async () => {
 	});
 
 	console.log(
-		`${ledger.size} rated game${ledger.size === 1 ? '' : 's'}, ` +
+		`${counted(ledger.size, 'rated game')}, ` +
 			`${missing.length} rated somebody unrated with no seed recorded.`
 	);
 
@@ -164,10 +165,8 @@ const main = async () => {
 		console.log(`  wrote ${Math.min(start + BATCH_LIMIT, writes.length)}/${writes.length}`);
 	}
 
-	const one = writes.length === 1;
-
 	console.log(
-		`\nDone. ${writes.length} entr${one ? 'y' : 'ies'} now ${one ? 'says' : 'say'} what the unrated started on` +
+		`\nDone. ${counted(writes.length, 'entry', 'entries')} now ${plural(writes.length, 'says', 'say')} what the unrated started on` +
 			`${skipped > 0 ? `, ${skipped} skipped` : ''}.`
 	);
 	if (skipped > 0) console.error(`${skipped} could not be filled in — see above.`);

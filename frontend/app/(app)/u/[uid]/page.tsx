@@ -8,7 +8,7 @@ import { getPlayerChemistry, getPlayerLinks, getPlayerRecord, getRatingTrend } f
 import type { PlayerGame, PlayerLink } from '@shared/player';
 import type { AppUser } from '@shared/types';
 import { hasPlayed, isProvisional, toDisplayRating } from '@shared/rating';
-import { formatGameDate, placeLabel } from '@shared/format';
+import { counted, formatGameDate, placeLabel } from '@shared/format';
 import { usePlayerLedger, useSeasons, useUsers } from '../../../../hooks/useData';
 import { useAuth } from '../../../../lib/auth';
 import { useSeasonScope } from '../../../../components/SeasonScope';
@@ -268,8 +268,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 							</ol>
 
 							<p className='text-faint mt-3 text-xs'>
-								Where their team finished in the last {form.length}{' '}
-								{form.length === 1 ? 'game' : 'games'}, oldest first.
+								Where their team finished in the last {counted(form.length, 'game')}, oldest first.
 							</p>
 						</section>
 

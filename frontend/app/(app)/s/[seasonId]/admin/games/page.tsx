@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import type { Game } from '@shared/types';
 import { diffGeneratedGames, generateGameDates } from '@shared/schedule';
 import { getGameLifecycle } from '@shared/game';
-import { formatGameDate, formatGameTime } from '@shared/format';
+import { counted, formatGameDate, formatGameTime } from '@shared/format';
 import { parseCivilDate, zonedTimeToUtc } from '@shared/datetime';
 import { useAuth } from '../../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
@@ -95,7 +95,7 @@ const AdminGamesPage = () => {
 			"Couldn't add the games. Nothing was created."
 		);
 
-		if (ok) setMessage(`Added ${created} game${created === 1 ? '' : 's'}.`);
+		if (ok) setMessage(`Added ${counted(created, 'game')}.`);
 	};
 
 	const handleAddOneOff = async () => {
@@ -151,7 +151,7 @@ const AdminGamesPage = () => {
 						onClick={handleGenerate}
 					>
 						{preview && preview.toCreate.length > 0
-							? `Add ${preview.toCreate.length} game${preview.toCreate.length === 1 ? '' : 's'}`
+							? `Add ${counted(preview.toCreate.length, 'game')}`
 							: 'Nothing to add'}
 					</Button>
 				</section>

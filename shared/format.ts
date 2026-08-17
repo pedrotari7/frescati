@@ -75,6 +75,41 @@ export const initials = (displayName: string): string =>
 		.join('');
 
 /**
+ * Sort people by the name they're shown under.
+ *
+ * Structurally typed rather than taking an `AppUser`, because half the callers
+ * sort a row they have already built — a uid, a name and an avatar — rather
+ * than the profile it came from.
+ *
+ * The `?? ''` is not defensive padding: a profile can genuinely be missing a
+ * `displayName` mid-write, and `subscribeToUsers` sorts here precisely so that
+ * one sorts to the top looking incomplete rather than vanishing, which is what
+ * `orderBy('displayName')` would have done to it.
+ */
+export const byDisplayName = (a: { displayName?: string }, b: { displayName?: string }): number =>
+	(a.displayName ?? '').localeCompare(b.displayName ?? '');
+
+/**
+ * The right form of a word for a count — `plural(1, 'game')` is `game`, and
+ * `plural(2, 'game')` is `games`.
+ *
+ * The third argument is for the words that don't take an `s`: `person`/`people`,
+ * `entry`/`entries`, and the verb agreements a script's summary line needs
+ * (`says`/`say`). Without it every one of those stays hand-written, which is
+ * where the fourteen copies of `${n === 1 ? '' : 's'}` came from in the first
+ * place.
+ *
+ * Only the count's *number* is read, so this says nothing about zero: "0 games"
+ * is plural in English and falls out of the `=== 1` test on its own.
+ */
+export const plural = (count: number, singular: string, many = `${singular}s`): string =>
+	count === 1 ? singular : many;
+
+/** `3 games`, `1 game` — the count and its word, which is how most of them read. */
+export const counted = (count: number, singular: string, many?: string): string =>
+	`${count} ${plural(count, singular, many)}`;
+
+/**
  * `in 3 days`, `in 2 hours`, `5 minutes ago`. Coarse on purpose — nobody needs
  * seconds of precision to decide whether they're playing on Tuesday.
  */
