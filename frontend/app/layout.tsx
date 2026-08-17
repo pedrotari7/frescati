@@ -36,8 +36,37 @@ export const viewport: Viewport = {
 	viewportFit: 'cover',
 };
 
+/**
+ * The origins a cold start cannot draw anything without: the token endpoint,
+ * the App Check exchange, the reCAPTCHA script that feeds it, and Firestore
+ * itself. Not one of them is discoverable from the HTML — every one is reached
+ * for by a Firebase SDK after hydration — so the DNS lookup, TCP handshake and
+ * TLS negotiation for all four begin only once the app is already waiting on
+ * them, on the launch where the radio is coldest.
+ *
+ * `preconnect` rather than `dns-prefetch`: the lookup is the cheap part.
+ *
+ * Split by request mode, because a preconnected socket is only reused by
+ * requests whose credentials mode matches the hint. The three API hosts are
+ * CORS `fetch`/XHR, which is what `crossOrigin` says here; `www.google.com`
+ * serves reCAPTCHA as a plain `<script src>` with no `crossorigin` attribute,
+ * so hinting it anonymously would open a connection nothing then used and leave
+ * the one hop with no timeout behind it (see `getDb`) paying full price anyway.
+ */
+const CORS_PRECONNECT = [
+	'https://securetoken.googleapis.com',
+	'https://firebaseappcheck.googleapis.com',
+	'https://firestore.googleapis.com',
+];
+
 const RootLayout = ({ children }: { children: ReactNode }) => (
 	<html lang='en'>
+		<head>
+			{CORS_PRECONNECT.map(origin => (
+				<link key={origin} rel='preconnect' href={origin} crossOrigin='anonymous' />
+			))}
+			<link rel='preconnect' href='https://www.google.com' />
+		</head>
 		<body suppressHydrationWarning>
 			<ErrorBoundary>
 				<AuthProvider>

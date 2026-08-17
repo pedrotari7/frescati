@@ -130,6 +130,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	 */
 	const syncedUid = useRef<string | null>(null);
 
+	/**
+	 * The admin claim as last actually read, and who for.
+	 *
+	 * A token refresh that fails says nothing about whether somebody is an admin,
+	 * so this is what the observer falls back to rather than guessing — see the
+	 * `catch` below for why it can't simply wait for the next one.
+	 */
+	const lastClaim = useRef<{ uid: string; isAppAdmin: boolean } | null>(null);
+
 	useEffect(() => {
 		const auth = getFirebaseAuth();
 
@@ -138,6 +147,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				// Signing back in — as the same person or another — has to sync
 				// again; this is a page that has stopped knowing anybody.
 				syncedUid.current = null;
+				lastClaim.current = null;
 				setUser(undefined);
 				void setSentryUser(null);
 				return;
@@ -145,18 +155,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 			const result = await firebaseUser.getIdTokenResult().catch(error => {
 				// Transient — a token refresh failing mid-flight on a bad connection.
-				// Firebase's own background refresh retries on its own and fires this
-				// observer again once it succeeds, so there's nothing to do but leave
-				// `user` as it is and report it. Left uncaught, this was an unhandled
-				// rejection that also skipped `setUser` below, stranding whoever it hit
-				// on the "still resolving" screen instead of restoring their session.
+				// Left uncaught, this was an unhandled rejection that also skipped
+				// `setUser` below, stranding whoever it hit on the "still resolving"
+				// screen instead of restoring their session.
 				console.error('Failed to refresh ID token', error);
 				void captureError(error, { stage: 'idTokenObserver' });
 				return null;
 			});
-			if (!result) return;
 
-			const authUser = toAuthUser(firebaseUser, result.claims.admin === true);
+			// Carrying on without the token rather than returning here, because on
+			// the launch this matters for there is nothing to carry on *from*.
+			// Firebase gives the refresh 30 seconds before it gives up, and its own
+			// retry then backs off from another 30 — so an installed app woken on a
+			// phone whose network isn't up yet spends a minute or more on the
+			// loading spinner, having already restored the session it is not
+			// showing. Who they are is known from the restored session either way;
+			// the only thing missing is the claim, and that decides which admin
+			// controls to draw, never what a client may do — Firestore rules are
+			// the authorisation layer and they read the token, not this. So the
+			// last claim we genuinely saw stands until a refresh succeeds, and a
+			// first load with none to go on draws the app as an ordinary player.
+			const isAppAdmin = result
+				? result.claims.admin === true
+				: lastClaim.current?.uid === firebaseUser.uid && lastClaim.current.isAppAdmin;
+
+			lastClaim.current = { uid: firebaseUser.uid, isAppAdmin };
+
+			const authUser = toAuthUser(firebaseUser, isAppAdmin);
 
 			setUser(authUser);
 			// The uid alone, so a crash report can say whether this is one
@@ -199,7 +224,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			});
 			if (!result) return;
 
-			setUser(toAuthUser(current, result.claims.admin === true));
+			const isAppAdmin = result.claims.admin === true;
+
+			// Recorded here as well as in the observer, so a claim granted
+			// mid-session is what a later failed refresh falls back to.
+			lastClaim.current = { uid: current.uid, isAppAdmin };
+
+			setUser(toAuthUser(current, isAppAdmin));
 		}, TOKEN_REFRESH_MS);
 
 		return () => clearInterval(handle);

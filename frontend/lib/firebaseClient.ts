@@ -4,7 +4,12 @@ import { ReCaptchaEnterpriseProvider, initializeAppCheck } from 'firebase/app-ch
 import type { Auth } from 'firebase/auth';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import {
+	connectFirestoreEmulator,
+	initializeFirestore,
+	persistentLocalCache,
+	persistentMultipleTabManager,
+} from 'firebase/firestore';
 import type { Functions } from 'firebase/functions';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
 
@@ -108,10 +113,43 @@ export const getFirebaseAuth = (): Auth => {
 	return authInstance;
 };
 
+/**
+ * Firestore, cached on disk rather than in memory.
+ *
+ * The default cache is per-page, which meant every screen in the app had to
+ * wait on the network before it could draw anything at all — and on the one
+ * launch this app actually gets, an installed PWA opening cold on a phone, that
+ * wait is the worst it ever is. Three things have to complete before the first
+ * snapshot can arrive: an ID token refresh (the cached one is always expired,
+ * because the app is opened once a week), an App Check token, which means
+ * fetching reCAPTCHA from `www.google.com` — a script the SDK loads with no
+ * timeout and no error handler, so a request iOS never gets round to dispatching
+ * stalls every read behind it indefinitely — and only then the Firestore stream
+ * itself. Nothing renders while that plays out, so the season lands on a
+ * skeleton and stays there.
+ *
+ * Reading the cache needs none of it. The last-known season, games and
+ * responses come off disk in milliseconds, the screen draws real content, and
+ * the listeners correct it whenever the network does turn up. Which is also
+ * what makes this the right cache for a game arranged at a pitch: the app is
+ * useful before the connection is.
+ *
+ * `persistentMultipleTabManager` because there is nothing to gain from the
+ * single-tab default here — it takes an exclusive lock on the store, so a
+ * second tab left open on a laptop falls back to no cache at all and, worse, is
+ * the tab that then has to be found and closed.
+ *
+ * Safe where IndexedDB isn't: the SDK falls back to a memory cache on
+ * `FAILED_PRECONDITION`, `UNIMPLEMENTED` and the quota and invalid-state
+ * DOMExceptions, which covers Safari private mode and a full disk. Losing the
+ * cache there costs what every browser had before this line.
+ */
 export const getDb = (): Firestore => {
 	if (!dbInstance) {
 		startAppCheck();
-		dbInstance = getFirestore(app);
+		dbInstance = initializeFirestore(app, {
+			localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+		});
 		if (useEmulators) connectFirestoreEmulator(dbInstance, '127.0.0.1', 8080);
 	}
 
