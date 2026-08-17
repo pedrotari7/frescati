@@ -5,7 +5,7 @@ import { BellAlertIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import type { AppNotification, GameNotification, PushPayload } from '@shared/notifications';
 import { NOTIFICATIONS, buildGamePush, buildNewPlayerPush } from '@shared/notifications';
 import { getSilentMembers } from '@shared/game';
-import { formatGameWhen, shortName } from '@shared/format';
+import { formatGameWhen } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
 import { checkPushSupport, isPushEnabled } from '../../../lib/push';
 import type { PushSupport } from '../../../lib/push';
@@ -392,9 +392,7 @@ const DebugPage = () => {
 										photoURL={candidate.photoURL}
 										size='sm'
 									/>
-									<span className='text-ink flex-1 truncate text-sm'>
-										{shortName(candidate.displayName)}
-									</span>
+									<span className='text-ink flex-1 truncate text-sm'>{candidate.displayName}</span>
 								</label>
 							))}
 						</div>
@@ -415,9 +413,7 @@ const DebugPage = () => {
 							<ul className='mt-2 space-y-1.5'>
 								{emailResult.results.map((outcome: EmailTestOutcome) => (
 									<li key={outcome.uid} className='flex items-center justify-between gap-2'>
-										<span className='text-muted truncate text-xs'>
-											{shortName(outcome.displayName)}
-										</span>
+										<span className='text-muted truncate text-xs'>{outcome.displayName}</span>
 										<StatusPill tone={STATUS_TONE[outcome.status]}>
 											{STATUS_LABEL[outcome.status]}
 										</StatusPill>

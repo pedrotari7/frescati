@@ -6,7 +6,6 @@ import {
 	formatRelative,
 	initials,
 	placeLabel,
-	shortName,
 	weekdayName,
 } from './format';
 
@@ -53,14 +52,6 @@ describe('formatCivilDate', () => {
 });
 
 describe('name helpers', () => {
-	it('takes the first name only', () => {
-		expect(shortName('Pedro Alvito')).toBe('Pedro');
-	});
-
-	it('leaves a single name alone', () => {
-		expect(shortName('Ronaldinho')).toBe('Ronaldinho');
-	});
-
 	it('builds initials from the first two names', () => {
 		expect(initials('Pedro Miguel Alvito')).toBe('PM');
 	});

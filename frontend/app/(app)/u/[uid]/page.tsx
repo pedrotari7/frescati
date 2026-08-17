@@ -8,7 +8,7 @@ import { getPlayerChemistry, getPlayerLinks, getPlayerRecord, getRatingTrend } f
 import type { PlayerGame, PlayerLink } from '@shared/player';
 import type { AppUser } from '@shared/types';
 import { hasPlayed, isProvisional, toDisplayRating } from '@shared/rating';
-import { formatGameDate, placeLabel, shortName } from '@shared/format';
+import { formatGameDate, placeLabel } from '@shared/format';
 import { usePlayerLedger, useSeasons, useUsers } from '../../../../hooks/useData';
 import { useAuth } from '../../../../lib/auth';
 import { useSeasonScope } from '../../../../components/SeasonScope';
@@ -372,15 +372,9 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 	);
 };
 
-/**
- * Somebody's first name, or a stand-in for an account that no longer exists.
- *
- * First name only because this row has an avatar and two number columns beside
- * it on a phone, and a truncated surname helps nobody pick a face out of a
- * squad who mostly know each other by one.
- */
+/** Somebody's name, or a stand-in for an account that no longer exists. */
 const nameOf = (usersById: Map<string, AppUser>, uid: string): string =>
-	shortName(usersById.get(uid)?.displayName ?? 'Unknown player');
+	usersById.get(uid)?.displayName ?? 'Unknown player';
 
 /**
  * One other player, and how the two of them have got on.
@@ -401,7 +395,7 @@ const LinkRow = ({ link, profile }: { link: PlayerLink; profile: AppUser | null 
 			>
 				<Avatar displayName={name} photoURL={profile?.photoURL} size='sm' />
 
-				<span className='text-ink min-w-0 flex-1 truncate text-sm'>{shortName(name)}</span>
+				<span className='text-ink min-w-0 flex-1 truncate text-sm'>{name}</span>
 
 				<span
 					className='text-muted w-11 text-right text-xs tabular-nums'

@@ -80,9 +80,6 @@ const LeaderboardPage = () => {
 
 	const rows = tab === 'season' ? seasonTable : ladder;
 
-	// Full name here, unlike the squad screens: a table is read down the column
-	// rather than glanced at, and two Marcos in the same season are two rows
-	// nobody can tell apart on a first name.
 	const name = (uid: string) => usersByUid.get(uid)?.displayName ?? 'Unknown player';
 
 	return (

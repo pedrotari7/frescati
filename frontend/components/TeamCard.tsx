@@ -105,7 +105,7 @@ const TeamCard = ({
 										photoURL={user?.photoURL}
 										size='sm'
 									/>
-									{/* Full name, not the first-name shorthand used elsewhere: a team
+									{/* Full name, like every other list of people in the app: a team
 									    sheet is where two Davids have to be told apart. */}
 									<span className='text-ink min-w-0 flex-1 truncate text-sm'>
 										{user?.displayName ?? 'Unknown player'}

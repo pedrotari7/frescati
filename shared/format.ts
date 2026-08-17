@@ -66,9 +66,6 @@ const ORDINALS = ['1st', '2nd', '3rd', '4th'];
 export const placeLabel = (position: number, shared = false): string =>
 	`${shared ? '=' : ''}${ORDINALS[position] ?? `${position + 1}th`}`;
 
-/** First name only — the roster is full of people you already know. */
-export const shortName = (displayName: string): string => displayName.trim().split(/\s+/)[0] ?? displayName;
-
 export const initials = (displayName: string): string =>
 	displayName
 		.trim()
