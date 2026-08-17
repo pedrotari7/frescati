@@ -2,7 +2,6 @@ import { FieldValue } from 'firebase-admin/firestore';
 import type { WriteBatch } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import type {
-	AppUser,
 	PlayerRating,
 	RatingLedgerEntry,
 	Season,
@@ -15,7 +14,8 @@ import { applyMotmBonus, applyRatingChange, getRatingChanges, getSeedElo } from 
 import { getPositions, getStandings } from '../../../shared/standings';
 import { selectPlayedMatches } from '../../../shared/tournament';
 import { db } from './firebase';
-import { getGame, getSeason } from './data';
+import { commitInBatches } from './batch';
+import { getGame, getProfiles, getSeason } from './data';
 import { clearPendingIfUnmoved, readPendingFrom, withDrainedLadderLock, withLadderLock } from './ladderLock';
 import { getMotmDecision, openMotmVoting } from './motm';
 
@@ -29,9 +29,6 @@ import { getMotmDecision, openMotmVoting } from './motm';
  * correct fix is to rewind and replay — and a rewind is exact only if the state
  * before each game was written down rather than inferred afterwards.
  */
-
-/** Firestore caps a batch at 500 writes. */
-const BATCH_LIMIT = 400;
 
 interface GameRatings {
 	standings: TournamentResult['standings'];
@@ -50,22 +47,8 @@ interface GameRatings {
 	motm: string[];
 }
 
-const getProfiles = async (uids: string[]): Promise<Map<string, AppUser>> => {
-	if (uids.length === 0) return new Map();
-
-	const snapshots = await db.getAll(...uids.map(uid => db.doc(`users/${uid}`)));
-
-	return new Map(snapshots.filter(snap => snap.exists).map(snap => [snap.id, snap.data() as AppUser]));
-};
-
 /** Run a pile of writes as however many batches it takes. */
-const commitAll = async (writes: ((batch: WriteBatch) => void)[]): Promise<void> => {
-	for (let start = 0; start < writes.length; start += BATCH_LIMIT) {
-		const batch = db.batch();
-		for (const write of writes.slice(start, start + BATCH_LIMIT)) write(batch);
-		await batch.commit();
-	}
-};
+const commitAll = (writes: ((batch: WriteBatch) => void)[]): Promise<void> => commitInBatches(db, writes);
 
 /**
  * What one game would do to the ladder, given the ratings as they stand right

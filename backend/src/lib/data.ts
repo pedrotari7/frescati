@@ -1,7 +1,26 @@
-import type { Game, GameResponse, Season } from '../../../shared/types';
+import type { AppUser, Game, GameResponse, Season } from '../../../shared/types';
 import { db } from './firebase';
 
 /** Shared reads, so triggers and the scheduler agree on how documents are shaped. */
+
+/**
+ * The profiles behind a list of uids, keyed by uid.
+ *
+ * One `getAll` rather than a read each, and missing accounts are simply absent
+ * from the map rather than present as `null` — every caller wants the rating on
+ * a profile that exists, and a `has`-then-`get` dance says nothing extra.
+ *
+ * The empty guard is not defensive: `getAll` throws when handed no refs, which
+ * is what a season with an empty roster, or a game nobody has answered, hands
+ * it. Both callers had discovered that separately.
+ */
+export const getProfiles = async (uids: string[]): Promise<Map<string, AppUser>> => {
+	if (uids.length === 0) return new Map();
+
+	const snapshots = await db.getAll(...uids.map(uid => db.doc(`users/${uid}`)));
+
+	return new Map(snapshots.filter(snap => snap.exists).map(snap => [snap.id, snap.data() as AppUser]));
+};
 
 export const getSeason = async (seasonId: string): Promise<Season | null> => {
 	const snapshot = await db.doc(`seasons/${seasonId}`).get();

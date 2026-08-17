@@ -47,9 +47,7 @@ import { getPositions, getStandings } from '../../../shared/standings';
 import { CAST, avatarPath, castMember, emailFor, googleSubFor, uidFor } from './cast';
 import type { CastMember } from './cast';
 import type { GamePin, KitPlan, Scenario, SeasonPlan } from './scenarios';
-
-/** Firestore caps a batch at 500 writes; leave room for the odd extra. */
-const BATCH_LIMIT = 400;
+import { commitInBatches } from '../../src/lib/batch';
 
 /** Seconds `settle` watches for before it will believe the triggers are done. */
 const MINIMUM_WATCH = 12;
@@ -256,13 +254,7 @@ const deviceProfileFor = (member: CastMember, now: string) => {
 	return { client, tokens, prefs: { ...DEFAULT_NOTIFICATION_PREFS, ...profile.prefs } };
 };
 
-const commitAll = async (writes: ((batch: WriteBatch) => void)[]): Promise<void> => {
-	for (let start = 0; start < writes.length; start += BATCH_LIMIT) {
-		const batch = db().batch();
-		for (const write of writes.slice(start, start + BATCH_LIMIT)) write(batch);
-		await batch.commit();
-	}
-};
+const commitAll = (writes: ((batch: WriteBatch) => void)[]): Promise<void> => commitInBatches(db(), writes);
 
 /* ------------------------------------------------------------------ people */
 

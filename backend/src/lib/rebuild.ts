@@ -1,5 +1,5 @@
 import { logger } from 'firebase-functions';
-import type { AppUser, BalanceSettings, Game, Season, TournamentTeams } from '../../../shared/types';
+import type { BalanceSettings, Game, Season, TournamentTeams } from '../../../shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '../../../shared/types';
 import { isConfirmed } from '../../../shared/game';
 import { getElo, getSeedElo } from '../../../shared/rating';
@@ -7,7 +7,7 @@ import { getSeed, pickTeams } from '../../../shared/optimizer';
 import type { OptimizerPlayer } from '../../../shared/optimizer';
 import { getSquadSizes, getTeamCount } from '../../../shared/tournament';
 import { db } from './firebase';
-import { getGame, getResponses, getSeason } from './data';
+import { getGame, getProfiles, getResponses, getSeason } from './data';
 
 /**
  * Re-picking the teams for one game.
@@ -32,22 +32,6 @@ const resolveSettings = (season: Season, game: Game): BalanceSettings => ({
 	...season.balance,
 	...game.balance,
 });
-
-/**
- * Everyone whose rating matters here: the pool being picked, plus the season
- * roster. The roster is needed even for members sitting this one out, because
- * the seed for an unrated player is the average of the *season*, not of the
- * eleven people who happened to say yes.
- */
-const getRatings = async (uids: string[]): Promise<Map<string, AppUser>> => {
-	if (uids.length === 0) return new Map();
-
-	const snapshots = await db.getAll(...uids.map(uid => db.doc(`users/${uid}`)));
-
-	return new Map(
-		snapshots.filter(snapshot => snapshot.exists).map(snapshot => [snapshot.id, snapshot.data() as AppUser])
-	);
-};
 
 /**
  * The squads from the previous few games, most recent first — what the repeat
@@ -129,7 +113,12 @@ export const runTeamRebuild = async ({ seasonId, gameId, generation }: TeamRebui
 	}
 
 	const settings = resolveSettings(season, game);
-	const users = await getRatings([...new Set([...season.memberUids, ...pool.map(response => response.uid)])]);
+
+	// Everyone whose rating matters here: the pool being picked, plus the season
+	// roster. The roster is needed even for members sitting this one out, because
+	// the seed for an unrated player is the average of the *season*, not of the
+	// eleven people who happened to say yes.
+	const users = await getProfiles([...new Set([...season.memberUids, ...pool.map(response => response.uid)])]);
 
 	const seedElo = getSeedElo(
 		season.memberUids

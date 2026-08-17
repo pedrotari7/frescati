@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import type { AppUser, GameResponse } from '../../shared/types';
 import { createStartingRating, fromDisplayRating, hasPlayed } from '../../shared/rating';
 import { db, REGION } from './lib/firebase';
+import { chunksOf } from './lib/batch';
 import { invalidateTeams } from './lib/teams';
 import { instrument } from './lib/sentry';
 
@@ -43,9 +44,6 @@ const READ_CHUNK = 30;
 
 /** How many lineups to invalidate at once. Enough to be quick, not enough to fan out. */
 const REPICK_CONCURRENCY = 10;
-
-const chunksOf = <T>(items: T[], size: number): T[][] =>
-	Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
 
 /**
  * The games whose lineup this player's rating could still change: ones they

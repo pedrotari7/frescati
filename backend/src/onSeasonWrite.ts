@@ -2,6 +2,7 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import type { Season } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
+import { chunksOf } from './lib/batch';
 import { recountGame } from './lib/recount';
 import { enqueueTeamRebuild } from './lib/teams';
 import { instrument, reportError } from './lib/sentry';
@@ -22,9 +23,6 @@ const IN_LIMIT = 30;
 
 /** How many games to repair at once. Enough to be quick, not enough to fan out. */
 const REPAIR_CONCURRENCY = 10;
-
-const chunksOf = <T>(items: T[], size: number): T[][] =>
-	Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
 
 /**
  * Which games hold an answer from somebody whose membership just moved.
