@@ -21,7 +21,15 @@ const HeadcountBar = ({ game, season, className = '' }: { game: Game; season: Se
 		<div className={className}>
 			<div className='mb-2 flex items-baseline justify-between gap-2'>
 				<div className='flex items-baseline gap-1.5'>
-					<span className={classNames('text-2xl font-bold', atRisk ? 'text-pending' : 'text-in')}>
+					{/* The number an end-to-end test watches for the response
+					    trigger's answer coming back down the listener. It is a
+					    bare numeral with no accessible name of its own, and
+					    matching on its text alone would find the scoreline and
+					    the squad count too. */}
+					<span
+						data-testid='headcount-playing'
+						className={classNames('text-2xl font-bold', atRisk ? 'text-pending' : 'text-in')}
+					>
 						{playing}
 					</span>
 					<span className='text-faint text-sm'>{atRisk ? `of ${minimum} needed` : 'playing'}</span>

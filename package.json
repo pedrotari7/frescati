@@ -18,6 +18,9 @@
 		"test:rules": "scripts/emulators.sh 'jest --config rules/jest.config.ts' --only firestore --project demo-frescati",
 		"test:backend": "scripts/emulators.sh 'jest --config backend/jest.config.ts' --only firestore,auth --project demo-frescati",
 		"test:all": "pnpm test && pnpm test:frontend && pnpm test:rules && pnpm test:backend",
+		"dev:e2e": "pnpm --filter backend build && scripts/emulators.sh 'pnpm seed && NEXT_PUBLIC_USE_EMULATORS=1 pnpm --filter frontend dev'",
+		"test:e2e": "playwright test",
+		"test:e2e:ui": "playwright test --ui",
 		"emulators": "scripts/emulators.sh",
 		"seed": "pnpm --filter backend seed",
 		"firebase": "firebase",
@@ -28,6 +31,7 @@
 	},
 	"devDependencies": {
 		"@firebase/rules-unit-testing": "5.0.0",
+		"@playwright/test": "^1.62.1",
 		"@types/jest": "29.5.14",
 		"@types/node": "24.12.4",
 		"@typescript-eslint/eslint-plugin": "8.60.0",

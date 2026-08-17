@@ -34,6 +34,10 @@ pubsub-debug.log
 
 # test
 coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
 
 # editors / os
 .DS_Store

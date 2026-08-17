@@ -36,14 +36,22 @@ jobs:
     with:
       isRules: ${{ needs.changes.outputs.rules }}
 
+  e2e:
+    needs: changes
+    uses: ./.github/workflows/e2e.yml
+    with:
+      isE2e: ${{ needs.changes.outputs.e2e }}
+
   # Deploys functions and rules together, so it must wait on both suites — and
   # on `shared`, whose code is compiled into the functions being deployed. Left
   # out, a red shared suite still shipped the backend that embeds it. `frontend`
   # is in here for a different reason: nothing it builds is deployed from this
   # job, but a commit that breaks the app is one Vercel is about to reject, and
-  # shipping the backend half of it leaves the deployed pair mismatched.
+  # shipping the backend half of it leaves the deployed pair mismatched. `e2e` is
+  # the last of them and the only one that checks the halves still meet, so a
+  # broken core loop stops the deploy rather than being shipped past.
   deploy:
-    needs: [changes, shared, frontend, backend, rules]
+    needs: [changes, shared, frontend, backend, rules, e2e]
     if: >-
       ${{ always() && !failure() && !cancelled()
       && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.rules == 'true') }}

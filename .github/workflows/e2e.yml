@@ -1,0 +1,65 @@
+name: e2e
+
+on:
+  workflow_call:
+    inputs:
+      isE2e:
+        required: true
+        type: string
+
+jobs:
+  e2e:
+    if: ${{ inputs.isE2e == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      # The emulators are a Java process and firebase-tools requires 21+. The
+      # functions emulator is the point of this job: without it nothing writes
+      # `counts`, and the headcount these tests assert on never moves.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: ${{ runner.os }}-firebase-emulators-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-firebase-emulators-
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+      # Chromium only. These journeys are about the stack behind the screen
+      # rather than browser differences, and the two viewports already cover the
+      # thing that does vary — mobile is the primary target.
+      - run: pnpm exec playwright install --with-deps chromium
+      # `pnpm test:e2e` starts the stack itself, through Playwright's webServer:
+      # `pnpm dev:e2e` builds the backend, boots every emulator, seeds a real
+      # scenario and runs the app against it.
+      - run: pnpm test:e2e
+        env:
+          # Emulator-only config. Every route into Firebase goes through the
+          # emulators here, so these never reach a real project — but the client
+          # refuses to initialise without them. The project id has to match
+          # .firebaserc, which is what the seeder writes under.
+          NEXT_PUBLIC_FIREBASE_API_KEY: demo-key
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: footballfrescati.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: footballfrescati
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: footballfrescati.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:000000000000:web:demo
+          # No App Check site key on purpose: absent, the bundle sends no token,
+          # which is what the emulators expect and what the frontend job already
+          # builds. No Sentry DSN either — nothing is reported from a local run.
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
