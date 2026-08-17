@@ -45,6 +45,10 @@ jobs:
               - '.github/**'
             rules:
               - 'firestore.rules'
+              # Deployed config with no compiler to answer to, and the emulator
+              # serves queries it does not cover — so editing it alone used to
+              # run no job at all. rules/indexes.test.ts is what checks it.
+              - 'firestore.indexes.json'
               - 'rules/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
