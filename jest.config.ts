@@ -12,12 +12,19 @@ const customJestConfig: Config = {
 	coveragePathIgnorePatterns: ['.*__snapshots__/.*'],
 	coverageReporters: ['json', 'lcov', 'text', 'clover'],
 	coverageDirectory: '<rootDir>/coverage',
+	/**
+	 * Set just under where `shared/` actually sits, not at some aspirational
+	 * floor. At 70/60 the gap to the real numbers was thirty points, which meant
+	 * a third of these tests could be deleted with CI still green — a threshold
+	 * that cannot fail is documentation, not a check. Raise it when the real
+	 * figure rises; the point is that it only ever moves deliberately.
+	 */
 	coverageThreshold: {
 		global: {
-			statements: 70,
-			branches: 60,
-			functions: 70,
-			lines: 70,
+			statements: 99,
+			branches: 90,
+			functions: 98,
+			lines: 99,
 		},
 	},
 };
