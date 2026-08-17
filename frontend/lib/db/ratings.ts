@@ -1,5 +1,4 @@
-import { httpsCallable } from 'firebase/functions';
-import { getFunctionsClient } from '../firebaseClient';
+import { callFunction } from './call';
 
 /**
  * A rating is function-owned and frozen against client writes, so the one edit
@@ -10,10 +9,5 @@ import { getFunctionsClient } from '../firebaseClient';
  * the function converts. `null` clears it, putting them back on the season seed.
  */
 export const setStartingRating = async (uid: string, rating: number | null): Promise<void> => {
-	const call = httpsCallable<{ uid: string; rating: number | null }, { ok: boolean }>(
-		getFunctionsClient(),
-		'setStartingRating'
-	);
-
-	await call({ uid, rating });
+	await callFunction<{ uid: string; rating: number | null }, { ok: boolean }>('setStartingRating', { uid, rating });
 };

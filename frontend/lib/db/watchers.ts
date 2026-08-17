@@ -1,8 +1,7 @@
 import { deleteDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { getFunctionsClient } from '../firebaseClient';
 import { watcherDoc } from './paths';
+import { callFunction } from './call';
 
 /**
  * Following one game's availability.
@@ -41,12 +40,10 @@ export const unwatchGame = (seasonId: string, gameId: string, uid: string): Prom
  * `onSnapshot` impossible, so a refresh is what a screen gets offered instead.
  */
 export const getGameWatchers = async (seasonId: string, gameId: string): Promise<string[]> => {
-	const call = httpsCallable<{ seasonId: string; gameId: string }, { uids: string[] }>(
-		getFunctionsClient(),
-		'getGameWatchers'
-	);
+	const { uids } = await callFunction<{ seasonId: string; gameId: string }, { uids: string[] }>('getGameWatchers', {
+		seasonId,
+		gameId,
+	});
 
-	const { data } = await call({ seasonId, gameId });
-
-	return data.uids ?? [];
+	return uids ?? [];
 };

@@ -1,11 +1,10 @@
 import { deleteDoc, FieldPath, increment, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
 import type { Fixture } from '@shared/tournament';
 import type { RatingLedgerEntry, TournamentMatch, TournamentResult, TournamentTeams } from '@shared/types';
-import { getFunctionsClient } from '../firebaseClient';
 import { gameDoc, matchDoc, matchesCol, ratingLedgerCol, tournamentResultDoc, tournamentTeamsDoc } from './paths';
 import { asData, subscribeToCollection, subscribeToDoc } from './subscribe';
+import { callFunction } from './call';
 
 export const subscribeToTeams = (
 	seasonId: string,
@@ -146,10 +145,8 @@ export const subscribeToResult = (
  * returns rather than silently succeeding.
  */
 export const finaliseTournament = async (seasonId: string, gameId: string): Promise<void> => {
-	const call = httpsCallable<{ seasonId: string; gameId: string }, { ok: boolean }>(
-		getFunctionsClient(),
-		'finaliseTournament'
-	);
-
-	await call({ seasonId, gameId });
+	await callFunction<{ seasonId: string; gameId: string }, { ok: boolean }>('finaliseTournament', {
+		seasonId,
+		gameId,
+	});
 };

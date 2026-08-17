@@ -1,6 +1,5 @@
-import { httpsCallable } from 'firebase/functions';
 import type { BackendErrorKind } from '@shared/debug';
-import { getFunctionsClient } from '../firebaseClient';
+import { callFunction } from './call';
 
 /**
  * Asks the backend to fail on purpose, to prove error reporting works.
@@ -9,10 +8,5 @@ import { getFunctionsClient } from '../firebaseClient';
  * caller is expected to catch. See `backend/src/throwTestError.ts`.
  */
 export const throwTestError = async (kind: BackendErrorKind): Promise<void> => {
-	const call = httpsCallable<{ kind: BackendErrorKind }, { reported: boolean }>(
-		getFunctionsClient(),
-		'throwTestError'
-	);
-
-	await call({ kind });
+	await callFunction<{ kind: BackendErrorKind }, { reported: boolean }>('throwTestError', { kind });
 };

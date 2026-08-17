@@ -1,6 +1,5 @@
-import { httpsCallable } from 'firebase/functions';
 import type { AppNotification, GameNotification, PushPayload } from '@shared/notifications';
-import { getFunctionsClient } from '../firebaseClient';
+import { callFunction } from './call';
 
 export type EmailTestStatus = 'sent' | 'noAddress' | 'emailOff';
 
@@ -28,13 +27,8 @@ export const sendTestEmail = async (
 	kind: GameNotification | AppNotification,
 	uids: string[],
 	target?: { seasonId: string; gameId: string }
-): Promise<TestEmailResult> => {
-	const call = httpsCallable<
+): Promise<TestEmailResult> =>
+	callFunction<
 		{ kind: GameNotification | AppNotification; uids: string[]; seasonId?: string; gameId?: string },
 		TestEmailResult
-	>(getFunctionsClient(), 'sendTestEmail');
-
-	const { data } = await call({ kind, uids, ...target });
-
-	return data;
-};
+	>('sendTestEmail', { kind, uids, ...target });

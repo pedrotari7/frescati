@@ -1,6 +1,5 @@
-import { httpsCallable } from 'firebase/functions';
 import type { PushDevice } from '@shared/types';
-import { getFunctionsClient } from '../firebaseClient';
+import { callFunction } from './call';
 
 /** Devices per uid. A uid with nothing registered is simply absent. */
 export type PushDevicesByUid = Record<string, PushDevice[]>;
@@ -23,12 +22,13 @@ export interface NotificationReach {
  * admin screen needs; see `backend/src/getPushDevices.ts`.
  */
 export const getNotificationReach = async (): Promise<NotificationReach> => {
-	const call = httpsCallable<void, { devices: PushDevicesByUid; addressed: string[]; emailConfigured: boolean }>(
-		getFunctionsClient(),
-		'getPushDevices'
+	// The one callable that takes no request body. Passed explicitly rather than
+	// omitted: TypeScript only lets a `void` argument be dropped when the
+	// parameter is declared `void`, not when it is a generic that resolved to it.
+	const data = await callFunction<void, { devices: PushDevicesByUid; addressed: string[]; emailConfigured: boolean }>(
+		'getPushDevices',
+		undefined
 	);
-
-	const { data } = await call();
 
 	return { devices: data.devices, addressed: new Set(data.addressed ?? []), emailConfigured: data.emailConfigured };
 };

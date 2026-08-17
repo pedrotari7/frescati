@@ -1,6 +1,5 @@
-import { httpsCallable } from 'firebase/functions';
 import type { AppNotification, GameNotification, PushPayload } from '@shared/notifications';
-import { getFunctionsClient } from '../firebaseClient';
+import { callFunction } from './call';
 
 export interface TestPushResult {
 	/** Devices FCM accepted the message for. */
@@ -28,13 +27,8 @@ export interface TestPushResult {
 export const sendTestPush = async (
 	kind: GameNotification | AppNotification,
 	target?: { seasonId: string; gameId: string }
-): Promise<TestPushResult> => {
-	const call = httpsCallable<
-		{ kind: GameNotification | AppNotification; seasonId?: string; gameId?: string },
-		TestPushResult
-	>(getFunctionsClient(), 'sendTestPush');
-
-	const { data } = await call({ kind, ...target });
-
-	return data;
-};
+): Promise<TestPushResult> =>
+	callFunction<{ kind: GameNotification | AppNotification; seasonId?: string; gameId?: string }, TestPushResult>(
+		'sendTestPush',
+		{ kind, ...target }
+	);

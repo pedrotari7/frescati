@@ -1,5 +1,4 @@
-import { httpsCallable } from 'firebase/functions';
-import { getFunctionsClient } from '../firebaseClient';
+import { callFunction } from './call';
 
 /**
  * Granting the global `admin` claim is the one thing the client can't do
@@ -10,7 +9,5 @@ import { getFunctionsClient } from '../firebaseClient';
  * because promoting somebody requires already being one.
  */
 export const setAppAdmin = async (uid: string, isAdmin: boolean): Promise<void> => {
-	const call = httpsCallable<{ uid: string; isAdmin: boolean }, { ok: boolean }>(getFunctionsClient(), 'setAppAdmin');
-
-	await call({ uid, isAdmin });
+	await callFunction<{ uid: string; isAdmin: boolean }, { ok: boolean }>('setAppAdmin', { uid, isAdmin });
 };
