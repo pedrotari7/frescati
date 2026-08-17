@@ -156,6 +156,27 @@ describe('getPlayerRecord', () => {
 		expect(getPlayerRecord(season, 'a').peak).toBe(1040);
 	});
 
+	// The chart opens on the rating they took in, so a career of nothing but
+	// losses peaked there — a peak below the visible start of the line is the
+	// screen disagreeing with itself.
+	it('counts the rating carried into the first game', () => {
+		expect(getPlayerRecord([entry('g1', 0, { a: 1 }, { a: 1040 }, { a: 1020 })], 'a').peak).toBe(1040);
+	});
+
+	// The seed is what the game rated them off and where their line starts, so
+	// it is a rating they held for the purpose of the one above.
+	it('counts the seed an unrated arrival was rated off', () => {
+		const games = [entry('g1', 0, { a: 1 }, { a: null }, { a: 1020 }, 's1', 1040)];
+
+		expect(getPlayerRecord(games, 'a').peak).toBe(1040);
+	});
+
+	// Nothing was recorded to open the line on, so there is nothing above the
+	// results to count either.
+	it('peaks at the first result on an entry written before the seed was stored', () => {
+		expect(getPlayerRecord([entry('g1', 0, { a: 1 }, { a: null }, { a: 1020 })], 'a').peak).toBe(1020);
+	});
+
 	it('has no peak for somebody who has never played', () => {
 		expect(getPlayerRecord([], 'a')).toMatchObject({ appearances: 0, wins: 0, bestRun: 0, peak: null });
 	});

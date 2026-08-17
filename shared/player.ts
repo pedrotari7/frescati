@@ -60,7 +60,14 @@ export interface PlayerRecord {
 	bestRun: number;
 	/** Wins at the end of the run — zero unless the last game was one. */
 	currentRun: number;
-	/** The highest Elo they have ever carried out of a game. */
+	/**
+	 * The highest their rating has ever stood — the high-water mark of the line
+	 * the chart draws, which opens on what they took into their first game and
+	 * not on what that game left them. Counting only what they carried *out* put
+	 * the peak below the visible start of their own graph for anybody whose
+	 * first result went badly, which is exactly the career that needs telling
+	 * they have come down from somewhere.
+	 */
 	peak: number | null;
 }
 
@@ -116,6 +123,12 @@ export const getPlayerRecord = (entries: RatingLedgerEntry[], uid: string): Play
 		bestRun = Math.max(bestRun, currentRun);
 	}
 
+	// Read off the series the chart draws rather than from the games alone, so
+	// the number under the graph can't contradict the graph. Empty for exactly
+	// the player who has never played, since the opening only exists in front of
+	// a first game.
+	const trend = getRatingTrend(games);
+
 	return {
 		games,
 		appearances: games.length,
@@ -123,7 +136,7 @@ export const getPlayerRecord = (entries: RatingLedgerEntry[], uid: string): Play
 		motm: games.filter(game => game.motm).length,
 		bestRun,
 		currentRun,
-		peak: games.length === 0 ? null : Math.max(...games.map(game => game.after)),
+		peak: trend.length === 0 ? null : Math.max(...trend),
 	};
 };
 
