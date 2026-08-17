@@ -26,7 +26,7 @@ import type { Season } from '../../shared/types';
 import { runScript } from './lib/script';
 import type { ScriptContext } from './lib/script';
 
-const main = async ({ db }: ScriptContext) => {
+export const main = async ({ db }: ScriptContext) => {
 	const futureOnly = process.argv.includes('--future-only');
 
 	// Imported after initializeApp: the shared helper builds its Firestore handle
@@ -63,4 +63,6 @@ const main = async ({ db }: ScriptContext) => {
 	if (failed > 0) console.error(`${failed} failed — see above.`);
 };
 
-runScript(main);
+// Only when run as a command, so a test can import `main` and drive it
+// against the emulators without `runScript` reaching for real credentials.
+if (require.main === module) runScript(main);

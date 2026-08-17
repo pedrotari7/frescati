@@ -32,7 +32,7 @@ const missingAmong = async (refs: DocumentReference[]): Promise<Set<string>> => 
 	return new Set(snaps.filter(snap => !snap.exists).map(snap => snap.ref.path));
 };
 
-const main = async ({ db, dryRun }: ScriptContext) => {
+export const main = async ({ db, dryRun }: ScriptContext) => {
 	// Games whose season is gone.
 	const gamesSnap = await db.collectionGroup('games').get();
 	const seasonRefs = [...new Set(gamesSnap.docs.map(doc => doc.ref.parent.parent!.path))].map(path => db.doc(path));
@@ -68,4 +68,6 @@ const main = async ({ db, dryRun }: ScriptContext) => {
 	console.log(`\nDeleted ${orphanGames.length} games and ${orphanResponses.length} responses.`);
 };
 
-runScript(main);
+// Only when run as a command, so a test can import `main` and drive it
+// against the emulators without `runScript` reaching for real credentials.
+if (require.main === module) runScript(main);
