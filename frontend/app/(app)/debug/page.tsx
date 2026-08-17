@@ -16,7 +16,7 @@ import { useGames, useResponses, useSeasons, useUsers } from '../../../hooks/use
 import { useToast } from '../../../components/Toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import PageShell from '../../../components/PageShell';
-import EmptyState from '../../../components/EmptyState';
+import AppAdminOnly from '../../../components/AppAdminOnly';
 import Avatar from '../../../components/Avatar';
 import Button from '../../../components/Button';
 import StatusPill from '../../../components/StatusPill';
@@ -138,12 +138,10 @@ const DebugPage = () => {
 
 	if (!user?.isAppAdmin) {
 		return (
-			<PageShell title='Debug' backHref='/me'>
-				<EmptyState
-					title='App admins only'
-					message='This screen sends real notifications, so it stays behind the global role.'
-				/>
-			</PageShell>
+			<AppAdminOnly
+				title='Debug'
+				message='This screen sends real notifications, so it stays behind the global role.'
+			/>
 		);
 	}
 

@@ -8,7 +8,7 @@ import { useAuth } from '../../../../lib/auth';
 import { captureError } from '../../../../lib/sentry';
 import { createSeason } from '../../../../lib/db/seasons';
 import PageShell from '../../../../components/PageShell';
-import EmptyState from '../../../../components/EmptyState';
+import AppAdminOnly from '../../../../components/AppAdminOnly';
 import Button from '../../../../components/Button';
 import DatePicker from '../../../../components/DatePicker';
 import { Field, Select, TextInput } from '../../../../components/Field';
@@ -35,12 +35,11 @@ const NewSeasonPage = () => {
 
 	if (!user?.isAppAdmin) {
 		return (
-			<PageShell title='New season' backHref='/seasons'>
-				<EmptyState
-					title='App admins only'
-					message='Creating a season needs the app admin role. Ask whoever set up the app.'
-				/>
-			</PageShell>
+			<AppAdminOnly
+				title='New season'
+				message='Creating a season needs the app admin role. Ask whoever set up the app.'
+				backHref='/seasons'
+			/>
 		);
 	}
 

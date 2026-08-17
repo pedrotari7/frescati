@@ -12,7 +12,7 @@ import { useUsers } from '../../../../hooks/useData';
 import { usePushDevices } from '../../../../hooks/usePushDevices';
 import type { NotificationReach } from '../../../../lib/db/pushDevices';
 import PageShell from '../../../../components/PageShell';
-import EmptyState from '../../../../components/EmptyState';
+import AppAdminOnly from '../../../../components/AppAdminOnly';
 import { SkeletonBlock } from '../../../../components/Skeleton';
 import Avatar from '../../../../components/Avatar';
 import Button from '../../../../components/Button';
@@ -119,12 +119,10 @@ const NotificationsAdminPage = () => {
 
 	if (!isAppAdmin) {
 		return (
-			<PageShell title='Notifications' backHref='/me'>
-				<EmptyState
-					title='App admins only'
-					message='This screen shows what every account has registered, so it stays behind the global role.'
-				/>
-			</PageShell>
+			<AppAdminOnly
+				title='Notifications'
+				message='This screen shows what every account has registered, so it stays behind the global role.'
+			/>
 		);
 	}
 

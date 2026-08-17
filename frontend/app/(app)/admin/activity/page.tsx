@@ -10,8 +10,8 @@ import { formatRelative } from '@shared/format';
 import { useAuth } from '../../../../lib/auth';
 import { useUsers } from '../../../../hooks/useData';
 import PageShell from '../../../../components/PageShell';
+import AppAdminOnly from '../../../../components/AppAdminOnly';
 import Skeleton from '../../../../components/Skeleton';
-import EmptyState from '../../../../components/EmptyState';
 import Avatar from '../../../../components/Avatar';
 import StatusPill from '../../../../components/StatusPill';
 import { TextInput } from '../../../../components/Field';
@@ -82,12 +82,10 @@ const ActivityAdminPage = () => {
 
 	if (!user?.isAppAdmin) {
 		return (
-			<PageShell title='Activity' backHref='/me'>
-				<EmptyState
-					title='App admins only'
-					message='This screen shows when every account last opened the app, so it stays behind the global role.'
-				/>
-			</PageShell>
+			<AppAdminOnly
+				title='Activity'
+				message='This screen shows when every account last opened the app, so it stays behind the global role.'
+			/>
 		);
 	}
 

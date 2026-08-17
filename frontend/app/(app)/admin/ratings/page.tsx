@@ -12,8 +12,8 @@ import { useWrite } from '../../../../hooks/useWrite';
 import { setStartingRating } from '../../../../lib/db/ratings';
 import { useToast } from '../../../../components/Toast';
 import PageShell from '../../../../components/PageShell';
+import AppAdminOnly from '../../../../components/AppAdminOnly';
 import Skeleton from '../../../../components/Skeleton';
-import EmptyState from '../../../../components/EmptyState';
 import Avatar from '../../../../components/Avatar';
 import Button from '../../../../components/Button';
 import StatusPill from '../../../../components/StatusPill';
@@ -182,12 +182,10 @@ const RatingsAdminPage = () => {
 
 	if (!user?.isAppAdmin) {
 		return (
-			<PageShell title='Starting ratings' backHref='/me'>
-				<EmptyState
-					title='App admins only'
-					message='This screen sets what a player is worth before they have played.'
-				/>
-			</PageShell>
+			<AppAdminOnly
+				title='Starting ratings'
+				message='This screen sets what a player is worth before they have played.'
+			/>
 		);
 	}
 

@@ -9,8 +9,8 @@ import { setAppAdmin } from '../../../lib/db/appAdmins';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { useToast } from '../../../components/Toast';
 import PageShell from '../../../components/PageShell';
+import AppAdminOnly from '../../../components/AppAdminOnly';
 import Skeleton from '../../../components/Skeleton';
-import EmptyState from '../../../components/EmptyState';
 import Avatar from '../../../components/Avatar';
 import Button from '../../../components/Button';
 import StatusPill from '../../../components/StatusPill';
@@ -44,12 +44,10 @@ const AppAdminPage = () => {
 
 	if (!user?.isAppAdmin) {
 		return (
-			<PageShell title='App admins' backHref='/me'>
-				<EmptyState
-					title='App admins only'
-					message='This screen manages who can create seasons and promote other admins.'
-				/>
-			</PageShell>
+			<AppAdminOnly
+				title='App admins'
+				message='This screen manages who can create seasons and promote other admins.'
+			/>
 		);
 	}
 
