@@ -58,7 +58,7 @@ const unratedUids = (entry: RatingLedgerEntry): string[] =>
 		.filter(([, rating]) => rating === null)
 		.map(([uid]) => uid);
 
-const main = async ({ db, dryRun }: ScriptContext) => {
+export const main = async ({ db, dryRun }: ScriptContext) => {
 	// The whole collection, which is one document per rated game — a group
 	// playing weekly takes twenty years to make this a page worth splitting.
 	const ledger = await db.collection('ratingLedger').get();
@@ -138,4 +138,6 @@ const main = async ({ db, dryRun }: ScriptContext) => {
 	if (skipped > 0) console.error(`${skipped} could not be filled in — see above.`);
 };
 
-runScript(main);
+// Only when run as a command, so a test can import `main` and drive it
+// against the emulators without `runScript` reaching for real credentials.
+if (require.main === module) runScript(main);

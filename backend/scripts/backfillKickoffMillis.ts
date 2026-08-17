@@ -27,7 +27,7 @@
 import { applyUpdates, runScript } from './lib/script';
 import type { ScriptContext } from './lib/script';
 
-const main = async ({ db, dryRun }: ScriptContext) => {
+export const main = async ({ db, dryRun }: ScriptContext) => {
 	// Collection group: games live under every season, and this has to reach all
 	// of them regardless of how many seasons exist.
 	const games = await db.collectionGroup('games').get();
@@ -66,4 +66,6 @@ const main = async ({ db, dryRun }: ScriptContext) => {
 	console.log('\nDone. The response deadline is now enforced for every game.');
 };
 
-runScript(main);
+// Only when run as a command, so a test can import `main` and drive it
+// against the emulators without `runScript` reaching for real credentials.
+if (require.main === module) runScript(main);

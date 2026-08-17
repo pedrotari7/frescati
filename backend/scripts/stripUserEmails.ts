@@ -24,7 +24,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { applyUpdates, runScript } from './lib/script';
 import type { ScriptContext } from './lib/script';
 
-const main = async ({ db, dryRun }: ScriptContext) => {
+export const main = async ({ db, dryRun }: ScriptContext) => {
 	const users = await db.collection('users').get();
 	const withEmail = users.docs.filter(doc => doc.get('email') !== undefined);
 
@@ -51,4 +51,6 @@ const main = async ({ db, dryRun }: ScriptContext) => {
 	console.log('\nDone. No profile carries a contact address any more.');
 };
 
-runScript(main);
+// Only when run as a command, so a test can import `main` and drive it
+// against the emulators without `runScript` reaching for real credentials.
+if (require.main === module) runScript(main);

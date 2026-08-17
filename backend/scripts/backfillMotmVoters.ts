@@ -36,7 +36,7 @@ import { counted } from '../../shared/format';
 import { runScript } from './lib/script';
 import type { ScriptContext } from './lib/script';
 
-const main = async ({ db, dryRun }: ScriptContext) => {
+export const main = async ({ db, dryRun }: ScriptContext) => {
 	// Imported after initializeApp: the shared helper builds its Firestore handle
 	// at module load, and there has to be an app for it to bind to.
 	const { recountMotmVoters } = await import('../src/lib/motm');
@@ -108,4 +108,6 @@ const main = async ({ db, dryRun }: ScriptContext) => {
 	if (failed > 0) console.error(`${failed} failed — see above.`);
 };
 
-runScript(main);
+// Only when run as a command, so a test can import `main` and drive it
+// against the emulators without `runScript` reaching for real credentials.
+if (require.main === module) runScript(main);
