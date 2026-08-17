@@ -32,33 +32,11 @@
  *   2. GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
  */
 
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { applicationDefault, initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
 import { counted } from '../../shared/format';
+import { runScript } from './lib/script';
+import type { ScriptContext } from './lib/script';
 
-const resolveProjectId = (): string => {
-	if (process.env.GOOGLE_CLOUD_PROJECT) return process.env.GOOGLE_CLOUD_PROJECT;
-
-	const firebaserc = JSON.parse(readFileSync(join(__dirname, '..', '..', '.firebaserc'), 'utf8'));
-	const projectId = firebaserc?.projects?.default;
-
-	if (!projectId) throw new Error('No project id in .firebaserc and GOOGLE_CLOUD_PROJECT is unset.');
-
-	return projectId;
-};
-
-const main = async () => {
-	const dryRun = process.argv.includes('--dry-run');
-	const projectId = resolveProjectId();
-	const emulator = process.env.FIRESTORE_EMULATOR_HOST;
-
-	process.env.GOOGLE_CLOUD_QUOTA_PROJECT ??= projectId;
-	initializeApp({ credential: applicationDefault(), projectId });
-
-	console.log(`${projectId}${emulator ? ` (emulator at ${emulator})` : ''}\n`);
-
+const main = async ({ db, dryRun }: ScriptContext) => {
 	// Imported after initializeApp: the shared helper builds its Firestore handle
 	// at module load, and there has to be an app for it to bind to.
 	const { recountMotmVoters } = await import('../src/lib/motm');
@@ -66,7 +44,7 @@ const main = async () => {
 	// The same single-field query `closeMotmVoting` runs, and for the same reason:
 	// the window is on a game only while its vote is open, so this asks for the
 	// handful currently voting however long the back catalogue gets.
-	const open = await getFirestore().collectionGroup('games').where('motmVotingUntilMillis', '>', 0).get();
+	const open = await db.collectionGroup('games').where('motmVotingUntilMillis', '>', 0).get();
 
 	console.log(`${counted(open.size, 'game')} with a vote open.`);
 
@@ -130,12 +108,4 @@ const main = async () => {
 	if (failed > 0) console.error(`${failed} failed — see above.`);
 };
 
-main().catch((error: { message?: string }) => {
-	if (error.message?.includes('Could not load the default credentials')) {
-		console.error('No credentials. Run:  gcloud auth application-default login');
-		process.exit(1);
-	}
-
-	console.error(error);
-	process.exit(1);
-});
+runScript(main);

@@ -40,30 +40,18 @@
  *   2. GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
  */
 
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import type { Firestore, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { counted } from '../../shared/format';
+import { UsageError, runScript } from './lib/script';
+import type { ScriptContext } from './lib/script';
 
 /** What a roster shows where the name used to be. */
 const FORMER_PLAYER = 'Former player';
 
 /** Firestore caps a batch at 500 writes. */
 const BATCH_LIMIT = 400;
-
-const resolveProjectId = (): string => {
-	if (process.env.GOOGLE_CLOUD_PROJECT) return process.env.GOOGLE_CLOUD_PROJECT;
-
-	const firebaserc = JSON.parse(readFileSync(join(__dirname, '..', '..', '.firebaserc'), 'utf8'));
-	const projectId = firebaserc?.projects?.default;
-
-	if (!projectId) throw new Error('No project id in .firebaserc and GOOGLE_CLOUD_PROJECT is unset.');
-
-	return projectId;
-};
 
 /**
  * Accepts either form, because whoever asks to be forgotten writes from an
@@ -223,23 +211,12 @@ const apply = async (db: Firestore, plan: Plan, uid: string, hasAccount: boolean
 	return stranded;
 };
 
-const main = async () => {
-	const args = process.argv.slice(2).filter(arg => arg !== '--dry-run');
-	const dryRun = process.argv.includes('--dry-run');
+const main = async ({ db, projectId, dryRun, args }: ScriptContext) => {
 	const identifier = args[0];
 
-	if (!identifier) {
-		console.error('Usage: pnpm --filter backend forget-player <uid|email> [--dry-run]');
-		process.exit(1);
-	}
-
-	const projectId = resolveProjectId();
-
-	process.env.GOOGLE_CLOUD_QUOTA_PROJECT ??= projectId;
-	initializeApp({ credential: applicationDefault(), projectId });
+	if (!identifier) throw new UsageError('Usage: pnpm --filter backend forget-player <uid|email> [--dry-run]');
 
 	const { uid, email, hasAccount } = await resolveUid(identifier);
-	const db = getFirestore();
 	const plan = await buildPlan(db, uid);
 
 	console.log(`Forgetting ${uid}${email ? ` (${email})` : ''} in ${projectId}:`);
@@ -279,12 +256,4 @@ const main = async () => {
 	);
 };
 
-main().catch((error: { message?: string }) => {
-	if (error.message?.includes('Could not load the default credentials')) {
-		console.error('No credentials. Run:  gcloud auth application-default login');
-		process.exit(1);
-	}
-
-	console.error(error);
-	process.exit(1);
-});
+runScript(main);

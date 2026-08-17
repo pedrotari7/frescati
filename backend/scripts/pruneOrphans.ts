@@ -18,22 +18,10 @@
  *   2. GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
  */
 
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import type { DocumentReference } from 'firebase-admin/firestore';
 import { getFirestore } from 'firebase-admin/firestore';
-
-const resolveProjectId = (): string => {
-	if (process.env.GOOGLE_CLOUD_PROJECT) return process.env.GOOGLE_CLOUD_PROJECT;
-
-	const firebaserc = JSON.parse(readFileSync(join(__dirname, '..', '..', '.firebaserc'), 'utf8'));
-	const projectId = firebaserc?.projects?.default;
-
-	if (!projectId) throw new Error('No project id in .firebaserc and GOOGLE_CLOUD_PROJECT is unset.');
-
-	return projectId;
-};
+import { runScript } from './lib/script';
+import type { ScriptContext } from './lib/script';
 
 /** Which of these documents don't exist, looked up in one round trip. */
 const missingAmong = async (refs: DocumentReference[]): Promise<Set<string>> => {
@@ -44,15 +32,7 @@ const missingAmong = async (refs: DocumentReference[]): Promise<Set<string>> => 
 	return new Set(snaps.filter(snap => !snap.exists).map(snap => snap.ref.path));
 };
 
-const main = async () => {
-	const dryRun = process.argv.includes('--dry-run');
-	const projectId = resolveProjectId();
-
-	process.env.GOOGLE_CLOUD_QUOTA_PROJECT ??= projectId;
-	initializeApp({ credential: applicationDefault(), projectId });
-
-	const db = getFirestore();
-
+const main = async ({ db, dryRun }: ScriptContext) => {
 	// Games whose season is gone.
 	const gamesSnap = await db.collectionGroup('games').get();
 	const seasonRefs = [...new Set(gamesSnap.docs.map(doc => doc.ref.parent.parent!.path))].map(path => db.doc(path));
@@ -74,7 +54,8 @@ const main = async () => {
 	}
 
 	if (dryRun) {
-		for (const doc of [...orphanGames, ...orphanResponses].slice(0, 20)) console.log(`  would delete ${doc.ref.path}`);
+		for (const doc of [...orphanGames, ...orphanResponses].slice(0, 20))
+			console.log(`  would delete ${doc.ref.path}`);
 		console.log('\nDry run, nothing written.');
 		return;
 	}
@@ -87,12 +68,4 @@ const main = async () => {
 	console.log(`\nDeleted ${orphanGames.length} games and ${orphanResponses.length} responses.`);
 };
 
-main().catch((error: { message?: string }) => {
-	if (error.message?.includes('Could not load the default credentials')) {
-		console.error('No credentials. Run:  gcloud auth application-default login');
-		process.exit(1);
-	}
-
-	console.error(error);
-	process.exit(1);
-});
+runScript(main);

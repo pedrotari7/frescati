@@ -22,35 +22,17 @@
  *   2. GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
  */
 
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { applicationDefault, initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
 import type { Season } from '../../shared/types';
+import { runScript } from './lib/script';
+import type { ScriptContext } from './lib/script';
 
-const resolveProjectId = (): string => {
-	if (process.env.GOOGLE_CLOUD_PROJECT) return process.env.GOOGLE_CLOUD_PROJECT;
-
-	const firebaserc = JSON.parse(readFileSync(join(__dirname, '..', '..', '.firebaserc'), 'utf8'));
-	const projectId = firebaserc?.projects?.default;
-
-	if (!projectId) throw new Error('No project id in .firebaserc and GOOGLE_CLOUD_PROJECT is unset.');
-
-	return projectId;
-};
-
-const main = async () => {
+const main = async ({ db }: ScriptContext) => {
 	const futureOnly = process.argv.includes('--future-only');
-	const projectId = resolveProjectId();
-
-	process.env.GOOGLE_CLOUD_QUOTA_PROJECT ??= projectId;
-	initializeApp({ credential: applicationDefault(), projectId });
 
 	// Imported after initializeApp: the shared helper builds its Firestore handle
 	// at module load, and there has to be an app for it to bind to.
 	const { recountGame } = await import('../src/lib/recount');
 
-	const db = getFirestore();
 	const seasonsSnap = await db.collection('seasons').get();
 
 	let games = 0;
@@ -81,12 +63,4 @@ const main = async () => {
 	if (failed > 0) console.error(`${failed} failed — see above.`);
 };
 
-main().catch((error: { message?: string }) => {
-	if (error.message?.includes('Could not load the default credentials')) {
-		console.error('No credentials. Run:  gcloud auth application-default login');
-		process.exit(1);
-	}
-
-	console.error(error);
-	process.exit(1);
-});
+runScript(main);
