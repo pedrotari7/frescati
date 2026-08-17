@@ -19,6 +19,7 @@ import Button from '../../../../components/Button';
 import StatusPill from '../../../../components/StatusPill';
 import type { PillTone } from '../../../../components/StatusPill';
 import { TextInput } from '../../../../components/Field';
+import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Section';
 
 /**
  * Who the app can actually reach, and why it can't reach the rest.
@@ -251,17 +252,17 @@ const buildRows = (users: AppUser[], { devices, addressed, emailConfigured }: No
 
 const Section = ({ title, rows, now, empty }: { title: string; rows: Row[]; now: Date; empty: string }) => (
 	<section>
-		<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
+		<SectionHeading className='mb-2 px-1'>
 			{title} ({rows.length})
-		</h2>
+		</SectionHeading>
 
-		<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
-			{rows.length === 0 && <p className='text-faint py-4 text-sm'>{empty}</p>}
+		<ListCard>
+			{rows.length === 0 && <ListEmpty>{empty}</ListEmpty>}
 
 			{rows.map(row => (
 				<PlayerRow key={row.user.uid} row={row} now={now} />
 			))}
-		</div>
+		</ListCard>
 	</section>
 );
 

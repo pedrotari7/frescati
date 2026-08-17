@@ -15,6 +15,7 @@ import Skeleton from '../../../../components/Skeleton';
 import Avatar from '../../../../components/Avatar';
 import StatusPill from '../../../../components/StatusPill';
 import { TextInput } from '../../../../components/Field';
+import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Section';
 
 /**
  * Who is still around.
@@ -177,19 +178,17 @@ const Section = ({
 	searched: boolean;
 }) => (
 	<section>
-		<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
+		<SectionHeading className='mb-2 px-1'>
 			{title} ({players.length})
-		</h2>
+		</SectionHeading>
 
-		<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
-			{players.length === 0 && (
-				<p className='text-faint py-4 text-sm'>{searched ? 'Nobody matches that search.' : blurb}</p>
-			)}
+		<ListCard>
+			{players.length === 0 && <ListEmpty>{searched ? 'Nobody matches that search.' : blurb}</ListEmpty>}
 
 			{players.map(player => (
 				<PlayerRow key={player.uid} player={player} now={now} />
 			))}
-		</div>
+		</ListCard>
 	</section>
 );
 

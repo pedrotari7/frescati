@@ -18,6 +18,7 @@ import Avatar from '../../../../components/Avatar';
 import Button from '../../../../components/Button';
 import StatusPill from '../../../../components/StatusPill';
 import { RangeInput, TextInput } from '../../../../components/Field';
+import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Section';
 
 /**
  * Starting ratings — what an admin knows about a player before the ladder does.
@@ -215,17 +216,15 @@ const RatingsAdminPage = () => {
 				</div>
 
 				<section>
-					<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
-						Yet to play ({estimated.length})
-					</h2>
+					<SectionHeading className='mb-2 px-1'>Yet to play ({estimated.length})</SectionHeading>
 
-					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
+					<ListCard>
 						{estimated.length === 0 && (
-							<p className='text-faint py-4 text-sm'>
+							<ListEmpty>
 								{search
 									? 'Nobody matches that search.'
 									: 'Everybody signed up has played a rated game.'}
-							</p>
+							</ListEmpty>
 						)}
 
 						{estimated.map(player => (
@@ -237,7 +236,7 @@ const RatingsAdminPage = () => {
 								onClose={() => setEditing(null)}
 							/>
 						))}
-					</div>
+					</ListCard>
 
 					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
 						Left alone, a new player is worth the average of the season&apos;s rated members — which is the
@@ -248,15 +247,13 @@ const RatingsAdminPage = () => {
 				</section>
 
 				<section>
-					<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
-						Rated ({rated.length})
-					</h2>
+					<SectionHeading className='mb-2 px-1'>Rated ({rated.length})</SectionHeading>
 
-					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
+					<ListCard>
 						{rated.length === 0 && (
-							<p className='text-faint py-4 text-sm'>
+							<ListEmpty>
 								{search ? 'Nobody matches that search.' : 'Nobody has played a confirmed game yet.'}
-							</p>
+							</ListEmpty>
 						)}
 
 						{/* Only the earned side is a link: this is where an admin
@@ -281,7 +278,7 @@ const RatingsAdminPage = () => {
 								</span>
 							</Link>
 						))}
-					</div>
+					</ListCard>
 
 					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
 						These are earned, so they are not editable here. Every rated game records what each player

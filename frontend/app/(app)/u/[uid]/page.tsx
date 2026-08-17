@@ -21,6 +21,7 @@ import Avatar from '../../../../components/Avatar';
 import Button from '../../../../components/Button';
 import StatusPill from '../../../../components/StatusPill';
 import RatingChart from '../../../../components/RatingChart';
+import { SectionHeading } from '../../../../components/Section';
 import { classNames } from '../../../../lib/utils/reactHelper';
 
 /**
@@ -274,9 +275,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 
 						{links.length > 0 && (
 							<section>
-								<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
-									Played with ({links.length})
-								</h2>
+								<SectionHeading className='mb-2 px-1'>Played with ({links.length})</SectionHeading>
 
 								{(chemistry.bestWith || chemistry.nemesis) && (
 									<div className='mb-2 space-y-1 px-1'>
@@ -339,9 +338,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 						)}
 
 						<section>
-							<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
-								Every game ({record.appearances})
-							</h2>
+							<SectionHeading className='mb-2 px-1'>Every game ({record.appearances})</SectionHeading>
 
 							<ul className='glass divide-y divide-white/6 overflow-hidden rounded-3xl'>
 								{visible.map((game, index) => (

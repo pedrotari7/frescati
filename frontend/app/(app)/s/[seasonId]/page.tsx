@@ -15,6 +15,7 @@ import NextGameHero from '../../../../components/NextGameHero';
 import GameRow from '../../../../components/GameRow';
 import Button from '../../../../components/Button';
 import CalendarSubscribeSheet from '../../../../components/CalendarSubscribeSheet';
+import { SectionHeading } from '../../../../components/Section';
 
 const SeasonHomePage = () => {
 	const { seasonId, season, games, loading, isAdmin, role } = useSeasonContext();
@@ -94,9 +95,7 @@ const SeasonHomePage = () => {
 					    played. */}
 					{voting.length > 0 && (
 						<section>
-							<h2 className='text-faint mb-3 px-1 text-xs font-semibold tracking-wider uppercase'>
-								Man of the match
-							</h2>
+							<SectionHeading className='mb-3 px-1'>Man of the match</SectionHeading>
 							<div className='space-y-2'>
 								{voting.map(game => (
 									<GameRow
@@ -116,9 +115,7 @@ const SeasonHomePage = () => {
 
 					{upcoming.length > 0 && (
 						<section>
-							<h2 className='text-faint mb-3 px-1 text-xs font-semibold tracking-wider uppercase'>
-								Coming up
-							</h2>
+							<SectionHeading className='mb-3 px-1'>Coming up</SectionHeading>
 							<div className='space-y-2'>
 								{upcoming.map(game => (
 									<GameRow
@@ -138,9 +135,7 @@ const SeasonHomePage = () => {
 					{played.length > 0 && (
 						<section>
 							<div className='mb-3 flex items-center justify-between px-1'>
-								<h2 className='text-faint text-xs font-semibold tracking-wider uppercase'>
-									Played ({played.length})
-								</h2>
+								<SectionHeading>Played ({played.length})</SectionHeading>
 								<Button variant='ghost' size='sm' onClick={() => setShowPast(!showPast)}>
 									{showPast ? 'Hide' : 'Show'}
 								</Button>

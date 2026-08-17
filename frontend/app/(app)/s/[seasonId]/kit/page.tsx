@@ -30,6 +30,7 @@ import GameKit from '../../../../../components/GameKit';
 import KitTransferSheet from '../../../../../components/KitTransferSheet';
 import KitRenameSheet from '../../../../../components/KitRenameSheet';
 import { Field, Select, TextInput } from '../../../../../components/Field';
+import { ListCard, SectionHeading } from '../../../../../components/Section';
 
 /**
  * The register: what the group owns, and who has it right now.
@@ -217,9 +218,9 @@ const KitPage = () => {
 							    bag — they open it before a game. */}
 							{nextGame && (
 								<section>
-									<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
+									<SectionHeading className='mb-2 px-1'>
 										{formatGameDate(nextGame.kickoff, season.slot.timezone)}
-									</h2>
+									</SectionHeading>
 									<GameKit
 										seasonId={seasonId}
 										items={kit}
@@ -252,11 +253,11 @@ const KitPage = () => {
 							<section className='space-y-4'>
 								{groupKitByKind(kit).map(group => (
 									<div key={group.kind}>
-										<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
+										<SectionHeading className='mb-2 px-1'>
 											{KIT_KIND_LABELS[group.kind]}
-										</h2>
+										</SectionHeading>
 
-										<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
+										<ListCard>
 											{group.items.map(item => {
 												const holder = usersByUid.get(item.holderUid);
 												const inSquad = season.memberUids.includes(item.holderUid);
@@ -325,7 +326,7 @@ const KitPage = () => {
 													</div>
 												);
 											})}
-										</div>
+										</ListCard>
 									</div>
 								))}
 							</section>

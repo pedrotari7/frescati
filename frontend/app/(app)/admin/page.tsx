@@ -15,6 +15,7 @@ import Avatar from '../../../components/Avatar';
 import Button from '../../../components/Button';
 import StatusPill from '../../../components/StatusPill';
 import { TextInput } from '../../../components/Field';
+import { ListCard, ListEmpty, SectionHeading } from '../../../components/Section';
 
 /**
  * App admins — the global role, distinct from the per-season one.
@@ -97,12 +98,10 @@ const AppAdminPage = () => {
 				</div>
 
 				<section>
-					<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
-						App admins ({admins.length})
-					</h2>
+					<SectionHeading className='mb-2 px-1'>App admins ({admins.length})</SectionHeading>
 
-					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
-						{admins.length === 0 && <p className='text-faint py-4 text-sm'>Nobody matches that search.</p>}
+					<ListCard>
+						{admins.length === 0 && <ListEmpty>Nobody matches that search.</ListEmpty>}
 
 						{admins.map(candidate => (
 							<div key={candidate.uid} className='flex items-center gap-3 py-3'>
@@ -125,19 +124,17 @@ const AppAdminPage = () => {
 								</Button>
 							</div>
 						))}
-					</div>
+					</ListCard>
 				</section>
 
 				<section>
-					<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
-						Everyone else ({others.length})
-					</h2>
+					<SectionHeading className='mb-2 px-1'>Everyone else ({others.length})</SectionHeading>
 
-					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
+					<ListCard>
 						{others.length === 0 && (
-							<p className='text-faint py-4 text-sm'>
+							<ListEmpty>
 								{search ? 'Nobody matches that search.' : 'Everyone signed up is already an admin.'}
-							</p>
+							</ListEmpty>
 						)}
 
 						{others.map(candidate => (
@@ -157,7 +154,7 @@ const AppAdminPage = () => {
 								</Button>
 							</div>
 						))}
-					</div>
+					</ListCard>
 
 					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
 						App admins create and delete seasons and manage this list. Running a single season only needs a

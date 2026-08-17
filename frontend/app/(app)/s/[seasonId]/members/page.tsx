@@ -13,6 +13,7 @@ import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
 import Avatar from '../../../../../components/Avatar';
 import StatusPill from '../../../../../components/StatusPill';
+import { ListCard } from '../../../../../components/Section';
 
 const MembersPage = () => {
 	const { seasonId, season, loading, isAdmin } = useSeasonContext();
@@ -98,7 +99,7 @@ const MembersPage = () => {
 				/>
 			) : (
 				<div className='p-4'>
-					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
+					<ListCard>
 						{members.map(member => (
 							<Link
 								key={member.uid}
@@ -110,7 +111,7 @@ const MembersPage = () => {
 								{season.adminUids.includes(member.uid) && <StatusPill tone='brand'>Admin</StatusPill>}
 							</Link>
 						))}
-					</div>
+					</ListCard>
 
 					<div className='mt-4 space-y-3'>
 						{kitLink}

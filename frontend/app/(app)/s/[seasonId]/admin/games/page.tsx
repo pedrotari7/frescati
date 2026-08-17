@@ -19,6 +19,7 @@ import Button from '../../../../../../components/Button';
 import StatusPill from '../../../../../../components/StatusPill';
 import DatePicker from '../../../../../../components/DatePicker';
 import { Field, TextInput } from '../../../../../../components/Field';
+import { ListCard, ListEmpty, SectionHeading } from '../../../../../../components/Section';
 
 /**
  * What deleting this game actually costs.
@@ -187,10 +188,10 @@ const AdminGamesPage = () => {
 				{message && <p className='text-brand px-1 text-sm'>{message}</p>}
 
 				<section>
-					<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>Calendar</h2>
+					<SectionHeading className='mb-2 px-1'>Calendar</SectionHeading>
 
-					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
-						{games.length === 0 && <p className='text-faint py-4 text-sm'>No games yet.</p>}
+					<ListCard>
+						{games.length === 0 && <ListEmpty>No games yet.</ListEmpty>}
 
 						{games.map(game => {
 							const lifecycle = getGameLifecycle(game, season, now);
@@ -255,7 +256,7 @@ const AdminGamesPage = () => {
 								</div>
 							);
 						})}
-					</div>
+					</ListCard>
 				</section>
 			</div>
 		</SeasonShell>

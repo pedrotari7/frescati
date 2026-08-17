@@ -18,6 +18,7 @@ import Avatar from '../../../../../../components/Avatar';
 import Button from '../../../../../../components/Button';
 import StatusPill from '../../../../../../components/StatusPill';
 import { TextInput } from '../../../../../../components/Field';
+import { ListCard, ListEmpty, SectionHeading } from '../../../../../../components/Section';
 
 const AdminMembersPage = () => {
 	const { seasonId, season, loading, isAdmin } = useSeasonContext();
@@ -79,14 +80,10 @@ const AdminMembersPage = () => {
 				</div>
 
 				<section>
-					<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
-						In the squad ({members.length})
-					</h2>
+					<SectionHeading className='mb-2 px-1'>In the squad ({members.length})</SectionHeading>
 
-					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
-						{members.length === 0 && (
-							<p className='text-faint py-4 text-sm'>Nobody yet — add players from below.</p>
-						)}
+					<ListCard>
+						{members.length === 0 && <ListEmpty>Nobody yet — add players from below.</ListEmpty>}
 
 						{members.map(user => {
 							const isSeasonAdmin = season.adminUids.includes(user.uid);
@@ -135,19 +132,17 @@ const AdminMembersPage = () => {
 								</div>
 							);
 						})}
-					</div>
+					</ListCard>
 				</section>
 
 				<section>
-					<h2 className='text-faint mb-2 px-1 text-xs font-semibold tracking-wider uppercase'>
-						Everyone else ({others.length})
-					</h2>
+					<SectionHeading className='mb-2 px-1'>Everyone else ({others.length})</SectionHeading>
 
-					<div className='glass divide-y divide-white/5 rounded-2xl px-4'>
+					<ListCard>
 						{others.length === 0 && (
-							<p className='text-faint py-4 text-sm'>
+							<ListEmpty>
 								{search ? 'Nobody matches that search.' : 'Everyone signed up is already in.'}
-							</p>
+							</ListEmpty>
 						)}
 
 						{others.map(user => (
@@ -172,7 +167,7 @@ const AdminMembersPage = () => {
 								</Button>
 							</div>
 						))}
-					</div>
+					</ListCard>
 
 					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
 						People appear here once they&apos;ve signed in at least once. Anyone not in the squad can still
