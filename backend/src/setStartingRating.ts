@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import type { AppUser, GameResponse } from '../../shared/types';
 import { createStartingRating, fromDisplayRating, hasPlayed } from '../../shared/rating';
 import { db, REGION } from './lib/firebase';
+import { requireAppAdmin } from './lib/auth';
 import { chunksOf } from './lib/batch';
 import { invalidateTeams } from './lib/teams';
 import { instrument } from './lib/sentry';
@@ -92,8 +93,7 @@ const gamesToRepick = async (uid: string): Promise<{ seasonId: string; gameId: s
 export const setStartingRating = onCall<{ uid: string; rating: number | null }>(
 	{ region: REGION },
 	instrument('setStartingRating', async request => {
-		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
+		const callerUid = requireAppAdmin(request);
 
 		const { uid, rating } = request.data;
 		if (!uid) throw new HttpsError('invalid-argument', 'A uid is required.');
@@ -152,7 +152,7 @@ export const setStartingRating = onCall<{ uid: string; rating: number | null }>(
 			await Promise.all(batch.map(game => invalidateTeams(game.seasonId, game.gameId)));
 		}
 
-		logger.info('Set a starting rating', { uid, rating, by: request.auth.uid, repicked: repick.length });
+		logger.info('Set a starting rating', { uid, rating, by: callerUid, repicked: repick.length });
 
 		return { ok: true };
 	})

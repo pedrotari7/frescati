@@ -4,6 +4,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { FieldValue } from 'firebase-admin/firestore';
 import { DEFAULT_NOTIFICATION_PREFS } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
+import { requireAppAdmin } from './lib/auth';
 import { instrument } from './lib/sentry';
 
 /**
@@ -21,15 +22,14 @@ import { instrument } from './lib/sentry';
 export const setAppAdmin = onCall<{ uid: string; isAdmin: boolean }>(
 	{ region: REGION },
 	instrument('setAppAdmin', async request => {
-		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
+		const callerUid = requireAppAdmin(request);
 
 		const { uid, isAdmin } = request.data;
 		if (!uid) throw new HttpsError('invalid-argument', 'A uid is required.');
 
 		// Removing the last admin would lock everyone out of season creation with no
 		// way back in except the bootstrap script.
-		if (!isAdmin && uid === request.auth.uid) {
+		if (!isAdmin && uid === callerUid) {
 			throw new HttpsError('failed-precondition', 'Ask another admin to remove your own admin rights.');
 		}
 
@@ -77,7 +77,7 @@ export const setAppAdmin = onCall<{ uid: string; isAdmin: boolean }>(
 			{ merge: true }
 		);
 
-		logger.info('Changed app admin rights', { uid, isAdmin, by: request.auth.uid });
+		logger.info('Changed app admin rights', { uid, isAdmin, by: callerUid });
 
 		// The claim only reaches the client on their next token refresh — the app
 		// forces one every 10 minutes.

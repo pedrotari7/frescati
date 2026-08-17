@@ -7,6 +7,7 @@ import { db, REGION } from './lib/firebase';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendPush } from './lib/push';
 import { buildTestPayload } from './lib/testNotifications';
+import { requireAppAdmin } from './lib/auth';
 import { instrument } from './lib/sentry';
 
 /**
@@ -34,8 +35,7 @@ import { instrument } from './lib/sentry';
 export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; seasonId?: string; gameId?: string }>(
 	{ region: REGION, secrets: EMAIL_SECRETS },
 	instrument('sendTestPush', async request => {
-		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
+		const uid = requireAppAdmin(request);
 
 		const { kind, seasonId, gameId } = request.data;
 
@@ -43,7 +43,6 @@ export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; s
 			throw new HttpsError('invalid-argument', `Unknown notification kind: ${kind}`);
 		}
 
-		const uid = request.auth.uid;
 
 		// Read these alongside the send so a silent result can say which of the
 		// two reasons it was. "Nothing happened" is the least useful thing a

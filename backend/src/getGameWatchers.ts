@@ -1,6 +1,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { db, REGION } from './lib/firebase';
 import { getWatcherUids } from './lib/data';
+import { requireAppAdmin } from './lib/auth';
 import { instrument } from './lib/sentry';
 
 /**
@@ -32,8 +33,7 @@ import { instrument } from './lib/sentry';
 export const getGameWatchers = onCall<{ seasonId: string; gameId: string }>(
 	{ region: REGION },
 	instrument('getGameWatchers', async request => {
-		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
+		requireAppAdmin(request);
 
 		const { seasonId, gameId } = request.data ?? {};
 		if (!seasonId || !gameId) throw new HttpsError('invalid-argument', 'A seasonId and a gameId are required.');

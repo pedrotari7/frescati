@@ -6,6 +6,7 @@ import { NOTIFICATIONS, canEmail } from '../../shared/notifications';
 import { db, REGION } from './lib/firebase';
 import { EMAIL_SECRETS, lookUpVerifiedEmails, sendEmail } from './lib/email';
 import { buildTestPayload } from './lib/testNotifications';
+import { requireAppAdmin } from './lib/auth';
 import { instrument } from './lib/sentry';
 
 export type EmailTestStatus = 'sent' | 'noAddress' | 'emailOff';
@@ -52,8 +53,7 @@ export const sendTestEmail = onCall<{
 }>(
 	{ region: REGION, secrets: EMAIL_SECRETS },
 	instrument('sendTestEmail', async request => {
-		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
+		const callerUid = requireAppAdmin(request);
 
 		const { kind, uids, seasonId, gameId } = request.data;
 
@@ -67,11 +67,11 @@ export const sendTestEmail = onCall<{
 
 		if (targets.length === 0) throw new HttpsError('invalid-argument', 'Pick at least one person to send to.');
 
-		const callerSnap = await db.doc(`users/${request.auth.uid}`).get();
+		const callerSnap = await db.doc(`users/${callerUid}`).get();
 
 		const payload = await buildTestPayload(kind, {
 			sender: {
-				uid: request.auth.uid,
+				uid: callerUid,
 				displayName: (callerSnap.data()?.displayName as string | undefined) ?? '',
 			},
 			seasonId,
@@ -86,7 +86,7 @@ export const sendTestEmail = onCall<{
 		// it isn't what decides whether mail goes out.
 		const sent = await sendEmail(sendable, payload);
 
-		logger.info('Sent a test email', { admin: request.auth.uid, kind, requested: targets.length, sent });
+		logger.info('Sent a test email', { admin: callerUid, kind, requested: targets.length, sent });
 
 		return { payload, sent, results: outcomes };
 	})

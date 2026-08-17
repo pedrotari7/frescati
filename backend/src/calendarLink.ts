@@ -4,6 +4,7 @@ import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import type { Season } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
+import { hasAppAdminClaim, isSeasonAdmin, requireAuth } from './lib/auth';
 import { instrument } from './lib/sentry';
 
 /**
@@ -31,13 +32,10 @@ const projectId = (): string =>
 const feedUrl = (token: string): string =>
 	`https://${REGION}-${projectId()}.cloudfunctions.net/calendarFeed?token=${token}`;
 
-const isSeasonAdmin = (season: Season, uid: string, isAppAdmin: boolean): boolean =>
-	isAppAdmin || season.adminUids.includes(uid);
-
 export const getCalendarLink = onCall<{ seasonId: string }>(
 	{ region: REGION },
 	instrument('getCalendarLink', async request => {
-		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+		const callerUid = requireAuth(request);
 
 		const { seasonId } = request.data;
 		if (!seasonId) throw new HttpsError('invalid-argument', 'A seasonId is required.');
@@ -58,13 +56,13 @@ export const getCalendarLink = onCall<{ seasonId: string }>(
 			const minted = newToken();
 			const now = new Date().toISOString();
 
-			transaction.set(tokenRef, { token: minted, createdAt: now, createdBy: request.auth!.uid });
+			transaction.set(tokenRef, { token: minted, createdAt: now, createdBy: callerUid });
 			transaction.set(db.doc(`calendarFeeds/${minted}`), { seasonId, createdAt: now });
 
 			return minted;
 		});
 
-		logger.info('Fetched a calendar link', { seasonId, by: request.auth.uid });
+		logger.info('Fetched a calendar link', { seasonId, by: callerUid });
 
 		return { url: feedUrl(token) };
 	})
@@ -73,7 +71,7 @@ export const getCalendarLink = onCall<{ seasonId: string }>(
 export const rotateCalendarToken = onCall<{ seasonId: string }>(
 	{ region: REGION },
 	instrument('rotateCalendarToken', async request => {
-		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+		const callerUid = requireAuth(request);
 
 		const { seasonId } = request.data;
 		if (!seasonId) throw new HttpsError('invalid-argument', 'A seasonId is required.');
@@ -82,7 +80,7 @@ export const rotateCalendarToken = onCall<{ seasonId: string }>(
 		if (!seasonSnap.exists) throw new HttpsError('not-found', 'That season does not exist.');
 
 		const season = seasonSnap.data() as Season;
-		if (!isSeasonAdmin(season, request.auth.uid, request.auth.token.admin === true)) {
+		if (!isSeasonAdmin(season, callerUid, hasAppAdminClaim(request))) {
 			throw new HttpsError('permission-denied', 'Season admins only.');
 		}
 
@@ -96,13 +94,13 @@ export const rotateCalendarToken = onCall<{ seasonId: string }>(
 			const now = new Date().toISOString();
 
 			if (oldToken) transaction.delete(db.doc(`calendarFeeds/${oldToken}`));
-			transaction.set(tokenRef, { token: minted, createdAt: now, createdBy: request.auth!.uid });
+			transaction.set(tokenRef, { token: minted, createdAt: now, createdBy: callerUid });
 			transaction.set(db.doc(`calendarFeeds/${minted}`), { seasonId, createdAt: now });
 
 			return minted;
 		});
 
-		logger.info('Rotated a calendar link', { seasonId, by: request.auth.uid });
+		logger.info('Rotated a calendar link', { seasonId, by: callerUid });
 
 		return { url: feedUrl(token) };
 	})

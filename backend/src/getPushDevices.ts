@@ -1,9 +1,10 @@
 import { getAuth } from 'firebase-admin/auth';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { onCall } from 'firebase-functions/v2/https';
 import type { PushDevice, PushToken } from '../../shared/types';
 import { describeUserAgent } from '../../shared/device';
 import { db, REGION } from './lib/firebase';
 import { isEmailConfigured } from './lib/email';
+import { requireAppAdmin } from './lib/auth';
 import { instrument } from './lib/sentry';
 
 /**
@@ -36,8 +37,7 @@ import { instrument } from './lib/sentry';
 export const getPushDevices = onCall<void>(
 	{ region: REGION },
 	instrument('getPushDevices', async request => {
-		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
+		requireAppAdmin(request);
 
 		const snapshot = await db.collectionGroup('pushTokens').get();
 

@@ -2,6 +2,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import type { BackendErrorKind } from '../../shared/debug';
 import { BACKEND_ERROR_KINDS } from '../../shared/debug';
 import { REGION } from './lib/firebase';
+import { requireAppAdmin } from './lib/auth';
 import { instrument, reportError } from './lib/sentry';
 
 /**
@@ -26,8 +27,7 @@ import { instrument, reportError } from './lib/sentry';
 export const throwTestError = onCall<{ kind: BackendErrorKind }>(
 	{ region: REGION },
 	instrument('throwTestError', async request => {
-		if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-		if (request.auth.token.admin !== true) throw new HttpsError('permission-denied', 'App admins only.');
+		const callerUid = requireAppAdmin(request);
 
 		const { kind } = request.data ?? {};
 
@@ -46,7 +46,7 @@ export const throwTestError = onCall<{ kind: BackendErrorKind }>(
 
 		reportError(
 			'Debug: deliberate swallowed backend failure',
-			{ firedBy: request.auth.uid },
+			{ firedBy: callerUid },
 			new Error('Debug: deliberate swallowed backend failure')
 		);
 
