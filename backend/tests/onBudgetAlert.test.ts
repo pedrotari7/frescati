@@ -64,18 +64,37 @@ const asDeployed = (): (() => void) => {
 	};
 };
 
+/** Enough of a `Response` for the three calls the handler makes. */
+const httpResponse = (status: number, body: unknown) => ({
+	ok: status >= 200 && status < 300,
+	status,
+	json: async () => body,
+	// Read by the two error messages, which quote the body back.
+	text: async () => JSON.stringify(body),
+});
+
+interface BillingStub {
+	billingEnabled?: boolean;
+	/** Overrides for the metadata server's token response. */
+	token?: { status?: number; body?: Record<string, unknown> };
+	/** Overrides for the billingInfo read. */
+	read?: { status?: number };
+	/** Overrides for the billingInfo write. */
+	write?: { status?: number };
+}
+
 /** Routes the three calls the handler can make: token, read, write. */
-const mockBilling = ({ billingEnabled }: { billingEnabled: boolean }) => {
+const mockBilling = ({ billingEnabled = true, token, read, write }: BillingStub = {}) => {
 	const fetchMock = jest.fn(async (url: string | URL, init?: { method?: string }) => {
 		const href = String(url);
 
 		if (href.includes('metadata.google.internal')) {
-			return { ok: true, json: async () => ({ access_token: 'test-token' }) };
+			return httpResponse(token?.status ?? 200, token?.body ?? { access_token: 'test-token' });
 		}
 
 		if (href.includes('cloudbilling.googleapis.com')) {
-			if (init?.method === 'PUT') return { ok: true, json: async () => ({ billingEnabled: false }) };
-			return { ok: true, json: async () => ({ billingEnabled }) };
+			if (init?.method === 'PUT') return httpResponse(write?.status ?? 200, { billingEnabled: false });
+			return httpResponse(read?.status ?? 200, { billingEnabled });
 		}
 
 		throw new Error(`Unexpected fetch in test: ${href}`);
@@ -180,5 +199,88 @@ describe('onBudgetAlert', () => {
 		expect(String(url)).toContain('/projects/demo-frescati/billingInfo');
 		// An empty account name is how the API spells "detached".
 		expect(JSON.parse(init.body)).toEqual({ billingAccountName: '' });
+	});
+
+	it('treats a message carrying no payload at all as unreadable', async () => {
+		const fetchMock = mockBilling();
+
+		// `json` is absent rather than malformed — a Pub/Sub message that isn't
+		// a budget alert. It must not fall through the `?? {}` and read as a
+		// month that stayed under, which is the same silence the malformed case
+		// above refuses.
+		const empty = { data: { message: {} } } as unknown as Parameters<typeof onBudgetAlert.run>[0];
+
+		await expect(onBudgetAlert.run(empty)).rejects.toThrow(/no usable amounts/);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+});
+
+/**
+ * What happens when Google does not answer.
+ *
+ * This is the half that decides whether the budget cap works at all. Every one
+ * of these throws, and throwing is the whole point: an unhandled rejection here
+ * is reported by `instrument` and left unacknowledged, so Pub/Sub redelivers the
+ * alert — and the budget republishes it every twenty minutes regardless. Swallow
+ * any of them and the cap becomes decorative, in the one direction nobody would
+ * ever notice, because a cap that never fires looks exactly like a month that
+ * stayed under budget.
+ *
+ * The other thing each asserts is that nothing reaches the PUT on a path that
+ * went wrong earlier. Disabling billing is not a step to attempt hopefully with
+ * a token the metadata server refused to issue.
+ */
+describe('onBudgetAlert when the billing API does not answer', () => {
+	const realFetch = global.fetch;
+
+	afterEach(() => {
+		global.fetch = realFetch;
+	});
+
+	/** At the cap and deployed, so the handler goes all the way down the path. */
+	const runAtCap = async (stub: BillingStub) => {
+		const restore = asDeployed();
+		const fetchMock = mockBilling(stub);
+
+		try {
+			return { fetchMock, error: await onBudgetAlert.run(anAlert({ costAmount: 250 })).catch(thrown => thrown) };
+		} finally {
+			restore();
+		}
+	};
+
+	it('gives up when the metadata server refuses a token', async () => {
+		const { fetchMock, error } = await runAtCap({ token: { status: 403 } });
+
+		expect(error).toMatchObject({ message: expect.stringContaining('Metadata server refused a token: 403') });
+		expect(putCalls(fetchMock)).toHaveLength(0);
+	});
+
+	it('gives up when the metadata server answers without a token in it', async () => {
+		// A 200 with the wrong shape, which `response.ok` alone would wave
+		// through into an `Authorization: Bearer undefined`.
+		const { fetchMock, error } = await runAtCap({ token: { body: { expires_in: 3599 } } });
+
+		expect(error).toMatchObject({ message: expect.stringContaining('no token in it') });
+		expect(putCalls(fetchMock)).toHaveLength(0);
+	});
+
+	it('gives up when it cannot read whether billing is still on', async () => {
+		// Not knowing must not read as "already disabled", which is the answer
+		// that would quietly skip the write and log that all was well.
+		const { fetchMock, error } = await runAtCap({ read: { status: 500 } });
+
+		expect(error).toMatchObject({ message: expect.stringContaining('Could not read billing info: 500') });
+		expect(putCalls(fetchMock)).toHaveLength(0);
+	});
+
+	it('reports loudly when the write to disable billing is refused', async () => {
+		// The failure that matters most: everything upstream worked, the project
+		// is over budget and still billable, and the one call that would stop the
+		// spending did not land. Silence here is unbounded spend.
+		const { fetchMock, error } = await runAtCap({ write: { status: 403 } });
+
+		expect(error).toMatchObject({ message: expect.stringContaining('Could not disable billing: 403') });
+		expect(putCalls(fetchMock)).toHaveLength(1);
 	});
 });
