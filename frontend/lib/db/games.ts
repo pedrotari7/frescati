@@ -1,10 +1,11 @@
-import { deleteDoc, deleteField, doc, onSnapshot, orderBy, query, updateDoc, writeBatch } from 'firebase/firestore';
+import { deleteDoc, deleteField, doc, orderBy, query, updateDoc, writeBatch } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { Game, Season, Venue } from '@shared/types';
 import { EMPTY_COUNTS } from '@shared/types';
 import type { GeneratedGame } from '@shared/schedule';
 import { getDb } from '../firebaseClient';
 import { gameDoc, gamesCol } from './paths';
+import { subscribeToCollection, subscribeToDoc } from './subscribe';
 
 const toGame = (id: string, data: DocumentData): Game => ({ ...(data as Omit<Game, 'id'>), id });
 
@@ -13,9 +14,10 @@ export const subscribeToGames = (
 	onChange: (games: Game[]) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
+	subscribeToCollection(
 		query(gamesCol(seasonId), orderBy('kickoff', 'asc')),
-		snapshot => onChange(snapshot.docs.map(d => toGame(d.id, d.data()))),
+		docs => docs.map(d => toGame(d.id, d.data())),
+		onChange,
 		onError
 	);
 
@@ -25,11 +27,7 @@ export const subscribeToGame = (
 	onChange: (game: Game | null) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
-		gameDoc(seasonId, gameId),
-		snapshot => onChange(snapshot.exists() ? toGame(snapshot.id, snapshot.data()) : null),
-		onError
-	);
+	subscribeToDoc(gameDoc(seasonId, gameId), snapshot => toGame(snapshot.id, snapshot.data()), onChange, onError);
 
 const newGame = (
 	season: Season,

@@ -1,21 +1,15 @@
-import { deleteDoc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
-import type { DocumentData, Unsubscribe } from 'firebase/firestore';
+import { deleteDoc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import type { Unsubscribe } from 'firebase/firestore';
 import type { GameResponse, PlayerRole, ResponseStatus } from '@shared/types';
 import { responseDoc, responsesCol } from './paths';
-
-const toResponse = (data: DocumentData): GameResponse => data as GameResponse;
+import { asData, subscribeToCollection } from './subscribe';
 
 export const subscribeToResponses = (
 	seasonId: string,
 	gameId: string,
 	onChange: (responses: GameResponse[]) => void,
 	onError: (error: Error) => void
-): Unsubscribe =>
-	onSnapshot(
-		responsesCol(seasonId, gameId),
-		snapshot => onChange(snapshot.docs.map(d => toResponse(d.data()))),
-		onError
-	);
+): Unsubscribe => subscribeToCollection(responsesCol(seasonId, gameId), asData<GameResponse>(), onChange, onError);
 
 /**
  * Record an answer. `role` is snapshotted here and re-checked by security rules

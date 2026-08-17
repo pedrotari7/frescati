@@ -1,7 +1,8 @@
-import { deleteDoc, onSnapshot, setDoc } from 'firebase/firestore';
+import { deleteDoc, setDoc } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import type { MotmVote, TournamentMotm, TournamentMotmVoters } from '@shared/types';
 import { motmVoteDoc, tournamentMotmDoc, tournamentMotmVotersDoc } from './paths';
+import { subscribeToDoc } from './subscribe';
 
 /**
  * Voting for man of the match.
@@ -33,11 +34,7 @@ export const subscribeToMyMotmVote = (
 	onChange: (vote: MotmVote | null) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
-		motmVoteDoc(seasonId, gameId, uid),
-		snapshot => onChange(snapshot.exists() ? (snapshot.data() as MotmVote) : null),
-		onError
-	);
+	subscribeToDoc(motmVoteDoc(seasonId, gameId, uid), snapshot => snapshot.data() as MotmVote, onChange, onError);
 
 export const subscribeToMotm = (
 	seasonId: string,
@@ -45,9 +42,10 @@ export const subscribeToMotm = (
 	onChange: (motm: TournamentMotm | null) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
+	subscribeToDoc(
 		tournamentMotmDoc(seasonId, gameId),
-		snapshot => onChange(snapshot.exists() ? (snapshot.data() as TournamentMotm) : null),
+		snapshot => snapshot.data() as TournamentMotm,
+		onChange,
 		onError
 	);
 
@@ -61,9 +59,10 @@ export const subscribeToMotmVoters = (
 	onChange: (uids: string[]) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
+	subscribeToDoc(
 		tournamentMotmVotersDoc(seasonId, gameId),
-		snapshot => onChange(snapshot.exists() ? (snapshot.data() as TournamentMotmVoters).uids : NO_VOTERS),
+		snapshot => (snapshot.data() as TournamentMotmVoters).uids,
+		uids => onChange(uids ?? NO_VOTERS),
 		onError
 	);
 

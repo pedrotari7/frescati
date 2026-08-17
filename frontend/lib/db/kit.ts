@@ -1,8 +1,9 @@
-import { addDoc, deleteDoc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { KitItem, KitKind } from '@shared/types';
 import { sortKitItems } from '@shared/kit';
 import { kitCol, kitItemDoc } from './paths';
+import { subscribeToCollection } from './subscribe';
 
 const toKitItem = (id: string, data: DocumentData): KitItem => ({ ...(data as Omit<KitItem, 'id'>), id });
 
@@ -17,9 +18,10 @@ export const subscribeToKit = (
 	onChange: (items: KitItem[]) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
+	subscribeToCollection(
 		kitCol(seasonId),
-		snapshot => onChange(sortKitItems(snapshot.docs.map(d => toKitItem(d.id, d.data())))),
+		docs => sortKitItems(docs.map(d => toKitItem(d.id, d.data()))),
+		onChange,
 		onError
 	);
 

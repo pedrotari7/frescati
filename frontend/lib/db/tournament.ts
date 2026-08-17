@@ -1,10 +1,11 @@
-import { deleteDoc, FieldPath, increment, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
-import type { DocumentData, Unsubscribe } from 'firebase/firestore';
+import { deleteDoc, FieldPath, increment, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import type { Unsubscribe } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import type { Fixture } from '@shared/tournament';
 import type { RatingLedgerEntry, TournamentMatch, TournamentResult, TournamentTeams } from '@shared/types';
 import { getFunctionsClient } from '../firebaseClient';
 import { gameDoc, matchDoc, matchesCol, ratingLedgerCol, tournamentResultDoc, tournamentTeamsDoc } from './paths';
+import { asData, subscribeToCollection, subscribeToDoc } from './subscribe';
 
 export const subscribeToTeams = (
 	seasonId: string,
@@ -12,9 +13,10 @@ export const subscribeToTeams = (
 	onChange: (teams: TournamentTeams | null) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
+	subscribeToDoc(
 		tournamentTeamsDoc(seasonId, gameId),
-		snapshot => onChange(snapshot.exists() ? (snapshot.data() as TournamentTeams) : null),
+		snapshot => snapshot.data() as TournamentTeams,
+		onChange,
 		onError
 	);
 
@@ -37,12 +39,7 @@ export const subscribeToMatches = (
 	gameId: string,
 	onChange: (matches: TournamentMatch[]) => void,
 	onError: (error: Error) => void
-): Unsubscribe =>
-	onSnapshot(
-		matchesCol(seasonId, gameId),
-		snapshot => onChange(snapshot.docs.map(d => d.data() as DocumentData as TournamentMatch)),
-		onError
-	);
+): Unsubscribe => subscribeToCollection(matchesCol(seasonId, gameId), asData<TournamentMatch>(), onChange, onError);
 
 /**
  * Record a scoreline.
@@ -89,9 +86,10 @@ export const subscribeToSeasonLedger = (
 	onChange: (entries: RatingLedgerEntry[]) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
+	subscribeToCollection(
 		query(ratingLedgerCol(), where('seasonId', '==', seasonId)),
-		snapshot => onChange(snapshot.docs.map(d => d.data() as RatingLedgerEntry)),
+		asData<RatingLedgerEntry>(),
+		onChange,
 		onError
 	);
 
@@ -118,9 +116,10 @@ export const subscribeToPlayerLedger = (
 	onChange: (entries: RatingLedgerEntry[]) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
+	subscribeToCollection(
 		query(ratingLedgerCol(), where(new FieldPath('positions', uid), '>=', 0)),
-		snapshot => onChange(snapshot.docs.map(d => d.data() as RatingLedgerEntry)),
+		asData<RatingLedgerEntry>(),
+		onChange,
 		onError
 	);
 
@@ -130,9 +129,10 @@ export const subscribeToResult = (
 	onChange: (result: TournamentResult | null) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
+	subscribeToDoc(
 		tournamentResultDoc(seasonId, gameId),
-		snapshot => onChange(snapshot.exists() ? (snapshot.data() as TournamentResult) : null),
+		snapshot => snapshot.data() as TournamentResult,
+		onChange,
 		onError
 	);
 

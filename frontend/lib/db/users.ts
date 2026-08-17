@@ -1,9 +1,10 @@
-import { onSnapshot, updateDoc } from 'firebase/firestore';
+import { updateDoc } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { AppUser, NotificationPrefs } from '@shared/types';
 import { normaliseNotificationPrefs } from '@shared/notifications';
 import { byDisplayName } from '@shared/format';
 import { userDoc, usersCol } from './paths';
+import { subscribeToCollection, subscribeToDoc } from './subscribe';
 
 /** The document id *is* the uid — trust it over a field that could be missing. */
 const toUser = (id: string, data: DocumentData): AppUser => ({ ...(data as AppUser), uid: id });
@@ -18,9 +19,10 @@ const toUser = (id: string, data: DocumentData): AppUser => ({ ...(data as AppUs
  * vanish from the list entirely instead of just looking incomplete.
  */
 export const subscribeToUsers = (onChange: (users: AppUser[]) => void, onError: (error: Error) => void): Unsubscribe =>
-	onSnapshot(
+	subscribeToCollection(
 		usersCol(),
-		snapshot => onChange(snapshot.docs.map(d => toUser(d.id, d.data())).sort(byDisplayName)),
+		docs => docs.map(d => toUser(d.id, d.data())).sort(byDisplayName),
+		onChange,
 		onError
 	);
 
@@ -29,12 +31,7 @@ export const subscribeToUser = (
 	uid: string,
 	onChange: (user: AppUser | null) => void,
 	onError: (error: Error) => void
-): Unsubscribe =>
-	onSnapshot(
-		userDoc(uid),
-		snapshot => onChange(snapshot.exists() ? toUser(snapshot.id, snapshot.data()) : null),
-		onError
-	);
+): Unsubscribe => subscribeToDoc(userDoc(uid), snapshot => toUser(snapshot.id, snapshot.data()), onChange, onError);
 
 /**
  * Which kinds of notification this person wants. Honoured by `sendPush` on the

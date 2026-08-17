@@ -1,7 +1,8 @@
-import { addDoc, arrayRemove, arrayUnion, deleteDoc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, deleteDoc, orderBy, query, updateDoc } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { Season } from '@shared/types';
 import { seasonDoc, seasonsCol } from './paths';
+import { subscribeToCollection, subscribeToDoc } from './subscribe';
 
 const toSeason = (id: string, data: DocumentData): Season => ({ ...(data as Omit<Season, 'id'>), id });
 
@@ -9,9 +10,10 @@ export const subscribeToSeasons = (
 	onChange: (seasons: Season[]) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
+	subscribeToCollection(
 		query(seasonsCol(), orderBy('startDate', 'desc')),
-		snapshot => onChange(snapshot.docs.map(d => toSeason(d.id, d.data()))),
+		docs => docs.map(d => toSeason(d.id, d.data())),
+		onChange,
 		onError
 	);
 
@@ -20,11 +22,7 @@ export const subscribeToSeason = (
 	onChange: (season: Season | null) => void,
 	onError: (error: Error) => void
 ): Unsubscribe =>
-	onSnapshot(
-		seasonDoc(seasonId),
-		snapshot => onChange(snapshot.exists() ? toSeason(snapshot.id, snapshot.data()) : null),
-		onError
-	);
+	subscribeToDoc(seasonDoc(seasonId), snapshot => toSeason(snapshot.id, snapshot.data()), onChange, onError);
 
 export const createSeason = async (season: Omit<Season, 'id'>): Promise<string> => {
 	const ref = await addDoc(seasonsCol(), season);
