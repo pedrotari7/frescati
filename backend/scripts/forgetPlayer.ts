@@ -211,7 +211,7 @@ const apply = async (db: Firestore, plan: Plan, uid: string, hasAccount: boolean
 	return stranded;
 };
 
-const main = async ({ db, projectId, dryRun, args }: ScriptContext) => {
+export const main = async ({ db, projectId, dryRun, args }: ScriptContext) => {
 	const identifier = args[0];
 
 	if (!identifier) throw new UsageError('Usage: pnpm --filter backend forget-player <uid|email> [--dry-run]');
@@ -256,4 +256,7 @@ const main = async ({ db, projectId, dryRun, args }: ScriptContext) => {
 	);
 };
 
-runScript(main);
+// Only when run as a command. Importing this from a test must not delete an
+// account as a side effect of the import, and `runScript` would otherwise reach
+// for real credentials and a real project before any test body had run.
+if (require.main === module) runScript(main);
