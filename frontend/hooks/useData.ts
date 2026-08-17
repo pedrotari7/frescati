@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import type {
 	AppUser,
 	Game,
@@ -143,6 +144,26 @@ export const useUsers = () => {
 	);
 
 	return { users: data, loading, error };
+};
+
+/**
+ * The same profiles, keyed by uid.
+ *
+ * Seven screens built this map by hand off `useUsers`, because almost nothing
+ * in the app stores a name: seasons hold `memberUids`, responses hold a uid,
+ * a lineup holds uids, and every one of those has to be turned into a face and
+ * a name to draw. Sharing the memo also means the map identity is stable per
+ * render for the six components that take it as a prop.
+ *
+ * Returns `loading` too, unlike a bare `useMemo` over `useUsers().users` —
+ * three of the callers gate a skeleton on it.
+ */
+export const useUsersByUid = () => {
+	const { users, loading, error } = useUsers();
+
+	const usersByUid = useMemo(() => new Map(users.map(person => [person.uid, person])), [users]);
+
+	return { users, usersByUid, loading, error };
 };
 
 export const useTournamentTeams = (seasonId: string | null, gameId: string | null) => {

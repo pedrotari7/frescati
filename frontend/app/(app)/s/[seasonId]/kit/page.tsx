@@ -14,7 +14,8 @@ import { getGameLifecycle } from '@shared/game';
 import { byDisplayName, formatGameDate } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useAuth } from '../../../../../lib/auth';
-import { useKit, useResponses, useUsers } from '../../../../../hooks/useData';
+import { useKit, useResponses, useUsersByUid } from '../../../../../hooks/useData';
+import { displayNameOf, personRow } from '../../../../../lib/people';
 import { useNow } from '../../../../../hooks/useNow';
 import { useWrite } from '../../../../../hooks/useWrite';
 import { useConfirm } from '../../../../../components/ConfirmDialog';
@@ -47,7 +48,7 @@ import { Field, Select, TextInput } from '../../../../../components/Field';
 const KitPage = () => {
 	const { seasonId, season, games, loading, isAdmin, isMember } = useSeasonContext();
 	const { kit, loading: kitLoading } = useKit(seasonId);
-	const { users } = useUsers();
+	const { usersByUid } = useUsersByUid();
 	const { user } = useAuth();
 	const write = useWrite();
 	const confirm = useConfirm();
@@ -62,18 +63,10 @@ const KitPage = () => {
 		holderUid: '',
 	});
 
-	const usersByUid = useMemo(() => new Map(users.map(person => [person.uid, person])), [users]);
-
 	const squad = useMemo(() => {
 		if (!season) return [];
 
-		return season.memberUids
-			.map(uid => ({
-				uid,
-				displayName: usersByUid.get(uid)?.displayName ?? 'Unknown player',
-				photoURL: usersByUid.get(uid)?.photoURL ?? null,
-			}))
-			.sort(byDisplayName);
+		return season.memberUids.map(uid => personRow(usersByUid, uid)).sort(byDisplayName);
 	}, [season, usersByUid]);
 
 	// The soonest game that hasn't been played, cancelled or not — the same one
@@ -300,7 +293,7 @@ const KitPage = () => {
 																</p>
 															)}
 															<p className='text-faint mt-0.5 flex items-center gap-1.5 truncate text-xs'>
-																{holder?.displayName ?? 'Unknown player'}
+																{displayNameOf(holder)}
 																{!inSquad && (
 																	<StatusPill tone='pending'>
 																		Left the squad

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { AppUser, GameResponse } from '@shared/types';
 import { isConfirmed, sortResponses } from '@shared/game';
+import { personRow } from '../lib/people';
 import Avatar from './Avatar';
 import StatusPill from './StatusPill';
 import Button from './Button';
@@ -29,16 +30,7 @@ export const buildRoster = (
 ): { playing: RosterEntry[]; out: RosterEntry[]; awaiting: RosterEntry[]; extras: RosterEntry[] } => {
 	const byUid = new Map(responses.map(response => [response.uid, response]));
 
-	const entry = (uid: string): RosterEntry => {
-		const user = usersByUid.get(uid);
-
-		return {
-			uid,
-			displayName: user?.displayName ?? 'Unknown player',
-			photoURL: user?.photoURL ?? null,
-			response: byUid.get(uid),
-		};
-	};
+	const entry = (uid: string): RosterEntry => ({ ...personRow(usersByUid, uid), response: byUid.get(uid) });
 
 	const members = memberUids.map(entry);
 	const extraResponses = sortResponses(responses.filter(response => response.role === 'extra'));

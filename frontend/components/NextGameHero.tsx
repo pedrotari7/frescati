@@ -1,12 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
-import { useKit, useResponses, useUsers } from '../hooks/useData';
+import { useKit, useResponses, useUsersByUid } from '../hooks/useData';
 import { useWatchGame } from '../hooks/useWatchGame';
 import GameKit from './GameKit';
 import HeadcountBar from './HeadcountBar';
@@ -59,8 +58,7 @@ const NextGameHero = ({
 	// something required is genuinely missing, so the usual cost is a listener
 	// and no pixels.
 	const { kit } = useKit(season.id);
-	const { users } = useUsers();
-	const usersByUid = useMemo(() => new Map(users.map(person => [person.uid, person])), [users]);
+	const { usersByUid } = useUsersByUid();
 
 	return (
 		<section className='glass animate-rise shadow-glass relative overflow-hidden rounded-3xl p-5'>

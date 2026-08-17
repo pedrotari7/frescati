@@ -8,7 +8,8 @@ import type { SeasonResult } from '@shared/leaderboard';
 import { toDisplayRating } from '@shared/rating';
 import { counted, formatGameDate, placeLabel } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
-import { useSeasonLedger, useUsers } from '../../../../../hooks/useData';
+import { useSeasonLedger, useUsersByUid } from '../../../../../hooks/useData';
+import { displayNameOf, nameByUid } from '../../../../../lib/people';
 import { useAuth } from '../../../../../lib/auth';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
@@ -54,11 +55,10 @@ const FormDots = ({ form, timezone }: { form: SeasonResult[]; timezone: string }
 const LeaderboardPage = () => {
 	const { seasonId, season, loading } = useSeasonContext();
 	const { entries, loading: ledgerLoading } = useSeasonLedger(seasonId);
-	const { users } = useUsers();
+	const { users, usersByUid } = useUsersByUid();
 	const { user } = useAuth();
 	const [tab, setTab] = useState<Tab>('season');
 
-	const usersByUid = useMemo(() => new Map(users.map(person => [person.uid, person])), [users]);
 	const seasonTable = useMemo(() => getSeasonTable(entries, seasonId), [entries, seasonId]);
 	const ladder = useMemo(() => getRatingLadder(users), [users]);
 
@@ -80,7 +80,7 @@ const LeaderboardPage = () => {
 
 	const rows = tab === 'season' ? seasonTable : ladder;
 
-	const name = (uid: string) => usersByUid.get(uid)?.displayName ?? 'Unknown player';
+	const name = (uid: string) => nameByUid(usersByUid, uid);
 
 	return (
 		<SeasonShell title='Table' subtitle={season.name} backHref={`/s/${seasonId}`}>
@@ -136,7 +136,7 @@ const LeaderboardPage = () => {
 										</span>
 
 										<Avatar
-											displayName={profile?.displayName ?? 'Unknown player'}
+											displayName={displayNameOf(profile)}
 											photoURL={profile?.photoURL}
 											size='sm'
 										/>

@@ -6,7 +6,8 @@ import { ChevronRightIcon, Cog6ToothIcon, ShoppingBagIcon, UsersIcon } from '@he
 import { KIT_KIND_LABELS, groupKitByKind } from '@shared/kit';
 import { byDisplayName } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
-import { useKit, useUsers } from '../../../../../hooks/useData';
+import { useKit, useUsersByUid } from '../../../../../hooks/useData';
+import { personRow } from '../../../../../lib/people';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
@@ -15,26 +16,14 @@ import StatusPill from '../../../../../components/StatusPill';
 
 const MembersPage = () => {
 	const { seasonId, season, loading, isAdmin } = useSeasonContext();
-	const { users } = useUsers();
+	const { usersByUid } = useUsersByUid();
 	const { kit } = useKit(seasonId);
 
 	const members = useMemo(() => {
 		if (!season) return [];
 
-		const byUid = new Map(users.map(user => [user.uid, user]));
-
-		return season.memberUids
-			.map(uid => {
-				const user = byUid.get(uid);
-
-				return {
-					uid,
-					displayName: user?.displayName ?? 'Unknown player',
-					photoURL: user?.photoURL ?? null,
-				};
-			})
-			.sort(byDisplayName);
-	}, [season, users]);
+		return season.memberUids.map(uid => personRow(usersByUid, uid)).sort(byDisplayName);
+	}, [season, usersByUid]);
 
 	if (loading) {
 		return (

@@ -8,7 +8,7 @@ import { MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
 import { useAuth } from '../../../../../../lib/auth';
-import { useKit, useResponses, useUsers } from '../../../../../../hooks/useData';
+import { useKit, useResponses, useUsersByUid } from '../../../../../../hooks/useData';
 import { useGameWatchers } from '../../../../../../hooks/useGameWatchers';
 import { useMyResponses } from '../../../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../../../hooks/useRespond';
@@ -33,7 +33,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const { seasonId, season, games, loading, isAdmin, role } = useSeasonContext();
 	const { responses, loading: responsesLoading } = useResponses(seasonId, gameId);
 	const { kit } = useKit(seasonId);
-	const { users } = useUsers();
+	const { usersByUid } = useUsersByUid();
 	const { myResponses } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
 	const { watching, canWatch, toggleWatch } = useWatchGame(seasonId, gameId);
@@ -47,7 +47,6 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const isAppAdmin = user?.isAppAdmin === true;
 
 	const rawGame = games.find(candidate => candidate.id === gameId) ?? null;
-	const usersByUid = useMemo(() => new Map(users.map(user => [user.uid, user])), [users]);
 
 	// `counts` on the game doc is written by a Cloud Function trigger, so it
 	// lags a response write by a round trip (and a cold start, worst case).

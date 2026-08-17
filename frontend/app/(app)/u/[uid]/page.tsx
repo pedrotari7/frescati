@@ -9,7 +9,8 @@ import type { PlayerGame, PlayerLink } from '@shared/player';
 import type { AppUser } from '@shared/types';
 import { hasPlayed, isProvisional, toDisplayRating } from '@shared/rating';
 import { counted, formatGameDate, placeLabel } from '@shared/format';
-import { usePlayerLedger, useSeasons, useUsers } from '../../../../hooks/useData';
+import { usePlayerLedger, useSeasons, useUsersByUid } from '../../../../hooks/useData';
+import { displayNameOf, nameByUid } from '../../../../lib/people';
 import { useAuth } from '../../../../lib/auth';
 import { useSeasonScope } from '../../../../components/SeasonScope';
 import { seasonNavItems } from '../../../../components/BottomNav';
@@ -81,7 +82,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 	const { uid } = use(params);
 	const { user } = useAuth();
 	const { seasonId } = useSeasonScope();
-	const { users, loading: usersLoading } = useUsers();
+	const { users, usersByUid: usersById, loading: usersLoading } = useUsersByUid();
 	const { seasons } = useSeasons();
 	const { entries, loading: ledgerLoading } = usePlayerLedger(uid);
 	const [showAll, setShowAll] = useState(false);
@@ -90,7 +91,6 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 	const player = users.find(candidate => candidate.uid === uid) ?? null;
 	const record = useMemo(() => getPlayerRecord(entries, uid), [entries, uid]);
 	const seasonsById = useMemo(() => new Map(seasons.map(season => [season.id, season])), [seasons]);
-	const usersById = useMemo(() => new Map(users.map(candidate => [candidate.uid, candidate])), [users]);
 
 	// Everybody they have ever shared a game with, and the two of those worth
 	// saying out loud. Off the same entries as the record above — but only the
@@ -284,7 +284,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 											<p className='text-faint text-xs'>
 												Wins most alongside{' '}
 												<span className='text-ink font-semibold'>
-													{nameOf(usersById, chemistry.bestWith.uid)}
+													{nameByUid(usersById, chemistry.bestWith.uid)}
 												</span>{' '}
 												— {chemistry.bestWith.wonTogether} of {chemistry.bestWith.together}{' '}
 												together.
@@ -294,7 +294,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 											<p className='text-faint text-xs'>
 												Comes off worst against{' '}
 												<span className='text-ink font-semibold'>
-													{nameOf(usersById, chemistry.nemesis.uid)}
+													{nameByUid(usersById, chemistry.nemesis.uid)}
 												</span>{' '}
 												— {chemistry.nemesis.beat}–{chemistry.nemesis.drewWith}–
 												{chemistry.nemesis.lostTo} in {chemistry.nemesis.against} games.
@@ -371,10 +371,6 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 	);
 };
 
-/** Somebody's name, or a stand-in for an account that no longer exists. */
-const nameOf = (usersById: Map<string, AppUser>, uid: string): string =>
-	usersById.get(uid)?.displayName ?? 'Unknown player';
-
 /**
  * One other player, and how the two of them have got on.
  *
@@ -384,7 +380,7 @@ const nameOf = (usersById: Map<string, AppUser>, uid: string): string =>
  * explanation on offer.
  */
 const LinkRow = ({ link, profile }: { link: PlayerLink; profile: AppUser | null }) => {
-	const name = profile?.displayName ?? 'Unknown player';
+	const name = displayNameOf(profile);
 
 	return (
 		<li>

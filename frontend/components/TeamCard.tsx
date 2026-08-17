@@ -5,6 +5,7 @@ import type { AppUser, TournamentTeam } from '@shared/types';
 import { toDisplayRating } from '@shared/rating';
 import { toDisplayMovement } from '@shared/leaderboard';
 import { counted } from '@shared/format';
+import { displayNameOf } from '../lib/people';
 import Avatar from './Avatar';
 import TeamBadge, { teamName, teamStyle } from './TeamBadge';
 import { classNames } from '../lib/utils/reactHelper';
@@ -99,15 +100,11 @@ const TeamCard = ({
 										uid === highlightUid && 'bg-white/6'
 									)}
 								>
-									<Avatar
-										displayName={user?.displayName ?? 'Unknown player'}
-										photoURL={user?.photoURL}
-										size='sm'
-									/>
+									<Avatar displayName={displayNameOf(user)} photoURL={user?.photoURL} size='sm' />
 									{/* Full name, like every other list of people in the app: a team
 									    sheet is where two Davids have to be told apart. */}
 									<span className='text-ink min-w-0 flex-1 truncate text-sm'>
-										{user?.displayName ?? 'Unknown player'}
+										{displayNameOf(user)}
 									</span>
 									{movement(deltas?.get(uid))}
 									<span className='text-faint text-xs tabular-nums'>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowPathIcon, BellAlertIcon } from '@heroicons/react/24/outline';
 import type { AppUser } from '@shared/types';
 import { byDisplayName } from '@shared/format';
+import { personRow } from '../lib/people';
 import Avatar from './Avatar';
 import Button from './Button';
 import { SkeletonBlock } from './Skeleton';
@@ -39,14 +40,7 @@ const GameWatchers = ({
 }) => {
 	// By name, not by when they followed. The question is who, and the order
 	// people happened to tap the bell in is not something anybody is looking for.
-	const watchers = uids
-		.map(uid => ({ uid, user: usersByUid.get(uid) }))
-		.map(({ uid, user }) => ({
-			uid,
-			displayName: user?.displayName ?? 'Unknown player',
-			photoURL: user?.photoURL ?? null,
-		}))
-		.sort(byDisplayName);
+	const watchers = uids.map(uid => personRow(usersByUid, uid)).sort(byDisplayName);
 
 	return (
 		<section className='glass rounded-2xl p-4'>

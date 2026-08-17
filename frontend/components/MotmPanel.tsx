@@ -7,6 +7,7 @@ import { getMotmTurnout, isMotmVotingOpen } from '@shared/motm';
 import Avatar from './Avatar';
 import StatusPill from './StatusPill';
 import TeamBadge from './TeamBadge';
+import { nameByUid } from '../lib/people';
 import { classNames } from '../lib/utils/reactHelper';
 import { hapticLight } from '../lib/utils/haptics';
 
@@ -62,7 +63,7 @@ const MotmPanel = ({
 	// not coming until somebody confirms the scores.
 	if (!open && !motm) return null;
 
-	const name = (uid: string) => usersByUid.get(uid)?.displayName ?? 'Unknown player';
+	const name = (uid: string) => nameByUid(usersByUid, uid);
 
 	const candidates = teams.flatMap(team => team.uids.map(uid => ({ uid, team: team.index })));
 	const votes = new Map((motm?.counts ?? []).map(count => [count.uid, count.votes]));
@@ -223,7 +224,7 @@ const Turnout = ({
 
 			<ul className='mt-2 flex flex-wrap gap-1.5'>
 				{[...voted, ...pending].map(uid => {
-					const displayName = usersByUid.get(uid)?.displayName ?? 'Unknown player';
+					const displayName = nameByUid(usersByUid, uid);
 					const hasVoted = answered.has(uid);
 
 					return (

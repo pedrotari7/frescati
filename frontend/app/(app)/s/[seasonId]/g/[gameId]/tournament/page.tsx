@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, use, useMemo } from 'react';
+import { Fragment, use } from 'react';
 import { ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, UsersIcon } from '@heroicons/react/24/outline';
 import {
 	AUTO_FINALISE_HOURS,
@@ -23,7 +23,7 @@ import {
 	useMyMotmVote,
 	useTournamentResult,
 	useTournamentTeams,
-	useUsers,
+	useUsersByUid,
 } from '../../../../../../../hooks/useData';
 import { useMyResponses } from '../../../../../../../hooks/useMyResponses';
 import { useNow } from '../../../../../../../hooks/useNow';
@@ -57,7 +57,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const { motm } = useMotm(seasonId, gameId);
 	const { vote } = useMyMotmVote(seasonId, gameId, user?.uid ?? null);
 	const { voterUids } = useMotmVoters(seasonId, gameId);
-	const { users } = useUsers();
+	const { usersByUid } = useUsersByUid();
 	const { myResponses } = useMyResponses();
 	const write = useWrite();
 	// The vote closes on a deadline, so the panel needs a clock that moves —
@@ -66,7 +66,6 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const now = useNow();
 
 	const game = games.find(candidate => candidate.id === gameId) ?? null;
-	const usersByUid = useMemo(() => new Map(users.map(person => [person.uid, person])), [users]);
 
 	const backHref = `/s/${seasonId}/g/${gameId}`;
 
