@@ -3,7 +3,7 @@
 import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, TrophyIcon } from '@heroicons/react/24/outline';
-import { FORM_LENGTH, getRatingLadder, toDisplayMovement } from '@shared/leaderboard';
+import { FORM_LENGTH, getRatingLadder } from '@shared/leaderboard';
 import { getPlayerChemistry, getPlayerLinks, getPlayerRecord, getRatingTrend } from '@shared/player';
 import type { PlayerGame, PlayerLink } from '@shared/player';
 import type { AppUser } from '@shared/types';
@@ -21,6 +21,7 @@ import Avatar from '../../../../components/Avatar';
 import Button from '../../../../components/Button';
 import StatusPill from '../../../../components/StatusPill';
 import RatingChart from '../../../../components/RatingChart';
+import RatingMovement from '../../../../components/RatingMovement';
 import { SectionHeading } from '../../../../components/Section';
 import { classNames } from '../../../../lib/utils/reactHelper';
 
@@ -60,24 +61,6 @@ const Stat = ({ label, value, hint }: { label: string; value: string; hint?: str
 		{hint && <p className='text-faint mt-1 text-[11px]'>{hint}</p>}
 	</div>
 );
-
-/**
- * A rating movement, on the displayed 0–100 scale so it agrees with the numbers
- * around it. A change that rounds to nothing shows nothing rather than `+0` —
- * the same rule the team sheet uses.
- */
-const Movement = ({ delta }: { delta: number }) => {
-	const shown = toDisplayMovement(delta);
-
-	if (shown === 0) return <span className='text-faint text-xs tabular-nums'>—</span>;
-
-	return (
-		<span className={classNames('text-xs font-semibold tabular-nums', shown > 0 ? 'text-in' : 'text-out')}>
-			{shown > 0 ? '+' : ''}
-			{shown}
-		</span>
-	);
-};
 
 const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 	const { uid } = use(params);
@@ -447,7 +430,7 @@ const GameRow = ({ game, seasonName, timezone }: { game: PlayerGame; seasonName?
 				/>
 			)}
 
-			<Movement delta={game.delta} />
+			<RatingMovement delta={game.delta} flat={<span className='text-faint text-xs tabular-nums'>—</span>} />
 
 			<span className='text-faint w-8 text-right text-xs tabular-nums'>{toDisplayRating(game.after)}</span>
 

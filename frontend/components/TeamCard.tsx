@@ -3,33 +3,12 @@
 import Link from 'next/link';
 import type { AppUser, TournamentTeam } from '@shared/types';
 import { toDisplayRating } from '@shared/rating';
-import { toDisplayMovement } from '@shared/leaderboard';
 import { counted } from '@shared/format';
 import { displayNameOf } from '../lib/people';
 import Avatar from './Avatar';
+import RatingMovement from './RatingMovement';
 import TeamBadge, { teamName, teamStyle } from './TeamBadge';
 import { classNames } from '../lib/utils/reactHelper';
-
-/**
- * What this game did to somebody's rating.
- *
- * Rendered on the displayed 0–100 scale rather than in Elo, so it agrees with
- * the number next to it — a game worth 30 Elo reads as +6, and a player whose
- * change rounds to nothing shows nothing rather than a misleading `+0`.
- */
-const movement = (delta: number | undefined) => {
-	if (delta === undefined) return null;
-
-	const shown = toDisplayMovement(delta);
-	if (shown === 0) return null;
-
-	return (
-		<span className={classNames('text-[11px] font-semibold tabular-nums', shown > 0 ? 'text-in' : 'text-out')}>
-			{shown > 0 ? '+' : ''}
-			{shown}
-		</span>
-	);
-};
 
 /**
  * One squad's team sheet.
@@ -106,7 +85,7 @@ const TeamCard = ({
 									<span className='text-ink min-w-0 flex-1 truncate text-sm'>
 										{displayNameOf(user)}
 									</span>
-									{movement(deltas?.get(uid))}
+									<RatingMovement delta={deltas?.get(uid)} className='text-[11px]' />
 									<span className='text-faint text-xs tabular-nums'>
 										{toDisplayRating(elos[uid] ?? 0)}
 									</span>

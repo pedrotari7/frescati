@@ -110,6 +110,16 @@ export const counted = (count: number, singular: string, many?: string): string 
 	`${count} ${plural(count, singular, many)}`;
 
 /**
+ * `+6`, `-6`, `0` — a number carrying its sign, the way a scoreboard writes a
+ * change rather than a quantity.
+ *
+ * Negatives already have theirs and zero gets none, so this is only ever adding
+ * the `+`. Worth a name anyway: it is the one piece the three rating-movement
+ * renderers genuinely share, and each had written the ternary out.
+ */
+export const signed = (value: number): string => (value > 0 ? `+${value}` : `${value}`);
+
+/**
  * `in 3 days`, `in 2 hours`, `5 minutes ago`. Coarse on purpose — nobody needs
  * seconds of precision to decide whether they're playing on Tuesday.
  */

@@ -6,7 +6,7 @@ import { TrophyIcon } from '@heroicons/react/24/outline';
 import { getRatingLadder, getSeasonTable, toDisplayMovement } from '@shared/leaderboard';
 import type { SeasonResult } from '@shared/leaderboard';
 import { toDisplayRating } from '@shared/rating';
-import { counted, formatGameDate, placeLabel } from '@shared/format';
+import { counted, formatGameDate, placeLabel, signed } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useSeasonLedger, useUsersByUid } from '../../../../../hooks/useData';
 import { displayNameOf, nameByUid } from '../../../../../lib/people';
@@ -161,7 +161,7 @@ const LeaderboardPage = () => {
 										<span className='text-ink w-10 text-right text-lg font-bold tabular-nums'>
 											{'elo' in row
 												? toDisplayRating(row.elo)
-												: movementLabel(toDisplayMovement(row.movement))}
+												: signed(toDisplayMovement(row.movement))}
 										</span>
 									</Link>
 								</li>
@@ -179,7 +179,5 @@ const LeaderboardPage = () => {
 		</SeasonShell>
 	);
 };
-
-const movementLabel = (shown: number) => (shown > 0 ? `+${shown}` : `${shown}`);
 
 export default LeaderboardPage;

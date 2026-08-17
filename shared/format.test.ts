@@ -9,6 +9,7 @@ import {
 	initials,
 	placeLabel,
 	plural,
+	signed,
 	weekdayName,
 } from './format';
 
@@ -99,6 +100,14 @@ describe('plural', () => {
 	it('handles a verb agreement, which is the same problem', () => {
 		expect(plural(1, 'says', 'say')).toBe('says');
 		expect(plural(2, 'says', 'say')).toBe('say');
+	});
+});
+
+describe('signed', () => {
+	it('adds a plus only to a positive', () => {
+		expect(signed(6)).toBe('+6');
+		expect(signed(-6)).toBe('-6');
+		expect(signed(0)).toBe('0');
 	});
 });
 
