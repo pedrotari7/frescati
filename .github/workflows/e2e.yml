@@ -40,8 +40,11 @@ jobs:
       # thing that does vary — mobile is the primary target.
       - run: pnpm exec playwright install --with-deps chromium
       # `pnpm test:e2e` starts the stack itself, through Playwright's webServer:
-      # `pnpm dev:e2e` builds the backend, boots every emulator, seeds a real
-      # scenario and runs the app against it.
+      # `pnpm dev:e2e` builds both halves, boots every emulator, seeds a real
+      # scenario and serves the built app. The frontend build reads the
+      # `NEXT_PUBLIC_*` values below out of this step's environment and inlines
+      # them, which is why they are set here rather than on a build step of
+      # their own.
       - run: pnpm test:e2e
         env:
           # Emulator-only config. Every route into Firebase goes through the
