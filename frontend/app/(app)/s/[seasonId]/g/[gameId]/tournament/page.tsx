@@ -52,7 +52,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const { user } = useAuth();
 	const { season, games, loading, isAdmin, isSeasonAdmin } = useSeasonContext();
 	const { teams: lineup, loading: teamsLoading } = useTournamentTeams(seasonId, gameId);
-	const { matches } = useMatches(seasonId, gameId);
+	const { matches, loading: matchesLoading } = useMatches(seasonId, gameId);
 	const { result } = useTournamentResult(seasonId, gameId);
 	const { motm } = useMotm(seasonId, gameId);
 	const { vote } = useMyMotmVote(seasonId, gameId, user?.uid ?? null);
@@ -69,7 +69,16 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 
 	const backHref = `/s/${seasonId}/g/${gameId}`;
 
-	if (loading || teamsLoading) {
+	// `matchesLoading` is in here for the same reason as the note below about a
+	// missing lineup: a screen must not draw a real state it does not know yet.
+	// A match with no document reads as `–` and that is the third state — never
+	// played, as distinct from played nil-nil — but an outstanding subscription
+	// renders `–` too, so without this a 5–3 game came up as `– –` and snapped
+	// to the score a moment later. Wrong on the one screen whose whole job is
+	// the scoreline, and wrong in the specific way that makes the number
+	// unreadable: anything reading it, a person or a test, cannot tell "nobody
+	// played this" from "ask again in a moment".
+	if (loading || teamsLoading || matchesLoading) {
 		return (
 			<SeasonShell title='Teams' backHref={backHref}>
 				<Skeleton />
