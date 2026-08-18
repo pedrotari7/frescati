@@ -1,6 +1,8 @@
 import {
+	canReportAbsence,
 	findCountsDrift,
 	findLiveGame,
+	getAbsentUids,
 	getAvailabilityChange,
 	getFormat,
 	getGameLifecycle,
@@ -11,6 +13,7 @@ import {
 	getRole,
 	getSilentMembers,
 	groupGames,
+	isAbsent,
 	isConfirmed,
 	isWatchable,
 	parseReminderHours,
@@ -175,6 +178,50 @@ describe('isConfirmed', () => {
 
 	it('respects an admin dropping an extra', () => {
 		expect(isConfirmed({ role: 'extra', confirmOverride: false })).toBe(false);
+	});
+});
+
+describe('isAbsent', () => {
+	it('is true for somebody who said in and a season admin reported as a no-show', () => {
+		expect(isAbsent({ status: 'in', absent: true })).toBe(true);
+	});
+
+	it('is false with no mark on the response at all', () => {
+		expect(isAbsent({ status: 'in' })).toBe(false);
+	});
+
+	// A mark left behind by somebody who was reported absent and then changed
+	// their answer must not make an `out` read as a no-show.
+	it('is false once they have said they are out', () => {
+		expect(isAbsent({ status: 'out', absent: true })).toBe(false);
+	});
+});
+
+describe('canReportAbsence', () => {
+	// Before kick-off "they haven't turned up" describes everybody, including
+	// the eight people parking.
+	it.each(['open', 'locked'] as const)('is false while the game is %s', lifecycle => {
+		expect(canReportAbsence(lifecycle)).toBe(false);
+	});
+
+	it.each(['live', 'finished'] as const)('is true once the game is %s', lifecycle => {
+		expect(canReportAbsence(lifecycle)).toBe(true);
+	});
+
+	it('is false for a cancelled game, which nobody could fail to turn up to', () => {
+		expect(canReportAbsence('cancelled')).toBe(false);
+	});
+});
+
+describe('getAbsentUids', () => {
+	it('names everybody reported as a no-show and nobody else', () => {
+		expect(
+			getAbsentUids([
+				response({ uid: 'anna', status: 'in', absent: true }),
+				response({ uid: 'pedro', status: 'in' }),
+				response({ uid: 'sofia', status: 'out', absent: true }),
+			])
+		).toEqual(['anna']);
 	});
 });
 

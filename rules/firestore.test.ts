@@ -1271,6 +1271,49 @@ describe('responses', () => {
 		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), responseDoc(EXTRA)), { confirmOverride: false }));
 	});
 
+	// A no-show is a season admin's report about somebody, so it is theirs to
+	// write and — more to the point — not the player's to rub out.
+	it('stops a player reporting themselves as a no-show', async () => {
+		await assertFails(
+			setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member', { absent: true }))
+		);
+	});
+
+	it('stops a player smuggling in an absent mark on update', async () => {
+		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member'));
+
+		await assertFails(updateDoc(doc(authed(MEMBER), responseDoc(MEMBER)), { absent: true }));
+	});
+
+	it('lets a season admin report a no-show', async () => {
+		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member'));
+
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), responseDoc(MEMBER)), { absent: true }));
+	});
+
+	// Changing your mind rewrites the whole document, so without the freeze a
+	// no-show could clear the mark by tapping Out and In again.
+	it('stops a player clearing an admin’s mark by answering again', async () => {
+		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member'));
+		await updateDoc(doc(authed(SEASON_ADMIN), responseDoc(MEMBER)), { absent: true });
+
+		await assertFails(setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member')));
+	});
+
+	// Which is why the client carries it through rather than dropping it: the
+	// key is on the allowlist so an honest answer change still lands.
+	it('lets a player change their mind while carrying the mark through untouched', async () => {
+		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member'));
+		await updateDoc(doc(authed(SEASON_ADMIN), responseDoc(MEMBER)), { absent: true });
+
+		await assertSucceeds(
+			setDoc(
+				doc(authed(MEMBER), responseDoc(MEMBER)),
+				aResponse(MEMBER, 'member', { status: 'out', absent: true })
+			)
+		);
+	});
+
 	it('lets a player withdraw entirely, back to no response', async () => {
 		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member'));
 

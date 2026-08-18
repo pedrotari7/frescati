@@ -28,6 +28,7 @@ const TeamCard = ({
 	highlightUid,
 	deltas,
 	notPlaying,
+	absentUids,
 	onMovePlayer,
 }: {
 	team: TournamentTeam;
@@ -44,6 +45,13 @@ const TeamCard = ({
 	 * a man short on the night.
 	 */
 	notPlaying?: Set<string>;
+	/**
+	 * Anyone a season admin has reported as a no-show. Different from
+	 * `notPlaying` and louder: that is somebody who changed their answer, this
+	 * is somebody who didn't. Their team played a man down, which is the one
+	 * thing a team sheet is in a position to say.
+	 */
+	absentUids?: Set<string>;
 	/** Season admins only: open the sheet that moves this player elsewhere. */
 	onMovePlayer?: (uid: string) => void;
 }) => {
@@ -89,7 +97,11 @@ const TeamCard = ({
 					{team.uids.map(uid => {
 						const user = usersByUid.get(uid);
 						const elo = elos[uid];
-						const dropped = notPlaying?.has(uid) === true;
+						const noShow = absentUids?.has(uid) === true;
+						// A no-show is the louder of the two and the only one that is
+						// somebody's report rather than a derived disagreement, so it
+						// wins the row where both would apply.
+						const dropped = !noShow && notPlaying?.has(uid) === true;
 
 						return (
 							<li
@@ -112,11 +124,12 @@ const TeamCard = ({
 									<span
 										className={classNames(
 											'min-w-0 flex-1 truncate text-sm',
-											dropped ? 'text-muted line-through' : 'text-ink'
+											noShow || dropped ? 'text-muted line-through' : 'text-ink'
 										)}
 									>
 										{displayNameOf(user)}
 									</span>
+									{noShow && <StatusPill tone='out'>No-show</StatusPill>}
 									{dropped && <StatusPill tone='out'>Out</StatusPill>}
 									<RatingMovement delta={deltas?.get(uid)} className='text-[11px]' />
 									<span className='text-faint text-xs tabular-nums'>

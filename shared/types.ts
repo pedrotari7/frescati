@@ -413,6 +413,28 @@ export interface GameResponse {
 	 * back to the document it fires on. Writable only by season admins.
 	 */
 	confirmOverride?: boolean;
+	/**
+	 * A season admin's report that they said they were coming and didn't turn
+	 * up. Absent means nothing of the sort has been said, which is the ordinary
+	 * case — this is never written `false`, it is deleted.
+	 *
+	 * Deliberately a mark *beside* the answer rather than a change to it. The
+	 * whole point is that both facts stay legible at once: `status` still says
+	 * In, because they said In, and this says the pitch disagreed. Rewriting
+	 * them to `out` would file a no-show under the same heading as somebody who
+	 * had the courtesy to say so.
+	 *
+	 * Only meaningful with `status: 'in'`, and only knowable from kick-off — see
+	 * `canReportAbsence`. It moves nothing else: `counts` describes what people
+	 * answered, the lineup is what the admin decides it is, and neither is a
+	 * question anybody is still asking by the time this can be written.
+	 *
+	 * Unsigned, like `confirmOverride` beside it and unlike a scoreline or a kit
+	 * handover. Those are writable by anybody who turned up, so a wrong one
+	 * needs a face; this one is writable only by the season's admins, whom the
+	 * season document already names.
+	 */
+	absent?: boolean;
 	respondedAt: string;
 	updatedAt: string;
 	note?: string;

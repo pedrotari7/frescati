@@ -183,6 +183,41 @@ export const isConfirmed = (response: Pick<GameResponse, 'role' | 'confirmOverri
 	response.role === 'member' || response.confirmOverride === true;
 
 /**
+ * Whether somebody said they were coming and then didn't turn up.
+ *
+ * A mark beside the answer rather than a change to it, which is what makes this
+ * a predicate of its own instead of a fourth `status`: the point is that both
+ * facts read at once. `status` still says In, because that is what they said,
+ * and this says the pitch disagreed — file it as `out` and a no-show becomes
+ * indistinguishable from somebody who had the courtesy to say so, which is
+ * exactly the distinction anybody asking wants.
+ *
+ * `status === 'in'` is part of the test rather than assumed, so a mark left
+ * behind by somebody who was reported absent and later changed their answer
+ * cannot make an `out` read as a no-show.
+ */
+export const isAbsent = (response: Pick<GameResponse, 'status' | 'absent'>): boolean =>
+	response.status === 'in' && response.absent === true;
+
+/**
+ * Whether a no-show is something anybody could yet know about.
+ *
+ * From kick-off, and not a moment before. Up to then "they haven't turned up"
+ * describes everybody, including the eight people parking — and an admin handed
+ * the button on a Sunday would be reporting a prediction. Past the final whistle
+ * it stays available, because this is usually remembered rather than recorded on
+ * the spot.
+ *
+ * Deliberately wider than `live` and narrower than `isWatchable`: a cancelled
+ * game has nobody to fail to turn up to.
+ */
+export const canReportAbsence = (lifecycle: GameLifecycle): boolean => lifecycle === 'live' || lifecycle === 'finished';
+
+/** Everybody reported as a no-show for this game. */
+export const getAbsentUids = (responses: Pick<GameResponse, 'uid' | 'status' | 'absent'>[]): string[] =>
+	responses.filter(isAbsent).map(response => response.uid);
+
+/**
  * Roster order: members first, then extras. Within each group, confirmed before
  * unconfirmed, then by signup time, then by uid so the order is total and stable
  * across clients.

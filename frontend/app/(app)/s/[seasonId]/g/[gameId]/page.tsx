@@ -3,7 +3,7 @@
 import { use, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon, TrophyIcon } from '@heroicons/react/24/outline';
-import { getFormat, getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
+import { canReportAbsence, getFormat, getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
@@ -16,7 +16,7 @@ import { useRespondIntent } from '../../../../../../hooks/useRespondIntent';
 import { useWatchGame } from '../../../../../../hooks/useWatchGame';
 import { useWrite } from '../../../../../../hooks/useWrite';
 import { useNow } from '../../../../../../hooks/useNow';
-import { setConfirmOverride } from '../../../../../../lib/db/responses';
+import { setAbsent, setConfirmOverride } from '../../../../../../lib/db/responses';
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
@@ -184,10 +184,17 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 						responses={responses}
 						usersByUid={usersByUid}
 						canManageExtras={isAdmin}
+						canReportAbsence={isAdmin && canReportAbsence(lifecycle)}
 						onToggleExtra={async (uid, confirmed) => {
 							await write(
 								() => setConfirmOverride(seasonId, gameId, uid, confirmed),
 								confirmed ? "Couldn't give them a spot." : "Couldn't drop them."
+							);
+						}}
+						onToggleAbsent={async (uid, absent) => {
+							await write(
+								() => setAbsent(seasonId, gameId, uid, absent),
+								absent ? "Couldn't mark them as a no-show." : "Couldn't take that back."
 							);
 						}}
 					/>

@@ -635,9 +635,13 @@ service cloud.firestore {
             return request.resource.data.role == (isSeasonMember(seasonId) ? 'member' : 'extra');
           }
 
-          // Confirming or dropping an extra is an admin decision.
-          function setsConfirmOverride() {
-            return request.resource.data.keys().hasAny(['confirmOverride']);
+          // Confirming or dropping an extra is an admin decision, and so is
+          // reporting that somebody said they were coming and didn't turn up.
+          // Neither is the player's to write about themselves — one is a spot
+          // they'd be granting themselves, the other a mark they'd be rubbing
+          // out.
+          function setsAdminFields() {
+            return request.resource.data.keys().hasAny(['confirmOverride', 'absent']);
           }
 
           // Anyone signed in can create one of these against any game, so this
@@ -647,7 +651,16 @@ service cloud.firestore {
           // megabyte of someone else's data.
           function responseShapeOk() {
             return request.resource.data.keys().hasOnly(
-                     ['uid', 'status', 'role', 'respondedAt', 'updatedAt', 'note', 'confirmOverride'])
+                     ['uid', 'status', 'role', 'respondedAt', 'updatedAt', 'note', 'confirmOverride',
+                      'absent'])
+                   // On the allowlist so a player rewriting their own answer can
+                   // carry an admin's mark through untouched — `setResponse`
+                   // writes the whole document, so a key it may not send is a
+                   // key it cannot preserve. Setting or changing one is still
+                   // refused below, which is why this bound is the only thing
+                   // this function has to say about it: a season admin writes
+                   // through their own rule and doesn't come past here at all.
+                   && request.resource.data.get('absent', false) is bool
                    && request.resource.data.get('note', '') is string
                    && request.resource.data.get('note', '').size() <= 280
                    && request.resource.data.get('respondedAt', '') is string
@@ -662,7 +675,7 @@ service cloud.firestore {
                         && request.resource.data.uid == uid
                         && request.resource.data.status in ['in', 'out']
                         && roleMatchesMembership()
-                        && !setsConfirmOverride()
+                        && !setsAdminFields()
                         && responseShapeOk()
                         && responsesOpen(gameData());
 
@@ -680,6 +693,12 @@ service cloud.firestore {
                            == resource.data.get('respondedAt', null)
                         && request.resource.data.get('confirmOverride', null)
                            == resource.data.get('confirmOverride', null)
+                        // Frozen rather than merely unsettable: changing your
+                        // mind rewrites the whole document, and a no-show who
+                        // could clear the mark by tapping Out and In again
+                        // would have the one thing the mark exists to record.
+                        && request.resource.data.get('absent', null)
+                           == resource.data.get('absent', null)
                         && responseShapeOk()
                         && responsesOpen(gameData());
 

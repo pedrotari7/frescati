@@ -64,14 +64,40 @@ describe('buildRoster', () => {
 	});
 
 	it('keeps a member response out of the extras section', () => {
-		const roster = buildRoster(
-			['alice'],
-			[response({ uid: 'alice', status: 'in', role: 'member' })],
-			usersByUid
-		);
+		const roster = buildRoster(['alice'], [response({ uid: 'alice', status: 'in', role: 'member' })], usersByUid);
 
 		expect(roster.extras).toEqual([]);
 		expect(roster.playing.map(entry => entry.uid)).toEqual(['alice']);
+	});
+
+	// Out of the group they answered into and into one of its own: left among
+	// the people who turned up, a no-show reads as a footnote.
+	it('lifts a no-show out of the squad and the extras alike, members first', () => {
+		const roster = buildRoster(
+			['alice', 'bob'],
+			[
+				response({ uid: 'alice', status: 'in', role: 'member' }),
+				response({ uid: 'bob', status: 'in', role: 'member', absent: true }),
+				response({ uid: 'carol', status: 'in', role: 'extra', confirmOverride: true, absent: true }),
+				response({ uid: 'dave', status: 'in', role: 'extra', confirmOverride: true }),
+			],
+			usersByUid
+		);
+
+		expect(roster.playing.map(entry => entry.uid)).toEqual(['alice']);
+		expect(roster.extras.map(entry => entry.uid)).toEqual(['dave']);
+		expect(roster.absent.map(entry => entry.uid)).toEqual(['bob', 'carol']);
+	});
+
+	it('leaves a stale mark on somebody who has since said out where it found them', () => {
+		const roster = buildRoster(
+			['alice'],
+			[response({ uid: 'alice', status: 'out', role: 'member', absent: true })],
+			usersByUid
+		);
+
+		expect(roster.absent).toEqual([]);
+		expect(roster.out.map(entry => entry.uid)).toEqual(['alice']);
 	});
 });
 
@@ -135,6 +161,101 @@ describe('RosterList', () => {
 		});
 
 		expect(onToggleExtra).toHaveBeenCalledWith('carol', true);
+	});
+
+	it('names the no-shows in a section of their own', () => {
+		render(
+			<RosterList
+				memberUids={['alice', 'bob']}
+				responses={[
+					response({ uid: 'alice', status: 'in', role: 'member' }),
+					response({ uid: 'bob', status: 'in', role: 'member', absent: true }),
+				]}
+				usersByUid={usersByUid}
+			/>
+		);
+
+		expect(screen.getByText('Didn’t show')).toBeInTheDocument();
+		expect(screen.getByText('No-show')).toBeInTheDocument();
+		expect(screen.getByText('Bob Lee')).toHaveClass('line-through');
+		expect(screen.getByText('Alice Ng')).not.toHaveClass('line-through');
+	});
+
+	// Before kick-off there is nothing anybody could know, which is what
+	// `canReportAbsence` decides on the page.
+	it('offers no way to report one until the caller says it is time', () => {
+		render(
+			<RosterList
+				memberUids={['alice']}
+				responses={[response({ uid: 'alice', status: 'in', role: 'member' })]}
+				usersByUid={usersByUid}
+				onToggleAbsent={jest.fn()}
+			/>
+		);
+
+		expect(screen.queryByRole('button', { name: 'No-show' })).not.toBeInTheDocument();
+	});
+
+	it('lets an admin report a no-show, and take it back', async () => {
+		const onToggleAbsent = jest.fn().mockResolvedValue(undefined);
+
+		const { rerender } = render(
+			<RosterList
+				memberUids={['alice']}
+				responses={[response({ uid: 'alice', status: 'in', role: 'member' })]}
+				usersByUid={usersByUid}
+				canReportAbsence
+				onToggleAbsent={onToggleAbsent}
+			/>
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'No-show' }));
+		});
+
+		expect(onToggleAbsent).toHaveBeenCalledWith('alice', true);
+
+		rerender(
+			<RosterList
+				memberUids={['alice']}
+				responses={[response({ uid: 'alice', status: 'in', role: 'member', absent: true })]}
+				usersByUid={usersByUid}
+				canReportAbsence
+				onToggleAbsent={onToggleAbsent}
+			/>
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+		});
+
+		expect(onToggleAbsent).toHaveBeenLastCalledWith('alice', false);
+	});
+
+	// Past kick-off whether an extra holds a spot is settled, and two buttons do
+	// not fit in the width of a phone.
+	it('replaces the extras controls with the no-show one once the game is on', async () => {
+		const onToggleAbsent = jest.fn().mockResolvedValue(undefined);
+
+		render(
+			<RosterList
+				memberUids={[]}
+				responses={[response({ uid: 'carol', status: 'in', role: 'extra', confirmOverride: true })]}
+				usersByUid={usersByUid}
+				canManageExtras
+				canReportAbsence
+				onToggleExtra={jest.fn()}
+				onToggleAbsent={onToggleAbsent}
+			/>
+		);
+
+		expect(screen.queryByRole('button', { name: 'Drop' })).not.toBeInTheDocument();
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'No-show' }));
+		});
+
+		expect(onToggleAbsent).toHaveBeenCalledWith('carol', true);
 	});
 
 	it('lets an admin drop an already-confirmed extra', async () => {

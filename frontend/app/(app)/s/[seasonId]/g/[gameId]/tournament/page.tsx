@@ -20,7 +20,7 @@ import {
 	selectPlayedMatches,
 } from '@shared/tournament';
 import { findTeamIndex, getUnassigned } from '@shared/lineup';
-import { isConfirmed, sortResponses } from '@shared/game';
+import { getAbsentUids, isConfirmed, sortResponses } from '@shared/game';
 import { getStandings } from '@shared/standings';
 import { formatGameDateLong, formatRelative } from '@shared/format';
 import { isMotmVotingOpen } from '@shared/motm';
@@ -200,6 +200,13 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// on a squad taps Out and stays on it. Neither is wrong, both are invisible,
 	// and the app has stopped being the thing that would fix them. An automatic
 	// lineup needs none of this said: a rebuild is already seconds away.
+	// Reported no-shows. Not filtered out of the pool above: they said In and
+	// were picked, and the sheet's job here is to say who was on which team and
+	// which of them never turned up — not to rewrite the evening as though the
+	// squads had been picked without them. Moving somebody off the sheet is a
+	// separate decision, and the button for it is right there.
+	const absentUids = new Set(getAbsentUids(responses));
+
 	const inThePool = new Set(poolUids);
 	const unassigned = lineup.edited ? getUnassigned(lineup.teams, poolUids) : [];
 	const notPlaying = lineup.edited
@@ -332,6 +339,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 							highlightUid={user?.uid}
 							deltas={deltas}
 							notPlaying={notPlaying}
+							absentUids={absentUids}
 							onMovePlayer={canMovePlayers ? setMovingUid : undefined}
 						/>
 					))}

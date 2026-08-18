@@ -112,6 +112,21 @@ describe('onResponseWrite', () => {
 		expect(enqueue).toHaveBeenCalledWith({ seasonId: SEASON_ID, gameId: GAME_ID, generation: 5 });
 	});
 
+	// The counters describe what people answered, and a no-show answered In.
+	// Nothing about the headcount moves, which is why nothing here has to know
+	// the mark exists.
+	it('leaves the headcount alone when somebody is reported as a no-show', async () => {
+		await writeSeason(SEASON_ID, { memberUids: [MEMBER], minPlayers: 1 });
+		await writeGame(SEASON_ID, GAME_ID);
+		await writeResponse(SEASON_ID, GAME_ID, MEMBER, { status: 'in', role: 'member', absent: true });
+
+		await onResponseWrite.run(
+			responseEvent(aResponse(MEMBER, { status: 'in' }), aResponse(MEMBER, { status: 'in', absent: true }))
+		);
+
+		expect((await readGame(SEASON_ID, GAME_ID))?.counts.playing).toBe(1);
+	});
+
 	it('does nothing when the season is gone', async () => {
 		await writeGame(SEASON_ID, GAME_ID);
 
@@ -209,6 +224,20 @@ describe('telling watchers an answer moved', () => {
 
 		await onResponseWrite.run(
 			responseEvent(aResponse(MEMBER, { status: 'in' }), aResponse(MEMBER, { status: 'in', note: 'back by 7' }))
+		);
+
+		expect(sent).not.toHaveBeenCalled();
+	});
+
+	// A no-show is a mark beside the answer, not a change to it: `status` still
+	// says In because that is what they said. The watcher who asked to hear
+	// whether people are coming has already heard everything there is.
+	it('stays quiet when an admin reports a no-show', async () => {
+		await writeWatcher(WATCHER);
+		const sent = captureSends();
+
+		await onResponseWrite.run(
+			responseEvent(aResponse(MEMBER, { status: 'in' }), aResponse(MEMBER, { status: 'in', absent: true }))
 		);
 
 		expect(sent).not.toHaveBeenCalled();

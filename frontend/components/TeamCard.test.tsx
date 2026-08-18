@@ -117,15 +117,7 @@ describe('TeamCard', () => {
 		it('opens the move sheet for the player whose button was tapped', () => {
 			const onMovePlayer = jest.fn();
 
-			render(
-				<TeamCard
-					team={team}
-					elos={{}}
-					usersByUid={usersByUid}
-					sideSize={2}
-					onMovePlayer={onMovePlayer}
-				/>
-			);
+			render(<TeamCard team={team} elos={{}} usersByUid={usersByUid} sideSize={2} onMovePlayer={onMovePlayer} />);
 
 			fireEvent.click(screen.getByRole('button', { name: 'Move Bob Lee to another team' }));
 
@@ -149,6 +141,41 @@ describe('TeamCard', () => {
 		expect(screen.getByText('Out')).toBeInTheDocument();
 		expect(screen.getByText('Bob Lee')).toHaveClass('line-through');
 		expect(screen.getByText('Alice Ng')).not.toHaveClass('line-through');
+	});
+
+	// The team sheet is the one screen in a position to say a squad played a man
+	// down, which is the thing a no-show actually costs.
+	it('marks somebody reported as a no-show', () => {
+		render(
+			<TeamCard
+				team={team}
+				elos={{ alice: BASE_ELO, bob: BASE_ELO }}
+				usersByUid={usersByUid}
+				sideSize={2}
+				absentUids={new Set(['alice'])}
+			/>
+		);
+
+		expect(screen.getByText('No-show')).toBeInTheDocument();
+		expect(screen.getByText('Alice Ng')).toHaveClass('line-through');
+	});
+
+	// One is a report about somebody, the other a disagreement between the sheet
+	// and the pool. Both at once is a row with two contradictory pills on it.
+	it('prefers the no-show over a bare dropped-out mark', () => {
+		render(
+			<TeamCard
+				team={team}
+				elos={{ alice: BASE_ELO, bob: BASE_ELO }}
+				usersByUid={usersByUid}
+				sideSize={2}
+				notPlaying={new Set(['alice'])}
+				absentUids={new Set(['alice'])}
+			/>
+		);
+
+		expect(screen.getByText('No-show')).toBeInTheDocument();
+		expect(screen.queryByText('Out')).not.toBeInTheDocument();
 	});
 
 	it('shows no movement badge for a delta that rounds to zero', () => {

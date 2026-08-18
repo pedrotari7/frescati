@@ -1,4 +1,4 @@
-import { deleteDoc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, deleteField, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import type { GameResponse, PlayerRole, ResponseStatus } from '@shared/types';
 import { responseDoc, responsesCol } from './paths';
@@ -44,14 +44,38 @@ export const setResponse = async (
 		// extra to the back of the queue. Frozen by the rules once written.
 		respondedAt: current?.respondedAt ?? now,
 		updatedAt: now,
-		// Only a season admin may write this, so preserve rather than resend it.
+		// Only a season admin may write these, so preserve rather than resend
+		// them. The rules freeze both against a self write, so dropping one on
+		// the way past is not a quiet loss — it is a denial, and the answer this
+		// was sent to record never lands.
 		...(current?.confirmOverride === undefined ? {} : { confirmOverride: current.confirmOverride }),
+		...(current?.absent === undefined ? {} : { absent: current.absent }),
 	});
 };
 
 /** Back to "no response" — the third state is the absence of a document. */
 export const clearResponse = (seasonId: string, gameId: string, uid: string) =>
 	deleteDoc(responseDoc(seasonId, gameId, uid));
+
+/**
+ * Season admin only: report that somebody said they were coming and didn't turn
+ * up, or take that back.
+ *
+ * Deleted rather than written `false`, so undoing leaves the document exactly as
+ * it was. There is no third state to hold here — a game where nobody has said
+ * anything and one where the admin looked and everybody turned up are the same
+ * fact — so a stored `false` would only be a second way of spelling the absence
+ * of the field.
+ *
+ * Nothing else moves. `counts` describes what people answered and the lineup is
+ * whatever the admin has decided it is; by the time this can be written, neither
+ * is a question anybody is still asking.
+ */
+export const setAbsent = (seasonId: string, gameId: string, uid: string, absent: boolean) =>
+	updateDoc(responseDoc(seasonId, gameId, uid), {
+		absent: absent ? true : deleteField(),
+		updatedAt: new Date().toISOString(),
+	});
 
 /** Season admin only: give an extra a spot or take it away. */
 export const setConfirmOverride = (seasonId: string, gameId: string, uid: string, confirmed: boolean) =>
