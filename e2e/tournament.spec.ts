@@ -114,11 +114,16 @@ test.describe('the team sheet', () => {
 		const label = (await up.getAttribute('aria-label'))!.replace(/ one more$/, '');
 		const score = page.getByTestId(`score-${label}`).first();
 
-		// Wait for the number to be *there* before reading it. The stepper renders
-		// before the match document arrives, and an empty read is `Number('')`,
-		// which is a confident `0` — so this asked a 5–3 game to become 1–0 and
-		// waited out its timeout watching it go to 6. A match nobody has played
-		// reads as an en dash, which is the third state and not a zero.
+		// Wait for the number to be *there* before reading it. An empty read is
+		// `Number('')`, which is a confident `0` — so this asked a 5–3 game to
+		// become 1–0 and waited out its timeout watching it go to 6. A match
+		// nobody has played reads as an en dash, which is the third state and not
+		// a zero.
+		//
+		// That the en dash can be trusted is the team sheet's doing rather than
+		// this line's: the screen holds a skeleton until `matches` has loaded, so
+		// `–` means never played and never "not here yet". It did not always, and
+		// the day it stopped holding is the day this reads a played game as nil.
 		await expect(score).toHaveText(/^(\d+|–)$/);
 
 		const before = Number((await score.innerText()).replace('–', '0'));
@@ -209,10 +214,27 @@ test.describe('man of the match', () => {
 		// drawn it returns `[]`, which reads back as a lineup with nobody in it.
 		await expect(ballot.first(), 'the ballot listed nobody').toBeVisible();
 
-		const names = await ballot.evaluateAll(nodes => nodes.map(node => node.textContent?.trim() ?? ''));
+		// And drawn is not the same as named. A lineup is uids, joined against
+		// the profiles subscription in the client, so the rows arrive before the
+		// names in them do and every one of them reads "Unknown player" until
+		// they land. Asking for a seeded account rather than for the absence of
+		// the placeholder, because a lineup is genuinely allowed to contain
+		// somebody the app can no longer name — `forget-player` clears the
+		// profile and leaves the uid in every sheet it appears in.
+		const namesOnBallot = async (): Promise<string[]> =>
+			ballot.evaluateAll(nodes => nodes.map(node => node.textContent?.trim() ?? ''));
 
-		const player = readCast().users.find(user => names.some(name => name.includes(user.displayName)));
-		expect(player, `no seeded account in this lineup — ${names.join(', ')}`).toBeTruthy();
+		const seeded = readCast().users;
+		const whoever = (names: string[]) => seeded.find(user => names.some(name => name.includes(user.displayName)));
+
+		await expect
+			.poll(async () => Boolean(whoever(await namesOnBallot())), {
+				message: 'no seeded account was ever named on this ballot',
+			})
+			.toBe(true);
+
+		const player = whoever(await namesOnBallot());
+		expect(player, `no seeded account in this lineup — ${(await namesOnBallot()).join(', ')}`).toBeTruthy();
 
 		await signInAs(page, player!);
 		await expect(page).toHaveURL(/\/tournament$/);

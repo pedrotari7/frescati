@@ -12,7 +12,15 @@
  * months as it is now. Weeks are the unit because the slot repeats weekly.
  */
 
-import type { BalanceSettings, GameStatus, KitKind, SeasonSlot, SeasonStatus, Venue } from '../../../shared/types';
+import type {
+	BalanceSettings,
+	GameStatus,
+	KitKind,
+	SeasonSlot,
+	SeasonStatus,
+	Venue,
+	Weekday,
+} from '../../../shared/types';
 
 /**
  * One thing the group owns, in the season's kit register.
@@ -137,6 +145,37 @@ const ZINKENSDAMM: Venue = {
 const GUBBANGEN: Venue = { name: 'Gubbängens IP', address: 'Gubbängstorget 117, Stockholm' };
 
 const tuesdayEvening: SeasonSlot = { weekday: 2, time: '19:00', durationMinutes: 90, timezone: STOCKHOLM };
+
+/**
+ * A weekly slot placed so the next game is always a few days off.
+ *
+ * Everything else in here is positioned relative to *today*, which is what
+ * keeps a seed as useful in six months as it is now — and a hardcoded weekday
+ * was the one thing that was not. It meant that whenever the seed was written
+ * on the slot's own day, the next game was already inside its response
+ * deadline: `getGameLifecycle` calls it `locked`, `RespondControl` draws In and
+ * Out disabled, and the one journey this whole app exists for could not be
+ * walked. Real behaviour, correctly implemented, on a fixture that had quietly
+ * arranged to be looked at during the only hours it does not apply.
+ *
+ * Three days, not one, because the deadline is a season's own setting and the
+ * longest here is twelve hours. It is the *soonest* game that matters: the
+ * series repeats weekly from this weekday, so the next one is always this far
+ * ahead however long the season has been running.
+ */
+const daysAhead = (days: number, time: string, durationMinutes: number): SeasonSlot => ({
+	weekday: ((new Date().getDay() + days) % 7) as Weekday,
+	time,
+	durationMinutes,
+	timezone: STOCKHOLM,
+});
+
+/**
+ * The slot for a season being played right now. Archived seasons keep a real
+ * weekday — nothing answers a game that finished months ago — and so does the
+ * Sunday offshoot, which is named after the day it plays on.
+ */
+const currentEvening = (): SeasonSlot => daysAhead(3, '19:00', 90);
 const thursdayEvening: SeasonSlot = { weekday: 4, time: '20:00', durationMinutes: 90, timezone: STOCKHOLM };
 const sundayMorning: SeasonSlot = { weekday: 0, time: '10:00', durationMinutes: 75, timezone: STOCKHOLM };
 
@@ -189,7 +228,7 @@ const full: Scenario = {
 			id: 'season-current',
 			status: 'active',
 			venue: FRESCATI,
-			slot: tuesdayEvening,
+			slot: currentEvening(),
 			minPlayers: 10,
 			responseDeadlineHours: 3,
 			reminderHours: [48, 6],
@@ -331,7 +370,7 @@ const big: Scenario = {
 			id: 'season-big',
 			status: 'active',
 			venue: FRESCATI,
-			slot: tuesdayEvening,
+			slot: currentEvening(),
 			minPlayers: 16,
 			responseDeadlineHours: 4,
 			reminderHours: [72, 24, 4],
@@ -400,7 +439,7 @@ const fresh: Scenario = {
 			id: 'season-new',
 			status: 'active',
 			venue: KRISTINEBERG,
-			slot: thursdayEvening,
+			slot: currentEvening(),
 			minPlayers: 10,
 			responseDeadlineHours: 3,
 			reminderHours: [48, 6],
