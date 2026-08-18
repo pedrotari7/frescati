@@ -10,10 +10,11 @@
 	"scripts": {
 		"lint": "eslint . --ext .ts",
 		"build": "tsc",
+		"typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
 		"watch": "tsc --watch --preserveWatchOutput",
 		"serve": "pnpm build && firebase emulators:start --only functions,firestore",
 		"logs": "firebase functions:log",
-		"seed": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/seed.ts",
+		"seed": "ts-node --transpile-only --compiler-options '{\"module\":\"commonjs\"}' scripts/seed.ts",
 		"set-admin": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/setAdmin.ts",
 		"backfill-kickoff-millis": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillKickoffMillis.ts",
 		"backfill-motm-voters": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillMotmVoters.ts",

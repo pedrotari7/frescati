@@ -24,15 +24,23 @@ import { defineConfig, devices } from '@playwright/test';
  * tested on the device the group opens this on at the pitch.
  */
 
-/** The dev server is slow to first paint on a cold Next.js build. */
+/**
+ * Long, because starting up is genuinely a lot of work: a backend compile, a
+ * frontend build, every emulator, and a seed that waits for its own triggers to
+ * go quiet before it will call the database finished.
+ */
 const START_TIMEOUT = 240_000;
 
 export default defineConfig({
 	testDir: './e2e',
-	// Serialised: one seeded emulator database behind every test, and a spec
-	// that answers a game changes what the next one reads. The same call the
-	// backend and rules suites make.
-	workers: 1,
+	// One worker per spec file, and no more. There is a single seeded emulator
+	// database behind all of this, so what can safely overlap is decided by what
+	// the specs touch rather than by how many cores are going spare: the three
+	// files are disjoint — responses on the next game, the kit register, the
+	// scoreline and vote on a played one — while the tests *inside* a file
+	// deliberately hand state to each other. `fullyParallel: false` is what draws
+	// that line, giving each file to one worker and keeping its tests in order.
+	workers: 3,
 	fullyParallel: false,
 	forbidOnly: Boolean(process.env.CI),
 	retries: process.env.CI ? 1 : 0,
@@ -50,13 +58,27 @@ export default defineConfig({
 	},
 	projects: [
 		{ name: 'mobile', use: { ...devices['Pixel 5'] } },
-		{ name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+		// Runs only once mobile is done, and that is the other half of the
+		// worker count above. The two viewports run the *same* specs against the
+		// same database — the same member's response document, the same ball,
+		// the same scoreline — so left to overlap they are not two viewports but
+		// two people racing for one row. `dependencies` is the ordering
+		// Playwright already has for this; the alternative is teaching every
+		// fixture to pick a different player per project, which buys nothing
+		// here because the file-level parallelism above is what the time goes on.
+		//
+		// Two things it costs, both worth knowing when reading a red run: asking
+		// for `--project=desktop` runs mobile first, so it is not a way to test
+		// one viewport; and a failure in mobile leaves desktop reported as never
+		// run rather than as passing.
+		{ name: 'desktop', use: { ...devices['Desktop Chrome'] }, dependencies: ['mobile'] },
 	],
 	/**
-	 * The whole stack in one command. Not `dev:seeded`, which adds the emulator
-	 * UI nobody is watching here — but the same shape, plus a backend build,
-	 * without which the functions emulator serves stale handlers and the
-	 * headcount these tests assert on never moves.
+	 * The whole stack in one command — `scripts/e2e-stack.sh`, which builds both
+	 * halves, boots every emulator, seeds a real scenario and serves the built
+	 * app. Not `dev:seeded`: that adds the emulator UI nobody is watching here,
+	 * and it runs `next dev`, which compiles each route the first time a test
+	 * opens it and re-renders every page through webpack's eval'd modules.
 	 */
 	webServer: {
 		command: 'pnpm dev:e2e',

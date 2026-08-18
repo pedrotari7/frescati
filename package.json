@@ -18,7 +18,7 @@
 		"test:rules": "scripts/emulators.sh 'jest --config rules/jest.config.ts' --only firestore --project demo-frescati",
 		"test:backend": "scripts/emulators.sh 'jest --config backend/jest.config.ts' --only firestore,auth --project demo-frescati",
 		"test:all": "pnpm test && pnpm test:frontend && pnpm test:rules && pnpm test:backend",
-		"dev:e2e": "pnpm --filter backend build && scripts/emulators.sh 'pnpm seed && NEXT_PUBLIC_USE_EMULATORS=1 pnpm --filter frontend dev'",
+		"dev:e2e": "scripts/e2e-stack.sh",
 		"test:e2e": "playwright test",
 		"test:e2e:ui": "playwright test --ui",
 		"emulators": "scripts/emulators.sh",
