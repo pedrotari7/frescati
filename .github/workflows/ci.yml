@@ -46,11 +46,12 @@ jobs:
   # on `shared`, whose code is compiled into the functions being deployed. Left
   # out, a red shared suite still shipped the backend that embeds it. `frontend`
   # is in here for a different reason: nothing it builds is deployed from this
-  # job, but a commit that breaks the app is one Vercel is about to reject, and
-  # shipping the backend half of it leaves the deployed pair mismatched. `e2e` is
-  # the last of them and the only one that checks the halves still meet, so a
-  # broken core loop stops the deploy rather than being shipped past.
-  deploy:
+  # job, but a commit whose app half doesn't compile is one `deploy-frontend`
+  # below is about to refuse, and shipping the backend on its own leaves the
+  # deployed pair mismatched. `e2e` is the last of them and the only one that
+  # checks the halves still meet, so a broken core loop stops the deploy rather
+  # than being shipped past.
+  deploy-backend:
     needs: [changes, shared, frontend, backend, rules, e2e]
     if: >-
       ${{ always() && !failure() && !cancelled()
@@ -73,3 +74,62 @@ jobs:
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
       - run: pnpm exec firebase deploy --only functions,firestore:rules --force --project default
+
+  # Vercel's git integration no longer deploys `main` — `frontend/vercel.json`
+  # turns it off for that branch and nothing else — so production goes out from
+  # here, behind the same suites the backend half already waits on. Until now the
+  # two halves of one commit shipped on independent triggers: a push that broke
+  # `pnpm test:backend` still deployed the frontend, because Vercel had never
+  # heard of the run that failed. Ordering matters as much as gating, which is
+  # why this needs `deploy-backend` rather than running beside it — rules and
+  # functions land first, so the bundle that arrives second is never the only
+  # half that knows about a field nothing is writing yet.
+  #
+  # Previews are deliberately untouched. The integration still builds every
+  # branch and every PR, `pr.yml` is what gates the merge, and a preview that
+  # ships past a red suite costs nobody anything.
+  #
+  # Unconditional, unlike `deploy-backend`: this runs on every green push to
+  # main, including one that only moved `backend/`. That keeps `/me` reporting
+  # the commit the group is actually on, which is the whole point of that screen
+  # — path-gating it would leave the deployed bundle honestly reporting a sha
+  # from three commits ago, and "which build are you on" answered with a number
+  # nobody can match to anything is the failure it exists to prevent.
+  #
+  # Vercel still does the **build**; this job only decides when it starts. That
+  # split is not a preference, it is what the environment allows: every one of
+  # this project's production variables is marked Sensitive, which means
+  # `vercel pull` hands back the literal string `[SENSITIVE]` rather than a
+  # value. A `vercel build --prebuilt` here would compile a bundle whose Firebase
+  # api key is `[SENSITIVE]`, fail nothing, and ship an app that cannot reach the
+  # database. Uploading the source and letting Vercel build it is also the only
+  # way `SENTRY_AUTH_TOKEN` stays somewhere CI never sees, and it keeps one build
+  # definition — the project settings — rather than a second copy in here that
+  # drifts.
+  deploy-frontend:
+    needs: [changes, shared, frontend, backend, rules, e2e, deploy-backend]
+    if: ${{ always() && !failure() && !cancelled() }}
+    runs-on: ubuntu-latest
+    env:
+      # Pinned rather than floating: the CLI is the one thing here that can
+      # change under us between two identical commits. Bump it deliberately.
+      VERCEL_CLI: vercel@59.1.4
+      # What the CLI would otherwise need a linked `.vercel/` for, which is
+      # gitignored. Neither id is secret — both are in every deployment URL —
+      # but they live beside the token so all three are rotated in one place.
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      # The checkout is load-bearing beyond supplying the files: the CLI reads
+      # `.git` to stamp the deployment with a commit, and that meta is what
+      # Vercel turns back into `VERCEL_GIT_COMMIT_SHA` for the build — which is
+      # the only thing `/me` and the Sentry release are named after. A checkout
+      # with no git directory would deploy the same code as an anonymous build.
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Deploy
+        run: pnpm dlx $VERCEL_CLI deploy --prod --yes --token=$VERCEL_TOKEN

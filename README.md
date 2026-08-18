@@ -76,7 +76,7 @@ Project: **`footballfrescati`**.
 
     Check it by opening **You → Push debug** as an app admin on a device with notifications switched off: the send should report that it went to your email instead. **You → Notification status** says up front if no sender is configured.
 
-9. Wire up GitHub Actions — without this, the `deploy` job in `ci.yml` fails on your first push to `main`:
+9. Wire up GitHub Actions — without this, the deploy jobs in `ci.yml` fail on your first push to `main`:
     - **Repo variables** (Settings → Secrets and variables → Actions → **Variables**): the same `NEXT_PUBLIC_FIREBASE_*` keys as `frontend/.env.local` (all except `VAPID_KEY`) — `frontend.yml` needs them to build the frontend in CI.
     - **Repo secret** (Settings → Secrets and variables → Actions → **Secrets**): `GCP_SA_KEY`, the JSON key of a service account that can deploy functions and rules:
 
@@ -103,6 +103,8 @@ Project: **`footballfrescati`**.
         ```
 
         Paste `sa-key.json`'s contents into the `GCP_SA_KEY` secret, then delete the local file — gen2 functions deploy through Cloud Build, Artifact Registry and Cloud Run, so `firebase.admin` alone isn't enough. `cloudtasks.admin` and `cloudscheduler.admin` are needed too: `rebuildTeams` upserts its Cloud Tasks queue and `finaliseDueTournaments`/`sendReminders` upsert their Cloud Scheduler jobs on every deploy. `secretmanager.admin` is what lets the deploy read `RESEND_API_KEY` and grant the runtime service account access to it.
+
+    - **Three more repo secrets** for `deploy-frontend`, which is what puts the frontend into production (see "Deployment"): `VERCEL_TOKEN` from **Vercel → Account Settings → Tokens**, scoped to the team that owns the project, and `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`, which `vercel link` writes into the gitignored `.vercel/project.json` as `orgId` and `projectId`. Only the token is really a secret — the two ids appear in every deployment URL — but they are kept together so all three are rotated in one place.
 
 10. **Set up App Check**, which is what keeps a script holding this project's public config out of a database every read of which is a plain signed-in read. See "Who can see the group" for what it does and doesn't cover.
     1. **Project settings → App Check → Apps →** your web app **→ reCAPTCHA Enterprise.** Register it, and put the **site key** in `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY` — in `frontend/.env.local`, in Vercel's environment variables, and as a repo variable for CI. It is public, like every other `NEXT_PUBLIC_` value.
@@ -317,8 +319,17 @@ curl -X POST "$DB/backupSchedules" -H "Authorization: Bearer $TOKEN" \
 
 ## Deployment
 
-- **Frontend** → Vercel git integration. Set the same `NEXT_PUBLIC_FIREBASE_*` vars (see `frontend/.env.local.example`) in the Vercel project's Environment Variables. Root directory `frontend`, install command run from the repo root.
-- **Functions and rules** → GitHub Actions on push to `main` (`.github/workflows/ci.yml`) — see setup step 9 above for the repo variables and `GCP_SA_KEY` secret it needs.
+- **Both halves go out from the same workflow**, on push to `main` (`.github/workflows/ci.yml`), and neither starts until every suite that applies has passed: `deploy-backend` ships functions and rules, then `deploy-frontend` ships the bundle. They used to run on independent triggers — Actions for the backend, Vercel's own git integration for the frontend — which meant a commit whose backend tests failed still shipped its frontend, leaving the deployed pair mismatched with nothing to say so.
+
+    `frontend/vercel.json` is what stops that second trigger, and it disables **only `main`**. Every other branch still deploys a preview the moment it is pushed, which is what the integration is genuinely good at; `pr.yml` is what gates the merge.
+
+- **Frontend** → `deploy-frontend` runs `vercel deploy --prod`, which uploads the source and lets **Vercel** build it. The project settings still own everything about that build — root directory `frontend`, install command run from the repo root, and the `NEXT_PUBLIC_FIREBASE_*` vars (see `frontend/.env.local.example`) in the project's Environment Variables. CI decides *when* to deploy and nothing else.
+
+    Building in CI instead — `vercel pull && vercel build --prod && vercel deploy --prebuilt`, which is the usual recipe — **does not work on this project**, and fails in the worst available way. Every production variable here is marked **Sensitive**, and `vercel pull` returns the literal string `[SENSITIVE]` for those rather than a value. The build then succeeds, reports nothing, and ships a bundle whose Firebase api key is `[SENSITIVE]` — an app that loads and cannot reach the database. Un-marking them would fix it, since all but `SENTRY_AUTH_TOKEN` are public values inlined into the client bundle anyway, but there is nothing to gain: a remote build reads them natively, keeps the one real credential somewhere CI never sees, and leaves a single build definition rather than a second copy in the workflow.
+
+    `VERCEL_GIT_COMMIT_SHA` survives this route because the CLI reads the checkout's `.git` and stamps the deployment with the commit. That is what `/me` and the Sentry release are named after, so it is still worth opening **`/me`** after the first deploy through this path to confirm it shows a sha rather than a blank.
+
+- **Functions and rules** → the `deploy-backend` job, which still only runs when `backend/`, `shared/` or `firestore.rules` moved. See setup step 9 above for the repo variables and the `GCP_SA_KEY`, `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` secrets the two jobs need.
 - The deploy is **non-interactive**, which makes two things hard requirements rather than conveniences: every `defineSecret` must already exist in Secret Manager, and every `defineString` must have a value in `backend/.env`. Neither falls back to a default — the deploy just fails. That is why `backend/.env` is committed and why `RESEND_API_KEY` has to exist even on a project sending no email.
 - The **Content-Security-Policy still ships report-only.** Violations post to `/api/csp-report` and come out in Vercel's function logs (`vercel logs`, or the Logs tab, filtered on `CSP violation`). Watch those through a few days of real use — sign-in, notifications, the tournament screen — and once nothing legitimate is being reported, switch the header key in `frontend/next.config.js` from `Content-Security-Policy-Report-Only` to `Content-Security-Policy`. `frame-ancestors` already enforces in its own header, because it is ignored in report-only mode.
 
