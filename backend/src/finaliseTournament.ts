@@ -2,29 +2,13 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
-import type { Game, Season } from '../../shared/types';
+import type { Game } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
-import { hasAppAdminClaim, isSeasonAdmin, requireAuth } from './lib/auth';
+import { requireSeasonAdmin } from './lib/auth';
 import { EMAIL_SECRETS } from './lib/email';
 import { AUTO_FINALISE_HOURS } from '../../shared/tournament';
 import { drainAbandonedReplays, finaliseGame, requestRatingReplay } from './lib/finalise';
 import { HOURLY, instrument, instrumentSchedule, reportError } from './lib/sentry';
-
-/**
- * The season-admin check, by id rather than on a season already in hand.
- *
- * Short-circuits on the global claim *before* the read, which is the only
- * reason this isn't a bare call to the shared predicate: an app admin is
- * allowed here whatever the season says, so fetching it first would be a
- * document read to answer a question already settled.
- */
-const canFinalise = async (seasonId: string, uid: string, appAdmin: boolean): Promise<boolean> => {
-	if (appAdmin) return true;
-
-	const snapshot = await db.doc(`seasons/${seasonId}`).get();
-
-	return isSeasonAdmin(snapshot.data() as Season | undefined, uid, false);
-};
 
 /**
  * Confirm a game on demand.
@@ -43,14 +27,10 @@ export const finaliseTournament = onCall<{ seasonId?: string; gameId?: string }>
 	// nobody — see `sendPush`.
 	{ region: REGION, timeoutSeconds: 300, secrets: EMAIL_SECRETS },
 	instrument('finaliseTournament', async request => {
-		const uid = requireAuth(request);
-
 		const { seasonId, gameId } = request.data ?? {};
 		if (!seasonId || !gameId) throw new HttpsError('invalid-argument', 'Which game?');
 
-		if (!(await canFinalise(seasonId, uid, hasAppAdminClaim(request)))) {
-			throw new HttpsError('permission-denied', 'Only a season admin can confirm results.');
-		}
+		const uid = await requireSeasonAdmin(request, seasonId, 'Only a season admin can confirm results.');
 
 		const outcome = await finaliseGame(seasonId, gameId, uid);
 

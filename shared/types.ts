@@ -511,11 +511,29 @@ export interface TournamentTeam {
 }
 
 /**
+ * Who last changed a lineup by hand, and when.
+ *
+ * Its **presence is the pin**: past this point the debounced rebuild leaves the
+ * sheet alone, because an admin standing at the pitch moving people about knows
+ * something the optimizer does not, and having the next person to tap Out undo
+ * it is the whole failure this prevents. Reshuffle is the way back — that button
+ * already means "re-pick these teams", so it is allowed to.
+ *
+ * Signed for the same reason a scoreline and a kit handover are: a lineup
+ * nobody recognises needs a face on it.
+ */
+export interface LineupEdit {
+	by: string;
+	at: string;
+}
+
+/**
  * The generated lineup, at `seasons/{id}/games/{id}/tournament/teams`.
  *
- * Written only by the `rebuildTeams` function. It lives in a subcollection rather
- * than on the game document because it is rewritten on every response and the
- * game document is what the whole calendar subscribes to.
+ * Written only by the `rebuildTeams` function and the callables that edit it by
+ * hand — never by a client. It lives in a subcollection rather than on the game
+ * document because it is rewritten on every response and the game document is
+ * what the whole calendar subscribes to.
  */
 export interface TournamentTeams {
 	teams: TournamentTeam[];
@@ -527,6 +545,12 @@ export interface TournamentTeams {
 	/** The `Game.teamsGeneration` this was built from. */
 	generation: number;
 	builtAt: string;
+	/**
+	 * Absent on a lineup the optimizer picked and nobody has touched, which is
+	 * almost all of them. A rebuild writes the whole document, so it clears
+	 * itself the moment the teams are picked again.
+	 */
+	edited?: LineupEdit;
 }
 
 /**

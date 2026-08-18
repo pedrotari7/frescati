@@ -74,6 +74,7 @@ const DEPLOYED = [
 	'sendTestEmail',
 	'sendTestPush',
 	'setAppAdmin',
+	'setPlayerTeam',
 	'setStartingRating',
 	'throwTestError',
 ];

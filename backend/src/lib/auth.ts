@@ -1,6 +1,7 @@
 import { HttpsError } from 'firebase-functions/v2/https';
 import type { CallableRequest } from 'firebase-functions/v2/https';
 import type { Season } from '../../../shared/types';
+import { db } from './firebase';
 
 /**
  * Who is allowed to call what.
@@ -56,3 +57,33 @@ export const hasAppAdminClaim = (request: CallableRequest<unknown>): boolean => 
  */
 export const isSeasonAdmin = (season: Pick<Season, 'adminUids'> | undefined, uid: string, appAdmin: boolean): boolean =>
 	appAdmin || (season?.adminUids ?? []).includes(uid);
+
+/**
+ * The same question by season id, for the handlers that only have one.
+ *
+ * Short-circuits on the global claim *before* the read: an app admin is allowed
+ * whatever the season says, so fetching it first would be a document read to
+ * answer a question already settled.
+ *
+ * The message is the caller's because `permission-denied` is one of the few
+ * errors a person actually reads — "only a season admin can confirm results"
+ * says which season admin power they were reaching for, where a shared sentence
+ * would leave them guessing.
+ */
+export const requireSeasonAdmin = async (
+	request: CallableRequest<unknown>,
+	seasonId: string,
+	message: string
+): Promise<string> => {
+	const uid = requireAuth(request);
+
+	if (hasAppAdminClaim(request)) return uid;
+
+	const snapshot = await db.doc(`seasons/${seasonId}`).get();
+
+	if (!isSeasonAdmin(snapshot.data() as Season | undefined, uid, false)) {
+		throw new HttpsError('permission-denied', message);
+	}
+
+	return uid;
+};

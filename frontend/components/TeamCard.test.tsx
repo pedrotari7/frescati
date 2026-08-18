@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { AppUser, TournamentTeam } from '@shared/types';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
 import { BASE_ELO } from '@shared/rating';
@@ -89,6 +89,66 @@ describe('TeamCard', () => {
 		);
 
 		expect(screen.getByText('+6')).toBeInTheDocument();
+	});
+
+	// The squad average is drawn from the ratings we hold, and a missing one is
+	// not a zero: counting it as one dragged the whole badge down by whatever
+	// share of the squad that player was.
+	it('prices a player we hold no rating for as unknown, and leaves them out of the average', () => {
+		render(<TeamCard team={team} elos={{ alice: BASE_ELO }} usersByUid={usersByUid} sideSize={2} />);
+
+		expect(screen.getByText('–')).toBeInTheDocument();
+		expect(screen.getByText('avg 50')).toBeInTheDocument();
+	});
+
+	it('shows no average at all for a squad we can price nobody on', () => {
+		render(<TeamCard team={team} elos={{}} usersByUid={usersByUid} sideSize={2} />);
+
+		expect(screen.queryByText(/^avg /)).not.toBeInTheDocument();
+	});
+
+	describe('with a season admin looking at it', () => {
+		it('offers no way to move anybody by default', () => {
+			render(<TeamCard team={team} elos={{}} usersByUid={usersByUid} sideSize={2} />);
+
+			expect(screen.queryByRole('button', { name: /Move/ })).not.toBeInTheDocument();
+		});
+
+		it('opens the move sheet for the player whose button was tapped', () => {
+			const onMovePlayer = jest.fn();
+
+			render(
+				<TeamCard
+					team={team}
+					elos={{}}
+					usersByUid={usersByUid}
+					sideSize={2}
+					onMovePlayer={onMovePlayer}
+				/>
+			);
+
+			fireEvent.click(screen.getByRole('button', { name: 'Move Bob Lee to another team' }));
+
+			expect(onMovePlayer).toHaveBeenCalledWith('bob');
+		});
+	});
+
+	// Only reachable on a hand-picked lineup, which stops being re-picked — so
+	// the sheet outlives somebody's answer and a squad is quietly a man short.
+	it('marks somebody on the sheet who has since dropped out', () => {
+		render(
+			<TeamCard
+				team={team}
+				elos={{ alice: BASE_ELO, bob: BASE_ELO }}
+				usersByUid={usersByUid}
+				sideSize={2}
+				notPlaying={new Set(['bob'])}
+			/>
+		);
+
+		expect(screen.getByText('Out')).toBeInTheDocument();
+		expect(screen.getByText('Bob Lee')).toHaveClass('line-through');
+		expect(screen.getByText('Alice Ng')).not.toHaveClass('line-through');
 	});
 
 	it('shows no movement badge for a delta that rounds to zero', () => {

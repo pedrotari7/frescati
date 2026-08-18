@@ -152,7 +152,14 @@ describe('onGameWrite', () => {
 
 		await onGameWrite.run(writtenEvent({ seasonId: SEASON_ID, gameId: GAME_ID }, before, after));
 
-		expect(enqueue).toHaveBeenCalledWith({ seasonId: SEASON_ID, gameId: GAME_ID, generation: 3 });
+		// `force`, because a reshuffle is somebody asking for different teams —
+		// the one instruction that outranks a lineup they picked by hand earlier.
+		expect(enqueue).toHaveBeenCalledWith({
+			seasonId: SEASON_ID,
+			gameId: GAME_ID,
+			generation: 3,
+			force: true,
+		});
 	});
 
 	it('queues a team rebuild when the balance levers change', async () => {

@@ -383,7 +383,12 @@ service cloud.firestore {
         // admins looking at the same game cannot produce different teams.
         //
         // Reshuffling goes through `reshuffleCount` on the game document
-        // instead, which is a season-admin write like any other.
+        // instead, which is a season-admin write like any other, and moving
+        // somebody by hand goes through the `setPlayerTeam` callable — which is
+        // the same arrangement rather than an exception to it: the checks it
+        // makes are a squad that cannot be emptied and a player who has to be in
+        // the pool, neither of which can be expressed here against a list of
+        // maps, and the door stays shut to every client either way.
         match /tournament/{docId} {
           allow read: if isSignedIn();
           allow write: if false;

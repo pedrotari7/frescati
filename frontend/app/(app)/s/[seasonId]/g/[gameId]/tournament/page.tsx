@@ -1,7 +1,14 @@
 'use client';
 
-import { Fragment, use } from 'react';
-import { ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { Fragment, use, useState } from 'react';
+import {
+	ArrowPathIcon,
+	CheckCircleIcon,
+	ExclamationTriangleIcon,
+	HandRaisedIcon,
+	PencilSquareIcon,
+	UsersIcon,
+} from '@heroicons/react/24/outline';
 import {
 	AUTO_FINALISE_HOURS,
 	describeSquads,
@@ -12,6 +19,8 @@ import {
 	MIN_TOURNAMENT_PLAYERS,
 	selectPlayedMatches,
 } from '@shared/tournament';
+import { findTeamIndex, getUnassigned } from '@shared/lineup';
+import { isConfirmed, sortResponses } from '@shared/game';
 import { getStandings } from '@shared/standings';
 import { formatGameDateLong, formatRelative } from '@shared/format';
 import { isMotmVotingOpen } from '@shared/motm';
@@ -21,6 +30,7 @@ import {
 	useMotm,
 	useMotmVoters,
 	useMyMotmVote,
+	useResponses,
 	useTournamentResult,
 	useTournamentTeams,
 	useUsersByUid,
@@ -36,13 +46,17 @@ import {
 	finaliseTournament,
 	reshuffleTeams,
 	setMatchScore,
+	setPlayerTeam,
 } from '../../../../../../../lib/db/tournament';
+import { displayNameOf } from '../../../../../../../lib/people';
 import MotmPanel from '../../../../../../../components/MotmPanel';
+import PlayerTeamSheet from '../../../../../../../components/PlayerTeamSheet';
 import SeasonShell from '../../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../../components/EmptyState';
 import Button from '../../../../../../../components/Button';
 import StatusPill from '../../../../../../../components/StatusPill';
+import Avatar from '../../../../../../../components/Avatar';
 import TeamCard from '../../../../../../../components/TeamCard';
 import MatchScore from '../../../../../../../components/MatchScore';
 import StandingsTable from '../../../../../../../components/StandingsTable';
@@ -64,6 +78,14 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// anything off `new Date()` would keep offering the buttons for as long as
 	// the page stayed open.
 	const now = useNow();
+	// Who is actually in, subscribed here rather than taken from `game.counts`:
+	// the counters are a background trigger behind, and this is the list the
+	// team sheet gets compared against.
+	const { responses } = useResponses(seasonId, gameId);
+
+	// Which player's move sheet is open. One at a time — this is a tap on a name
+	// followed by a tap on a letter, not a mode the screen sits in.
+	const [movingUid, setMovingUid] = useState<string | null>(null);
 
 	const game = games.find(candidate => candidate.id === gameId) ?? null;
 
@@ -161,6 +183,29 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// on its side too.
 	const canReshuffle = played === 0 && !finalised;
 
+	// The lineup is frozen once the ledger has been computed against it, which
+	// `setPlayerTeam` refuses on its side too — this is about which buttons get
+	// offered. Season admins rather than everyone `isAdmin` covers, for the same
+	// reason Reshuffle is: an app admin passing through somebody else's season
+	// has no standing to re-pick their teams.
+	const canMovePlayers = isSeasonAdmin && !finalised;
+
+	const poolUids = sortResponses(responses.filter(response => response.status === 'in' && isConfirmed(response))).map(
+		response => response.uid
+	);
+
+	// A hand-picked lineup stops being re-picked, which is the point of it — and
+	// the price is that the sheet and the pool can drift apart in both
+	// directions: somebody says In afterwards and lands on no team, or somebody
+	// on a squad taps Out and stays on it. Neither is wrong, both are invisible,
+	// and the app has stopped being the thing that would fix them. An automatic
+	// lineup needs none of this said: a rebuild is already seconds away.
+	const inThePool = new Set(poolUids);
+	const unassigned = lineup.edited ? getUnassigned(lineup.teams, poolUids) : [];
+	const notPlaying = lineup.edited
+		? new Set(lineup.teams.flatMap(team => team.uids).filter(uid => !inThePool.has(uid)))
+		: undefined;
+
 	// Only worth explaining when it is actually happening.
 	const unequal = new Set(standings.map(row => row.played)).size > 1;
 
@@ -216,9 +261,20 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 						</StatusPill>
 					</div>
 
-					<p className='text-muted mt-3 text-sm'>
-						Picked automatically from who is in, and re-picked whenever somebody changes their answer.
-					</p>
+					{lineup.edited ? (
+						<p className='text-muted mt-3 flex items-start gap-1.5 text-sm'>
+							<PencilSquareIcon className='mt-0.5 size-4 shrink-0' aria-hidden='true' />
+							<span>
+								Sorted out by {displayNameOf(usersByUid.get(lineup.edited.by))}{' '}
+								{formatRelative(lineup.edited.at)}. These teams stay as they are now — Reshuffle hands
+								them back to the app.
+							</span>
+						</p>
+					) : (
+						<p className='text-muted mt-3 text-sm'>
+							Picked automatically from who is in, and re-picked whenever somebody changes their answer.
+						</p>
+					)}
 
 					{fit.overrunMinutes > 0 && (
 						<p className='text-pending mt-3 flex items-start gap-1.5 text-sm'>
@@ -275,9 +331,55 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 							sideSize={Math.min(...squadSizes)}
 							highlightUid={user?.uid}
 							deltas={deltas}
+							notPlaying={notPlaying}
+							onMovePlayer={canMovePlayers ? setMovingUid : undefined}
 						/>
 					))}
 				</div>
+
+				{/* Only reachable once somebody has picked the teams by hand, which is
+				    also the moment nothing else is going to notice. Shown to everybody
+				    rather than to admins alone: a player looking for their own name on
+				    four cards and not finding it deserves the explanation, even though
+				    only an admin can do anything about it. */}
+				{unassigned.length > 0 && (
+					<section className='glass rounded-3xl p-5'>
+						<div className='mb-1 flex items-center gap-2'>
+							<HandRaisedIcon className='text-pending size-4 shrink-0' aria-hidden='true' />
+							<h2 className='text-ink text-sm font-semibold'>Not on the sheet</h2>
+							<StatusPill tone='pending'>{unassigned.length}</StatusPill>
+						</div>
+
+						<p className='text-faint mb-3 text-xs'>
+							In for this game, but on no team — the app stopped picking when the teams were sorted out by
+							hand.
+						</p>
+
+						<ul className='divide-y divide-white/5'>
+							{unassigned.map(uid => {
+								const player = usersByUid.get(uid);
+
+								return (
+									<li key={uid} className='flex items-center gap-3 py-2'>
+										<Avatar
+											displayName={displayNameOf(player)}
+											photoURL={player?.photoURL}
+											size='sm'
+										/>
+										<span className='text-ink min-w-0 flex-1 truncate text-sm'>
+											{displayNameOf(player)}
+										</span>
+										{canMovePlayers && (
+											<Button size='sm' variant='ghost' onClick={() => setMovingUid(uid)}>
+												Give a team
+											</Button>
+										)}
+									</li>
+								);
+							})}
+						</ul>
+					</section>
+				)}
 
 				<section className='glass rounded-3xl p-5'>
 					<div className='mb-3 flex items-baseline justify-between gap-2'>
@@ -367,6 +469,22 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 							</>
 						)}
 					</section>
+				)}
+
+				{movingUid && (
+					<PlayerTeamSheet
+						displayName={displayNameOf(usersByUid.get(movingUid))}
+						teams={lineup.teams}
+						currentIndex={findTeamIndex(lineup.teams, movingUid)}
+						open
+						onClose={() => setMovingUid(null)}
+						onMove={async teamIndex => {
+							await write(
+								() => setPlayerTeam(seasonId, gameId, movingUid, teamIndex),
+								"Couldn't move them."
+							);
+						}}
+					/>
 				)}
 			</div>
 		</SeasonShell>

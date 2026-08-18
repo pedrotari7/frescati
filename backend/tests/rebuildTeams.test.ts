@@ -105,6 +105,56 @@ describe('runTeamRebuild', () => {
 		expect(await readTeams(SEASON_ID, GAME_ID)).toEqual(frozen);
 	});
 
+	// An admin standing at the pitch knows something the optimizer doesn't, and
+	// the next person to change their mind must not undo it.
+	it('leaves a hand-picked lineup alone', async () => {
+		const players = uids(8);
+		await writeSeason(SEASON_ID, { memberUids: players });
+		await writeGame(SEASON_ID, GAME_ID, { teamsGeneration: 3 });
+		const pinned = await writeTeams(SEASON_ID, GAME_ID, [players.slice(0, 4), players.slice(4)], {
+			generation: 3,
+			edited: { by: 'season-admin', at: '2026-09-01T17:05:00.000Z' },
+		});
+		for (const uid of players) await writeResponse(SEASON_ID, GAME_ID, uid, { status: 'in', role: 'member' });
+
+		await runTeamRebuild({ seasonId: SEASON_ID, gameId: GAME_ID, generation: 3 });
+
+		expect(await readTeams(SEASON_ID, GAME_ID)).toEqual(pinned);
+	});
+
+	// Which is also why it must not be cleared out from under them when the pool
+	// drops below the tournament floor.
+	it('keeps a hand-picked lineup even when the pool falls short of a tournament', async () => {
+		const players = uids(8);
+		await writeSeason(SEASON_ID, { memberUids: players });
+		await writeGame(SEASON_ID, GAME_ID, { teamsGeneration: 3 });
+		await writeTeams(SEASON_ID, GAME_ID, [players.slice(0, 4), players.slice(4)], {
+			generation: 3,
+			edited: { by: 'season-admin', at: '2026-09-01T17:05:00.000Z' },
+		});
+		await writeResponse(SEASON_ID, GAME_ID, players[0], { status: 'in', role: 'member' });
+
+		await runTeamRebuild({ seasonId: SEASON_ID, gameId: GAME_ID, generation: 3 });
+
+		expect(await readTeams(SEASON_ID, GAME_ID)).toBeDefined();
+	});
+
+	// Reshuffle already means "re-pick these teams", so it is the way back.
+	it('re-picks a hand-picked lineup when the rebuild was asked for', async () => {
+		const players = uids(8);
+		await writeSeason(SEASON_ID, { memberUids: players });
+		await writeGame(SEASON_ID, GAME_ID, { teamsGeneration: 3, reshuffleCount: 1 });
+		await writeTeams(SEASON_ID, GAME_ID, [players.slice(0, 4), players.slice(4)], {
+			generation: 3,
+			edited: { by: 'season-admin', at: '2026-09-01T17:05:00.000Z' },
+		});
+		for (const uid of players) await writeResponse(SEASON_ID, GAME_ID, uid, { status: 'in', role: 'member' });
+
+		await runTeamRebuild({ seasonId: SEASON_ID, gameId: GAME_ID, generation: 3, force: true });
+
+		expect((await readTeams(SEASON_ID, GAME_ID))?.edited).toBeUndefined();
+	});
+
 	it('skips a rebuild superseded by a later response', async () => {
 		const players = uids(8);
 		await writeSeason(SEASON_ID, { memberUids: players });

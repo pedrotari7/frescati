@@ -15,7 +15,7 @@ import { instrument, reportError } from './lib/sentry';
  *
  * `kickoffMillis` exists because a security rule cannot parse the ISO 8601
  * `kickoff`, and the response deadline has to be enforced against *something*.
- * Which is exactly why no rule can check the two agree either — the parse it
+ * Which is exactly why no rule can check the two agree either â the parse it
  * would need is the one it can't do. So the agreement is repaired here rather
  * than trusted.
  *
@@ -24,7 +24,7 @@ import { instrument, reportError } from './lib/sentry';
  * the one thing rules actually enforce on this document.
  *
  * Nothing in the app writes `kickoff` after creation today, so this defends a
- * console edit — and the reschedule feature the `kickoffMoved` notification
+ * console edit â and the reschedule feature the `kickoffMoved` notification
  * below is already written for, whenever it arrives.
  */
 const repairKickoffMirror = async (seasonId: string, gameId: string, game: Game): Promise<void> => {
@@ -50,8 +50,8 @@ const repairKickoffMirror = async (seasonId: string, gameId: string, game: Game)
  * Tells people when something about a game changes under them.
  *
  * Reads the game document and, in one case only, writes it: `repairKickoffMirror`
- * above. That is deliberate and it converges — the repaired value satisfies the
- * condition, so the invocation it causes does nothing — and it cannot re-send a
+ * above. That is deliberate and it converges â the repaired value satisfies the
+ * condition, so the invocation it causes does nothing â and it cannot re-send a
  * notification, because that second invocation sees an unchanged `kickoff`, an
  * unchanged `atRisk` and an unchanged `reshuffleCount`. Nothing else here writes,
  * and nothing else should: this fires on every `counts` update from
@@ -65,7 +65,7 @@ export const onGameWrite = onDocumentWritten(
 		const { seasonId, gameId } = event.params;
 
 		// Ahead of the notification guard below, because a game can be created
-		// with the two already disagreeing — and that is the state the response
+		// with the two already disagreeing â and that is the state the response
 		// deadline would then be enforced against for its whole life.
 		if (after) await repairKickoffMirror(seasonId, gameId, after);
 
@@ -80,11 +80,17 @@ export const onGameWrite = onDocumentWritten(
 		// it. A bump is a write to this very document, and unlike the kickoff
 		// repair above it would not converge: every bump invalidates the rebuild
 		// it just queued, so the next invocation would bump again.
+		//
+		// `force`, because this is the one rebuild that is somebody *asking* for
+		// one. Every other is a side effect of an answer moving, and those leave
+		// a hand-picked sheet alone — but an admin who has pinned a lineup and
+		// then taps Reshuffle is asking to start again, and this is where they
+		// say so.
 		if (
 			before.reshuffleCount !== after.reshuffleCount ||
 			JSON.stringify(before.balance) !== JSON.stringify(after.balance)
 		) {
-			await enqueueTeamRebuild({ seasonId, gameId, generation: after.teamsGeneration ?? 0 });
+			await enqueueTeamRebuild({ seasonId, gameId, generation: after.teamsGeneration ?? 0, force: true });
 		}
 
 		const season = await getSeason(seasonId);
@@ -116,7 +122,7 @@ export const onGameWrite = onDocumentWritten(
 			return;
 		}
 
-		// Only on the transition into trouble — `counts` updates land here
+		// Only on the transition into trouble â `counts` updates land here
 		// constantly, and a push on each one would be unbearable.
 		if (!before.atRisk && after.atRisk && after.status === 'scheduled') {
 			const silent = getSilentMembers(season, responses);

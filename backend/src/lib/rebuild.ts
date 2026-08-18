@@ -24,6 +24,15 @@ export interface TeamRebuildTask {
 	gameId: string;
 	/** The `Game.teamsGeneration` this rebuild was queued for. */
 	generation: number;
+	/**
+	 * Re-pick even a lineup an admin has edited by hand.
+	 *
+	 * Set only by the one thing that means "re-pick these teams" outright —
+	 * Reshuffle, and moving the balance levers, both of which `onGameWrite`
+	 * sees. Every other rebuild is a side effect of somebody answering, and
+	 * those must not quietly undo a hand-picked sheet.
+	 */
+	force?: boolean;
 }
 
 /** The levers actually in force: season defaults, overridden per game. */
@@ -63,7 +72,7 @@ const getRecentSquads = async (seasonId: string, kickoff: string, lookback: numb
 		.map(lineup => (lineup.data() as TournamentTeams).teams.map(team => team.uids));
 };
 
-export const runTeamRebuild = async ({ seasonId, gameId, generation }: TeamRebuildTask): Promise<void> => {
+export const runTeamRebuild = async ({ seasonId, gameId, generation, force }: TeamRebuildTask): Promise<void> => {
 	const teamsRef = db.doc(`seasons/${seasonId}/games/${gameId}/tournament/teams`);
 
 	const game = await getGame(seasonId, gameId);
@@ -87,6 +96,25 @@ export const runTeamRebuild = async ({ seasonId, gameId, generation }: TeamRebui
 	if ((game.teamsGeneration ?? 0) !== generation) {
 		logger.debug('Skipped a superseded team rebuild', { seasonId, gameId, generation });
 		return;
+	}
+
+	// An admin has moved people about by hand. From then on this sheet is a
+	// decision rather than a suggestion, and re-picking it because somebody
+	// three streets away changed their mind would undo the evening's planning
+	// with nothing on screen to say why — the same reasoning that freezes a
+	// confirmed game's lineup, one step earlier.
+	//
+	// Read rather than assumed, so the pin costs one document read on a path
+	// that is about to write that document anyway. `force` is the way back: it
+	// carries an admin explicitly asking for a re-pick, which is the one
+	// instruction that outranks their own earlier one.
+	if (!force) {
+		const existing = (await teamsRef.get()).data() as TournamentTeams | undefined;
+
+		if (existing?.edited) {
+			logger.debug('Left a hand-picked lineup alone', { seasonId, gameId, generation });
+			return;
+		}
 	}
 
 	const season = await getSeason(seasonId);

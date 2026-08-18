@@ -33,6 +33,33 @@ export const subscribeToTeams = (
 export const reshuffleTeams = (seasonId: string, gameId: string) =>
 	updateDoc(gameDoc(seasonId, gameId), { reshuffleCount: increment(1) });
 
+/**
+ * Move somebody between squads, off the team sheet, or back onto one.
+ *
+ * A callable because the lineup is function-owned: `firestore.rules` refuses
+ * every client write to it, which is what stops a player putting themselves on
+ * the side they fancy. The season-admin check, the pool check and the refusal to
+ * empty a squad all live in `setPlayerTeam` for the same reason.
+ *
+ * `teamIndex: null` takes them off the sheet — for the person who said In and
+ * never turned up, or the one who has to leave at half seven.
+ *
+ * **This pins the lineup.** From here the app stops re-picking these teams when
+ * somebody changes their mind, because it has been told the teams by somebody
+ * who can see the pitch. Reshuffle hands it back.
+ */
+export const setPlayerTeam = async (
+	seasonId: string,
+	gameId: string,
+	uid: string,
+	teamIndex: number | null
+): Promise<void> => {
+	await callFunction<{ seasonId: string; gameId: string; uid: string; teamIndex: number | null }, { ok: boolean }>(
+		'setPlayerTeam',
+		{ seasonId, gameId, uid, teamIndex }
+	);
+};
+
 export const subscribeToMatches = (
 	seasonId: string,
 	gameId: string,

@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
 import type { AppUser, TournamentTeam } from '@shared/types';
 import { toDisplayRating } from '@shared/rating';
 import { counted } from '@shared/format';
 import { displayNameOf } from '../lib/people';
 import Avatar from './Avatar';
 import RatingMovement from './RatingMovement';
+import StatusPill from './StatusPill';
 import TeamBadge, { teamName, teamStyle } from './TeamBadge';
 import { classNames } from '../lib/utils/reactHelper';
 
@@ -25,6 +27,8 @@ const TeamCard = ({
 	sideSize,
 	highlightUid,
 	deltas,
+	notPlaying,
+	onMovePlayer,
 }: {
 	team: TournamentTeam;
 	elos: Record<string, number>;
@@ -33,9 +37,22 @@ const TeamCard = ({
 	highlightUid?: string | null;
 	/** Rating movement per uid, once the game has been confirmed. */
 	deltas?: Map<string, number>;
+	/**
+	 * Anyone on this sheet who is no longer in the playing pool. Only possible
+	 * on a hand-picked lineup, which stops being re-picked — so the sheet can
+	 * outlive somebody's answer, and saying nothing would leave a squad quietly
+	 * a man short on the night.
+	 */
+	notPlaying?: Set<string>;
+	/** Season admins only: open the sheet that moves this player elsewhere. */
+	onMovePlayer?: (uid: string) => void;
 }) => {
 	const style = teamStyle(team.index);
-	const average = team.uids.reduce((total, uid) => total + (elos[uid] ?? 0), 0) / Math.max(1, team.uids.length);
+	// Only over the ratings we actually hold. Treating a missing one as zero
+	// dragged the whole squad's badge down by whatever share of it that player
+	// was — a worse answer than an average of the people we can price.
+	const rated = team.uids.map(uid => elos[uid]).filter((elo): elo is number => typeof elo === 'number');
+	const average = rated.length > 0 ? rated.reduce((total, elo) => total + elo, 0) / rated.length : null;
 	const rotating = team.uids.length - sideSize;
 
 	return (
@@ -56,40 +73,67 @@ const TeamCard = ({
 						</div>
 					</div>
 
-					<span
-						className={classNames(
-							'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold',
-							style.chip
-						)}
-					>
-						avg {toDisplayRating(average)}
-					</span>
+					{average !== null && (
+						<span
+							className={classNames(
+								'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold',
+								style.chip
+							)}
+						>
+							avg {toDisplayRating(average)}
+						</span>
+					)}
 				</header>
 
 				<ul className='space-y-1'>
 					{team.uids.map(uid => {
 						const user = usersByUid.get(uid);
+						const elo = elos[uid];
+						const dropped = notPlaying?.has(uid) === true;
 
 						return (
-							<li key={uid}>
+							<li
+								key={uid}
+								className={classNames(
+									'flex items-center rounded-xl transition-colors',
+									uid === highlightUid && 'bg-white/6'
+								)}
+							>
+								{/* Only the name is the link. An admin's move button sits
+								    beside it, and a <button> inside an <a> is invalid and
+								    breaks keyboard navigation. */}
 								<Link
 									href={`/u/${uid}`}
-									className={classNames(
-										'flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/5',
-										uid === highlightUid && 'bg-white/6'
-									)}
+									className='flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/5'
 								>
 									<Avatar displayName={displayNameOf(user)} photoURL={user?.photoURL} size='sm' />
 									{/* Full name, like every other list of people in the app: a team
 									    sheet is where two Davids have to be told apart. */}
-									<span className='text-ink min-w-0 flex-1 truncate text-sm'>
+									<span
+										className={classNames(
+											'min-w-0 flex-1 truncate text-sm',
+											dropped ? 'text-muted line-through' : 'text-ink'
+										)}
+									>
 										{displayNameOf(user)}
 									</span>
+									{dropped && <StatusPill tone='out'>Out</StatusPill>}
 									<RatingMovement delta={deltas?.get(uid)} className='text-[11px]' />
 									<span className='text-faint text-xs tabular-nums'>
-										{toDisplayRating(elos[uid] ?? 0)}
+										{typeof elo === 'number' ? toDisplayRating(elo) : '–'}
 									</span>
 								</Link>
+
+								{onMovePlayer && (
+									<button
+										type='button'
+										onClick={() => onMovePlayer(uid)}
+										aria-label={`Move ${displayNameOf(user)} to another team`}
+										className='text-faint hover:text-ink mr-1 flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-white/5 active:bg-white/10'
+									>
+										<ArrowsRightLeftIcon className='size-4' aria-hidden='true' />
+									</button>
+								)}
 							</li>
 						);
 					})}
