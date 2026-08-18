@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { aMember, openAs, whoIs } from './fixtures';
-import { openFirstSeason } from './helpers';
+import type { Locator } from '@playwright/test';
+import { aMember, whoIs } from './fixtures';
+import { openSeasonAs } from './helpers';
 
 /**
  * Handing the ball over, and the two rules that meet on that screen.
@@ -24,11 +25,20 @@ import { openFirstSeason } from './helpers';
  * says, immediately and with nothing in between.
  */
 
+/**
+ * The name on one of the sheet's rows.
+ *
+ * Off the avatar's `title`, not the row's text: an account with no picture draws
+ * its initials instead, so `innerText` comes back as "DP\nDimitri Petrov" and
+ * nothing on the register matches it.
+ */
+const holderName = async (row: Locator): Promise<string> =>
+	(await row.locator('[title]').first().getAttribute('title'))!;
+
 test.describe('the kit register', () => {
 	test('lets an ordinary member hand an item to somebody else', async ({ page }) => {
 		const member = aMember();
-		await openAs(page, member);
-		await openFirstSeason(page);
+		await openSeasonAs(page, member);
 
 		await page
 			.getByRole('link', { name: /Squad|Members/i })
@@ -44,20 +54,20 @@ test.describe('the kit register', () => {
 		const sheet = page.getByRole('dialog');
 		await expect(sheet.getByText(/Who has /)).toBeVisible();
 
-		// Somebody on the roster who is not the person signed in — the rules
-		// check the incoming holder against `memberUids`.
-		const other = whoIs(/^Member of |Admin of /).find(candidate => candidate.uid !== member.uid);
-		expect(other, 'the scenario needs at least two people in a season').toBeTruthy();
+		// Whoever the sheet itself offers, rather than a name picked out of the
+		// cast: it lists the squad and only the squad, because the rules refuse a
+		// holder who isn't on `memberUids`, and it disables the current holder.
+		// So the first enabled option is by construction a legal new holder —
+		// which a name chosen here would only be by luck.
+		const candidate = sheet.locator('li button:not([disabled])').first();
+		await expect(candidate, 'the sheet offered nobody to hand it to').toBeVisible();
 
-		await sheet.getByLabel('Search the squad').fill(other!.displayName);
-		await sheet
-			.getByRole('button', { name: new RegExp(other!.displayName.split(' ')[0]) })
-			.first()
-			.click();
+		const other = await holderName(candidate);
+		await candidate.click();
 
 		await expect(sheet).toBeHidden();
 		// The register now says so, which is the only question it answers.
-		await expect(page.getByText(other!.displayName).first()).toBeVisible();
+		await expect(page.getByText(other).first()).toBeVisible();
 	});
 
 	test('refuses to offer a member the admin-only controls', async ({ page }) => {
@@ -65,10 +75,12 @@ test.describe('the kit register', () => {
 		// member who could re-kind the vests as `other` would silence that
 		// warning for the whole squad.
 		const member = whoIs(/^Member of /).find(candidate => !/Admin of /.test(candidate.hint));
-		test.skip(!member, 'this scenario has no season member who is not also an admin');
+		// Not a skip: every scenario seeds seasons with ordinary members in them,
+		// so no such person means the cast changed shape — which is a thing to
+		// fix, not to quietly step over.
+		expect(member, 'no seeded season member who is not also an admin').toBeTruthy();
 
-		await openAs(page, member!);
-		await openFirstSeason(page);
+		await openSeasonAs(page, member!);
 		await page
 			.getByRole('link', { name: /Squad|Members/i })
 			.first()
@@ -83,8 +95,7 @@ test.describe('the kit register', () => {
 
 	test('survives a reload, because the handover was written', async ({ page }) => {
 		const member = aMember();
-		await openAs(page, member);
-		await openFirstSeason(page);
+		await openSeasonAs(page, member);
 		await page
 			.getByRole('link', { name: /Squad|Members/i })
 			.first()
@@ -93,15 +104,18 @@ test.describe('the kit register', () => {
 
 		await page.getByRole('button', { name: 'Hand over' }).first().click();
 		const sheet = page.getByRole('dialog');
-		await sheet.getByLabel('Search the squad').fill(member.displayName);
-		await sheet
-			.getByRole('button', { name: new RegExp(member.displayName.split(' ')[0]) })
-			.first()
-			.click();
+
+		// The same "whoever is offered" rule as above, and here it also avoids
+		// handing the item to whoever already holds it — that button is disabled,
+		// and a handover that was a no-op would survive a reload for the wrong
+		// reason.
+		const candidate = sheet.locator('li button:not([disabled])').first();
+		const holder = await holderName(candidate);
+		await candidate.click();
 		await expect(sheet).toBeHidden();
 
 		await page.reload();
 
-		await expect(page.getByText(member.displayName).first()).toBeVisible();
+		await expect(page.getByText(holder).first()).toBeVisible();
 	});
 });

@@ -42,6 +42,25 @@ export const readCast = (): DevUserFile => {
 export const whoIs = (pattern: RegExp): DevUser[] => readCast().users.filter(user => pattern.test(user.hint));
 
 /**
+ * The seasons this person is on the roster of, by the name the cards show.
+ *
+ * The hint is the seeder's own sentence about who somebody is — "Admin of Winter
+ * 2026, Spring 2026 · Member of Autumn 2026" — written from the same seasons it
+ * wrote to Firestore, and a season card is labelled with that same name. Running
+ * or not is not in there and does not need to be: which of them is being played
+ * is on the screen, next to the name.
+ *
+ * Admin of and member of both count. A season admin is on the roster like
+ * anybody else — `adminUids` is not a separate list of people — so a hint that
+ * says only "Admin of" still names a season they play in.
+ */
+export const seasonsOf = (user: DevUser): string[] =>
+	user.hint
+		.split(' · ')
+		.filter(part => /^(Admin|Member) of /.test(part))
+		.flatMap(part => part.replace(/^(Admin|Member) of /, '').split(', '));
+
+/**
  * The first person matching, with a failure that names what was looked for —
  * an empty `[0]` surfaces later as an unrelated "cannot read displayName".
  */
@@ -84,10 +103,16 @@ export const signInAs = async (page: Page, user: DevUser): Promise<void> => {
 	await dialog.getByRole('button', { name: new RegExp(escapeForRegExp(user.displayName)) }).click();
 
 	await expect(dialog).toBeHidden();
+
+	// Deliberately no "and now the sign-in screen is gone" check here. It cannot
+	// be written as an absence — `toBeHidden` is satisfied by an element that has
+	// simply not rendered yet, so it passes during the loading state and again
+	// once the app has given up and drawn the sign-in screen. What being signed
+	// in looks like is whatever the caller came to do, so the caller waits for it.
 };
 
 /** Names carry accents and the odd dot; none of them are meant as syntax. */
-const escapeForRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export const escapeForRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Open the app as somebody. Waits for the switcher rather than `networkidle`,
