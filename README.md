@@ -65,6 +65,8 @@ Project: **`footballfrescati`**.
 
     If you're not using email yet, give it any placeholder. Nothing is sent until `EMAIL_FROM` and `APP_URL` are filled in too, and in `backend/.env` they start empty.
 
+    Nothing local needs it. The functions emulator resolves every declared secret when it starts a runtime worker, and `backend/.secret.local` — committed, a placeholder — is what it reads instead of going to Secret Manager for a value no emulated run can use. Without it a seed logs a lookup per worker, and in CI, which has no credential and no business having one, each of those is an access failure printed beside a trigger that worked.
+
     **Then, to actually turn the fallback on:** push reaches nobody on an iPhone that was never added to the home screen, which in practice is most of the people who say they never get the reminders. Sign up at [resend.com](https://resend.com), verify the domain you'll send from, set the real key above, and fill in `backend/.env`:
 
     ```sh

@@ -6,7 +6,7 @@
 	"functions": {
 		"source": "./backend",
 		"runtime": "nodejs24",
-		"ignore": ["node_modules", ".git", "**/*.test.ts", "src/**", "scripts/**"],
+		"ignore": ["node_modules", ".git", "**/*.test.ts", "src/**", "scripts/**", ".secret.local"],
 		"predeploy": ["pnpm --filter backend lint", "pnpm --filter backend build"]
 	},
 	"emulators": {
