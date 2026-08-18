@@ -76,6 +76,7 @@ const DEPLOYED = [
 	'setAppAdmin',
 	'setPlayerTeam',
 	'setStartingRating',
+	'setTeamLetter',
 	'throwTestError',
 ];
 

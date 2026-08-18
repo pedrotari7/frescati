@@ -114,6 +114,27 @@ describe('TeamCard', () => {
 			expect(screen.queryByRole('button', { name: /Move/ })).not.toBeInTheDocument();
 		});
 
+		it('leaves the team identity as plain text with no way to reletter it', () => {
+			render(<TeamCard team={team} elos={{}} usersByUid={usersByUid} sideSize={2} />);
+
+			expect(screen.queryByRole('button', { name: /Change which team/ })).not.toBeInTheDocument();
+			expect(screen.queryByText(/tap to swap/)).not.toBeInTheDocument();
+		});
+
+		// The letter is the biggest thing on the card and the thing being
+		// changed, so it is the target rather than a control of its own.
+		it('opens the letter sheet from the badge and the team name', () => {
+			const onChangeLetter = jest.fn();
+
+			render(
+				<TeamCard team={team} elos={{}} usersByUid={usersByUid} sideSize={2} onChangeLetter={onChangeLetter} />
+			);
+
+			fireEvent.click(screen.getByRole('button', { name: 'Change which team A is' }));
+
+			expect(onChangeLetter).toHaveBeenCalled();
+		});
+
 		it('opens the move sheet for the player whose button was tapped', () => {
 			const onMovePlayer = jest.fn();
 

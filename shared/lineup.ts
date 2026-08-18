@@ -73,6 +73,38 @@ export const wouldEmptyASquad = (teams: TournamentTeam[], uid: string): boolean 
 };
 
 /**
+ * The sheet with two squads swapping letters.
+ *
+ * Which squad is A decides the running order, because `getFixtures` pairs teams
+ * by index and the rotation always opens with A against B. So the answer to
+ * "team A is still tying their laces, start with the other two" is not to
+ * rewrite the fixture list — it is to say that the team that is ready is A.
+ * One idea instead of two, and the scoreboard, the bibs and the table all keep
+ * agreeing with each other because they all read the same index.
+ *
+ * A swap rather than an arbitrary permutation: an admin picks one squad and
+ * says which letter it should have, and everything else staying put is what
+ * makes the second tap predictable. Reordering three teams is two swaps, which
+ * is one more tap than a drag would have been and considerably harder to get
+ * wrong on a phone in the rain.
+ *
+ * `index` moves with the letter, so the squad that becomes A *is* team A rather
+ * than a team B sitting in the first position. Returns the sheet untouched for
+ * an index that isn't there, the way `withPlayerOn` does and for the same
+ * reason.
+ */
+export const withTeamsSwapped = (teams: TournamentTeam[], a: number, b: number): TournamentTeam[] => {
+	if (!teams[a] || !teams[b]) return teams;
+
+	return teams.map((team, index) => {
+		if (index === a) return { ...teams[b], index: a };
+		if (index === b) return { ...teams[a], index: b };
+
+		return team;
+	});
+};
+
+/**
  * Everybody in the playing pool who is on no squad, in the order the pool gave
  * them.
  *

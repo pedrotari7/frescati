@@ -1,4 +1,4 @@
-import { setPlayerTeam } from '../src/editLineup';
+import { setPlayerTeam, setTeamLetter } from '../src/editLineup';
 import type { TournamentTeams } from '../../shared/types';
 import { BASE_ELO } from '../../shared/rating';
 import {
@@ -9,6 +9,7 @@ import {
 	writeGame,
 	writeResponse,
 	writeSeason,
+	writeMatch,
 	writeTeams,
 	writeUser,
 } from './helpers';
@@ -21,6 +22,9 @@ const asAdmin = (data: unknown) => callRequest(data, { uid: ADMIN });
 
 const move = (uid: string, teamIndex: number | null) =>
 	setPlayerTeam.run(asAdmin({ seasonId: SEASON_ID, gameId: GAME_ID, uid, teamIndex }));
+
+const reletter = (from: number, to: number) =>
+	setTeamLetter.run(asAdmin({ seasonId: SEASON_ID, gameId: GAME_ID, from, to }));
 
 /** A game with two squads of two, everybody in and confirmed. */
 const aTournament = async (extra: Partial<TournamentTeams> = {}) => {
@@ -207,5 +211,74 @@ describe('setPlayerTeam', () => {
 		// Sofia is the season's only rated member, so she is the whole average an
 		// unrated newcomer seeds at.
 		expect((await readTeams(SEASON_ID, GAME_ID))?.elos.newcomer).toBe(BASE_ELO + 200);
+	});
+});
+
+describe('setTeamLetter', () => {
+	it('rejects a player who is not a season admin', async () => {
+		await aTournament();
+
+		await expect(
+			setTeamLetter.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID, from: 0, to: 1 }, { uid: 'anna' }))
+		).rejects.toMatchObject({ code: 'permission-denied' });
+	});
+
+	it.each([undefined, 'one', 1.5])('rejects %p as an index', async index => {
+		await aTournament();
+
+		await expect(reletter(0, index as number)).rejects.toMatchObject({ code: 'invalid-argument' });
+	});
+
+	it('rejects a team that does not exist', async () => {
+		await aTournament();
+
+		await expect(reletter(0, 3)).rejects.toMatchObject({ code: 'invalid-argument' });
+	});
+
+	it('rejects a game with no lineup yet', async () => {
+		await writeSeason(SEASON_ID, { adminUids: [ADMIN] });
+		await writeGame(SEASON_ID, GAME_ID);
+
+		await expect(reletter(0, 1)).rejects.toMatchObject({ code: 'failed-precondition' });
+	});
+
+	// Which squad is A decides the running order: `getFixtures` pairs teams by
+	// index and always opens A against B.
+	it('swaps two squads over, letters and all', async () => {
+		await aTournament();
+
+		await reletter(0, 1);
+
+		const lineup = await readTeams(SEASON_ID, GAME_ID);
+		expect(lineup?.teams.map(team => team.uids)).toEqual([
+			['sofia', 'kalle'],
+			['anna', 'pedro'],
+		]);
+		expect(lineup?.teams.map(team => team.index)).toEqual([0, 1]);
+	});
+
+	it('pins the lineup like every other hand edit', async () => {
+		await aTournament();
+
+		await reletter(0, 1);
+
+		expect((await readTeams(SEASON_ID, GAME_ID))?.edited?.by).toBe(ADMIN);
+	});
+
+	// A match stores the two indices it was played between, so a swap underneath
+	// one hands a scoreline to a squad that never played it.
+	it('refuses once anything has been scored', async () => {
+		await aTournament();
+		await writeMatch(SEASON_ID, GAME_ID, { order: 0, teamA: 0, teamB: 1, scoreA: 3, scoreB: 2 });
+
+		await expect(reletter(0, 1)).rejects.toMatchObject({ code: 'failed-precondition' });
+		expect((await readTeams(SEASON_ID, GAME_ID))?.teams[0].uids).toEqual(['anna', 'pedro']);
+	});
+
+	it('refuses to touch a confirmed game', async () => {
+		await aTournament();
+		await writeGame(SEASON_ID, GAME_ID, { resultFinalisedAt: '2026-09-01T20:00:00.000Z' });
+
+		await expect(reletter(0, 1)).rejects.toMatchObject({ code: 'failed-precondition' });
 	});
 });

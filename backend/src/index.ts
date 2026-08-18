@@ -17,7 +17,7 @@ export { auditGameCounts } from './auditCounts';
 export { onBudgetAlert } from './onBudgetAlert';
 export { setAppAdmin } from './setAppAdmin';
 export { setStartingRating } from './setStartingRating';
-export { setPlayerTeam } from './editLineup';
+export { setPlayerTeam, setTeamLetter } from './editLineup';
 export { sendTestPush } from './sendTestPush';
 export { sendTestEmail } from './sendTestEmail';
 export { throwTestError } from './throwTestError';

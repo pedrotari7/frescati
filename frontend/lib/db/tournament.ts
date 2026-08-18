@@ -60,6 +60,30 @@ export const setPlayerTeam = async (
 	);
 };
 
+/**
+ * Say which squad is team A — or B, or C.
+ *
+ * Not a rename. Team A is the first index, and `getFixtures` pairs teams by
+ * index, so the rotation always opens with A against B: the answer to "team A
+ * is still tying their laces, start with the other two" is to say the squad
+ * that is ready is A, and the running order follows. Swapping rather than
+ * permuting, so the second tap is predictable — everything the admin didn't
+ * pick stays where it is.
+ *
+ * Refused once anything has been scored, because a match document stores the
+ * two team indices it was played between and a swap underneath one would
+ * quietly hand a scoreline to a squad that never played it. No real constraint:
+ * by the first score, who kicks off has been decided.
+ *
+ * **This pins the lineup**, like every other hand edit. Reshuffle hands it back.
+ */
+export const setTeamLetter = async (seasonId: string, gameId: string, from: number, to: number): Promise<void> => {
+	await callFunction<{ seasonId: string; gameId: string; from: number; to: number }, { ok: boolean }>(
+		'setTeamLetter',
+		{ seasonId, gameId, from, to }
+	);
+};
+
 export const subscribeToMatches = (
 	seasonId: string,
 	gameId: string,

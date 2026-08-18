@@ -1,4 +1,4 @@
-import { findTeamIndex, getUnassigned, withPlayerOn, wouldEmptyASquad } from './lineup';
+import { findTeamIndex, getUnassigned, withPlayerOn, withTeamsSwapped, wouldEmptyASquad } from './lineup';
 import type { TournamentTeam } from './types';
 
 const sheet = (...squads: string[][]): TournamentTeam[] => squads.map((uids, index) => ({ index, uids }));
@@ -74,6 +74,42 @@ describe('wouldEmptyASquad', () => {
 
 	it('is false for somebody who is on no squad to begin with', () => {
 		expect(wouldEmptyASquad(sheet(['anna'], ['sofia']), 'kalle')).toBe(false);
+	});
+});
+
+describe('withTeamsSwapped', () => {
+	// Which squad is A decides the running order, because `getFixtures` pairs
+	// teams by index and always opens A against B.
+	it('swaps two squads over', () => {
+		const swapped = withTeamsSwapped(sheet(['anna'], ['sofia'], ['kalle']), 0, 2);
+
+		expect(swapped.map(team => team.uids)).toEqual([['kalle'], ['sofia'], ['anna']]);
+	});
+
+	// The squad that becomes A has to *be* team A, not a team B sitting in the
+	// first position — everything else on the screen reads the index.
+	it('moves each squad’s index with its letter', () => {
+		const swapped = withTeamsSwapped(sheet(['anna'], ['sofia'], ['kalle']), 0, 2);
+
+		expect(swapped.map(team => team.index)).toEqual([0, 1, 2]);
+	});
+
+	it('leaves every other squad exactly where it was', () => {
+		const teams = sheet(['anna'], ['sofia'], ['kalle'], ['pedro']);
+
+		expect(withTeamsSwapped(teams, 0, 1)[2]).toBe(teams[2]);
+	});
+
+	it('leaves the sheet alone when a squad does not exist', () => {
+		const teams = sheet(['anna'], ['sofia']);
+
+		expect(withTeamsSwapped(teams, 0, 4)).toBe(teams);
+	});
+
+	it('leaves the sheet alone when a squad is swapped with itself', () => {
+		const swapped = withTeamsSwapped(sheet(['anna'], ['sofia']), 1, 1);
+
+		expect(swapped.map(team => team.uids)).toEqual([['anna'], ['sofia']]);
 	});
 });
 

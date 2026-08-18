@@ -2,7 +2,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import type { TournamentTeams } from '../../shared/types';
 import { isConfirmed } from '../../shared/game';
-import { findTeamIndex, withPlayerOn, wouldEmptyASquad } from '../../shared/lineup';
+import { findTeamIndex, withPlayerOn, withTeamsSwapped, wouldEmptyASquad } from '../../shared/lineup';
 import { getElo, getSeedElo } from '../../shared/rating';
 import { db, REGION } from './lib/firebase';
 import { requireSeasonAdmin } from './lib/auth';
@@ -137,6 +137,90 @@ export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: 
 		);
 
 		logger.info('Moved a player by hand', { seasonId, gameId, uid, from, to, by: callerUid });
+
+		return { ok: true };
+	})
+);
+
+/**
+ * Swap which squad is team A.
+ *
+ * Team A is not a name, it is the first index — and `getFixtures` pairs teams
+ * by index, so the rotation always opens with A against B. Which makes "team A
+ * is still tying their laces, start with the other two" a question about
+ * letters rather than about the fixture list: say the squad that is ready is A
+ * and the running order follows, with the scoreboard, the bibs and the table
+ * all still agreeing because they all read the same index.
+ *
+ * **Refused once anything has been scored.** A match document stores the two
+ * team indices it was played between, so swapping letters underneath one would
+ * silently reattribute a scoreline to a squad that never played it — and unlike
+ * a lineup rebuild, which `selectPlayedMatches` cleans up after by dropping
+ * fixtures that no longer exist, this leaves a match that still looks entirely
+ * valid and is now about the wrong people. Which is no real constraint: the
+ * whole point of this is deciding who kicks off, and by the first scoreline
+ * that has been decided.
+ *
+ * Pins the lineup like every other hand edit. An admin who has said which team
+ * starts does not want a rebuild an hour later deciding otherwise.
+ */
+export const setTeamLetter = onCall<{ seasonId?: string; gameId?: string; from?: number; to?: number }>(
+	{ region: REGION },
+	instrument('setTeamLetter', async request => {
+		const { seasonId, gameId, from, to } = request.data ?? {};
+
+		if (!seasonId || !gameId) throw new HttpsError('invalid-argument', 'Which game?');
+
+		// `typeof` as well as `Number.isInteger`, which answers the question but
+		// tells TypeScript nothing — and every use below would otherwise need an
+		// assertion re-stating what this line has already proved.
+		if (typeof from !== 'number' || typeof to !== 'number' || !Number.isInteger(from) || !Number.isInteger(to)) {
+			throw new HttpsError('invalid-argument', 'Two team indices are required.');
+		}
+
+		const callerUid = await requireSeasonAdmin(
+			request,
+			seasonId,
+			'Only a season admin can change which team is which.'
+		);
+
+		const game = await getGame(seasonId, gameId);
+		if (!game) throw new HttpsError('not-found', 'That game has gone.');
+
+		if (game.resultFinalisedAt) {
+			throw new HttpsError('failed-precondition', 'The teams are frozen now the game is confirmed.');
+		}
+
+		const teamsRef = db.doc(`seasons/${seasonId}/games/${gameId}/tournament/teams`);
+		const lineup = (await teamsRef.get()).data() as TournamentTeams | undefined;
+
+		if (!lineup || lineup.teams.length === 0) {
+			throw new HttpsError('failed-precondition', 'There are no teams to reletter yet.');
+		}
+
+		if (!lineup.teams[from] || !lineup.teams[to]) {
+			throw new HttpsError('invalid-argument', 'There is no team there.');
+		}
+
+		// Checked with a `limit(1)` rather than by reading the scoreboard: this
+		// only needs to know whether anybody has scored anything at all, and the
+		// exact question of which documents belong to this game is
+		// `selectPlayedMatches`, which is a harder one than the answer requires.
+		const scored = await db.collection(`seasons/${seasonId}/games/${gameId}/matches`).limit(1).get();
+
+		if (!scored.empty) {
+			throw new HttpsError(
+				'failed-precondition',
+				'Scores are already in — clear them before changing which team is which.'
+			);
+		}
+
+		await teamsRef.update({
+			teams: withTeamsSwapped(lineup.teams, from, to),
+			edited: { by: callerUid, at: new Date().toISOString() },
+		});
+
+		logger.info('Swapped two teams’ letters', { seasonId, gameId, from, to, by: callerUid });
 
 		return { ok: true };
 	})

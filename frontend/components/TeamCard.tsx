@@ -30,6 +30,7 @@ const TeamCard = ({
 	notPlaying,
 	absentUids,
 	onMovePlayer,
+	onChangeLetter,
 }: {
 	team: TournamentTeam;
 	elos: Record<string, number>;
@@ -54,6 +55,13 @@ const TeamCard = ({
 	absentUids?: Set<string>;
 	/** Season admins only: open the sheet that moves this player elsewhere. */
 	onMovePlayer?: (uid: string) => void;
+	/**
+	 * Season admins only: open the sheet that swaps this squad's letter with
+	 * another's. On the badge and the name rather than a control of its own,
+	 * because the letter is what is being changed and it is the biggest thing on
+	 * the card already.
+	 */
+	onChangeLetter?: () => void;
 }) => {
 	const style = teamStyle(team.index);
 	// Only over the ratings we actually hold. Treating a missing one as zero
@@ -63,6 +71,20 @@ const TeamCard = ({
 	const average = rated.length > 0 ? rated.reduce((total, elo) => total + elo, 0) / rated.length : null;
 	const rotating = team.uids.length - sideSize;
 
+	const identity = (
+		<>
+			<TeamBadge index={team.index} size='md' />
+
+			<div className='min-w-0'>
+				<p className={classNames('text-lg leading-tight font-bold', style.text)}>Team {teamName(team.index)}</p>
+				<p className='text-faint text-xs'>
+					{counted(team.uids.length, 'player')}
+					{onChangeLetter && ' · tap to swap'}
+				</p>
+			</div>
+		</>
+	);
+
 	return (
 		<section className={classNames('glass overflow-hidden rounded-3xl ring-1', style.ring)}>
 			{/* Reads as a bib from across the card, before any letter has been. */}
@@ -70,16 +92,23 @@ const TeamCard = ({
 
 			<div className='p-4'>
 				<header className='mb-3 flex items-center justify-between gap-2'>
-					<div className='flex min-w-0 items-center gap-2.5'>
-						<TeamBadge index={team.index} size='md' />
-
-						<div className='min-w-0'>
-							<p className={classNames('text-lg leading-tight font-bold', style.text)}>
-								Team {teamName(team.index)}
-							</p>
-							<p className='text-faint text-xs'>{counted(team.uids.length, 'player')}</p>
-						</div>
-					</div>
+					{/* The letter is the biggest thing on the card and the thing being
+					    changed, so it is the target rather than a control of its own —
+					    but only a button when there is somebody who can press it. A
+					    disabled one would still be in every player's tab order,
+					    offering nothing. */}
+					{onChangeLetter ? (
+						<button
+							type='button'
+							onClick={onChangeLetter}
+							aria-label={`Change which team ${teamName(team.index)} is`}
+							className='-mx-1 flex min-w-0 items-center gap-2.5 rounded-xl px-1 py-1 text-left transition-colors hover:bg-white/5 active:bg-white/10'
+						>
+							{identity}
+						</button>
+					) : (
+						<div className='flex min-w-0 items-center gap-2.5'>{identity}</div>
+					)}
 
 					{average !== null && (
 						<span

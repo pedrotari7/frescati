@@ -47,10 +47,12 @@ import {
 	reshuffleTeams,
 	setMatchScore,
 	setPlayerTeam,
+	setTeamLetter,
 } from '../../../../../../../lib/db/tournament';
 import { displayNameOf } from '../../../../../../../lib/people';
 import MotmPanel from '../../../../../../../components/MotmPanel';
 import PlayerTeamSheet from '../../../../../../../components/PlayerTeamSheet';
+import TeamLetterSheet from '../../../../../../../components/TeamLetterSheet';
 import SeasonShell from '../../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../../components/EmptyState';
@@ -86,6 +88,10 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// Which player's move sheet is open. One at a time — this is a tap on a name
 	// followed by a tap on a letter, not a mode the screen sits in.
 	const [movingUid, setMovingUid] = useState<string | null>(null);
+
+	// Which squad's letter is being changed. `null` rather than a boolean, since
+	// the sheet is about one team and the swap is with whichever is picked.
+	const [letteringIndex, setLetteringIndex] = useState<number | null>(null);
 
 	const game = games.find(candidate => candidate.id === gameId) ?? null;
 
@@ -189,6 +195,12 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// reason Reshuffle is: an app admin passing through somebody else's season
 	// has no standing to re-pick their teams.
 	const canMovePlayers = isSeasonAdmin && !finalised;
+
+	// The same window Reshuffle has, for a stricter version of the same reason: a
+	// match document stores the two team indices it was played between, so a swap
+	// underneath one hands a scoreline to a squad that never played it. Once a
+	// score is in, who kicks off has been decided anyway.
+	const canChangeLetters = isSeasonAdmin && canReshuffle;
 
 	const poolUids = sortResponses(responses.filter(response => response.status === 'in' && isConfirmed(response))).map(
 		response => response.uid
@@ -341,6 +353,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 							notPlaying={notPlaying}
 							absentUids={absentUids}
 							onMovePlayer={canMovePlayers ? setMovingUid : undefined}
+							onChangeLetter={canChangeLetters ? () => setLetteringIndex(team.index) : undefined}
 						/>
 					))}
 				</div>
@@ -477,6 +490,22 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 							</>
 						)}
 					</section>
+				)}
+
+				{letteringIndex !== null && (
+					<TeamLetterSheet
+						team={lineup.teams[letteringIndex] ?? null}
+						teams={lineup.teams}
+						usersByUid={usersByUid}
+						open
+						onClose={() => setLetteringIndex(null)}
+						onSwap={async withIndex => {
+							await write(
+								() => setTeamLetter(seasonId, gameId, letteringIndex, withIndex),
+								"Couldn't swap those teams over."
+							);
+						}}
+					/>
 				)}
 
 				{movingUid && (
