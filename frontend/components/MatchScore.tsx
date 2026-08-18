@@ -32,7 +32,11 @@ const Stepper = ({
 			<MinusIcon className='size-4' aria-hidden='true' />
 		</button>
 
+		{/* Named for the same reason the headcount is: it is a number an
+		    end-to-end test has to read back to know a tap became a write, and
+		    the alternative is finding it by its position between two buttons. */}
 		<span
+			data-testid={`score-${label}`}
 			className={classNames(
 				'w-7 text-center text-xl font-bold tabular-nums',
 				value === null ? 'text-faint' : tone
