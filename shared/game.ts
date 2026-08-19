@@ -362,3 +362,25 @@ export const parseReminderHours = (input: string): number[] =>
 				.filter(hours => Number.isFinite(hours) && hours > 0)
 		),
 	].sort((a, b) => b - a);
+
+/**
+ * A whole number as typed into a form field, or `null` when what is in the box
+ * isn't one.
+ *
+ * Every number on the two season forms is held as a string all the way to the
+ * save, and this is what turns it back. `Number('')` is `0`, so coercing on
+ * each keystroke made backspacing a field to empty — the ordinary way anybody
+ * replaces 90 with 120 — write a literal zero that the next digit then landed
+ * beside.
+ *
+ * `minimum` is a floor rather than a range because these have no sensible upper
+ * end: a slot is as long as the pitch is booked for. It defaults to 1, since
+ * every count on those forms is a thing there has to be at least one of — the
+ * exception is the response deadline, where zero means answers stay open right
+ * up to kick-off, so that one asks for 0.
+ */
+export const parseCount = (input: string, minimum = 1): number | null => {
+	const value = Number(input.trim());
+
+	return input.trim() !== '' && Number.isInteger(value) && value >= minimum ? value : null;
+};

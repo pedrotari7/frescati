@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Weekday } from '@shared/types';
 import { weekdayName } from '@shared/format';
+import { parseCount } from '@shared/game';
 import { useAuth } from '../../../../lib/auth';
 import { captureError } from '../../../../lib/sentry';
 import { createSeason } from '../../../../lib/db/seasons';
@@ -26,10 +27,14 @@ const NewSeasonPage = () => {
 		venueAddress: 'Svante Arrhenius väg 4, 114 18 Stockholm',
 		weekday: 6 as Weekday,
 		time: '15:00',
-		durationMinutes: 90,
+		// Held as typed rather than as numbers. `Number('')` is `0`, so coercing
+		// on each keystroke turned backspacing the field to empty into a literal
+		// zero the next digit landed beside — and a season saved with
+		// `minPlayers: 0` is one no game can ever be at risk in.
+		durationMinutes: '90',
 		startDate: '',
 		endDate: '',
-		minPlayers: 10,
+		minPlayers: '10',
 	});
 	const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +48,11 @@ const NewSeasonPage = () => {
 		);
 	}
 
-	const isValid = form.name.trim() && form.venueName.trim() && form.startDate && form.endDate;
+	const durationMinutes = parseCount(form.durationMinutes);
+	const minPlayers = parseCount(form.minPlayers);
+
+	const isValid =
+		form.name.trim() && form.venueName.trim() && form.startDate && form.endDate && durationMinutes && minPlayers;
 
 	const handleCreate = async () => {
 		setError(null);
@@ -52,6 +61,10 @@ const NewSeasonPage = () => {
 			setError('The end date is before the start date.');
 			return;
 		}
+
+		// Narrowing for TypeScript as much as guarding: `isValid` already keeps
+		// the button disabled without these, so this cannot be reached.
+		if (!durationMinutes || !minPlayers) return;
 
 		try {
 			const seasonId = await createSeason({
@@ -66,10 +79,10 @@ const NewSeasonPage = () => {
 				slot: {
 					weekday: form.weekday,
 					time: form.time,
-					durationMinutes: Number(form.durationMinutes),
+					durationMinutes,
 					timezone: TIMEZONE,
 				},
-				minPlayers: Number(form.minPlayers),
+				minPlayers,
 				responseDeadlineHours: 24,
 				reminderHours: [72, 24],
 				// The creator has to be an admin of it, or the rules reject the write.
@@ -154,8 +167,9 @@ const NewSeasonPage = () => {
 							<TextInput
 								type='number'
 								inputMode='numeric'
+								min={1}
 								value={form.durationMinutes}
-								onChange={e => setForm({ ...form, durationMinutes: Number(e.target.value) })}
+								onChange={e => setForm({ ...form, durationMinutes: e.target.value })}
 							/>
 						</Field>
 
@@ -163,8 +177,9 @@ const NewSeasonPage = () => {
 							<TextInput
 								type='number'
 								inputMode='numeric'
+								min={1}
 								value={form.minPlayers}
-								onChange={e => setForm({ ...form, minPlayers: Number(e.target.value) })}
+								onChange={e => setForm({ ...form, minPlayers: e.target.value })}
 							/>
 						</Field>
 					</div>

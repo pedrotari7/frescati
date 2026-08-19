@@ -7,7 +7,7 @@ import { CalendarDaysIcon, CalendarIcon, UsersIcon } from '@heroicons/react/24/o
 import type { BalanceSettings, Season, SeasonStatus, Venue, Weekday } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
 import { weekdayName } from '@shared/format';
-import { parseReminderHours } from '@shared/game';
+import { parseCount, parseReminderHours } from '@shared/game';
 import { useAuth } from '../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useWrite } from '../../../../../hooks/useWrite';
@@ -37,16 +37,23 @@ interface SeasonForm {
 	venueAddress: string;
 	weekday: Weekday;
 	time: string;
-	durationMinutes: number;
 	startDate: string;
 	endDate: string;
-	minPlayers: number;
-	responseDeadlineHours: number;
 	reminderHours: string;
-	matchMinutes: number;
+	// The sliders, which speak whole percentages and cannot be cleared.
 	randomness: number;
 	repeatPenalty: number;
-	repeatLookback: number;
+	/*
+	 * Everything typed into a number box, held as typed. `Number('')` is `0`,
+	 * so coercing on each keystroke made backspacing a field to empty — the
+	 * ordinary way anybody replaces 90 with 120 — write a literal zero the next
+	 * digit landed beside. `parseCount` turns them back on save.
+	 */
+	durationMinutes: string;
+	minPlayers: string;
+	responseDeadlineHours: string;
+	matchMinutes: string;
+	repeatLookback: string;
 }
 
 const EMPTY_FORM: SeasonForm = {
@@ -56,16 +63,16 @@ const EMPTY_FORM: SeasonForm = {
 	venueAddress: '',
 	weekday: 2,
 	time: '19:00',
-	durationMinutes: 90,
+	durationMinutes: '90',
 	startDate: '',
 	endDate: '',
-	minPlayers: 10,
-	responseDeadlineHours: 24,
+	minPlayers: '10',
+	responseDeadlineHours: '24',
 	reminderHours: '72, 24',
-	matchMinutes: DEFAULT_BALANCE_SETTINGS.matchMinutes,
+	matchMinutes: String(DEFAULT_BALANCE_SETTINGS.matchMinutes),
 	randomness: DEFAULT_BALANCE_SETTINGS.randomness * 100,
 	repeatPenalty: DEFAULT_BALANCE_SETTINGS.repeatPenalty * 100,
-	repeatLookback: DEFAULT_BALANCE_SETTINGS.repeatLookback,
+	repeatLookback: String(DEFAULT_BALANCE_SETTINGS.repeatLookback),
 };
 
 /**
@@ -82,20 +89,35 @@ const formFromSeason = (season: Season, balance: BalanceSettings): SeasonForm =>
 	venueAddress: season.venue.address ?? '',
 	weekday: season.slot.weekday,
 	time: season.slot.time,
-	durationMinutes: season.slot.durationMinutes,
+	durationMinutes: String(season.slot.durationMinutes),
 	startDate: season.startDate,
 	endDate: season.endDate,
-	minPlayers: season.minPlayers,
-	responseDeadlineHours: season.responseDeadlineHours,
+	minPlayers: String(season.minPlayers),
+	responseDeadlineHours: String(season.responseDeadlineHours),
 	reminderHours: (season.reminderHours ?? []).join(', '),
-	matchMinutes: balance.matchMinutes,
+	matchMinutes: String(balance.matchMinutes),
 	randomness: Math.round(balance.randomness * 100),
 	repeatPenalty: Math.round(balance.repeatPenalty * 100),
-	repeatLookback: balance.repeatLookback,
+	repeatLookback: String(balance.repeatLookback),
 });
 
 const sameForm = (a: SeasonForm, b: SeasonForm): boolean =>
 	(Object.keys(a) as (keyof SeasonForm)[]).every(key => a[key] === b[key]);
+
+/**
+ * What is wrong with a count box, in the words of the setting rather than of
+ * the parser — "at least one minute long" says what to type, where "invalid
+ * number" only says to try again.
+ */
+const INVALID_COUNT = {
+	durationMinutes: 'The slot needs to be at least one minute long.',
+	minPlayers: 'A game needs a minimum of at least one player.',
+	responseDeadlineHours: 'Answers close a whole number of hours before kick-off.',
+	matchMinutes: 'A match needs to be at least one minute long.',
+	repeatLookback: 'Looking back has to cover at least one game.',
+} as const;
+
+type CountField = keyof typeof INVALID_COUNT;
 
 const SeasonAdminPage = () => {
 	const router = useRouter();
@@ -106,6 +128,7 @@ const SeasonAdminPage = () => {
 
 	const [form, setForm] = useState<SeasonForm>(EMPTY_FORM);
 	const [saved, setSaved] = useState(false);
+	const [countError, setCountError] = useState<string | null>(null);
 	const [subscribeOpen, setSubscribeOpen] = useState(false);
 
 	// Seasons created before teams existed carry no levers at all, so the
@@ -176,12 +199,35 @@ const SeasonAdminPage = () => {
 		);
 	}
 
+	/**
+	 * The typed-in counts, or `null` where the box holds something that isn't
+	 * one. Save refuses on any `null` and says which — better than writing a
+	 * season with `minPlayers: 0`, in which no game can ever be short.
+	 */
+	const counts: Record<CountField, number | null> = {
+		durationMinutes: parseCount(form.durationMinutes),
+		minPlayers: parseCount(form.minPlayers),
+		// Zero is a real answer here: answers stay open right up to kick-off.
+		responseDeadlineHours: parseCount(form.responseDeadlineHours, 0),
+		matchMinutes: parseCount(form.matchMinutes),
+		repeatLookback: parseCount(form.repeatLookback),
+	};
+
+	const invalid = (Object.keys(counts) as CountField[]).find(key => counts[key] === null);
+
 	// The stored season has moved since this form was filled from it. Compared
 	// against the baseline rather than against `form`, which would also be true
 	// of every character this admin has typed.
 	const changedElsewhere = !!live && !!baseline.current && !sameForm(live, baseline.current);
 
 	const handleSave = async () => {
+		if (invalid) {
+			setCountError(INVALID_COUNT[invalid]);
+			return;
+		}
+
+		setCountError(null);
+
 		const venue: Venue = {
 			name: form.venueName.trim(),
 			...(form.venueAddress.trim() ? { address: form.venueAddress.trim() } : {}),
@@ -198,19 +244,19 @@ const SeasonAdminPage = () => {
 				slot: {
 					weekday: form.weekday,
 					time: form.time,
-					durationMinutes: Number(form.durationMinutes),
+					durationMinutes: counts.durationMinutes!,
 					timezone: season.slot.timezone,
 				},
 				startDate: form.startDate,
 				endDate: form.endDate,
-				minPlayers: Number(form.minPlayers),
-				responseDeadlineHours: Number(form.responseDeadlineHours),
+				minPlayers: counts.minPlayers!,
+				responseDeadlineHours: counts.responseDeadlineHours!,
 				reminderHours: parseReminderHours(form.reminderHours),
 				balance: {
-					matchMinutes: Number(form.matchMinutes),
+					matchMinutes: counts.matchMinutes!,
 					randomness: Number(form.randomness) / 100,
 					repeatPenalty: Number(form.repeatPenalty) / 100,
-					repeatLookback: Number(form.repeatLookback),
+					repeatLookback: counts.repeatLookback!,
 				},
 			});
 
@@ -347,8 +393,9 @@ const SeasonAdminPage = () => {
 								<TextInput
 									type='number'
 									inputMode='numeric'
+									min={1}
 									value={form.durationMinutes}
-									onChange={e => setForm({ ...form, durationMinutes: Number(e.target.value) })}
+									onChange={e => setForm({ ...form, durationMinutes: e.target.value })}
 								/>
 							</Field>
 
@@ -356,8 +403,9 @@ const SeasonAdminPage = () => {
 								<TextInput
 									type='number'
 									inputMode='numeric'
+									min={1}
 									value={form.minPlayers}
-									onChange={e => setForm({ ...form, minPlayers: Number(e.target.value) })}
+									onChange={e => setForm({ ...form, minPlayers: e.target.value })}
 								/>
 							</Field>
 						</div>
@@ -366,8 +414,9 @@ const SeasonAdminPage = () => {
 							<TextInput
 								type='number'
 								inputMode='numeric'
+								min={0}
 								value={form.responseDeadlineHours}
-								onChange={e => setForm({ ...form, responseDeadlineHours: Number(e.target.value) })}
+								onChange={e => setForm({ ...form, responseDeadlineHours: e.target.value })}
 							/>
 						</Field>
 
@@ -398,8 +447,9 @@ const SeasonAdminPage = () => {
 									<TextInput
 										type='number'
 										inputMode='numeric'
+										min={1}
 										value={form.matchMinutes}
-										onChange={e => setForm({ ...form, matchMinutes: Number(e.target.value) })}
+										onChange={e => setForm({ ...form, matchMinutes: e.target.value })}
 									/>
 								</Field>
 
@@ -437,7 +487,7 @@ const SeasonAdminPage = () => {
 										inputMode='numeric'
 										min={1}
 										value={form.repeatLookback}
-										onChange={e => setForm({ ...form, repeatLookback: Number(e.target.value) })}
+										onChange={e => setForm({ ...form, repeatLookback: e.target.value })}
 									/>
 								</Field>
 							</div>
@@ -470,6 +520,8 @@ const SeasonAdminPage = () => {
 								</Button>
 							</div>
 						)}
+
+						{countError && <p className='text-out text-sm'>{countError}</p>}
 
 						<Button variant='primary' fullWidth onClick={handleSave}>
 							{saved ? 'Saved' : 'Save settings'}

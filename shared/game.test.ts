@@ -16,6 +16,7 @@ import {
 	isAbsent,
 	isConfirmed,
 	isWatchable,
+	parseCount,
 	parseReminderHours,
 	sortResponses,
 	tallyResponses,
@@ -538,5 +539,32 @@ describe('parseReminderHours', () => {
 
 	it('reads an empty field as no reminders', () => {
 		expect(parseReminderHours('')).toEqual([]);
+	});
+});
+
+describe('parseCount', () => {
+	it('reads a whole number as typed', () => {
+		expect(parseCount('90')).toBe(90);
+	});
+
+	it('refuses an empty box rather than calling it zero', () => {
+		expect(parseCount('')).toBeNull();
+		expect(parseCount('   ')).toBeNull();
+	});
+
+	it('refuses anything below the floor', () => {
+		expect(parseCount('0')).toBeNull();
+		expect(parseCount('-3')).toBeNull();
+	});
+
+	// Answers staying open right up to kick-off is a real setting, so the
+	// deadline field asks for a floor of nothing rather than of one.
+	it('allows zero where zero is a real answer', () => {
+		expect(parseCount('0', 0)).toBe(0);
+	});
+
+	it('refuses a fraction and refuses nonsense', () => {
+		expect(parseCount('7.5')).toBeNull();
+		expect(parseCount('ten')).toBeNull();
 	});
 });
