@@ -79,6 +79,15 @@ const KitPage = () => {
 		[games, season, now]
 	);
 
+	// Whether that game is actually on. `nextGame` deliberately includes a
+	// cancelled one — the home screen's "next" does too, because a cancellation
+	// is exactly what people open the app to find out — but a game that is off
+	// has nothing to bring to it, which is the one thing the panel below says.
+	const nextLifecycle = useMemo(
+		() => (season && nextGame ? getGameLifecycle(nextGame, season, now) : null),
+		[season, nextGame, now]
+	);
+
 	const { responses } = useResponses(seasonId, nextGame?.id ?? null);
 
 	const stranded = useMemo(() => (season ? findStrandedKit(kit, season.memberUids) : []), [kit, season]);
@@ -227,15 +236,32 @@ const KitPage = () => {
 							    bag — they open it before a game. */}
 							{nextGame && (
 								<section>
-									<SectionHeading className='mb-2 px-1'>
-										{formatGameDate(nextGame.kickoff, season.slot.timezone)}
-									</SectionHeading>
-									<GameKit
-										seasonId={seasonId}
-										items={kit}
-										responses={responses}
-										usersByUid={usersByUid}
-									/>
+									<div className='mb-2 flex items-center gap-2 px-1'>
+										<SectionHeading>
+											{formatGameDate(nextGame.kickoff, season.slot.timezone)}
+										</SectionHeading>
+										{nextLifecycle === 'cancelled' && <StatusPill tone='out'>Cancelled</StatusPill>}
+									</div>
+
+									{/* Spelled out rather than left to the panel, which
+									    would happily report that nobody is bringing a
+									    ball to a game called off on Sunday. Both the
+									    next-game card and the game screen already
+									    suppress it for the same reason; this screen —
+									    the one whose whole job is the ball — was the
+									    one that didn't. */}
+									{nextLifecycle === 'cancelled' ? (
+										<p className='text-faint px-1 text-sm'>
+											This game is off, so there is nothing to bring to it.
+										</p>
+									) : (
+										<GameKit
+											seasonId={seasonId}
+											items={kit}
+											responses={responses}
+											usersByUid={usersByUid}
+										/>
+									)}
 								</section>
 							)}
 
