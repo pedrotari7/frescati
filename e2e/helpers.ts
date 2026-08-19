@@ -11,9 +11,13 @@ import type { DevUser } from './fixtures';
  * The pill is what tells a card apart from the back link `PageShell` renders
  * when a season is already in scope, which points at `/s/…` too and would
  * otherwise be the first one found.
+ *
+ * Matched against the labels in `SEASON_STATUS_LABELS`, which is what the pill
+ * shows. It used to look for the lowercase stored value, because that is what
+ * the pill used to print.
  */
 const seasonCards = (page: Page): Locator =>
-	page.locator('a[href^="/s/"]').filter({ has: page.getByText(/^(active|draft|archived)$/) });
+	page.locator('a[href^="/s/"]').filter({ has: page.getByText(/^(Active|Draft|Archived)$/) });
 
 /**
  * Sign in as somebody and go straight into a season they play in.
@@ -55,7 +59,7 @@ export const openSeasonAs = async (page: Page, user: DevUser): Promise<void> => 
 	// they are on that is being played.
 	const season = seasonCards(page)
 		.filter({ hasText: new RegExp(names.map(escapeForRegExp).join('|')) })
-		.filter({ has: page.getByText('active', { exact: true }) })
+		.filter({ has: page.getByText('Active', { exact: true }) })
 		.first();
 
 	await expect(season, `no active season on ${user.displayName}'s roster — "${user.hint}"`).toBeVisible();
