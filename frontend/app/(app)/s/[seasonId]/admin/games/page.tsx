@@ -134,6 +134,44 @@ const AdminGamesPage = () => {
 		setMessage('One-off game added.');
 	};
 
+	/**
+	 * Calling a game off, and putting it back on.
+	 *
+	 * Both ask first, because both send a notification to everybody the game
+	 * affects — `onGameWrite` pushes the moment `status` moves. Cancel was the
+	 * one button on this row doing that unguarded, and it is the smaller and
+	 * quieter of the two beside a Delete that has always confirmed.
+	 */
+	const handleCancel = async (game: Game) => {
+		const when = formatGameDate(game.kickoff, season.slot.timezone);
+
+		const ok = await confirm({
+			title: `Call off ${when}?`,
+			message:
+				'Everybody this game affects gets a notification. Answers are kept, so putting it back on is one tap.',
+			confirmLabel: 'Call it off',
+			tone: 'danger',
+		});
+
+		if (!ok) return;
+
+		await write(() => cancelGame(seasonId, game.id, 'Called off by an admin'), "Couldn't cancel that game.");
+	};
+
+	const handleRestore = async (game: Game) => {
+		const when = formatGameDate(game.kickoff, season.slot.timezone);
+
+		const ok = await confirm({
+			title: `Put ${when} back on?`,
+			message: 'Everybody this game affects gets a notification saying it is on again.',
+			confirmLabel: 'Put it back on',
+		});
+
+		if (!ok) return;
+
+		await write(() => restoreGame(seasonId, game.id), "Couldn't put that game back on.");
+	};
+
 	return (
 		<SeasonShell title='Games' subtitle={`${games.length} on the calendar`} backHref={`/s/${seasonId}/admin`}>
 			<div className='space-y-4 p-4'>
@@ -206,6 +244,13 @@ const AdminGamesPage = () => {
 							const lifecycle = getGameLifecycle(game, season, now);
 							const isCancelled = lifecycle === 'cancelled';
 
+							// Whether the football has happened, asked of the clock
+							// rather than of the lifecycle: `getGameLifecycle` answers
+							// `cancelled` before it answers `finished`, so a game that
+							// is both never reports as played and Restore would
+							// disappear from the one row that needs it.
+							const isOver = now.toISOString() >= game.endsAt;
+
 							return (
 								<div key={game.id} className='flex items-center gap-2 py-3'>
 									<div className='min-w-0 flex-1'>
@@ -222,23 +267,24 @@ const AdminGamesPage = () => {
 										</div>
 									</div>
 
-									<Button
-										size='sm'
-										variant='ghost'
-										onClick={() =>
-											isCancelled
-												? write(
-														() => restoreGame(seasonId, game.id),
-														"Couldn't put that game back on."
-													)
-												: write(
-														() => cancelGame(seasonId, game.id, 'Called off by an admin'),
-														"Couldn't cancel that game."
-													)
-										}
-									>
-										{isCancelled ? 'Restore' : 'Cancel'}
-									</Button>
+									{/* Calling a game off past the final whistle is not a
+									    decision anybody can still make, and it is worse
+									    than useless: `cancelled` is read before
+									    `finished`, so a played — even a confirmed and
+									    rated — game would stop being finished and
+									    reappear as the top card on the season home
+									    screen. Restore stays on a cancelled game
+									    whenever it happened, because that is the way
+									    back from exactly this. */}
+									{(isCancelled || !isOver) && (
+										<Button
+											size='sm'
+											variant='ghost'
+											onClick={() => (isCancelled ? handleRestore(game) : handleCancel(game))}
+										>
+											{isCancelled ? 'Restore' : 'Cancel'}
+										</Button>
+									)}
 
 									{/* Deleting loses the answers; cancelling keeps them. */}
 									<Button
