@@ -2,9 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import type { AppUser } from '@shared/types';
+import { counted } from '@shared/format';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
+import { useConfirm } from '../../../../../../components/ConfirmDialog';
 import { useWrite } from '../../../../../../hooks/useWrite';
-import { useUsers } from '../../../../../../hooks/useData';
+import { useKit, useUsers } from '../../../../../../hooks/useData';
 import {
 	addSeasonAdmin,
 	addSeasonMember,
@@ -24,7 +27,9 @@ import { ListCard, ListEmpty, SectionHeading } from '../../../../../../component
 const AdminMembersPage = () => {
 	const { seasonId, season, loading, error, retry, isAdmin } = useSeasonContext();
 	const { users, loading: usersLoading } = useUsers();
+	const { kit } = useKit(seasonId);
 	const write = useWrite();
+	const confirm = useConfirm();
 	const [search, setSearch] = useState('');
 
 	const { members, others } = useMemo(() => {
@@ -66,6 +71,43 @@ const AdminMembersPage = () => {
 	// The rules refuse to leave a season without an admin, so block the last one
 	// here too rather than letting the write fail with a permission error.
 	const isLastAdmin = (uid: string) => season.adminUids.length === 1 && season.adminUids[0] === uid;
+
+	/**
+	 * Taking somebody off the roster, which every other destructive button in
+	 * this app asks about first and this one didn't — sitting a thumb's width
+	 * from Demote, in a row about forty pixels tall.
+	 *
+	 * It is not trivially reversible either. Whatever kit they were holding is
+	 * stranded the moment they leave: `findStrandedKit` reports it and
+	 * deliberately refuses to guess a new holder, so an accidental removal
+	 * leaves a warning on the kit screen that only somebody who knows where the
+	 * ball actually is can clear. Worth naming here, while the answer is still
+	 * "don't do it" rather than "now go and find out".
+	 */
+	const handleRemove = async (member: AppUser) => {
+		const holding = kit.filter(item => item.holderUid === member.uid);
+
+		const ok = await confirm({
+			title: `Remove ${member.displayName} from the squad?`,
+			message: [
+				'They stop counting towards the headcount, and any answer they have already given is recorded as an extra.',
+				holding.length > 0 &&
+					`They are holding ${holding.map(item => item.name).join(' and ')}, so the register will report ${counted(holding.length, 'item')} as stranded until somebody hands it on.`,
+				'They can be added back from below at any time.',
+			]
+				.filter(Boolean)
+				.join(' '),
+			confirmLabel: 'Remove',
+			tone: 'danger',
+		});
+
+		if (!ok) return;
+
+		await write(
+			() => removeSeasonMember(seasonId, member.uid),
+			`Couldn't remove ${member.displayName} from the squad.`
+		);
+	};
 
 	return (
 		<SeasonShell
@@ -129,12 +171,7 @@ const AdminMembersPage = () => {
 										size='sm'
 										variant='danger'
 										disabled={isLastAdmin(user.uid)}
-										onClick={() =>
-											write(
-												() => removeSeasonMember(seasonId, user.uid),
-												`Couldn't remove ${user.displayName} from the squad.`
-											)
-										}
+										onClick={() => handleRemove(user)}
 									>
 										Remove
 									</Button>
