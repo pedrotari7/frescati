@@ -71,6 +71,12 @@ const TeamCard = ({
 	const average = rated.length > 0 ? rated.reduce((total, elo) => total + elo, 0) / rated.length : null;
 	const rotating = team.uids.length - sideSize;
 
+	// The last player on a squad has nowhere to go. `setPlayerTeam` refuses to
+	// leave a team with nobody on it, and that covers taking them off the sheet
+	// as well — so the move sheet opens for them with every control greyed and
+	// only Cancel live. Better said here, where the tap would have been.
+	const isOnlyTeammate = team.uids.length === 1;
+
 	const identity = (
 		<>
 			<TeamBadge index={team.index} size='md' />
@@ -166,12 +172,31 @@ const TeamCard = ({
 									</span>
 								</Link>
 
+								{/* Disabled rather than hidden where they can't be
+								    moved: the one row in a card without a button
+								    beside it reads as a bug, and the reason is worth
+								    a hover on a desktop and a label everywhere else. */}
 								{onMovePlayer && (
 									<button
 										type='button'
+										disabled={isOnlyTeammate}
 										onClick={() => onMovePlayer(uid)}
-										aria-label={`Move ${displayNameOf(user)} to another team`}
-										className='text-faint hover:text-ink tap-44 mr-1 flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-white/5 active:bg-white/10'
+										aria-label={
+											isOnlyTeammate
+												? `${displayNameOf(user)} is the only player on team ${teamName(team.index)}, so there is nowhere to move them`
+												: `Move ${displayNameOf(user)} to another team`
+										}
+										title={
+											isOnlyTeammate
+												? 'The only player on a team can’t be moved — a team with nobody on it still gets a fixture.'
+												: undefined
+										}
+										className={classNames(
+											'text-faint tap-44 mr-1 flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors',
+											isOnlyTeammate
+												? 'opacity-30'
+												: 'hover:text-ink hover:bg-white/5 active:bg-white/10'
+										)}
 									>
 										<ArrowsRightLeftIcon className='size-4' aria-hidden='true' />
 									</button>

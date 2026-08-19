@@ -144,6 +144,33 @@ describe('TeamCard', () => {
 
 			expect(onMovePlayer).toHaveBeenCalledWith('bob');
 		});
+
+		// `setPlayerTeam` refuses to leave a team with nobody on it, and that
+		// covers taking them off the sheet — so the move sheet would open with
+		// every control greyed and only Cancel live.
+		it('refuses to offer a move for the only player on a squad', () => {
+			const onMovePlayer = jest.fn();
+
+			render(
+				<TeamCard
+					team={{ index: 0, uids: ['alice'] }}
+					elos={{}}
+					usersByUid={usersByUid}
+					sideSize={1}
+					onMovePlayer={onMovePlayer}
+				/>
+			);
+
+			const move = screen.getByRole('button', {
+				name: 'Alice Ng is the only player on team A, so there is nowhere to move them',
+			});
+
+			expect(move).toBeDisabled();
+
+			fireEvent.click(move);
+
+			expect(onMovePlayer).not.toHaveBeenCalled();
+		});
 	});
 
 	// Only reachable on a hand-picked lineup, which stops being re-picked — so
