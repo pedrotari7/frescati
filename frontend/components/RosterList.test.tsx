@@ -232,8 +232,8 @@ describe('RosterList', () => {
 		expect(onToggleAbsent).toHaveBeenLastCalledWith('alice', false);
 	});
 
-	// Past kick-off whether an extra holds a spot is settled, and two buttons do
-	// not fit in the width of a phone.
+	// Past kick-off the row asks one question rather than showing two buttons in
+	// the width of a phone — for a confirmed extra, whether they turned up.
 	it('replaces the extras controls with the no-show one once the game is on', async () => {
 		const onToggleAbsent = jest.fn().mockResolvedValue(undefined);
 
@@ -256,6 +256,34 @@ describe('RosterList', () => {
 		});
 
 		expect(onToggleAbsent).toHaveBeenCalledWith('carol', true);
+	});
+
+	// Somebody who never held a spot cannot have failed to use it, so past
+	// kick-off the question about them is still whether they get one — which is
+	// also what tells them apart from a confirmed extra on a screen an admin is
+	// counting heads from.
+	it('keeps offering a spot to an unconfirmed extra once the game is on', async () => {
+		const onToggleExtra = jest.fn().mockResolvedValue(undefined);
+
+		render(
+			<RosterList
+				memberUids={[]}
+				responses={[response({ uid: 'carol', status: 'in', role: 'extra' })]}
+				usersByUid={usersByUid}
+				canManageExtras
+				canReportAbsence
+				onToggleExtra={onToggleExtra}
+				onToggleAbsent={jest.fn()}
+			/>
+		);
+
+		expect(screen.queryByRole('button', { name: 'No-show' })).not.toBeInTheDocument();
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Give a spot' }));
+		});
+
+		expect(onToggleExtra).toHaveBeenCalledWith('carol', true);
 	});
 
 	it('lets an admin drop an already-confirmed extra', async () => {

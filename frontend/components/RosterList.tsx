@@ -171,14 +171,19 @@ const RosterList = ({
 				tone='extra'
 				entries={extras}
 				renderTrailing={entry => {
-					// Past kick-off, whether an extra holds a spot is settled — they
-					// are either on the pitch or they are not — so the row offers the
-					// only question left about them rather than two buttons in the
-					// width of a phone.
-					if (reportAbsence) return noShowButton(entry);
-
 					const response = byUid.get(entry.uid);
 					const confirmed = response ? isConfirmed(response) : true;
+
+					// Past kick-off the row offers one question rather than two
+					// buttons in the width of a phone — but which one depends on
+					// whether they hold a spot, and that is also what tells the two
+					// kinds of extra apart on a screen an admin is counting heads
+					// from. Somebody who never held a spot cannot have failed to
+					// use it, so the live question about them is still whether they
+					// get one: they are the person who turned up in boots at five
+					// past. For a confirmed extra it is whether they turned up at
+					// all.
+					if (reportAbsence && confirmed) return noShowButton(entry);
 
 					if (!canManageExtras || !onToggleExtra) {
 						return confirmed ? (
