@@ -12,6 +12,7 @@ import { useAuth } from '../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useWrite } from '../../../../../hooks/useWrite';
 import { useConfirm } from '../../../../../components/ConfirmDialog';
+import { useToast } from '../../../../../components/Toast';
 import { deleteSeason, updateSeason } from '../../../../../lib/db/seasons';
 import { updateVenueForUpcomingGames } from '../../../../../lib/db/games';
 import SeasonShell from '../../../../../components/SeasonShell';
@@ -125,9 +126,9 @@ const SeasonAdminPage = () => {
 	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
 	const write = useWrite();
 	const confirm = useConfirm();
+	const { notify } = useToast();
 
 	const [form, setForm] = useState<SeasonForm>(EMPTY_FORM);
-	const [saved, setSaved] = useState(false);
 	const [countError, setCountError] = useState<string | null>(null);
 	const [subscribeOpen, setSubscribeOpen] = useState(false);
 
@@ -272,8 +273,7 @@ const SeasonAdminPage = () => {
 		// the change this admin just made.
 		baseline.current = form;
 
-		setSaved(true);
-		setTimeout(() => setSaved(false), 2500);
+		notify('Season settings saved.');
 	};
 
 	const handleDelete = async () => {
@@ -526,7 +526,7 @@ const SeasonAdminPage = () => {
 						{countError && <p className='text-out text-sm'>{countError}</p>}
 
 						<Button variant='primary' fullWidth onClick={handleSave}>
-							{saved ? 'Saved' : 'Save settings'}
+							Save settings
 						</Button>
 
 						<p className='text-faint text-xs'>

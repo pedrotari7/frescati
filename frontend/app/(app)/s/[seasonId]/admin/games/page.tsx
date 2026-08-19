@@ -10,6 +10,7 @@ import { useAuth } from '../../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
 import { useWrite } from '../../../../../../hooks/useWrite';
 import { useConfirm } from '../../../../../../components/ConfirmDialog';
+import { useToast } from '../../../../../../components/Toast';
 import { useNow } from '../../../../../../hooks/useNow';
 import { cancelGame, createGames, createOneOffGame, deleteGame, restoreGame } from '../../../../../../lib/db/games';
 import SeasonShell from '../../../../../../components/SeasonShell';
@@ -115,9 +116,9 @@ const AdminGamesPage = () => {
 	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
 	const write = useWrite();
 	const confirm = useConfirm();
+	const { notify } = useToast();
 	const now = useNow();
 
-	const [message, setMessage] = useState<string | null>(null);
 	const [oneOff, setOneOff] = useState({ date: '', time: '' });
 	const [showPast, setShowPast] = useState(false);
 
@@ -197,7 +198,7 @@ const AdminGamesPage = () => {
 			"Couldn't add the games. Nothing was created."
 		);
 
-		if (ok) setMessage(`Added ${counted(created, 'game')}.`);
+		if (ok) notify(`Added ${counted(created, 'game')}.`);
 	};
 
 	const handleAddOneOff = async () => {
@@ -223,7 +224,7 @@ const AdminGamesPage = () => {
 		if (!ok) return;
 
 		setOneOff({ date: '', time: '' });
-		setMessage('One-off game added.');
+		notify('One-off game added.');
 	};
 
 	/**
@@ -336,8 +337,6 @@ const AdminGamesPage = () => {
 						Add game
 					</Button>
 				</section>
-
-				{message && <p className='text-brand px-1 text-sm'>{message}</p>}
 
 				<section>
 					<SectionHeading className='mb-2 px-1'>Coming up ({scheduled.length})</SectionHeading>

@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import BottomStackHost, { BottomSlot } from './BottomStack';
 import { classNames } from '../lib/utils/reactHelper';
@@ -41,19 +41,40 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
 	const [toasts, setToasts] = useState<Toast[]>([]);
 	const nextId = useRef(0);
 
-	const push = useCallback((text: string, tone: Tone) => {
-		const id = nextId.current++;
+	// Kept so they can be cancelled: on unmount, and when somebody taps a toast
+	// away before its own timer has run. Neither was happening — the tap removed
+	// the toast and left the timeout to fire into an empty list afterwards.
+	const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
-		setToasts(current => [...current, { id, text, tone }].slice(-MAX_VISIBLE));
-		setTimeout(() => setToasts(current => current.filter(toast => toast.id !== id)), DISMISS_MS);
+	const forget = useCallback((id: number) => {
+		clearTimeout(timers.current.get(id));
+		timers.current.delete(id);
+		setToasts(current => current.filter(toast => toast.id !== id));
+	}, []);
+
+	const push = useCallback(
+		(text: string, tone: Tone) => {
+			const id = nextId.current++;
+
+			setToasts(current => [...current, { id, text, tone }].slice(-MAX_VISIBLE));
+			timers.current.set(
+				id,
+				setTimeout(() => forget(id), DISMISS_MS)
+			);
+		},
+		[forget]
+	);
+
+	useEffect(() => {
+		const pending = timers.current;
+
+		return () => pending.forEach(clearTimeout);
 	}, []);
 
 	const value = useMemo<ToastValue>(
 		() => ({ notify: text => push(text, 'success'), warn: text => push(text, 'error') }),
 		[push]
 	);
-
-	const dismiss = (id: number) => setToasts(current => current.filter(toast => toast.id !== id));
 
 	return (
 		<ToastContext.Provider value={value}>
@@ -71,7 +92,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
 						<button
 							key={toast.id}
 							type='button'
-							onClick={() => dismiss(toast.id)}
+							onClick={() => forget(toast.id)}
 							className={classNames(
 								'glass animate-rise shadow-lift flex w-full max-w-sm items-start gap-2.5',
 								'rounded-2xl px-4 py-3 text-left text-sm',

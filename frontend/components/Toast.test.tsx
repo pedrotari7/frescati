@@ -102,3 +102,56 @@ describe('ToastProvider', () => {
 		expect(screen.getByText('Failed')).toBeInTheDocument();
 	});
 });
+
+describe('dismissing', () => {
+	// The tap used to remove the toast and leave its timeout running, to fire
+	// into an empty list a few seconds later.
+	it('cancels the timer when a toast is tapped away', () => {
+		jest.useFakeTimers();
+
+		try {
+			render(
+				<ToastProvider>
+					<Trigger />
+				</ToastProvider>
+			);
+
+			act(() => {
+				fireEvent.click(screen.getByText('notify'));
+			});
+
+			act(() => {
+				fireEvent.click(screen.getByText('Saved'));
+			});
+
+			expect(screen.queryByText('Saved')).not.toBeInTheDocument();
+			expect(jest.getTimerCount()).toBe(0);
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+
+	it('drops its pending timers on unmount', () => {
+		jest.useFakeTimers();
+
+		try {
+			const { unmount } = render(
+				<ToastProvider>
+					<Trigger />
+				</ToastProvider>
+			);
+
+			act(() => {
+				fireEvent.click(screen.getByText('notify'));
+			});
+
+			expect(jest.getTimerCount()).toBe(1);
+
+			unmount();
+
+			expect(jest.getTimerCount()).toBe(0);
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+});
