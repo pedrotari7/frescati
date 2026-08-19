@@ -50,6 +50,29 @@ describe('Select', () => {
 		expect(onChange).toHaveBeenCalled();
 		expect(screen.getByLabelText('Weekday')).toHaveValue('1');
 	});
+
+	// `appearance-none` is what lets a select share the text inputs' styling,
+	// and it takes the platform's arrow with it. Without a replacement these
+	// are indistinguishable from a TextInput, which is what they were.
+	it('draws a chevron, since appearance-none removes the native one', () => {
+		const { container } = render(
+			<Select aria-label='Weekday' defaultValue='2'>
+				<option value='2'>Tuesday</option>
+			</Select>
+		);
+
+		expect(container.querySelector('svg')).toBeInTheDocument();
+	});
+
+	it('keeps the chevron out of the way of a tap', () => {
+		const { container } = render(
+			<Select aria-label='Weekday' defaultValue='2'>
+				<option value='2'>Tuesday</option>
+			</Select>
+		);
+
+		expect(container.querySelector('svg')).toHaveClass('pointer-events-none');
+	});
 });
 
 describe('RangeInput', () => {

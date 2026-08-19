@@ -1,4 +1,5 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
+import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { classNames } from '../lib/utils/reactHelper';
 
 // Exported so other controls that don't fit `<input>`/`<select>` — DatePicker's
@@ -19,10 +20,29 @@ export const TextInput = ({ className = '', ...rest }: InputHTMLAttributes<HTMLI
 	<input className={classNames(CONTROL, className)} {...rest} />
 );
 
+/**
+ * A dropdown that looks like one.
+ *
+ * `appearance-none` is what lets a `select` take the same `CONTROL` styling as
+ * every text input on the form — and it strips the platform's own arrow with
+ * it, so the chevron has to be put back. Without it these were eight controls
+ * pixel-identical to a `TextInput`, with a stripe of reserved padding on the
+ * right where the only thing saying "this opens a list" used to be.
+ *
+ * `pointer-events-none` so the icon is scenery: a tap that lands on it still
+ * opens the select underneath.
+ */
 export const Select = ({ className = '', children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) => (
-	<select className={classNames(CONTROL, 'appearance-none pr-8', className)} {...rest}>
-		{children}
-	</select>
+	<div className='relative'>
+		<select className={classNames(CONTROL, 'appearance-none pr-10', className)} {...rest}>
+			{children}
+		</select>
+
+		<ChevronDownIcon
+			className='text-faint pointer-events-none absolute top-1/2 right-3 size-5 -translate-y-1/2'
+			aria-hidden='true'
+		/>
+	</div>
 );
 
 /**
