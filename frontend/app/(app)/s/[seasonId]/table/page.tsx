@@ -94,7 +94,13 @@ const LeaderboardPage = () => {
 	return (
 		<SeasonShell title='Table' subtitle={season.name} backHref={`/s/${seasonId}`}>
 			<div className='space-y-4 p-4'>
-				<div className='glass flex gap-1 rounded-2xl p-1'>
+				{/* A pair of toggles rather than a tablist, which would want
+				    `aria-controls` and a `tabpanel` for a table that is just the
+				    rest of the page. `aria-pressed` is what says which one is on:
+				    without it the active tab was a colour and nothing else, so a
+				    screen reader got "This season, button. All time, button" with
+				    no way to tell which table was underneath. */}
+				<div className='glass flex gap-1 rounded-2xl p-1' role='group' aria-label='Which table to show'>
 					{(
 						[
 							['season', 'This season'],
@@ -104,9 +110,11 @@ const LeaderboardPage = () => {
 						<button
 							key={key}
 							type='button'
+							aria-pressed={tab === key}
 							onClick={() => setTab(key)}
 							className={classNames(
-								'h-10 flex-1 rounded-xl text-sm font-semibold transition-colors',
+								'focus-visible:ring-brand/60 h-10 flex-1 rounded-xl text-sm font-semibold transition-colors',
+								'focus-visible:ring-2 focus-visible:outline-none',
 								tab === key ? 'bg-brand text-canvas' : 'text-muted hover:text-ink'
 							)}
 						>
