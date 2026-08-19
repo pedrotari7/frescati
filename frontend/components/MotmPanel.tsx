@@ -132,8 +132,16 @@ const MotmPanel = ({
 									// a list again, and greying every name would read as
 									// something being unavailable rather than finished.
 									open && canVote && 'hover:bg-white/5 active:scale-[0.99]',
-									picked && 'bg-brand/10 ring-brand/30 ring-1',
-									won && 'bg-pending/10 ring-pending/30 ring-1'
+									// Three states rather than two that overlap. Backing
+									// the winner is the common case, and it used to put
+									// both class strings on one element and leave
+									// Tailwind's output order to decide which ring
+									// showed — on the most rewarding row on the screen.
+									// It gets its own treatment: the trophy's wash, ringed
+									// in the colour of your own pick, so it says both.
+									won && picked && 'bg-pending/15 ring-brand/40 ring-1',
+									won && !picked && 'bg-pending/10 ring-pending/30 ring-1',
+									!won && picked && 'bg-brand/10 ring-brand/30 ring-1'
 								)}
 							>
 								<Avatar

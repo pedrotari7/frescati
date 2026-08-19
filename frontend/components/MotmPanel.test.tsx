@@ -236,6 +236,36 @@ describe('MotmPanel', () => {
 			expect(screen.getByRole('button', { name: /Anna/ })).toBeDisabled();
 		});
 
+		// Backing the winner is the common case, and both the picked and the won
+		// styling used to land on that one element — leaving Tailwind's output
+		// order to decide which ring showed on the most rewarding row.
+		it('gives the winner you voted for a treatment of its own', () => {
+			renderPanel({
+				motm: decided(['zara'], [{ uid: 'zara', votes: 2 }]),
+				vote: vote('zara'),
+				votingUntil: undefined,
+			});
+
+			const winner = screen.getByRole('button', { name: /Zara/ });
+
+			expect(winner).toHaveClass('ring-brand/40');
+			expect(winner).not.toHaveClass('ring-pending/30');
+		});
+
+		it('rings a winner you did not vote for in the trophy colour alone', () => {
+			renderPanel({
+				motm: decided(['zara'], [{ uid: 'zara', votes: 2 }]),
+				vote: vote('anna'),
+				votingUntil: undefined,
+			});
+
+			const winner = screen.getByRole('button', { name: /Zara/ });
+
+			expect(winner).toHaveClass('ring-pending/30');
+			expect(winner).not.toHaveClass('ring-brand/40');
+			expect(screen.getByRole('button', { name: /Anna/ })).toHaveClass('ring-brand/30');
+		});
+
 		// A window that has run out but hasn't been counted yet — the hour
 		// between the deadline and the sweep. Nothing to announce, and nothing
 		// left to vote on.
