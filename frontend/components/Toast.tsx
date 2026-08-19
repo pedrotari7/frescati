@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import BottomStackHost, { BottomSlot } from './BottomStack';
 import { classNames } from '../lib/utils/reactHelper';
 
 type Tone = 'error' | 'success';
@@ -58,32 +59,35 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
 		<ToastContext.Provider value={value}>
 			{children}
 
-			{/* Above the bottom nav, and out of the way of taps aimed at it. */}
-			<div
-				className='pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-2 px-4 pb-24'
-				role='status'
-				aria-live='polite'
-			>
-				{toasts.map(toast => (
-					<button
-						key={toast.id}
-						type='button'
-						onClick={() => dismiss(toast.id)}
-						className={classNames(
-							'glass animate-rise shadow-lift pointer-events-auto flex w-full max-w-sm items-start gap-2.5',
-							'rounded-2xl px-4 py-3 text-left text-sm',
-							toast.tone === 'error' ? 'text-out' : 'text-in'
-						)}
-					>
-						{toast.tone === 'error' ? (
-							<ExclamationTriangleIcon className='mt-px size-4 shrink-0' aria-hidden='true' />
-						) : (
-							<CheckCircleIcon className='mt-px size-4 shrink-0' aria-hidden='true' />
-						)}
-						<span className='text-ink flex-1'>{toast.text}</span>
-					</button>
-				))}
-			</div>
+			{/* The slot itself, mounted here because every screen in the app is
+			    inside this provider and a toast is the thing most likely to want
+			    it. The two banners portal into the same one. */}
+			<BottomStackHost />
+
+			{/* Nearest the thumb of the three, being the transient one. */}
+			<BottomSlot order={3}>
+				<div className='flex flex-col items-center gap-2' role='status' aria-live='polite'>
+					{toasts.map(toast => (
+						<button
+							key={toast.id}
+							type='button'
+							onClick={() => dismiss(toast.id)}
+							className={classNames(
+								'glass animate-rise shadow-lift flex w-full max-w-sm items-start gap-2.5',
+								'rounded-2xl px-4 py-3 text-left text-sm',
+								toast.tone === 'error' ? 'text-out' : 'text-in'
+							)}
+						>
+							{toast.tone === 'error' ? (
+								<ExclamationTriangleIcon className='mt-px size-4 shrink-0' aria-hidden='true' />
+							) : (
+								<CheckCircleIcon className='mt-px size-4 shrink-0' aria-hidden='true' />
+							)}
+							<span className='text-ink flex-1'>{toast.text}</span>
+						</button>
+					))}
+				</div>
+			</BottomSlot>
 		</ToastContext.Provider>
 	);
 };

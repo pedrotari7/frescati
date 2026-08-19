@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpOnSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { isIos, isIosSafari, isStandalone } from '../lib/device';
+import { BottomSlot } from './BottomStack';
 import Button from './Button';
 
 const DISMISS_KEY = 'frescati:install-dismissed';
@@ -67,8 +68,8 @@ const PwaInstallPrompt = () => {
 	if (!deferred && !showIosHint) return null;
 
 	return (
-		<div className='animate-rise fixed inset-x-0 bottom-0 z-40 px-2 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:bottom-4 lg:pb-0'>
-			<div className='bg-raised/95 shadow-glass border-line/60 mx-auto flex max-w-md items-start gap-3 rounded-2xl border p-4 backdrop-blur-xl'>
+		<BottomSlot order={2}>
+			<div className='bg-raised/95 shadow-glass border-line/60 animate-rise mx-auto flex max-w-md items-start gap-3 rounded-2xl border p-4 backdrop-blur-xl'>
 				<div className='bg-brand/15 flex size-10 shrink-0 items-center justify-center rounded-xl text-xl'>
 					⚽
 				</div>
@@ -107,7 +108,7 @@ const PwaInstallPrompt = () => {
 					<XMarkIcon className='size-5' />
 				</button>
 			</div>
-		</div>
+		</BottomSlot>
 	);
 };
 

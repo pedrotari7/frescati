@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import { BottomSlot } from './BottomStack';
 import Button from './Button';
 
 /**
@@ -16,11 +17,13 @@ import Button from './Button';
  *
  * Sits in the same slot as `PwaInstallPrompt` and above it, on the rare
  * occasion both are up: an update is a thing to act on now, an install nudge
- * has been waiting weeks.
+ * has been waiting weeks. That ordering is `BottomStack`'s to enforce now —
+ * these two used to be separate fixed elements at the same offset, so "above"
+ * meant "exactly on top of".
  */
 const UpdatePrompt = ({ onReload }: { onReload: () => void }) => (
-	<div className='animate-rise fixed inset-x-0 bottom-0 z-50 px-2 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:bottom-4 lg:pb-0'>
-		<div className='bg-raised/95 shadow-glass border-line/60 mx-auto flex max-w-md items-center gap-3 rounded-2xl border p-4 backdrop-blur-xl'>
+	<BottomSlot order={1}>
+		<div className='bg-raised/95 shadow-glass border-line/60 animate-rise mx-auto flex max-w-md items-center gap-3 rounded-2xl border p-4 backdrop-blur-xl'>
 			<div className='bg-brand/15 text-brand flex size-10 shrink-0 items-center justify-center rounded-xl'>
 				<ArrowPathIcon className='size-5' aria-hidden='true' />
 			</div>
@@ -34,7 +37,7 @@ const UpdatePrompt = ({ onReload }: { onReload: () => void }) => (
 				Reload
 			</Button>
 		</div>
-	</div>
+	</BottomSlot>
 );
 
 export default UpdatePrompt;
