@@ -384,3 +384,39 @@ export const parseCount = (input: string, minimum = 1): number | null => {
 
 	return input.trim() !== '' && Number.isInteger(value) && value >= minimum ? value : null;
 };
+
+/**
+ * Whether the football has actually happened.
+ *
+ * Asked of the clock rather than of `getGameLifecycle`, which answers
+ * `cancelled` before it answers `finished` — so a game that is both never
+ * reports as played, and anything reading the lifecycle to decide "is this
+ * behind us" gets the wrong answer for exactly the game where it matters.
+ *
+ * Calling a game off past the final whistle is the bug that closes: `cancelled`
+ * outranking `finished` means it un-finishes a played game and floats it back
+ * to the top of the season home screen as the next one.
+ */
+export const hasBeenPlayed = (game: Pick<Game, 'endsAt'>, now: Date = new Date()): boolean =>
+	now.toISOString() >= game.endsAt;
+
+/**
+ * A season's games split on the final whistle, most recent first behind us.
+ *
+ * Not `groupGames`, which answers the season home screen's question — which
+ * game is next, which are still being voted on. The admin calendar only needs
+ * to know whether the football has happened, and a cancelled game is still
+ * ahead of us there because putting it back on is a thing an admin does from
+ * that list.
+ */
+export const splitOnWhistle = <T extends Pick<Game, 'endsAt'>>(
+	games: T[],
+	now: Date = new Date()
+): { scheduled: T[]; played: T[] } => {
+	const scheduled: T[] = [];
+	const played: T[] = [];
+
+	for (const game of games) (hasBeenPlayed(game, now) ? played : scheduled).push(game);
+
+	return { scheduled, played: played.reverse() };
+};

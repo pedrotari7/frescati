@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarDaysIcon, CalendarIcon, UsersIcon } from '@heroicons/react/24/outline';
-import type { BalanceSettings, Season, SeasonStatus, Venue, Weekday } from '@shared/types';
+import type { SeasonStatus, Venue, Weekday } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
 import { SEASON_STATUS_LABELS, weekdayName } from '@shared/format';
-import { parseCount, parseReminderHours } from '@shared/game';
+import { parseReminderHours } from '@shared/game';
 import { useAuth } from '../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useWrite } from '../../../../../hooks/useWrite';
@@ -23,102 +23,8 @@ import LoadFailed from '../../../../../components/LoadFailed';
 import Button from '../../../../../components/Button';
 import DatePicker from '../../../../../components/DatePicker';
 import { Field, RangeInput, Select, TextInput } from '../../../../../components/Field';
-
-/**
- * The settings screen's form, as one shape rather than nineteen useStates.
- *
- * Everything is held as the control speaks it — the sliders in whole
- * percentages, the reminder windows as the comma-separated string somebody
- * typed — and converted back on save.
- */
-interface SeasonForm {
-	name: string;
-	status: SeasonStatus;
-	venueName: string;
-	venueAddress: string;
-	weekday: Weekday;
-	time: string;
-	startDate: string;
-	endDate: string;
-	reminderHours: string;
-	// The sliders, which speak whole percentages and cannot be cleared.
-	randomness: number;
-	repeatPenalty: number;
-	/*
-	 * Everything typed into a number box, held as typed. `Number('')` is `0`,
-	 * so coercing on each keystroke made backspacing a field to empty — the
-	 * ordinary way anybody replaces 90 with 120 — write a literal zero the next
-	 * digit landed beside. `parseCount` turns them back on save.
-	 */
-	durationMinutes: string;
-	minPlayers: string;
-	responseDeadlineHours: string;
-	matchMinutes: string;
-	repeatLookback: string;
-}
-
-const EMPTY_FORM: SeasonForm = {
-	name: '',
-	status: 'active',
-	venueName: '',
-	venueAddress: '',
-	weekday: 2,
-	time: '19:00',
-	durationMinutes: '90',
-	startDate: '',
-	endDate: '',
-	minPlayers: '10',
-	responseDeadlineHours: '24',
-	reminderHours: '72, 24',
-	matchMinutes: String(DEFAULT_BALANCE_SETTINGS.matchMinutes),
-	randomness: DEFAULT_BALANCE_SETTINGS.randomness * 100,
-	repeatPenalty: DEFAULT_BALANCE_SETTINGS.repeatPenalty * 100,
-	repeatLookback: String(DEFAULT_BALANCE_SETTINGS.repeatLookback),
-};
-
-/**
- * What the form would read if it were showing this season exactly.
- *
- * One function rather than a block inside the seeding effect, because it is
- * now needed twice: to fill the form on arrival, and to compare against so the
- * screen can notice the stored season has moved underneath somebody.
- */
-const formFromSeason = (season: Season, balance: BalanceSettings): SeasonForm => ({
-	name: season.name,
-	status: season.status,
-	venueName: season.venue.name,
-	venueAddress: season.venue.address ?? '',
-	weekday: season.slot.weekday,
-	time: season.slot.time,
-	durationMinutes: String(season.slot.durationMinutes),
-	startDate: season.startDate,
-	endDate: season.endDate,
-	minPlayers: String(season.minPlayers),
-	responseDeadlineHours: String(season.responseDeadlineHours),
-	reminderHours: (season.reminderHours ?? []).join(', '),
-	matchMinutes: String(balance.matchMinutes),
-	randomness: Math.round(balance.randomness * 100),
-	repeatPenalty: Math.round(balance.repeatPenalty * 100),
-	repeatLookback: String(balance.repeatLookback),
-});
-
-const sameForm = (a: SeasonForm, b: SeasonForm): boolean =>
-	(Object.keys(a) as (keyof SeasonForm)[]).every(key => a[key] === b[key]);
-
-/**
- * What is wrong with a count box, in the words of the setting rather than of
- * the parser — "at least one minute long" says what to type, where "invalid
- * number" only says to try again.
- */
-const INVALID_COUNT = {
-	durationMinutes: 'The slot needs to be at least one minute long.',
-	minPlayers: 'A game needs a minimum of at least one player.',
-	responseDeadlineHours: 'Answers close a whole number of hours before kick-off.',
-	matchMinutes: 'A match needs to be at least one minute long.',
-	repeatLookback: 'Looking back has to cover at least one game.',
-} as const;
-
-type CountField = keyof typeof INVALID_COUNT;
+import { EMPTY_FORM, INVALID_COUNT, formFromSeason, readCounts, sameForm } from '../../../../../lib/seasonForm';
+import type { SeasonForm } from '../../../../../lib/seasonForm';
 
 const SeasonAdminPage = () => {
 	const router = useRouter();
@@ -200,21 +106,10 @@ const SeasonAdminPage = () => {
 		);
 	}
 
-	/**
-	 * The typed-in counts, or `null` where the box holds something that isn't
-	 * one. Save refuses on any `null` and says which — better than writing a
-	 * season with `minPlayers: 0`, in which no game can ever be short.
-	 */
-	const counts: Record<CountField, number | null> = {
-		durationMinutes: parseCount(form.durationMinutes),
-		minPlayers: parseCount(form.minPlayers),
-		// Zero is a real answer here: answers stay open right up to kick-off.
-		responseDeadlineHours: parseCount(form.responseDeadlineHours, 0),
-		matchMinutes: parseCount(form.matchMinutes),
-		repeatLookback: parseCount(form.repeatLookback),
-	};
-
-	const invalid = (Object.keys(counts) as CountField[]).find(key => counts[key] === null);
+	// Save refuses on any box that doesn't hold a whole number and says which —
+	// better than writing a season with `minPlayers: 0`, in which no game can
+	// ever be short.
+	const { counts, invalid } = readCounts(form);
 
 	// The stored season has moved since this form was filled from it. Compared
 	// against the baseline rather than against `form`, which would also be true

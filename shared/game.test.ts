@@ -16,9 +16,11 @@ import {
 	isAbsent,
 	isConfirmed,
 	isWatchable,
+	hasBeenPlayed,
 	parseCount,
 	parseReminderHours,
 	sortResponses,
+	splitOnWhistle,
 	tallyResponses,
 } from './game';
 import type { Game, GameResponse, Season } from './types';
@@ -566,5 +568,63 @@ describe('parseCount', () => {
 	it('refuses a fraction and refuses nonsense', () => {
 		expect(parseCount('7.5')).toBeNull();
 		expect(parseCount('ten')).toBeNull();
+	});
+});
+
+describe('hasBeenPlayed', () => {
+	it('is true from the final whistle', () => {
+		expect(hasBeenPlayed({ endsAt: '2026-03-03T19:30:00.000Z' }, new Date('2026-03-03T19:30:00.000Z'))).toBe(true);
+	});
+
+	it('is false while it is still being played', () => {
+		expect(hasBeenPlayed({ endsAt: '2026-03-03T19:30:00.000Z' }, new Date('2026-03-03T19:29:59.000Z'))).toBe(
+			false
+		);
+	});
+
+	// The whole reason this asks the clock rather than the lifecycle:
+	// `getGameLifecycle` answers `cancelled` first, so a game that is both
+	// cancelled and long past never reports as finished.
+	it('is true for a game that was cancelled and is also in the past', () => {
+		const game = {
+			kickoff: '2026-03-03T18:00:00.000Z',
+			endsAt: '2026-03-03T19:30:00.000Z',
+			status: 'cancelled' as const,
+		};
+		const now = new Date('2026-04-01T00:00:00.000Z');
+
+		expect(getGameLifecycle(game, season, now)).toBe('cancelled');
+		expect(hasBeenPlayed(game, now)).toBe(true);
+	});
+});
+
+describe('splitOnWhistle', () => {
+	const games = [
+		{ id: 'a', endsAt: '2026-03-01T19:30:00.000Z' },
+		{ id: 'b', endsAt: '2026-03-08T19:30:00.000Z' },
+		{ id: 'c', endsAt: '2026-03-15T19:30:00.000Z' },
+		{ id: 'd', endsAt: '2026-03-22T19:30:00.000Z' },
+	];
+
+	const now = new Date('2026-03-10T00:00:00.000Z');
+
+	it('puts what is coming in kickoff order', () => {
+		expect(splitOnWhistle(games, now).scheduled.map(game => game.id)).toEqual(['c', 'd']);
+	});
+
+	// Read from the top, so the game somebody wants is the last one played.
+	it('reverses what is behind us, most recent first', () => {
+		expect(splitOnWhistle(games, now).played.map(game => game.id)).toEqual(['b', 'a']);
+	});
+
+	it('copes with a season that has not started', () => {
+		expect(splitOnWhistle(games, new Date('2026-01-01T00:00:00.000Z'))).toEqual({ scheduled: games, played: [] });
+	});
+
+	it('leaves the caller’s array alone', () => {
+		const original = [...games];
+		splitOnWhistle(games, now);
+
+		expect(games).toEqual(original);
 	});
 });
