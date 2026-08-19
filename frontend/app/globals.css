@@ -176,18 +176,6 @@
 		}
 	}
 
-	/* Bottom nav and any fixed footer must clear the iPhone home indicator. */
-	.pb-safe {
-		padding-bottom: env(safe-area-inset-bottom, 0px);
-	}
-
-	.pt-safe {
-		padding-top: env(safe-area-inset-top, 0px);
-	}
-
-	.mb-safe {
-		margin-bottom: env(safe-area-inset-bottom, 0px);
-	}
 }
 
 @utility no-scrollbar {
@@ -196,6 +184,33 @@
 	&::-webkit-scrollbar {
 		display: none;
 	}
+}
+
+/*
+ * The notch and the home indicator, for anything painting under them.
+ *
+ * `@utility` rather than `@layer components`, which is where these started and
+ * where they could not do their job: Tailwind opens with
+ * `@layer theme, base, components, utilities`, so a `pb-20` on the same element
+ * beat `.pb-safe` outright whatever the specificity, and the safe-area padding
+ * on both bottom banners was dead code for as long as it had been written.
+ *
+ * That said — these still combine badly with another padding utility on the
+ * same property, because now it is source order in one layer deciding rather
+ * than the layer itself. Two paddings on one element is the mistake; where a
+ * fixed offset has to clear the home indicator *as well*, say so in one value
+ * with a `calc()` instead of stacking two classes and hoping.
+ */
+@utility pb-safe {
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility pt-safe {
+	padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility mb-safe {
+	margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @media (prefers-reduced-motion: reduce) {

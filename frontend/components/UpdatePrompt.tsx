@@ -19,7 +19,7 @@ import Button from './Button';
  * has been waiting weeks.
  */
 const UpdatePrompt = ({ onReload }: { onReload: () => void }) => (
-	<div className='pb-safe animate-rise fixed inset-x-0 bottom-0 z-50 px-2 pb-20 lg:bottom-4 lg:pb-0'>
+	<div className='animate-rise fixed inset-x-0 bottom-0 z-50 px-2 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:bottom-4 lg:pb-0'>
 		<div className='bg-raised/95 shadow-glass border-line/60 mx-auto flex max-w-md items-center gap-3 rounded-2xl border p-4 backdrop-blur-xl'>
 			<div className='bg-brand/15 text-brand flex size-10 shrink-0 items-center justify-center rounded-xl'>
 				<ArrowPathIcon className='size-5' aria-hidden='true' />
