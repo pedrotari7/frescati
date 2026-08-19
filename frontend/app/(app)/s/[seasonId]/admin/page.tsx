@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarDaysIcon, CalendarIcon, UsersIcon } from '@heroicons/react/24/outline';
-import type { SeasonStatus, Venue, Weekday } from '@shared/types';
+import type { BalanceSettings, Season, SeasonStatus, Venue, Weekday } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
 import { weekdayName } from '@shared/format';
 import { parseReminderHours } from '@shared/game';
@@ -23,6 +23,80 @@ import Button from '../../../../../components/Button';
 import DatePicker from '../../../../../components/DatePicker';
 import { Field, RangeInput, Select, TextInput } from '../../../../../components/Field';
 
+/**
+ * The settings screen's form, as one shape rather than nineteen useStates.
+ *
+ * Everything is held as the control speaks it — the sliders in whole
+ * percentages, the reminder windows as the comma-separated string somebody
+ * typed — and converted back on save.
+ */
+interface SeasonForm {
+	name: string;
+	status: SeasonStatus;
+	venueName: string;
+	venueAddress: string;
+	weekday: Weekday;
+	time: string;
+	durationMinutes: number;
+	startDate: string;
+	endDate: string;
+	minPlayers: number;
+	responseDeadlineHours: number;
+	reminderHours: string;
+	matchMinutes: number;
+	randomness: number;
+	repeatPenalty: number;
+	repeatLookback: number;
+}
+
+const EMPTY_FORM: SeasonForm = {
+	name: '',
+	status: 'active',
+	venueName: '',
+	venueAddress: '',
+	weekday: 2,
+	time: '19:00',
+	durationMinutes: 90,
+	startDate: '',
+	endDate: '',
+	minPlayers: 10,
+	responseDeadlineHours: 24,
+	reminderHours: '72, 24',
+	matchMinutes: DEFAULT_BALANCE_SETTINGS.matchMinutes,
+	randomness: DEFAULT_BALANCE_SETTINGS.randomness * 100,
+	repeatPenalty: DEFAULT_BALANCE_SETTINGS.repeatPenalty * 100,
+	repeatLookback: DEFAULT_BALANCE_SETTINGS.repeatLookback,
+};
+
+/**
+ * What the form would read if it were showing this season exactly.
+ *
+ * One function rather than a block inside the seeding effect, because it is
+ * now needed twice: to fill the form on arrival, and to compare against so the
+ * screen can notice the stored season has moved underneath somebody.
+ */
+const formFromSeason = (season: Season, balance: BalanceSettings): SeasonForm => ({
+	name: season.name,
+	status: season.status,
+	venueName: season.venue.name,
+	venueAddress: season.venue.address ?? '',
+	weekday: season.slot.weekday,
+	time: season.slot.time,
+	durationMinutes: season.slot.durationMinutes,
+	startDate: season.startDate,
+	endDate: season.endDate,
+	minPlayers: season.minPlayers,
+	responseDeadlineHours: season.responseDeadlineHours,
+	reminderHours: (season.reminderHours ?? []).join(', '),
+	matchMinutes: balance.matchMinutes,
+	randomness: Math.round(balance.randomness * 100),
+	repeatPenalty: Math.round(balance.repeatPenalty * 100),
+	repeatLookback: balance.repeatLookback,
+});
+
+const sameForm = (a: SeasonForm, b: SeasonForm): boolean =>
+	(Object.keys(a) as (keyof SeasonForm)[]).every(key => a[key] === b[key]);
+
 const SeasonAdminPage = () => {
 	const router = useRouter();
 	const { user } = useAuth();
@@ -30,26 +104,7 @@ const SeasonAdminPage = () => {
 	const write = useWrite();
 	const confirm = useConfirm();
 
-	const [form, setForm] = useState({
-		name: '',
-		status: 'active' as SeasonStatus,
-		venueName: '',
-		venueAddress: '',
-		weekday: 2 as Weekday,
-		time: '19:00',
-		durationMinutes: 90,
-		startDate: '',
-		endDate: '',
-		minPlayers: 10,
-		responseDeadlineHours: 24,
-		reminderHours: '72, 24',
-		matchMinutes: DEFAULT_BALANCE_SETTINGS.matchMinutes,
-		// Held as percentages because that is what the sliders speak; converted
-		// back to the stored 0–1 on save.
-		randomness: DEFAULT_BALANCE_SETTINGS.randomness * 100,
-		repeatPenalty: DEFAULT_BALANCE_SETTINGS.repeatPenalty * 100,
-		repeatLookback: DEFAULT_BALANCE_SETTINGS.repeatLookback,
-	});
+	const [form, setForm] = useState<SeasonForm>(EMPTY_FORM);
 	const [saved, setSaved] = useState(false);
 	const [subscribeOpen, setSubscribeOpen] = useState(false);
 
@@ -57,30 +112,37 @@ const SeasonAdminPage = () => {
 	// defaults stand in rather than the form seeding itself with zeroes.
 	const balance = useMemo(() => ({ ...DEFAULT_BALANCE_SETTINGS, ...season?.balance }), [season]);
 
-	// Seed the form once the season arrives, and re-seed if someone else edits
-	// it — the subscription keeps this screen live for every admin at once.
-	useEffect(() => {
-		if (!season) return;
+	const live = useMemo(() => (season ? formFromSeason(season, balance) : null), [season, balance]);
 
-		setForm({
-			name: season.name,
-			status: season.status,
-			venueName: season.venue.name,
-			venueAddress: season.venue.address ?? '',
-			weekday: season.slot.weekday,
-			time: season.slot.time,
-			durationMinutes: season.slot.durationMinutes,
-			startDate: season.startDate,
-			endDate: season.endDate,
-			minPlayers: season.minPlayers,
-			responseDeadlineHours: season.responseDeadlineHours,
-			reminderHours: (season.reminderHours ?? []).join(', '),
-			matchMinutes: balance.matchMinutes,
-			randomness: Math.round(balance.randomness * 100),
-			repeatPenalty: Math.round(balance.repeatPenalty * 100),
-			repeatLookback: balance.repeatLookback,
-		});
-	}, [season, balance]);
+	/**
+	 * What the form was last filled from — on arrival, and again on a save.
+	 *
+	 * Anything the stored season now says that differs from this is somebody
+	 * else's edit rather than one of ours, which is the only way to tell those
+	 * two apart and the reason this is kept at all.
+	 */
+	const baseline = useRef<SeasonForm | null>(null);
+	const seededFor = useRef<string | null>(null);
+
+	/**
+	 * Seeded once per season, not on every snapshot.
+	 *
+	 * This was keyed on the season itself, which meant it re-ran whenever the
+	 * document changed — and this screen is live for every admin at once. So a
+	 * second admin touching the venue overwrote all nineteen fields under
+	 * whoever was mid-sentence in the first, not just the one they had moved.
+	 * Two admins on a Sunday evening is not a hypothetical.
+	 *
+	 * `live` moving is now reported rather than applied — see `changedElsewhere`
+	 * below.
+	 */
+	useEffect(() => {
+		if (!season || !live || seededFor.current === season.id) return;
+
+		seededFor.current = season.id;
+		baseline.current = live;
+		setForm(live);
+	}, [season, live]);
 
 	if (loading) {
 		return (
@@ -113,6 +175,11 @@ const SeasonAdminPage = () => {
 			</SeasonShell>
 		);
 	}
+
+	// The stored season has moved since this form was filled from it. Compared
+	// against the baseline rather than against `form`, which would also be true
+	// of every character this admin has typed.
+	const changedElsewhere = !!live && !!baseline.current && !sameForm(live, baseline.current);
 
 	const handleSave = async () => {
 		const venue: Venue = {
@@ -153,6 +220,11 @@ const SeasonAdminPage = () => {
 		}, "Couldn't save the season settings.");
 
 		if (!ok) return;
+
+		// Our own write comes back down the listener like anybody else's would,
+		// so the baseline has to move with it or the notice below would announce
+		// the change this admin just made.
+		baseline.current = form;
 
 		setSaved(true);
 		setTimeout(() => setSaved(false), 2500);
@@ -370,6 +442,34 @@ const SeasonAdminPage = () => {
 								</Field>
 							</div>
 						</div>
+
+						{/* Seeding once means this form can go stale, so it says so
+						    rather than letting an admin save an hour-old copy over
+						    somebody else's change without ever knowing. Loading
+						    theirs is the same write the seed does — it just takes
+						    a deliberate tap now instead of happening under the
+						    cursor. */}
+						{changedElsewhere && (
+							<div className='border-pending/25 bg-pending/8 rounded-xl border p-3'>
+								<p className='text-muted text-sm leading-relaxed'>
+									Somebody else has changed these settings since you opened this screen. Saving now
+									writes what is on this form over theirs.
+								</p>
+								<Button
+									variant='secondary'
+									size='sm'
+									className='mt-3'
+									onClick={() => {
+										if (!live) return;
+
+										baseline.current = live;
+										setForm(live);
+									}}
+								>
+									Load their changes
+								</Button>
+							</div>
+						)}
 
 						<Button variant='primary' fullWidth onClick={handleSave}>
 							{saved ? 'Saved' : 'Save settings'}
