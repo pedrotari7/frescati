@@ -4,6 +4,7 @@ import {
 	getLapLength,
 	getScheduleFit,
 	getSideSize,
+	getScoreAccess,
 	getSquadSizes,
 	getTeamCount,
 	MAX_MATCHES,
@@ -382,5 +383,37 @@ describe('selectPlayedMatches', () => {
 	// document at any order past zero is never legitimate for them.
 	it('drops any order past zero for two teams, however long the slot', () => {
 		expect(selectPlayedMatches(2, 1, 1_000, [aMatch(0, 0, 1), aMatch(1, 0, 1)])).toEqual([aMatch(0, 0, 1)]);
+	});
+});
+
+describe('getScoreAccess', () => {
+	const access = (overrides: Partial<Parameters<typeof getScoreAccess>[0]> = {}) =>
+		getScoreAccess({ finalised: false, isAdmin: false, hasResponded: false, ...overrides });
+
+	// The point of the scoreboard: whoever has a free hand enters the score.
+	it('opens an unconfirmed game to anybody who answered it', () => {
+		expect(access({ hasResponded: true })).toBe('open');
+	});
+
+	it('opens an unconfirmed game to an admin who never answered it', () => {
+		expect(access({ isAdmin: true })).toBe('open');
+	});
+
+	it('keeps somebody who never answered off an unconfirmed scoreboard', () => {
+		expect(access()).toBe('none');
+	});
+
+	// The whole reason for the third state: the ratings are applied, so a stepper
+	// that stayed live is a brush of a thumb away from replaying the ladder.
+	it('locks a confirmed game to the admin who may still correct it', () => {
+		expect(access({ finalised: true, isAdmin: true })).toBe('locked');
+	});
+
+	it('locks it whether or not that admin played in it', () => {
+		expect(access({ finalised: true, isAdmin: true, hasResponded: true })).toBe('locked');
+	});
+
+	it('closes a confirmed game to everybody else, including the people who played', () => {
+		expect(access({ finalised: true, hasResponded: true })).toBe('none');
 	});
 });

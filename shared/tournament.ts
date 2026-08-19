@@ -225,6 +225,43 @@ export const selectPlayedMatches = (
 	return [...played.values()].sort((a, b) => a.order - b.order);
 };
 
+/**
+ * How open the scoreboard is to one person: freely, deliberately, or not at
+ * all.
+ *
+ * Three states rather than the boolean this used to be, because a confirmed
+ * game is not simply closed to an admin — it is closed to a *tap*. An
+ * unconfirmed game is one tap for anybody holding a response and that is the
+ * whole point of it: whoever has a free hand enters the score, and a wrong one
+ * is one tap back. Confirming applies the ratings, so from then on the same tap
+ * asks `replayRatingsFrom` to rewind the ledger and rate every game since
+ * against a table that moved underneath it. That is a decision rather than a
+ * gesture, and `locked` is what says so: the people who may still correct a
+ * score keep every bit of that power and have to reach for it, instead of
+ * finding it under a thumb resting on a `+` while scrolling.
+ *
+ * `none` covers both of its reasons — somebody signed in who never answered
+ * the game, and everybody who cannot correct a confirmed one — because the
+ * screen says something different about each and neither can score.
+ */
+export type ScoreAccess = 'open' | 'locked' | 'none';
+
+export const getScoreAccess = ({
+	finalised,
+	isAdmin,
+	hasResponded,
+}: {
+	finalised: boolean;
+	/** A season admin or an app admin: the people a correction is allowed from. */
+	isAdmin: boolean;
+	/** Whether they answered this game, which is what stands in for being at the pitch. */
+	hasResponded: boolean;
+}): ScoreAccess => {
+	if (finalised) return isAdmin ? 'locked' : 'none';
+
+	return isAdmin || hasResponded ? 'open' : 'none';
+};
+
 export interface ScheduleFit {
 	matchCount: number;
 	/** How long each match actually runs for, which is the whole slot when there is only one. */

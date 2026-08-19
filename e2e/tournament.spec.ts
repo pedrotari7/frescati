@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { aSeasonAdmin, readCast, signInAs } from './fixtures';
 import { openSeasonAs } from './helpers';
 
@@ -46,7 +46,7 @@ const sectionUnder = (page: Page, heading: RegExp) =>
  * button, so a click on `Played` expanded nothing and every game link found
  * afterwards came from the sections above it.
  */
-const openAPlayedGame = async (page: Page): Promise<void> => {
+const openAPlayedGame = async (page: Page, wanted?: (page: Page) => Promise<boolean>): Promise<void> => {
 	const section = sectionUnder(page, /^Played \(/);
 	await expect(section, 'this season has played no games').toBeVisible();
 
@@ -74,10 +74,44 @@ const openAPlayedGame = async (page: Page): Promise<void> => {
 		await teamSheet.click();
 		await expect(page).toHaveURL(/\/tournament$/);
 
+		// Asked on the team sheet rather than on the row, because what the
+		// callers want to know — whether this game has been confirmed — is a
+		// state of the scoreboard and only that screen says it out loud.
+		if (wanted && !(await wanted(page))) continue;
+
 		return;
 	}
 
 	throw new Error(`no played game here has a lineup — looked at ${hrefs.length}`);
+};
+
+/**
+ * The pill that says this game's ratings have been applied.
+ *
+ * Exact, and that is the point: the *unconfirmed* screen carries the sentence
+ * "Nothing counts towards anyone's rating until this is confirmed", which a
+ * substring match finds case-insensitively — so the loose locator reported every
+ * game as confirmed, including the one offering to confirm it. The pill is the
+ * only thing that says only this.
+ */
+const confirmedPill = (page: Page): Locator => page.getByText('Confirmed', { exact: true }).first();
+
+const confirmButton = (page: Page): Locator => page.getByRole('button', { name: /Confirm results/ });
+
+/**
+ * Whether the team sheet on screen belongs to a confirmed game.
+ *
+ * `isVisible` is an instant check that waits for nothing, so branching on it
+ * straight off a navigation asks the question before the screen has answered it
+ * — and "not confirmed yet" and "not drawn yet" look the same. Waiting for
+ * whichever of the two states this game is in comes first, and never finding
+ * either is a failure rather than a `false`: a played game with a lineup and no
+ * scoreboard state at all is a broken screen, not an unconfirmed game.
+ */
+const showsAsConfirmed = async (page: Page): Promise<boolean> => {
+	await expect(confirmButton(page).or(confirmedPill(page)), 'the team sheet showed neither state').toBeVisible();
+
+	return confirmedPill(page).isVisible();
 };
 
 /**
@@ -104,7 +138,12 @@ test.describe('the team sheet', () => {
 	test('lets somebody who played record a scoreline', async ({ page }) => {
 		const admin = aSeasonAdmin();
 		await openSeasonAs(page, admin);
-		await openAPlayedGame(page);
+
+		// Explicitly an unconfirmed game. A seeded season has both kinds and the
+		// most recent played one happens to be waiting on Confirm, but this test
+		// is about the ordinary one-tap scoreboard — a confirmed game's steppers
+		// are dead until somebody says they mean it, which is the test below.
+		await openAPlayedGame(page, async sheet => !(await showsAsConfirmed(sheet)));
 
 		const up = page.getByRole('button', { name: /one more$/ }).first();
 		await expect(up).toBeVisible();
@@ -146,28 +185,47 @@ test.describe('the team sheet', () => {
 		await openSeasonAs(page, admin);
 		await openAPlayedGame(page);
 
-		// Exact, and that is the point: the *unconfirmed* screen carries the
-		// sentence "Nothing counts towards anyone's rating until this is
-		// confirmed", which a substring match finds case-insensitively — so the
-		// loose locator reported every game as confirmed, including the one
-		// offering to confirm it. The pill is the only thing that says only this.
-		const confirmed = page.getByText('Confirmed', { exact: true }).first();
-		const confirmButton = page.getByRole('button', { name: /Confirm results/ });
-
-		// `isVisible` is an instant check that waits for nothing, so branching on
-		// it straight off a navigation asks the question before the screen has
-		// answered it — and "not confirmed yet" and "not drawn yet" look the same.
-		// Wait for whichever of the two this game is to appear first.
-		await expect(confirmButton.or(confirmed), 'the team sheet showed neither state').toBeVisible();
-
 		// A seeded season has both kinds. Whichever this game is, the screen must
 		// not offer both — the ledger was computed against this lineup and a
 		// replay reads it back.
-		if (await confirmButton.isVisible()) {
-			await expect(confirmed).toBeHidden();
+		if (await showsAsConfirmed(page)) {
+			await expect(confirmButton(page), 'a confirmed game offered to confirm it again').toBeHidden();
 		} else {
-			await expect(confirmed).toBeVisible();
+			await expect(confirmButton(page)).toBeVisible();
 		}
+	});
+
+	/**
+	 * The one screen in the app where a tap is not the whole gesture.
+	 *
+	 * A confirmed game's ratings have been applied, so moving a score asks the
+	 * ladder to be worked out again from that game forward — and an admin opens
+	 * a confirmed game to *read* it far more often than to change it, scrolling
+	 * a column of steppers with a thumb. Nothing but the client stands between
+	 * that thumb and a replay: the rules let a season admin write the score, and
+	 * they should, because a correction is the only way a wrong one is ever put
+	 * right. So the guard is here, and here is where it has to be proved.
+	 */
+	test('makes an admin mean it before a confirmed score can move', async ({ page }) => {
+		const admin = aSeasonAdmin();
+		await openSeasonAs(page, admin);
+		await openAPlayedGame(page, showsAsConfirmed);
+
+		const up = page.getByRole('button', { name: /one more$/ }).first();
+		await expect(up).toBeVisible();
+		await expect(up, 'a confirmed score moved on one tap').toBeDisabled();
+
+		await page.getByRole('button', { name: 'Correct a score' }).click();
+		await expect(up, 'the scoreboard opened before the dialog was answered').toBeDisabled();
+
+		await page.getByRole('button', { name: 'Correct it' }).click();
+		await expect(up, 'confirming the dialog left the scoreboard shut').toBeEnabled();
+
+		// The unlock is state on the screen and not on the game: it is about this
+		// visit, so coming back — from a notification, from the season's home
+		// screen, from anywhere — starts locked again.
+		await page.reload();
+		await expect(page.getByRole('button', { name: /one more$/ }).first()).toBeDisabled();
 	});
 });
 

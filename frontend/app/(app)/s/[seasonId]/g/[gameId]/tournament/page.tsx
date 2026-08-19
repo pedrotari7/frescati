@@ -15,6 +15,7 @@ import {
 	getFixtures,
 	getLapLength,
 	getScheduleFit,
+	getScoreAccess,
 	getSideSize,
 	MIN_TOURNAMENT_PLAYERS,
 	selectPlayedMatches,
@@ -62,6 +63,7 @@ import StatusPill from '../../../../../../../components/StatusPill';
 import Avatar from '../../../../../../../components/Avatar';
 import TeamCard from '../../../../../../../components/TeamCard';
 import MatchScore from '../../../../../../../components/MatchScore';
+import ScoreboardLock from '../../../../../../../components/ScoreboardLock';
 import StandingsTable from '../../../../../../../components/StandingsTable';
 
 const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
@@ -93,6 +95,12 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// Which squad's letter is being changed. `null` rather than a boolean, since
 	// the sheet is about one team and the swap is with whichever is picked.
 	const [letteringIndex, setLetteringIndex] = useState<number | null>(null);
+
+	// Whether a confirmed game's scoreboard has been deliberately opened up —
+	// see `ScoreboardLock`, which is where the reasoning lives. On the screen
+	// rather than on the game: it is about this visit, and it means nothing to
+	// anybody else looking at the same game.
+	const [correcting, setCorrecting] = useState(false);
 
 	const game = games.find(candidate => candidate.id === gameId) ?? null;
 
@@ -186,10 +194,13 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const deltas = result ? new Map(result.changes.map(change => [change.uid, change.delta])) : undefined;
 
 	// Anyone who answered the game can keep the score — that is the point, so
-	// whoever has a free hand does it. Confirming the game closes it to
-	// everyone but an admin, whose correction replays the ratings.
+	// whoever has a free hand does it. Confirming the game closes it to everyone
+	// but an admin, and closes it to a *tap* even for them: a correction replays
+	// the ladder from here on, so `locked` is a scoreboard they have to open
+	// first. `ScoreboardLock` is the door and holds the reasoning.
 	const finalised = !!game.resultFinalisedAt;
-	const canScore = (isAdmin || !!myResponses[gameId]) && (isAdmin || !finalised);
+	const access = getScoreAccess({ finalised, isAdmin, hasResponded: !!myResponses[gameId] });
+	const canScore = access === 'open' || (access === 'locked' && correcting);
 
 	// A score is recorded against a fixture — "match 1, team A v team B" — so
 	// re-picking the squads underneath one would leave the scoreboard describing
@@ -417,9 +428,11 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 						{finalised && <StatusPill tone='neutral'>Confirmed</StatusPill>}
 					</div>
 
-					{!canScore && !finalised && (
+					{access === 'none' && !finalised && (
 						<p className='text-faint mb-3 text-xs'>Say you&apos;re in and you can keep the score too.</p>
 					)}
+
+					{access === 'locked' && <ScoreboardLock correcting={correcting} onChange={setCorrecting} />}
 
 					<ol className='space-y-2'>
 						{fixtures.map(fixture => (
