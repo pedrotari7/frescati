@@ -36,7 +36,7 @@ interface CompositeIndex {
 interface FieldOverride {
 	collectionGroup: string;
 	fieldPath: string;
-	indexes: { order?: string; queryScope: string }[];
+	indexes: { order?: string; arrayConfig?: string; queryScope: string }[];
 }
 
 const config = JSON.parse(readFileSync(join(__dirname, '..', 'firestore.indexes.json'), 'utf8')) as {
@@ -144,6 +144,38 @@ describe('the collection-group read of one player’s answers', () => {
 
 	it('is still indexed within one game, which is how the roster is read', () => {
 		expect(override()?.indexes).toContainEqual({ order: 'ASCENDING', queryScope: 'COLLECTION' });
+	});
+});
+
+describe('the sweep that closes a man-of-the-match vote', () => {
+	/**
+	 * `closeMotmVoting` asks every season at once — a collection-group range over
+	 * `motmVotingUntilMillis` — which is a **single-field** query and still needs
+	 * declaring, because automatic indexes are collection-scoped only.
+	 *
+	 * This was live in the project and missing from this file, which is the
+	 * dangerous direction of drift rather than the harmless one: `firebase deploy
+	 * --only firestore:indexes --force` deletes whatever the file does not
+	 * mention, so the first deploy that included indexes would have taken the
+	 * sweep's index out and left a vote nobody ever closes.
+	 *
+	 * Restating the three automatic entries is not padding. Declaring an override
+	 * replaces the automatic configuration for that field outright, so a file
+	 * naming only the group scope asks for the other three to be dropped.
+	 */
+	const override = () =>
+		config.fieldOverrides.find(
+			entry => entry.collectionGroup === 'games' && entry.fieldPath === 'motmVotingUntilMillis'
+		);
+
+	it('is indexed across every season', () => {
+		expect(override()?.indexes).toContainEqual({ order: 'ASCENDING', queryScope: 'COLLECTION_GROUP' });
+	});
+
+	it('keeps the automatic indexes the override would otherwise replace', () => {
+		expect(override()?.indexes).toContainEqual({ order: 'ASCENDING', queryScope: 'COLLECTION' });
+		expect(override()?.indexes).toContainEqual({ order: 'DESCENDING', queryScope: 'COLLECTION' });
+		expect(override()?.indexes).toContainEqual({ arrayConfig: 'CONTAINS', queryScope: 'COLLECTION' });
 	});
 });
 

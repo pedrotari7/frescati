@@ -73,7 +73,17 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/gcp-key.json" >> "$GITHUB_ENV"
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-      - run: pnpm exec firebase deploy --only functions,firestore:rules --force --project default
+      # Indexes deploy from here too, and until now they did not — the filter
+      # above has always counted `firestore.indexes.json` as a rules change, so
+      # editing it ran the suite that checks it and then deployed everything
+      # except it. A query the emulator serves and production has no index for
+      # fails only in production, which is the one place nothing was watching.
+      #
+      # `--force` is what makes that safe to automate and also what makes it
+      # sharp: for indexes it answers yes to "delete the ones the file does not
+      # mention". rules/indexes.test.ts is the guard — every override live in
+      # the project has to be written down there, or this deletes it.
+      - run: pnpm exec firebase deploy --only functions,firestore:rules,firestore:indexes --force --project default
 
   # Vercel's git integration no longer deploys `main` — `frontend/vercel.json`
   # turns it off for that branch and nothing else — so production goes out from
