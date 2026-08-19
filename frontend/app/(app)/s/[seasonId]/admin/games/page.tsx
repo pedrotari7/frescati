@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { Game } from '@shared/types';
+import type { Game, Season } from '@shared/types';
 import { diffGeneratedGames, generateGameDates } from '@shared/schedule';
 import { getGameLifecycle } from '@shared/game';
 import { counted, formatGameDate, formatGameTime } from '@shared/format';
@@ -44,6 +44,72 @@ const describeDeletion = (game: Game): string => {
 		.join(' ');
 };
 
+/**
+ * One game on the admin calendar.
+ *
+ * Its own component because the list is drawn twice now — what is coming up,
+ * and what has been played — and two copies of a row carrying three buttons is
+ * two places for them to drift apart.
+ */
+const CalendarRow = ({
+	game,
+	season,
+	now,
+	onCancel,
+	onRestore,
+	onDelete,
+}: {
+	game: Game;
+	season: Season;
+	now: Date;
+	onCancel: (game: Game) => void;
+	onRestore: (game: Game) => void;
+	onDelete: (game: Game) => void;
+}) => {
+	const isCancelled = getGameLifecycle(game, season, now) === 'cancelled';
+
+	// Whether the football has happened, asked of the clock rather than of the
+	// lifecycle: `getGameLifecycle` answers `cancelled` before it answers
+	// `finished`, so a game that is both never reports as played and Restore
+	// would disappear from the one row that needs it.
+	const isOver = now.toISOString() >= game.endsAt;
+
+	return (
+		<div className='flex items-center gap-2 py-3'>
+			<div className='min-w-0 flex-1'>
+				<p className='text-ink text-sm'>
+					{formatGameDate(game.kickoff, season.slot.timezone)}{' '}
+					<span className='text-faint tabular-nums'>
+						{formatGameTime(game.kickoff, season.slot.timezone)}
+					</span>
+				</p>
+				<div className='mt-1 flex gap-1.5'>
+					<span className='text-faint text-xs'>{game.counts.playing} playing</span>
+					{game.isOneOff && <StatusPill tone='extra'>One-off</StatusPill>}
+					{isCancelled && <StatusPill tone='out'>Cancelled</StatusPill>}
+				</div>
+			</div>
+
+			{/* Calling a game off past the final whistle is not a decision anybody
+			    can still make, and it is worse than useless: `cancelled` is read
+			    before `finished`, so a played — even a confirmed and rated — game
+			    would stop being finished and reappear as the top card on the
+			    season home screen. Restore stays on a cancelled game whenever it
+			    happened, because that is the way back from exactly this. */}
+			{(isCancelled || !isOver) && (
+				<Button size='sm' variant='ghost' onClick={() => (isCancelled ? onRestore(game) : onCancel(game))}>
+					{isCancelled ? 'Restore' : 'Cancel'}
+				</Button>
+			)}
+
+			{/* Deleting loses the answers; cancelling keeps them. */}
+			<Button size='sm' variant='danger' onClick={() => onDelete(game)}>
+				Delete
+			</Button>
+		</div>
+	);
+};
+
 const AdminGamesPage = () => {
 	const { user } = useAuth();
 	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
@@ -53,6 +119,32 @@ const AdminGamesPage = () => {
 
 	const [message, setMessage] = useState<string | null>(null);
 	const [oneOff, setOneOff] = useState({ date: '', time: '' });
+	const [showPast, setShowPast] = useState(false);
+
+	/**
+	 * The calendar, split on the final whistle.
+	 *
+	 * It used to render `games` straight through in kickoff order, so by March
+	 * an admin scrolled past twenty played games to reach the one they came to
+	 * change. Every other list in the app that looks backwards reverses —
+	 * `groupGames` does it for both of its past buckets, the career list does it
+	 * — and this is the same reading.
+	 *
+	 * Split on the clock rather than through `groupGames`, which answers the
+	 * home screen's question: which game is next, what is still being voted on.
+	 * The only thing this screen needs to know is whether the football has
+	 * happened, and a cancelled game is still upcoming here — putting it back on
+	 * is a thing an admin does from this list.
+	 */
+	const { scheduled, past } = useMemo(() => {
+		const nowIso = now.toISOString();
+		const ahead: Game[] = [];
+		const behind: Game[] = [];
+
+		for (const game of games) (nowIso >= game.endsAt ? behind : ahead).push(game);
+
+		return { scheduled: ahead, past: behind.reverse() };
+	}, [games, now]);
 
 	// Preview what "generate" would actually do, so an admin can see "12 new, 8
 	// already there" before committing a batch write.
@@ -158,6 +250,19 @@ const AdminGamesPage = () => {
 		await write(() => cancelGame(seasonId, game.id, 'Called off by an admin'), "Couldn't cancel that game.");
 	};
 
+	const handleDelete = async (game: Game) => {
+		const ok = await confirm({
+			title: `Delete ${formatGameDate(game.kickoff, season.slot.timezone)}?`,
+			message: describeDeletion(game),
+			confirmLabel: 'Delete',
+			tone: 'danger',
+		});
+
+		if (!ok) return;
+
+		await write(() => deleteGame(seasonId, game.id), "Couldn't delete that game.");
+	};
+
 	const handleRestore = async (game: Game) => {
 		const when = formatGameDate(game.kickoff, season.slot.timezone);
 
@@ -235,84 +340,59 @@ const AdminGamesPage = () => {
 				{message && <p className='text-brand px-1 text-sm'>{message}</p>}
 
 				<section>
-					<SectionHeading className='mb-2 px-1'>Calendar</SectionHeading>
+					<SectionHeading className='mb-2 px-1'>Coming up ({scheduled.length})</SectionHeading>
 
 					<ListCard>
-						{games.length === 0 && <ListEmpty>No games yet.</ListEmpty>}
+						{scheduled.length === 0 && (
+							<ListEmpty>
+								{games.length === 0 ? 'No games yet.' : 'Nothing left on the calendar.'}
+							</ListEmpty>
+						)}
 
-						{games.map(game => {
-							const lifecycle = getGameLifecycle(game, season, now);
-							const isCancelled = lifecycle === 'cancelled';
-
-							// Whether the football has happened, asked of the clock
-							// rather than of the lifecycle: `getGameLifecycle` answers
-							// `cancelled` before it answers `finished`, so a game that
-							// is both never reports as played and Restore would
-							// disappear from the one row that needs it.
-							const isOver = now.toISOString() >= game.endsAt;
-
-							return (
-								<div key={game.id} className='flex items-center gap-2 py-3'>
-									<div className='min-w-0 flex-1'>
-										<p className='text-ink text-sm'>
-											{formatGameDate(game.kickoff, season.slot.timezone)}{' '}
-											<span className='text-faint tabular-nums'>
-												{formatGameTime(game.kickoff, season.slot.timezone)}
-											</span>
-										</p>
-										<div className='mt-1 flex gap-1.5'>
-											<span className='text-faint text-xs'>{game.counts.playing} playing</span>
-											{game.isOneOff && <StatusPill tone='extra'>One-off</StatusPill>}
-											{isCancelled && <StatusPill tone='out'>Cancelled</StatusPill>}
-										</div>
-									</div>
-
-									{/* Calling a game off past the final whistle is not a
-									    decision anybody can still make, and it is worse
-									    than useless: `cancelled` is read before
-									    `finished`, so a played — even a confirmed and
-									    rated — game would stop being finished and
-									    reappear as the top card on the season home
-									    screen. Restore stays on a cancelled game
-									    whenever it happened, because that is the way
-									    back from exactly this. */}
-									{(isCancelled || !isOver) && (
-										<Button
-											size='sm'
-											variant='ghost'
-											onClick={() => (isCancelled ? handleRestore(game) : handleCancel(game))}
-										>
-											{isCancelled ? 'Restore' : 'Cancel'}
-										</Button>
-									)}
-
-									{/* Deleting loses the answers; cancelling keeps them. */}
-									<Button
-										size='sm'
-										variant='danger'
-										onClick={async () => {
-											const ok = await confirm({
-												title: `Delete ${formatGameDate(game.kickoff, season.slot.timezone)}?`,
-												message: describeDeletion(game),
-												confirmLabel: 'Delete',
-												tone: 'danger',
-											});
-
-											if (!ok) return;
-
-											await write(
-												() => deleteGame(seasonId, game.id),
-												"Couldn't delete that game."
-											);
-										}}
-									>
-										Delete
-									</Button>
-								</div>
-							);
-						})}
+						{scheduled.map(game => (
+							<CalendarRow
+								key={game.id}
+								game={game}
+								season={season}
+								now={now}
+								onCancel={handleCancel}
+								onRestore={handleRestore}
+								onDelete={handleDelete}
+							/>
+						))}
 					</ListCard>
 				</section>
+
+				{/* Collapsed, like the Played list on the season home screen and for
+				    the same reason: by March this is twenty rows of football that has
+				    already happened, and an admin opening this screen came here to
+				    change something that hasn't. */}
+				{past.length > 0 && (
+					<section>
+						<div className='mb-2 flex items-center justify-between px-1'>
+							<SectionHeading>Played ({past.length})</SectionHeading>
+							<Button variant='ghost' size='sm' onClick={() => setShowPast(!showPast)}>
+								{showPast ? 'Hide' : 'Show'}
+							</Button>
+						</div>
+
+						{showPast && (
+							<ListCard>
+								{past.map(game => (
+									<CalendarRow
+										key={game.id}
+										game={game}
+										season={season}
+										now={now}
+										onCancel={handleCancel}
+										onRestore={handleRestore}
+										onDelete={handleDelete}
+									/>
+								))}
+							</ListCard>
+						)}
+					</section>
+				)}
 			</div>
 		</SeasonShell>
 	);
