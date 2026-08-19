@@ -307,14 +307,14 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 										` Worked out from ${linkedGames} of ${record.appearances} games — the rest were rated before the app recorded who was on which team.`}
 								</p>
 
-								{links.length > INITIAL_LINKS && !showAllLinks && (
+								{links.length > INITIAL_LINKS && (
 									<Button
 										variant='secondary'
 										fullWidth
 										className='mt-3'
-										onClick={() => setShowAllLinks(true)}
+										onClick={() => setShowAllLinks(!showAllLinks)}
 									>
-										Show all {links.length}
+										{showAllLinks ? 'Show fewer' : `Show all ${links.length}`}
 									</Button>
 								)}
 							</section>
@@ -338,9 +338,19 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 								))}
 							</ul>
 
-							{listed.length > visible.length && (
-								<Button variant='secondary' fullWidth className='mt-3' onClick={() => setShowAll(true)}>
-									Show all {listed.length} games
+							{/* A toggle rather than a one-way door. Both of these used
+							    to set their state true and then hide themselves, so a
+							    regular with three seasons behind them turned this page
+							    into a couple of hundred rows with no way back short of
+							    reloading it. */}
+							{listed.length > INITIAL_GAMES && (
+								<Button
+									variant='secondary'
+									fullWidth
+									className='mt-3'
+									onClick={() => setShowAll(!showAll)}
+								>
+									{showAll ? 'Show fewer' : `Show all ${listed.length} games`}
 								</Button>
 							)}
 						</section>
