@@ -11,6 +11,7 @@ import { useNow } from '../../../../hooks/useNow';
 import SeasonShell from '../../../../components/SeasonShell';
 import Skeleton from '../../../../components/Skeleton';
 import EmptyState from '../../../../components/EmptyState';
+import LoadFailed from '../../../../components/LoadFailed';
 import NextGameHero from '../../../../components/NextGameHero';
 import GameRow from '../../../../components/GameRow';
 import Button from '../../../../components/Button';
@@ -18,7 +19,7 @@ import CalendarSubscribeSheet from '../../../../components/CalendarSubscribeShee
 import { SectionHeading } from '../../../../components/Section';
 
 const SeasonHomePage = () => {
-	const { seasonId, season, games, loading, isAdmin, role } = useSeasonContext();
+	const { seasonId, season, games, loading, error, retry, isAdmin, role } = useSeasonContext();
 	const { myResponses, loading: responsesLoading } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
 	const [showPast, setShowPast] = useState(false);
@@ -45,6 +46,14 @@ const SeasonHomePage = () => {
 		return (
 			<SeasonShell title='Frescati'>
 				<Skeleton />
+			</SeasonShell>
+		);
+	}
+
+	if (error) {
+		return (
+			<SeasonShell title='Frescati'>
+				<LoadFailed what='this season' onRetry={retry} />
 			</SeasonShell>
 		);
 	}

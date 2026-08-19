@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Unsubscribe } from 'firebase/firestore';
 import { captureError } from '../lib/sentry';
 
@@ -8,6 +8,8 @@ export interface SubscriptionResult<T> {
 	data: T;
 	loading: boolean;
 	error: Error | null;
+	/** Subscribe again after a failure. A no-op while one is already healthy. */
+	retry: () => void;
 }
 
 type Subscribe<T> = (onChange: (value: T) => void, onError: (error: Error) => void) => Unsubscribe;
@@ -29,6 +31,11 @@ type Subscribe<T> = (onChange: (value: T) => void, onError: (error: Error) => vo
  * own, unlike almost every other failure in this app — so this is the one
  * place that has to report it, and `source` is what turns "a subscription
  * failed" into "which one".
+ *
+ * `retry` re-runs the effect by bumping a counter in its deps. Firestore tears
+ * a listener down for good when it hands one to `onError`, so there is nothing
+ * left to resume — the only way back is a fresh `onSnapshot`, and a screen
+ * showing a failure needs something to offer besides a page reload.
  */
 export const useFirestoreSubscription = <T>(
 	initial: T,
@@ -39,6 +46,9 @@ export const useFirestoreSubscription = <T>(
 	const [data, setData] = useState<T>(initial);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
+	const [attempt, setAttempt] = useState(0);
+
+	const retry = useCallback(() => setAttempt(current => current + 1), []);
 
 	useEffect(() => {
 		if (!subscribe) {
@@ -64,7 +74,7 @@ export const useFirestoreSubscription = <T>(
 
 		return unsubscribe;
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, deps);
+	}, [...deps, attempt]);
 
-	return { data, loading, error };
+	return { data, loading, error, retry };
 };

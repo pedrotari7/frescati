@@ -56,6 +56,7 @@ import TeamLetterSheet from '../../../../../../../components/TeamLetterSheet';
 import SeasonShell from '../../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../../components/EmptyState';
+import LoadFailed from '../../../../../../../components/LoadFailed';
 import Button from '../../../../../../../components/Button';
 import StatusPill from '../../../../../../../components/StatusPill';
 import Avatar from '../../../../../../../components/Avatar';
@@ -66,7 +67,7 @@ import StandingsTable from '../../../../../../../components/StandingsTable';
 const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { seasonId, gameId } = use(params);
 	const { user } = useAuth();
-	const { season, games, loading, isAdmin, isSeasonAdmin } = useSeasonContext();
+	const { season, games, loading, error, retry, isAdmin, isSeasonAdmin } = useSeasonContext();
 	const { teams: lineup, loading: teamsLoading } = useTournamentTeams(seasonId, gameId);
 	const { matches, loading: matchesLoading } = useMatches(seasonId, gameId);
 	const { result } = useTournamentResult(seasonId, gameId);
@@ -110,6 +111,14 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 		return (
 			<SeasonShell title='Teams' backHref={backHref}>
 				<Skeleton />
+			</SeasonShell>
+		);
+	}
+
+	if (error) {
+		return (
+			<SeasonShell title='Teams' backHref={backHref}>
+				<LoadFailed what='the teams' onRetry={retry} />
 			</SeasonShell>
 		);
 	}

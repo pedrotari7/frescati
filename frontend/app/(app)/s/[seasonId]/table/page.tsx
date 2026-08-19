@@ -14,6 +14,7 @@ import { useAuth } from '../../../../../lib/auth';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
+import LoadFailed from '../../../../../components/LoadFailed';
 import Avatar from '../../../../../components/Avatar';
 import StatusPill from '../../../../../components/StatusPill';
 import { classNames } from '../../../../../lib/utils/reactHelper';
@@ -53,7 +54,7 @@ const FormDots = ({ form, timezone }: { form: SeasonResult[]; timezone: string }
 );
 
 const LeaderboardPage = () => {
-	const { seasonId, season, loading } = useSeasonContext();
+	const { seasonId, season, loading, error, retry } = useSeasonContext();
 	const { entries, loading: ledgerLoading } = useSeasonLedger(seasonId);
 	const { users, usersByUid } = useUsersByUid();
 	const { user } = useAuth();
@@ -66,6 +67,14 @@ const LeaderboardPage = () => {
 		return (
 			<SeasonShell title='Table' backHref={`/s/${seasonId}`}>
 				<Skeleton />
+			</SeasonShell>
+		);
+	}
+
+	if (error) {
+		return (
+			<SeasonShell title='Table' backHref={`/s/${seasonId}`}>
+				<LoadFailed what='the table' onRetry={retry} />
 			</SeasonShell>
 		);
 	}

@@ -20,6 +20,7 @@ import { setAbsent, setConfirmOverride } from '../../../../../../lib/db/response
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
+import LoadFailed from '../../../../../../components/LoadFailed';
 import GameKit from '../../../../../../components/GameKit';
 import GameWatchers from '../../../../../../components/GameWatchers';
 import HeadcountBar from '../../../../../../components/HeadcountBar';
@@ -30,7 +31,7 @@ import WatchToggle from '../../../../../../components/WatchToggle';
 
 const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { gameId } = use(params);
-	const { seasonId, season, games, loading, isAdmin, role } = useSeasonContext();
+	const { seasonId, season, games, loading, error, retry, isAdmin, role } = useSeasonContext();
 	const { responses, loading: responsesLoading } = useResponses(seasonId, gameId);
 	const { kit } = useKit(seasonId);
 	const { usersByUid } = useUsersByUid();
@@ -85,6 +86,14 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 		return (
 			<SeasonShell title='Game' backHref={`/s/${seasonId}`}>
 				<Skeleton />
+			</SeasonShell>
+		);
+	}
+
+	if (error) {
+		return (
+			<SeasonShell title='Game' backHref={`/s/${seasonId}`}>
+				<LoadFailed what='this game' onRetry={retry} />
 			</SeasonShell>
 		);
 	}

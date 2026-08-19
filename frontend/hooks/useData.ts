@@ -51,25 +51,25 @@ export const useSeasons = () => {
 };
 
 export const useSeason = (seasonId: string | null) => {
-	const { data, loading, error } = useFirestoreSubscription<Season | null>(
+	const { data, loading, error, retry } = useFirestoreSubscription<Season | null>(
 		null,
 		seasonId ? (onChange, onError) => subscribeToSeason(seasonId, onChange, onError) : null,
 		[seasonId],
 		'season'
 	);
 
-	return { season: data, loading, error };
+	return { season: data, loading, error, retry };
 };
 
 export const useGames = (seasonId: string | null) => {
-	const { data, loading, error } = useFirestoreSubscription<Game[]>(
+	const { data, loading, error, retry } = useFirestoreSubscription<Game[]>(
 		NO_GAMES,
 		seasonId ? (onChange, onError) => subscribeToGames(seasonId, onChange, onError) : null,
 		[seasonId],
 		'games'
 	);
 
-	return { games: data, loading, error };
+	return { games: data, loading, error, retry };
 };
 
 export const useGame = (seasonId: string | null, gameId: string | null) => {

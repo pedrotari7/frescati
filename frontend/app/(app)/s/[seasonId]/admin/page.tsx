@@ -18,6 +18,7 @@ import SeasonShell from '../../../../../components/SeasonShell';
 import CalendarSubscribeSheet from '../../../../../components/CalendarSubscribeSheet';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
+import LoadFailed from '../../../../../components/LoadFailed';
 import Button from '../../../../../components/Button';
 import DatePicker from '../../../../../components/DatePicker';
 import { Field, RangeInput, Select, TextInput } from '../../../../../components/Field';
@@ -25,7 +26,7 @@ import { Field, RangeInput, Select, TextInput } from '../../../../../components/
 const SeasonAdminPage = () => {
 	const router = useRouter();
 	const { user } = useAuth();
-	const { seasonId, season, games, loading, isAdmin } = useSeasonContext();
+	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
 	const write = useWrite();
 	const confirm = useConfirm();
 
@@ -85,6 +86,14 @@ const SeasonAdminPage = () => {
 		return (
 			<SeasonShell title='Admin' backHref={`/s/${seasonId}`}>
 				<Skeleton />
+			</SeasonShell>
+		);
+	}
+
+	if (error) {
+		return (
+			<SeasonShell title='Admin' backHref={`/s/${seasonId}`}>
+				<LoadFailed what='this season' onRetry={retry} />
 			</SeasonShell>
 		);
 	}

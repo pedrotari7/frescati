@@ -11,12 +11,13 @@ import { personRow } from '../../../../../lib/people';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
+import LoadFailed from '../../../../../components/LoadFailed';
 import Avatar from '../../../../../components/Avatar';
 import StatusPill from '../../../../../components/StatusPill';
 import { ListCard } from '../../../../../components/Section';
 
 const MembersPage = () => {
-	const { seasonId, season, loading, isAdmin } = useSeasonContext();
+	const { seasonId, season, loading, error, retry, isAdmin } = useSeasonContext();
 	const { usersByUid } = useUsersByUid();
 	const { kit } = useKit(seasonId);
 
@@ -30,6 +31,14 @@ const MembersPage = () => {
 		return (
 			<SeasonShell title='Squad'>
 				<Skeleton />
+			</SeasonShell>
+		);
+	}
+
+	if (error) {
+		return (
+			<SeasonShell title='Squad'>
+				<LoadFailed what='the squad' onRetry={retry} />
 			</SeasonShell>
 		);
 	}

@@ -14,6 +14,7 @@ import {
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
+import LoadFailed from '../../../../../../components/LoadFailed';
 import Avatar from '../../../../../../components/Avatar';
 import Button from '../../../../../../components/Button';
 import StatusPill from '../../../../../../components/StatusPill';
@@ -21,7 +22,7 @@ import { TextInput } from '../../../../../../components/Field';
 import { ListCard, ListEmpty, SectionHeading } from '../../../../../../components/Section';
 
 const AdminMembersPage = () => {
-	const { seasonId, season, loading, isAdmin } = useSeasonContext();
+	const { seasonId, season, loading, error, retry, isAdmin } = useSeasonContext();
 	const { users, loading: usersLoading } = useUsers();
 	const write = useWrite();
 	const [search, setSearch] = useState('');
@@ -42,6 +43,14 @@ const AdminMembersPage = () => {
 		return (
 			<SeasonShell title='Manage squad' backHref={`/s/${seasonId}/admin`}>
 				<Skeleton />
+			</SeasonShell>
+		);
+	}
+
+	if (error) {
+		return (
+			<SeasonShell title='Manage squad' backHref={`/s/${seasonId}/admin`}>
+				<LoadFailed what='the squad' onRetry={retry} />
 			</SeasonShell>
 		);
 	}

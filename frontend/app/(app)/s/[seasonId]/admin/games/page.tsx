@@ -15,6 +15,7 @@ import { cancelGame, createGames, createOneOffGame, deleteGame, restoreGame } fr
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
+import LoadFailed from '../../../../../../components/LoadFailed';
 import Button from '../../../../../../components/Button';
 import StatusPill from '../../../../../../components/StatusPill';
 import DatePicker from '../../../../../../components/DatePicker';
@@ -45,7 +46,7 @@ const describeDeletion = (game: Game): string => {
 
 const AdminGamesPage = () => {
 	const { user } = useAuth();
-	const { seasonId, season, games, loading, isAdmin } = useSeasonContext();
+	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
 	const write = useWrite();
 	const confirm = useConfirm();
 	const now = useNow();
@@ -75,6 +76,14 @@ const AdminGamesPage = () => {
 		return (
 			<SeasonShell title='Games' backHref={`/s/${seasonId}/admin`}>
 				<Skeleton />
+			</SeasonShell>
+		);
+	}
+
+	if (error) {
+		return (
+			<SeasonShell title='Games' backHref={`/s/${seasonId}/admin`}>
+				<LoadFailed what='the calendar' onRetry={retry} />
 			</SeasonShell>
 		);
 	}

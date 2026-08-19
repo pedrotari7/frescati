@@ -23,6 +23,7 @@ import { addKitItem, deleteKitItem, renameKitItem, transferKitItem } from '../..
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
+import LoadFailed from '../../../../../components/LoadFailed';
 import Avatar from '../../../../../components/Avatar';
 import Button from '../../../../../components/Button';
 import StatusPill from '../../../../../components/StatusPill';
@@ -47,7 +48,7 @@ import { ListCard, SectionHeading } from '../../../../../components/Section';
  * the screen that can answer both.
  */
 const KitPage = () => {
-	const { seasonId, season, games, loading, isAdmin, isMember } = useSeasonContext();
+	const { seasonId, season, games, loading, error, retry, isAdmin, isMember } = useSeasonContext();
 	const { kit, loading: kitLoading } = useKit(seasonId);
 	const { usersByUid } = useUsersByUid();
 	const { user } = useAuth();
@@ -86,6 +87,14 @@ const KitPage = () => {
 		return (
 			<SeasonShell title='Kit' backHref={`/s/${seasonId}`}>
 				<Skeleton />
+			</SeasonShell>
+		);
+	}
+
+	if (error) {
+		return (
+			<SeasonShell title='Kit' backHref={`/s/${seasonId}`}>
+				<LoadFailed what='the kit register' onRetry={retry} />
 			</SeasonShell>
 		);
 	}
