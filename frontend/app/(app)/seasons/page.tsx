@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { CalendarDaysIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { SEASON_STATUS_LABELS } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
 import { useSeasons } from '../../../hooks/useData';
 import PageShell from '../../../components/PageShell';
@@ -78,7 +79,7 @@ const SeasonsPage = () => {
 								</div>
 
 								<StatusPill tone={season.status === 'active' ? 'in' : 'neutral'}>
-									{season.status}
+									{SEASON_STATUS_LABELS[season.status]}
 								</StatusPill>
 							</div>
 						</Link>

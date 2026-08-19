@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { CalendarDaysIcon, CalendarIcon, UsersIcon } from '@heroicons/react/24/outline';
 import type { BalanceSettings, Season, SeasonStatus, Venue, Weekday } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
-import { weekdayName } from '@shared/format';
+import { SEASON_STATUS_LABELS, weekdayName } from '@shared/format';
 import { parseCount, parseReminderHours } from '@shared/game';
 import { useAuth } from '../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
@@ -332,9 +332,11 @@ const SeasonAdminPage = () => {
 								value={form.status}
 								onChange={e => setForm({ ...form, status: e.target.value as SeasonStatus })}
 							>
-								<option value='draft'>Draft</option>
-								<option value='active'>Active</option>
-								<option value='archived'>Archived</option>
+								{(Object.keys(SEASON_STATUS_LABELS) as SeasonStatus[]).map(status => (
+									<option key={status} value={status}>
+										{SEASON_STATUS_LABELS[status]}
+									</option>
+								))}
 							</Select>
 						</Field>
 

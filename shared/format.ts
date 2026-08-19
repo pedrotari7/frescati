@@ -1,4 +1,5 @@
 import { civilDateWeekday, getZonedParts, parseCivilDate } from './datetime';
+import type { SeasonStatus } from './types';
 
 /**
  * Presentation helpers shared by the app and the push notification copy.
@@ -137,4 +138,20 @@ export const formatRelative = (iso: string, now: Date = new Date()): string => {
 	if (Math.abs(days) < 7) return formatter.format(days, 'day');
 
 	return formatter.format(Math.round(days / 7), 'week');
+};
+
+/**
+ * A season's status in the words the app writes it in.
+ *
+ * The season picker printed the stored value straight into a pill — "active",
+ * lowercase, the only place in the app where a pill showed a database value
+ * rather than copy — while the settings form eight lines of markup away had the
+ * same three capitalised in its own `<option>` labels. One table, so the screen
+ * that shows a status and the screen that sets it can't disagree about what it
+ * is called.
+ */
+export const SEASON_STATUS_LABELS: Record<SeasonStatus, string> = {
+	draft: 'Draft',
+	active: 'Active',
+	archived: 'Archived',
 };
