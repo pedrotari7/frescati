@@ -9,6 +9,7 @@ import { buildLabel } from '../../../lib/build';
 import { checkPushSupport, disablePush, enablePush, isPushEnabled } from '../../../lib/push';
 import type { PushSupport } from '../../../lib/push';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
+import type { NotificationPrefs } from '@shared/types';
 import { useUser } from '../../../hooks/useData';
 import { useWrite } from '../../../hooks/useWrite';
 import { setNotificationPrefs } from '../../../lib/db/users';
@@ -42,8 +43,27 @@ const MePage = () => {
 	// absent as opted in. Falling back only when the whole map is missing would
 	// draw those switches off while notifications kept arriving — and saving any
 	// other row would then write the wrong value in.
-	const { user: profile } = useUser(uid ?? null);
+	const { user: profile, loading: profileLoading } = useUser(uid ?? null);
 	const prefs = { ...DEFAULT_NOTIFICATION_PREFS, ...profile?.notificationPrefs };
+
+	/**
+	 * Every switch writes the whole map, so none of them may be touched before
+	 * the profile has arrived.
+	 *
+	 * Until the first snapshot lands, `prefs` above is five hard-coded defaults
+	 * rather than what this account chose — so a tap during that window saved
+	 * the one preference asked for and silently turned the other four back on.
+	 * Somebody who muted reminders months ago and came here to switch off the
+	 * email fallback got both back, with nothing on screen to say so.
+	 *
+	 * One helper rather than the guard repeated per row: a sixth switch added
+	 * below inherits it instead of having to remember it.
+	 */
+	const savePref = (key: keyof NotificationPrefs, next: boolean) => {
+		if (!uid || profileLoading) return;
+
+		void write(() => setNotificationPrefs(uid, { ...prefs, [key]: next }), "Couldn't save that preference.");
+	};
 
 	useEffect(() => {
 		checkPushSupport().then(setSupport);
@@ -155,42 +175,24 @@ const MePage = () => {
 							label='Reminders'
 							description="Before a game you haven't answered yet."
 							checked={prefs.reminders}
-							disabled={!uid}
-							onChange={next =>
-								uid &&
-								write(
-									() => setNotificationPrefs(uid, { ...prefs, reminders: next }),
-									"Couldn't save that preference."
-								)
-							}
+							disabled={!uid || profileLoading}
+							onChange={next => savePref('reminders', next)}
 						/>
 
 						<Toggle
 							label='Game changes'
 							description='Cancellations, a moved kick-off, or a game short of players.'
 							checked={prefs.gameChanges}
-							disabled={!uid}
-							onChange={next =>
-								uid &&
-								write(
-									() => setNotificationPrefs(uid, { ...prefs, gameChanges: next }),
-									"Couldn't save that preference."
-								)
-							}
+							disabled={!uid || profileLoading}
+							onChange={next => savePref('gameChanges', next)}
 						/>
 
 						<Toggle
 							label='Man of the match'
 							description='When a game is confirmed and it is time to vote.'
 							checked={prefs.motm}
-							disabled={!uid}
-							onChange={next =>
-								uid &&
-								write(
-									() => setNotificationPrefs(uid, { ...prefs, motm: next }),
-									"Couldn't save that preference."
-								)
-							}
+							disabled={!uid || profileLoading}
+							onChange={next => savePref('motm', next)}
 						/>
 
 						{/* Nobody else is ever sent one, so showing this to them
@@ -200,14 +202,8 @@ const MePage = () => {
 								label='New players'
 								description='When somebody signs into the app for the first time.'
 								checked={prefs.newPlayers}
-								disabled={!uid}
-								onChange={next =>
-									uid &&
-									write(
-										() => setNotificationPrefs(uid, { ...prefs, newPlayers: next }),
-										"Couldn't save that preference."
-									)
-								}
+								disabled={!uid || profileLoading}
+								onChange={next => savePref('newPlayers', next)}
 							/>
 						)}
 
@@ -222,14 +218,8 @@ const MePage = () => {
 									: "Sends an email when a notification can't reach your devices."
 							}
 							checked={prefs.emailFallback}
-							disabled={!uid}
-							onChange={next =>
-								uid &&
-								write(
-									() => setNotificationPrefs(uid, { ...prefs, emailFallback: next }),
-									"Couldn't save that preference."
-								)
-							}
+							disabled={!uid || profileLoading}
+							onChange={next => savePref('emailFallback', next)}
 						/>
 					</div>
 				</section>
