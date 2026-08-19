@@ -118,7 +118,7 @@ describe('MatchScore', () => {
 		);
 
 		expect(screen.getByRole('button', { name: 'Team A one more' })).toBeDisabled();
-		expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /^Clear the score/ })).not.toBeInTheDocument();
 	});
 
 	it('clears a played match', () => {
@@ -135,7 +135,9 @@ describe('MatchScore', () => {
 			/>
 		);
 
-		fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+		// Labelled with its match rather than just "Clear": a scoreboard draws
+		// one of these per fixture.
+		fireEvent.click(screen.getByRole('button', { name: 'Clear the score for match 1' }));
 
 		expect(onClear).toHaveBeenCalledTimes(1);
 	});
@@ -145,6 +147,6 @@ describe('MatchScore', () => {
 			<MatchScore fixture={fixture} match={undefined} sideSize={5} canScore onScore={jest.fn()} onClear={jest.fn()} />
 		);
 
-		expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /^Clear the score/ })).not.toBeInTheDocument();
 	});
 });

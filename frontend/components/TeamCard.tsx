@@ -171,7 +171,7 @@ const TeamCard = ({
 										type='button'
 										onClick={() => onMovePlayer(uid)}
 										aria-label={`Move ${displayNameOf(user)} to another team`}
-										className='text-faint hover:text-ink mr-1 flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-white/5 active:bg-white/10'
+										className='text-faint hover:text-ink tap-44 mr-1 flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-white/5 active:bg-white/10'
 									>
 										<ArrowsRightLeftIcon className='size-4' aria-hidden='true' />
 									</button>

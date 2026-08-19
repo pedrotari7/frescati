@@ -27,7 +27,7 @@ const Stepper = ({
 			aria-label={`${label} one fewer`}
 			disabled={disabled || (value ?? 0) === 0}
 			onClick={() => onChange(Math.max(0, (value ?? 0) - 1))}
-			className='text-muted hover:text-ink flex size-9 items-center justify-center rounded-lg bg-white/5 transition-colors disabled:pointer-events-none disabled:opacity-30'
+			className='text-muted hover:text-ink tap-44 flex size-9 items-center justify-center rounded-lg bg-white/5 transition-colors disabled:pointer-events-none disabled:opacity-30'
 		>
 			<MinusIcon className='size-4' aria-hidden='true' />
 		</button>
@@ -50,7 +50,7 @@ const Stepper = ({
 			aria-label={`${label} one more`}
 			disabled={disabled}
 			onClick={() => onChange((value ?? 0) + 1)}
-			className='text-muted hover:text-ink flex size-9 items-center justify-center rounded-lg bg-white/5 transition-colors disabled:pointer-events-none disabled:opacity-30'
+			className='text-muted hover:text-ink tap-44 flex size-9 items-center justify-center rounded-lg bg-white/5 transition-colors disabled:pointer-events-none disabled:opacity-30'
 		>
 			<PlusIcon className='size-4' aria-hidden='true' />
 		</button>
@@ -100,11 +100,17 @@ const MatchScore = ({
 					Match {fixture.order + 1} · {sideSize} a side
 				</span>
 
+				{/* Named rather than left as "Clear", because a scoreboard draws
+				    one of these per fixture and a screen reader handed four
+				    identical buttons cannot say which match any of them is
+				    about. `tap-44` because the label alone is about sixteen
+				    pixels tall and this deletes a scoreline. */}
 				{match && canScore && (
 					<button
 						type='button'
 						onClick={() => onClear()}
-						className='text-faint hover:text-out text-xs transition-colors'
+						aria-label={`Clear the score for match ${fixture.order + 1}`}
+						className='text-faint hover:text-out tap-44 -m-1.5 rounded-lg p-1.5 text-xs transition-colors active:bg-white/5'
 					>
 						Clear
 					</button>

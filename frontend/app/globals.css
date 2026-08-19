@@ -222,3 +222,30 @@
 		transition-duration: 0.01ms !important;
 	}
 }
+
+/*
+ * A 44px tap target around something deliberately drawn smaller.
+ *
+ * The scoreboard is the case this exists for: two steppers and two bibs have
+ * to fit across a phone, so the buttons are 36px and cannot simply grow — but
+ * they are filled in at the side of a pitch, by somebody with cold hands, and
+ * 36px is under every guideline there is.
+ *
+ * Paints nothing and occupies no space. The pseudo-element collapses to the
+ * element's centre and is then expanded by its own minimums, so it works
+ * whatever size the thing it is on happens to be, and nothing around it moves.
+ * `WatchToggle` solves the same problem with a negative margin, which only
+ * works where the row has slack to give.
+ */
+@utility tap-44 {
+	position: relative;
+
+	&::after {
+		content: '';
+		position: absolute;
+		inset: 50%;
+		min-width: 44px;
+		min-height: 44px;
+		transform: translate(-50%, -50%);
+	}
+}
