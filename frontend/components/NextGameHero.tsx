@@ -6,7 +6,6 @@ import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useKit, useResponses, useUsersByUid } from '../hooks/useData';
-import { useWatchGame } from '../hooks/useWatchGame';
 import GameKit from './GameKit';
 import HeadcountBar from './HeadcountBar';
 import RespondControl from './RespondControl';
@@ -22,18 +21,27 @@ const NextGameHero = ({
 	season,
 	myResponse,
 	isExtra,
+	watching = false,
 	now,
 	onRespond,
 	onClear,
+	onWatchChange,
 }: {
 	game: Game;
 	season: Season;
 	myResponse: GameResponse | undefined;
 	isExtra: boolean;
+	watching?: boolean;
 	/** Passed in rather than read here, so the whole screen agrees on the time. */
 	now: Date;
 	onRespond: (status: ResponseStatus) => Promise<void>;
 	onClear: () => Promise<void>;
+	/**
+	 * Left off when nobody is signed in — no handler, no bell, rather than a
+	 * dead one. The state behind it belongs to the screen: this card and the
+	 * rows below it read one listener between them.
+	 */
+	onWatchChange?: (next: boolean) => void;
 }) => {
 	const lifecycle = getGameLifecycle(game, season, now);
 	const timezone = season.slot.timezone;
@@ -45,12 +53,6 @@ const NextGameHero = ({
 	// row on the list below it is what the denormalised counts exist to avoid.
 	const { responses, loading: responsesLoading } = useResponses(season.id, game.id);
 	const liveGame = responsesLoading ? game : { ...game, counts: tallyResponses(responses) };
-
-	// Only the next game gets a bell. The rows below it are deliberately fed by
-	// the denormalised `counts` rather than a subscription each, and one listener
-	// per row is exactly what that arrangement exists to avoid — so following a
-	// game further out is done from the game's own screen.
-	const { watching, canWatch, toggleWatch } = useWatchGame(season.id, game.id);
 
 	// The register and the profiles behind the names in it. Both are small and
 	// both are already cached by the time this card is the second screen
@@ -85,7 +87,9 @@ const NextGameHero = ({
 						{lifecycle === 'live' && <StatusPill tone='in'>Playing now</StatusPill>}
 					</div>
 
-					{canWatch && isWatchable(lifecycle) && <WatchToggle watching={watching} onChange={toggleWatch} />}
+					{onWatchChange && isWatchable(lifecycle) && (
+						<WatchToggle watching={watching} onChange={onWatchChange} />
+					)}
 				</div>
 
 				{/* The card is the one screen most people ever look at, so the way

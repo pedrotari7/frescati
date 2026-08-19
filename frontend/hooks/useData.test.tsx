@@ -34,7 +34,6 @@ jest.mock('../lib/db/seasons', () => mockSubscriptions('subscribeToSeasons', 'su
 jest.mock('../lib/db/games', () => mockSubscriptions('subscribeToGames', 'subscribeToGame'));
 jest.mock('../lib/db/responses', () => mockSubscriptions('subscribeToResponses'));
 jest.mock('../lib/db/kit', () => mockSubscriptions('subscribeToKit'));
-jest.mock('../lib/db/watchers', () => mockSubscriptions('subscribeToWatching'));
 jest.mock('../lib/db/tournament', () =>
 	mockSubscriptions(
 		'subscribeToTeams',
@@ -56,7 +55,6 @@ import * as responses from '../lib/db/responses';
 import * as seasons from '../lib/db/seasons';
 import * as tournament from '../lib/db/tournament';
 import * as users from '../lib/db/users';
-import * as watchers from '../lib/db/watchers';
 import * as data from './useData';
 
 const SEASON = 'season-1';
@@ -165,13 +163,6 @@ const HOOKS: {
 		subscribe: motm.subscribeToMotmVoters as jest.Mock,
 		args: [SEASON, GAME],
 		subscribeWith: [SEASON, GAME],
-	},
-	{
-		name: 'useWatching',
-		hook: data.useWatching,
-		subscribe: watchers.subscribeToWatching as jest.Mock,
-		args: [SEASON, GAME, UID],
-		subscribeWith: [SEASON, GAME, UID],
 	},
 	{
 		name: 'useMyMotmVote',

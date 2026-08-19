@@ -4,22 +4,12 @@ import { EMPTY_COUNTS } from '@shared/types';
 import NextGameHero from './NextGameHero';
 
 /**
- * The bell's wiring is `useWatchGame`'s job; what this file cares about is the
- * card deciding whether to draw one at all. Mutated per test rather than
- * re-mocked, so the default — signed in, not following — is what every existing
- * case above renders against.
+ * The bell's wiring is `useWatchGames`' job; what this file cares about is the
+ * card deciding whether to draw one at all — which it now does off the handler
+ * it is given rather than off a hook it calls, because the screen holds one
+ * listener for the hero and every row under it.
  */
-const mockWatch = { watching: false, canWatch: true, toggleWatch: jest.fn() };
-
-jest.mock('../hooks/useWatchGame', () => ({ useWatchGame: () => mockWatch }));
-
 const bell = () => screen.queryByRole('switch', { name: /notify/i });
-
-beforeEach(() => {
-	mockWatch.watching = false;
-	mockWatch.canWatch = true;
-	mockWatch.toggleWatch.mockClear();
-});
 
 const season = {
 	id: 'season-1',
@@ -213,6 +203,8 @@ describe('NextGameHero', () => {
 	// The bell is on the card the whole group opens first, so following the next
 	// game never costs a trip to its own screen.
 	it('offers the bell on the next game, and toggles it', () => {
+		const onWatchChange = jest.fn();
+
 		render(
 			<NextGameHero
 				game={game({})}
@@ -222,12 +214,13 @@ describe('NextGameHero', () => {
 				now={now}
 				onRespond={jest.fn()}
 				onClear={jest.fn()}
+				onWatchChange={onWatchChange}
 			/>
 		);
 
 		fireEvent.click(bell()!);
 
-		expect(mockWatch.toggleWatch).toHaveBeenCalledWith(true);
+		expect(onWatchChange).toHaveBeenCalledWith(true);
 	});
 
 	// Still drawn once answers lock: only an admin can move the roster by then,
@@ -242,6 +235,7 @@ describe('NextGameHero', () => {
 				now={new Date('2026-08-31T18:00:00.000Z')}
 				onRespond={jest.fn()}
 				onClear={jest.fn()}
+				onWatchChange={jest.fn()}
 			/>
 		);
 
@@ -258,15 +252,16 @@ describe('NextGameHero', () => {
 				now={now}
 				onRespond={jest.fn()}
 				onClear={jest.fn()}
+				onWatchChange={jest.fn()}
 			/>
 		);
 
 		expect(bell()).not.toBeInTheDocument();
 	});
 
-	it('draws no bell at all when nobody is signed in', () => {
-		mockWatch.canWatch = false;
-
+	// No handler is how the screen says nobody is signed in: a dead bell would be
+	// worse than none.
+	it('draws no bell at all without a handler to hang it on', () => {
 		render(
 			<NextGameHero
 				game={game({})}

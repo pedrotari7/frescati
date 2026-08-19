@@ -6,6 +6,7 @@ import { groupGames } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
 import { useMyResponses } from '../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../hooks/useRespond';
+import { useWatchGames } from '../../../../hooks/useWatchGames';
 import { useLiveGameRedirect } from '../../../../hooks/useLiveGameRedirect';
 import { useNow } from '../../../../hooks/useNow';
 import SeasonShell from '../../../../components/SeasonShell';
@@ -22,6 +23,13 @@ const SeasonHomePage = () => {
 	const { seasonId, season, games, loading, error, retry, isAdmin, role } = useSeasonContext();
 	const { myResponses, loading: responsesLoading } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
+
+	// One listener for the whole calendar, which is what lets the bell leave the
+	// hero and reach every game still to come. The rows below are deliberately fed
+	// by the denormalised `counts` rather than a subscription each, and a hook per
+	// row would put back exactly the listener-per-row that arrangement exists to
+	// avoid — so this asks once, for every game followed anywhere.
+	const { isWatching, canWatch, toggleWatch } = useWatchGames(seasonId);
 	const [showPast, setShowPast] = useState(false);
 	const [subscribeOpen, setSubscribeOpen] = useState(false);
 	const now = useNow();
@@ -76,9 +84,11 @@ const SeasonHomePage = () => {
 							season={season}
 							myResponse={myResponses[next.id]}
 							isExtra={role === 'extra'}
+							watching={isWatching(next.id)}
 							now={now}
 							onRespond={status => respond(next.id, status)}
 							onClear={() => clear(next.id)}
+							onWatchChange={canWatch ? watch => toggleWatch(next.id, watch) : undefined}
 						/>
 					) : (
 						<EmptyState
@@ -125,6 +135,10 @@ const SeasonHomePage = () => {
 					{upcoming.length > 0 && (
 						<section>
 							<SectionHeading className='mb-3 px-1'>Coming up</SectionHeading>
+							{/* The only list here handed a bell. `voting` and `played` are
+							    finished by construction — the same fact `isWatchable` reads to
+							    refuse one — so a game already behind us would draw nothing with
+							    the props anyway. */}
 							<div className='space-y-2'>
 								{upcoming.map(game => (
 									<GameRow
@@ -132,9 +146,11 @@ const SeasonHomePage = () => {
 										game={game}
 										season={season}
 										myResponse={myResponses[game.id]}
+										watching={isWatching(game.id)}
 										now={now}
 										onRespond={status => respond(game.id, status)}
 										onClear={() => clear(game.id)}
+										onWatchChange={canWatch ? watch => toggleWatch(game.id, watch) : undefined}
 									/>
 								))}
 							</div>

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { Game, GameResponse, Season } from '@shared/types';
 import { EMPTY_COUNTS } from '@shared/types';
 import GameRow from './GameRow';
@@ -32,6 +32,8 @@ const response = (overrides: Partial<GameResponse>): GameResponse => ({
 });
 
 const now = new Date('2026-08-25T12:00:00.000Z');
+
+const bell = () => screen.queryByRole('switch', { name: /notify/i });
 
 describe('GameRow', () => {
 	it('links to the game and shows date, time and headcount', () => {
@@ -198,5 +200,113 @@ describe('GameRow', () => {
 		);
 
 		expect(screen.getByText('One-off')).toBeInTheDocument();
+	});
+
+	// Following a game no longer costs a trip to its own screen: every row on
+	// the calendar carries the same bell the next-game card does.
+	it('offers the bell on a game still to come, and toggles it', () => {
+		const onWatchChange = jest.fn();
+
+		render(
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+				onWatchChange={onWatchChange}
+			/>
+		);
+
+		fireEvent.click(bell()!);
+
+		expect(onWatchChange).toHaveBeenCalledWith(true);
+	});
+
+	it('draws the bell as on for a game already followed', () => {
+		render(
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				watching
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+				onWatchChange={jest.fn()}
+			/>
+		);
+
+		expect(bell()).toHaveAttribute('aria-checked', 'true');
+	});
+
+	// The bell is a button and the row is a link. Nested, the link swallows it —
+	// which is why it sits beside the link rather than inside it.
+	it('keeps the bell out of the link the row leads with', () => {
+		render(
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+				onWatchChange={jest.fn()}
+			/>
+		);
+
+		expect(screen.getByRole('link')).not.toContainElement(bell());
+	});
+
+	it('drops the bell on a game that is off — there is nothing left to hear about', () => {
+		render(
+			<GameRow
+				game={game({ status: 'cancelled' })}
+				season={season}
+				myResponse={undefined}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+				onWatchChange={jest.fn()}
+			/>
+		);
+
+		expect(bell()).not.toBeInTheDocument();
+	});
+
+	// Nothing arrives about a game that has been played, so nothing offers to
+	// turn it on — the row it is drawn on is in the Played list either way.
+	it('drops the bell on a game already played', () => {
+		render(
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				now={new Date('2026-09-01T19:00:00.000Z')}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+				onWatchChange={jest.fn()}
+			/>
+		);
+
+		expect(bell()).not.toBeInTheDocument();
+	});
+
+	// No handler is how the screen says nobody is signed in: a dead bell would
+	// be worse than none.
+	it('draws no bell at all without a handler to hang it on', () => {
+		render(
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(bell()).not.toBeInTheDocument();
 	});
 });

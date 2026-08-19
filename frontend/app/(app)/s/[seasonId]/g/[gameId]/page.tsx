@@ -13,7 +13,7 @@ import { useGameWatchers } from '../../../../../../hooks/useGameWatchers';
 import { useMyResponses } from '../../../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../../../hooks/useRespond';
 import { useRespondIntent } from '../../../../../../hooks/useRespondIntent';
-import { useWatchGame } from '../../../../../../hooks/useWatchGame';
+import { useWatchGames } from '../../../../../../hooks/useWatchGames';
 import { useWrite } from '../../../../../../hooks/useWrite';
 import { useNow } from '../../../../../../hooks/useNow';
 import { setAbsent, setConfirmOverride } from '../../../../../../lib/db/responses';
@@ -37,7 +37,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const { usersByUid } = useUsersByUid();
 	const { myResponses } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
-	const { watching, canWatch, toggleWatch } = useWatchGame(seasonId, gameId);
+	const { isWatching, canWatch, toggleWatch } = useWatchGames(seasonId);
 	const { user } = useAuth();
 	const write = useWrite();
 	const now = useNow();
@@ -135,7 +135,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 						</div>
 
 						{canWatch && isWatchable(lifecycle) && (
-							<WatchToggle watching={watching} onChange={toggleWatch} />
+							<WatchToggle watching={isWatching(gameId)} onChange={watch => toggleWatch(gameId, watch)} />
 						)}
 					</div>
 

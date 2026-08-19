@@ -18,7 +18,6 @@ import { subscribeToSeason, subscribeToSeasons } from '../lib/db/seasons';
 import { subscribeToGame, subscribeToGames } from '../lib/db/games';
 import { subscribeToResponses } from '../lib/db/responses';
 import { subscribeToKit } from '../lib/db/kit';
-import { subscribeToWatching } from '../lib/db/watchers';
 import {
 	subscribeToMatches,
 	subscribeToPlayerLedger,
@@ -92,26 +91,6 @@ export const useResponses = (seasonId: string | null, gameId: string | null) => 
 	);
 
 	return { responses: data, loading, error };
-};
-
-/**
- * Whether you are following this game's availability.
- *
- * Starts `false` rather than `null`: the toggle has to draw something before
- * the first snapshot lands, and off is both the default and the safe thing to
- * show — an on switch that flicks off a moment later reads as a lost setting.
- */
-export const useWatching = (seasonId: string | null, gameId: string | null, uid: string | null) => {
-	const { data, loading, error } = useFirestoreSubscription<boolean>(
-		false,
-		seasonId && gameId && uid
-			? (onChange, onError) => subscribeToWatching(seasonId, gameId, uid, onChange, onError)
-			: null,
-		[seasonId, gameId, uid],
-		'watching'
-	);
-
-	return { watching: data, loading, error };
 };
 
 /**

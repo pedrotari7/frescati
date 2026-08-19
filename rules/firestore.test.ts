@@ -1922,6 +1922,33 @@ describe('collection-group reads', () => {
 
 		await assertFails(getDocs(query(collectionGroup(db, 'responses'), where('uid', '==', MEMBER))));
 	});
+
+	// The same arrangement for the bell, so the season's home screen can draw one
+	// on every game it lists off one listener rather than a read per row.
+	it('lets a user query the games they are following, across every one', async () => {
+		await setDoc(doc(authed(MEMBER), `seasons/${SEASON}/games/${GAME}/watchers/${MEMBER}`), {
+			uid: MEMBER,
+			createdAt: '2026-08-30T09:00:00.000Z',
+		});
+
+		const mine = query(collectionGroup(authed(MEMBER), 'watchers'), where('uid', '==', MEMBER));
+
+		const snapshot = await assertSucceeds(getDocs(mine));
+		expect(snapshot.size).toBe(1);
+	});
+
+	// The whole point of matching on the field rather than waving the collection
+	// through: this is the query the rule for responses would have allowed, and
+	// who is following a game stays as private as it was.
+	it('refuses to hand anybody somebody else’s following, or everybody’s', async () => {
+		await assertFails(
+			getDocs(query(collectionGroup(authed(MEMBER), 'watchers'), where('uid', '==', OTHER_MEMBER)))
+		);
+		await assertFails(
+			getDocs(query(collectionGroup(authed(APP_ADMIN, { admin: true }), 'watchers'), where('uid', '==', MEMBER)))
+		);
+		await assertFails(getDocs(collectionGroup(authed(MEMBER), 'watchers')));
+	});
 });
 
 describe('everything else', () => {

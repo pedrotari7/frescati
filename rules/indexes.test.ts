@@ -147,6 +147,32 @@ describe('the collection-group read of one player’s answers', () => {
 	});
 });
 
+describe('the collection-group read of the games one player follows', () => {
+	/**
+	 * `subscribeToMyWatching` opens one collection-group listener for every game
+	 * the signed-in user is following, which is what lets the season's home
+	 * screen draw a bell on every row rather than a listener per row.
+	 *
+	 * The same declaration the answers above need, and it fails the same silent
+	 * way without it — the emulator serves the query, production refuses it, and
+	 * every bell on the calendar goes dark at once.
+	 */
+	const override = () =>
+		config.fieldOverrides.find(entry => entry.collectionGroup === 'watchers' && entry.fieldPath === 'uid');
+
+	it('is indexed across every game', () => {
+		expect(override()?.indexes).toContainEqual({ order: 'ASCENDING', queryScope: 'COLLECTION_GROUP' });
+	});
+
+	// Nothing queries one game's watchers by field — `getWatcherUids` reads the
+	// document ids — but an override listing only the group scope would *take
+	// away* the automatic index rather than leave it alone, which is a thing to
+	// do on purpose or not at all.
+	it('leaves the automatic index within one game where it was', () => {
+		expect(override()?.indexes).toContainEqual({ order: 'ASCENDING', queryScope: 'COLLECTION' });
+	});
+});
+
 describe('a player’s record', () => {
 	/**
 	 * `/u/[uid]` is aggregated from the rating ledger by querying

@@ -159,3 +159,61 @@ test.describe('answering the next game', () => {
 		await expect(respondControl(page).inButton.first()).toHaveAttribute('aria-pressed', 'true');
 	});
 });
+
+/**
+ * The bell, from the row rather than from the game's own screen.
+ *
+ * Following a game is one document whose *presence* is the whole subscription,
+ * and the calendar reads every one of them through a single collection-group
+ * query — which is a shape nothing else here exercises. The rules suite proves
+ * the rule allows it and the frontend suite proves the row draws it, and both
+ * of them would pass a query that Firestore refuses: a collection-group read is
+ * allowed by proving every document it could return would pass, so a missing
+ * `where` is a rule failure rather than a wrong answer, and it only happens
+ * against a real database with real rules in front of it.
+ */
+test.describe('following a game from the calendar', () => {
+	test('turns the bell on from a row, and the game screen agrees', async ({ page }) => {
+		const member = aMember();
+		await openSeasonAs(page, member);
+
+		const coming = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Coming up$/ }) });
+		await expect(coming, 'this season has nothing further out than its next game').toBeVisible();
+
+		// Found by the bell rather than by position. A called-off game carries
+		// none — there is nothing left to hear about — and which row that is
+		// depends on how far into the season the seed has got.
+		const row = coming
+			.locator('.glass-card')
+			.filter({ has: page.getByRole('switch', { name: /notify/i }) })
+			.first();
+		const bell = row.getByRole('switch', { name: /notify/i });
+
+		const href = await row.getByRole('link').getAttribute('href');
+		expect(href, 'the row leads nowhere').toBeTruthy();
+
+		// Idempotent like `answer` above, for a subtler version of the same
+		// reason: the bell draws off until the watchers snapshot lands, so a tap
+		// on whatever was found could be acting on a state one frame old.
+		// Following is a `setDoc`, so following twice is following.
+		if ((await bell.getAttribute('aria-checked')) !== 'true') await bell.click();
+		await expect(bell).toHaveAttribute('aria-checked', 'true');
+
+		await row.getByRole('link').click();
+		await expect(page).toHaveURL(/\/s\/[^/]+\/g\/[^/]+$/);
+		expect(new URL(page.url()).pathname, 'landed on a different game than the bell was tapped on').toBe(href);
+
+		// The same document read back by a different screen off its own listener,
+		// which is what catches a query only one of the two builds correctly.
+		await expect(page.getByRole('switch', { name: /notify/i })).toHaveAttribute('aria-checked', 'true');
+
+		// And off again from the row it went on from. Waiting for the row to say
+		// it is on first, because this is a fresh mount of the calendar and the
+		// snapshot has to land before the tap means "off".
+		await page.goBack();
+		await expect(bell).toHaveAttribute('aria-checked', 'true');
+
+		await bell.click();
+		await expect(bell).toHaveAttribute('aria-checked', 'false');
+	});
+});

@@ -822,6 +822,26 @@ service cloud.firestore {
       allow read: if isSignedIn();
     }
 
+    // The same arrangement for the bell, so the season's home screen can draw
+    // one on every game it lists off a single listener rather than a document
+    // read per row.
+    //
+    // Matched on the `uid` **field** rather than on the document id, which is
+    // the only form that can stay as private as the rule above. A query is
+    // allowed by proving every document it could return would pass, and the id
+    // is not something a collection-group query can constrain — so a rule
+    // reading the wildcard would leave this readable by nobody at all. The
+    // field says the same thing the id does, which is why it is written and
+    // why the nested rule pins the two together.
+    //
+    // Nothing is published by this that wasn't already private: without the
+    // `where('uid', '==', <you>)` this refuses, and with it the answer is your
+    // own following and nobody else's. Listing who is following one game stays
+    // impossible, app admins included — that is `getGameWatchers`' job.
+    match /{path=**}/watchers/{uid} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
     // Deny anything not matched above.
     match /{document=**} {
       allow read, write: if false;
