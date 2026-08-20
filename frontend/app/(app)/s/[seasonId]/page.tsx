@@ -132,31 +132,12 @@ const SeasonHomePage = () => {
 						</section>
 					)}
 
-					{upcoming.length > 0 && (
-						<section>
-							<SectionHeading className='mb-3 px-1'>Coming up</SectionHeading>
-							{/* The only list here handed a bell. `voting` and `played` are
-							    finished by construction — the same fact `isWatchable` reads to
-							    refuse one — so a game already behind us would draw nothing with
-							    the props anyway. */}
-							<div className='space-y-2'>
-								{upcoming.map(game => (
-									<GameRow
-										key={game.id}
-										game={game}
-										season={season}
-										myResponse={myResponses[game.id]}
-										watching={isWatching(game.id)}
-										now={now}
-										onRespond={status => respond(game.id, status)}
-										onClear={() => clear(game.id)}
-										onWatchChange={canWatch ? watch => toggleWatch(game.id, watch) : undefined}
-									/>
-								))}
-							</div>
-						</section>
-					)}
-
+					{/* Above the games still to come, and collapsed by default so it
+					    costs them one row rather than a scroll. Closed it is a
+					    heading and a count, which is what the last result is worth
+					    to somebody who came to answer the next one — and it sits
+					    beside the vote that may still be running on the game at the
+					    top of it. */}
 					{played.length > 0 && (
 						<section>
 							<div className='mb-3 flex items-center justify-between px-1'>
@@ -181,6 +162,31 @@ const SeasonHomePage = () => {
 									))}
 								</div>
 							)}
+						</section>
+					)}
+
+					{upcoming.length > 0 && (
+						<section>
+							<SectionHeading className='mb-3 px-1'>Coming up</SectionHeading>
+							{/* The only list here handed a bell. `voting` and `played` are
+							    finished by construction — the same fact `isWatchable` reads to
+							    refuse one — so a game already behind us would draw nothing with
+							    the props anyway. */}
+							<div className='space-y-2'>
+								{upcoming.map(game => (
+									<GameRow
+										key={game.id}
+										game={game}
+										season={season}
+										myResponse={myResponses[game.id]}
+										watching={isWatching(game.id)}
+										now={now}
+										onRespond={status => respond(game.id, status)}
+										onClear={() => clear(game.id)}
+										onWatchChange={canWatch ? watch => toggleWatch(game.id, watch) : undefined}
+									/>
+								))}
+							</div>
 						</section>
 					)}
 				</div>
