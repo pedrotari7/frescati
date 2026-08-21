@@ -8,6 +8,7 @@ import {
 	getSquadSizes,
 	getTeamCount,
 	MAX_MATCHES,
+	MAX_SIDE,
 	MAX_TEAMS,
 	selectPlayedMatches,
 } from './tournament';
@@ -18,7 +19,8 @@ describe('getTeamCount', () => {
 		[7, 0],
 		[8, 2],
 		[11, 2],
-		[12, 3],
+		[12, 2],
+		[13, 3],
 		[15, 3],
 		[16, 4],
 		[24, 4],
@@ -37,7 +39,7 @@ describe('getSquadSizes', () => {
 		[8, 2, [4, 4]],
 		[9, 2, [5, 4]],
 		[11, 2, [6, 5]],
-		[12, 3, [4, 4, 4]],
+		[12, 2, [6, 6]],
 		[13, 3, [5, 4, 4]],
 		[14, 3, [5, 5, 4]],
 		[16, 4, [4, 4, 4, 4]],
@@ -66,6 +68,24 @@ describe('getSideSize', () => {
 	it('plays the smaller squad, so the sides are even', () => {
 		expect(getSideSize(6, 5)).toBe(5);
 		expect(getSideSize(4, 4)).toBe(4);
+	});
+
+	// Twelve players are two squads of six, and the point of the cap is that
+	// this is 5v5 with a sub each rather than 6v6.
+	it('never puts more on than the pitch holds', () => {
+		expect(getSideSize(6, 6)).toBe(MAX_SIDE);
+		expect(getSideSize(8, 7)).toBe(MAX_SIDE);
+	});
+
+	it('keeps every fixture inside the pitch, whatever the turnout', () => {
+		for (let playing = 8; playing <= 40; playing++) {
+			const teamCount = getTeamCount(playing);
+			const sizes = getSquadSizes(playing, teamCount);
+
+			for (const fixture of getFixtures(teamCount, 15, 90)) {
+				expect(getSideSize(sizes[fixture.teamA], sizes[fixture.teamB])).toBeLessThanOrEqual(MAX_SIDE);
+			}
+		}
 	});
 });
 
@@ -291,9 +311,11 @@ describe('describeSquads', () => {
 	it.each([
 		[[5, 5], '5v5'],
 		[[6, 5], '5v5'],
+		[[6, 6], '5v5'],
 		[[4, 4, 4], '3 teams · 4 a side'],
 		[[5, 5, 4], '3 teams · 4–5 a side'],
 		[[5, 5, 5, 5], '4 teams · 5 a side'],
+		[[8, 7, 7, 7], '4 teams · 5 a side'],
 	])('%j reads as %s', (sizes, expected) => {
 		expect(describeSquads(sizes)).toBe(expected);
 	});

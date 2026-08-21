@@ -146,11 +146,12 @@ describe('getFormat', () => {
 		[8, '4v4'],
 		[10, '5v5'],
 		[11, '5v5'],
-		[12, '3 teams · 4 a side'],
+		[12, '5v5'],
+		[13, '3 teams · 4–5 a side'],
 		[14, '3 teams · 4–5 a side'],
 		[15, '3 teams · 5 a side'],
 		[20, '4 teams · 5 a side'],
-		[30, '4 teams · 7–8 a side'],
+		[30, '4 teams · 5 a side'],
 	])('%i players is %s', (playing, expected) => {
 		expect(getFormat(playing)).toBe(expected);
 	});

@@ -17,6 +17,7 @@ import {
 	getScheduleFit,
 	getScoreAccess,
 	getSideSize,
+	MAX_SIDE,
 	MIN_TOURNAMENT_PLAYERS,
 	selectPlayedMatches,
 } from '@shared/tournament';
@@ -163,6 +164,10 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	}
 
 	const squadSizes = lineup.teams.map(team => team.uids.length);
+	// A team card isn't being read against any one fixture, so it shows the side
+	// its squad is sure of: the smallest anybody plays, and never more than the
+	// pitch holds. Everyone past that is a sub, which is what the card says.
+	const pitchSide = Math.min(...squadSizes, MAX_SIDE);
 	const fixtures = getFixtures(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
 	const fit = getScheduleFit(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
 
@@ -367,7 +372,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 							team={team}
 							elos={lineup.elos}
 							usersByUid={usersByUid}
-							sideSize={Math.min(...squadSizes)}
+							sideSize={pitchSide}
 							highlightUid={user?.uid}
 							deltas={deltas}
 							notPlaying={notPlaying}

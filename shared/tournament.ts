@@ -41,13 +41,29 @@ export const MAX_TEAMS = 4;
 export const MAX_MATCHES = 30;
 
 /**
+ * The most anybody plays a side, however deep the squads get.
+ *
+ * The pitch does not grow with the turnout: a twelfth player does not make the
+ * game 6v6, it makes it two squads of six playing five a side with a sub each.
+ * Below twelve this never bites — no band produces a squad of more than five —
+ * so it reads as a cap only from the headcount that first needs one.
+ */
+export const MAX_SIDE = 5;
+
+/**
  * How many teams a headcount splits into. `0` means "not enough for a
  * tournament" rather than throwing, because this is read on every render of a
  * game that may only have two people in it so far.
+ *
+ * Twelve is two teams rather than three. Three squads of four is a smaller
+ * game than the pitch holds, and the twelfth player arriving should deepen the
+ * bench rather than shrink the football — so twelve is the last headcount that
+ * plays the slot out as one match, six a squad with a sub rotating through
+ * each. Thirteen is where a third team starts paying for itself.
  */
 export const getTeamCount = (playing: number): number => {
 	if (playing < MIN_TOURNAMENT_PLAYERS) return 0;
-	if (playing < 12) return 2;
+	if (playing <= 12) return 2;
 	if (playing <= 15) return 3;
 
 	return MAX_TEAMS;
@@ -71,13 +87,16 @@ export const getSquadSizes = (playing: number, teamCount: number): number[] => {
 
 /**
  * How many a side actually play when these two squads meet: the smaller of the
- * two, with the bigger squad rotating somebody through.
+ * two, and never more than the pitch holds. Whatever is left over on either
+ * side rotates through.
  *
  * This is what makes "equal sides, nobody rests permanently" work on an odd
  * headcount. Eleven players are squads of six and five playing 5v5, and the six
- * take turns sitting out rather than one person watching the whole game.
+ * take turns sitting out rather than one person watching the whole game. Twelve
+ * are squads of six and six, and `MAX_SIDE` is what stops that reading as 6v6:
+ * both squads keep a sub instead.
  */
-export const getSideSize = (squadA: number, squadB: number): number => Math.min(squadA, squadB);
+export const getSideSize = (squadA: number, squadB: number): number => Math.min(squadA, squadB, MAX_SIDE);
 
 export interface Fixture {
 	/** Position in the running order, from 0. */
@@ -308,12 +327,18 @@ export const getScheduleFit = (teamCount: number, matchMinutes: number, slotMinu
  * Two teams keep the familiar `NvN` because that is what people call it. Three
  * or four say how many squads, since the side size alone stops describing the
  * evening.
+ *
+ * It describes the pitch rather than the team sheet, which is why it reads the
+ * squads through `MAX_SIDE` first: a squad deeper than the pitch holds is more
+ * subs, not a bigger side, so twelve players say `5v5` exactly as eleven and
+ * ten do. The bench is the team sheet's business, and `TeamCard` says it there.
  */
 export const describeSquads = (sizes: number[]): string | null => {
 	if (sizes.length === 0) return null;
 
-	const smallest = Math.min(...sizes);
-	const largest = Math.max(...sizes);
+	const onPitch = sizes.map(size => Math.min(size, MAX_SIDE));
+	const smallest = Math.min(...onPitch);
+	const largest = Math.max(...onPitch);
 
 	if (sizes.length === 2) return `${smallest}v${smallest}`;
 

@@ -309,6 +309,13 @@ const full: Scenario = {
 				// is generated.
 				[4]: { responses: 'none' },
 				[5]: { responses: 'none' },
+				// The top of the two-team band, which nothing else here reaches:
+				// twelve is two squads of six playing 5v5 with a sub each and one
+				// match for the whole slot, where thirteen would be three teams
+				// and a six-match rotation. The band rolls a twelve some runs and
+				// not others, and this is a shape worth being able to open on
+				// purpose rather than when the dice agree.
+				[6]: { responses: 'partial', playing: 12 },
 			},
 		},
 		{

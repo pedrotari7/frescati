@@ -46,14 +46,14 @@ describe('MatchScore', () => {
 			<MatchScore
 				fixture={{ order: 2, teamA: 0, teamB: 1 }}
 				match={undefined}
-				sideSize={6}
+				sideSize={4}
 				canScore
 				onScore={jest.fn()}
 				onClear={jest.fn()}
 			/>
 		);
 
-		expect(screen.getByText('Match 3 · 6 a side')).toBeInTheDocument();
+		expect(screen.getByText('Match 3 · 4 a side')).toBeInTheDocument();
 	});
 
 	it('sends a first score of zero for the untouched side when the other side is stepped', () => {
