@@ -180,12 +180,26 @@ export const getFixtures = (teamCount: number, matchMinutes: number, slotMinutes
 };
 
 /**
- * How many fixtures make up one lap — the length `getFixtures` repeats to
- * fill the slot for three or four teams, and so the stride a screen groups
- * its fixture list into rounds by. Always `1` for two teams, since there is
- * nothing to repeat; `0` for a team count with no rotation at all.
+ * How many fixtures make up one round: every pair meeting once, so every team
+ * comes away with one more game played. The stride a screen groups its fixture
+ * list into rounds by. `0` for a team count with no rotation at all.
+ *
+ * Pointedly **not** the lap length, which is what a screen grouping by "where
+ * the rotation repeats" would use. The two coincide for four teams and come
+ * apart for three, whose lap is a *double* round robin — so grouping by the lap
+ * drew a single "Round 1" of six matches, the entire evening under one heading,
+ * when a round is the three fixtures that get each side one game. Two teams
+ * divide into rounds of one, which is why the caller decides whether a divider
+ * is worth drawing at all rather than this returning something clever: their
+ * one fixture is a round, it is just not one worth announcing.
+ *
+ * Derived rather than tabulated, because a round robin's length is arithmetic —
+ * every pair of `teamCount` — and a second hand-kept table is a second thing to
+ * get out of step with `ROTATIONS`. What the table *does* have to promise is
+ * that its laps divide into whole rounds, which the suite pins.
  */
-export const getLapLength = (teamCount: number): number => ROTATIONS[teamCount]?.length ?? 0;
+export const getRoundLength = (teamCount: number): number =>
+	ROTATIONS[teamCount] ? (teamCount * (teamCount - 1)) / 2 : 0;
 
 /**
  * The matches that actually belong to this game.

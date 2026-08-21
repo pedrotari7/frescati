@@ -13,7 +13,7 @@ import {
 	AUTO_FINALISE_HOURS,
 	describeSquads,
 	getFixtures,
-	getLapLength,
+	getRoundLength,
 	getScheduleFit,
 	getScoreAccess,
 	getSideSize,
@@ -171,12 +171,11 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const fixtures = getFixtures(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
 	const fit = getScheduleFit(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
 
-	// A round only means something once it bundles more than one match — a
-	// two-team lap is always a single fixture, so every "round" would just
-	// repeat the match count — and only worth flagging once the game actually
-	// plays a second one.
-	const lapLength = getLapLength(lineup.teams.length);
-	const showRounds = lapLength > 1 && fixtures.length > lapLength;
+	// A round only means something once it bundles more than one match — two
+	// teams meet once a round, so every "round" would just repeat the match
+	// count — and only worth flagging once the game actually plays a second one.
+	const roundLength = getRoundLength(lineup.teams.length);
+	const showRounds = roundLength > 1 && fixtures.length > roundLength;
 
 	// Not everything under `matches/` belongs to this game — see
 	// `selectPlayedMatches`. The screen has to agree with the function that
@@ -442,14 +441,14 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					<ol className='space-y-2'>
 						{fixtures.map(fixture => (
 							<Fragment key={fixture.order}>
-								{showRounds && fixture.order % lapLength === 0 && (
+								{showRounds && fixture.order % roundLength === 0 && (
 									<li
 										className={classNames(
 											'text-faint px-1 pb-1 text-xs font-semibold tracking-wider uppercase',
 											fixture.order > 0 && 'mt-2 border-t border-white/8 pt-4'
 										)}
 									>
-										Round {fixture.order / lapLength + 1}
+										Round {fixture.order / roundLength + 1}
 									</li>
 								)}
 

@@ -1,7 +1,7 @@
 import {
 	describeSquads,
 	getFixtures,
-	getLapLength,
+	getRoundLength,
 	getScheduleFit,
 	getSideSize,
 	getScoreAccess,
@@ -227,24 +227,46 @@ describe('getFixtures', () => {
 	});
 });
 
-describe('getLapLength', () => {
+describe('getRoundLength', () => {
 	it.each([
 		[2, 1],
-		[3, 6],
+		[3, 3],
 		[4, 6],
-	])('one lap for %i teams is %i matches', (teamCount, expected) => {
-		expect(getLapLength(teamCount)).toBe(expected);
+	])('one round for %i teams is %i matches', (teamCount, expected) => {
+		expect(getRoundLength(teamCount)).toBe(expected);
 	});
 
-	it('has no lap below the floor', () => {
-		expect(getLapLength(0)).toBe(0);
+	it('has no round below the floor', () => {
+		expect(getRoundLength(0)).toBe(0);
 	});
 
-	// The stride a screen groups a fixture list into rounds by — has to match
-	// what `getFixtures` actually repeats, or a divider would land mid-lap.
-	it('agrees with getFixtures about where one lap ends', () => {
-		for (const teamCount of [2, 3, 4]) {
-			expect(getLapLength(teamCount)).toBe(getFixtures(teamCount, 90, 0).length);
+	// The three-team lap is a double round robin, so a round is half of it. This
+	// is the case that read as one six-match "Round 1" when the divider used the
+	// lap length instead.
+	it('is half a lap for three teams, and the whole of it for four', () => {
+		expect(getRoundLength(3)).toBe(getFixtures(3, 90, 0).length / 2);
+		expect(getRoundLength(4)).toBe(getFixtures(4, 90, 0).length);
+	});
+
+	// The stride a screen groups a fixture list into rounds by, so what it
+	// promises is that each block of that many really is a round: every pair
+	// once, nobody twice, nobody left out. Checked across several laps, since a
+	// divider lands wherever the fixture list has got to and not only inside the
+	// first one.
+	it('has every block of that many fixtures play a complete round robin', () => {
+		for (const teamCount of [3, 4]) {
+			const roundLength = getRoundLength(teamCount);
+			const fixtures = getFixtures(teamCount, 10, 300);
+
+			expect(fixtures.length).toBeGreaterThan(roundLength * 2);
+
+			for (let start = 0; start + roundLength <= fixtures.length; start += roundLength) {
+				const pairs = fixtures
+					.slice(start, start + roundLength)
+					.map(fixture => `${Math.min(fixture.teamA, fixture.teamB)}v${Math.max(fixture.teamA, fixture.teamB)}`);
+
+				expect(new Set(pairs).size).toBe(roundLength);
+			}
 		}
 	});
 });
