@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { aSeasonAdmin, readCast, signInAs } from './fixtures';
 import { openSeasonAs } from './helpers';
+import { AT, expand, gameLinks, sectionUnder } from './locators';
 
 /**
  * Scoring a game and confirming it — the longest chain in the app, and the one
@@ -28,31 +29,20 @@ import { openSeasonAs } from './helpers';
  */
 
 /**
- * The section of the season's home screen under a given heading.
- *
- * `groupGames` splits the calendar into four and the tests want two different
- * ones — the game still being voted on, and the ones that are done — so which
- * section a link came from is the whole question.
- */
-const sectionUnder = (page: Page, heading: RegExp) =>
-	page.locator('section').filter({ has: page.getByRole('heading', { name: heading }) });
-
-/**
  * The most recent played game with a lineup.
  *
- * Played is collapsed by default — it is where a two-day vote goes to be missed,
- * which is why an open vote holds a game out of it. The control is the **Show**
- * button beside the heading; the heading itself is an `h2` and was never a
- * button, so a click on `Played` expanded nothing and every game link found
- * afterwards came from the sections above it.
+ * `groupGames` splits the season's home screen into four and this wants one of
+ * them, which is why it goes through `sectionUnder` rather than taking the first
+ * game link on the page — the two sections above this one are games that have
+ * not been played at all.
  */
 const openAPlayedGame = async (page: Page, wanted?: (page: Page) => Promise<boolean>): Promise<void> => {
 	const section = sectionUnder(page, /^Played \(/);
 	await expect(section, 'this season has played no games').toBeVisible();
 
-	await section.getByRole('button', { name: 'Show' }).click();
+	await expand(section);
 
-	const games = section.locator('a[href*="/g/"]');
+	const games = gameLinks(section);
 	await expect(games.first(), 'the Played list expanded to nothing').toBeVisible();
 
 	// Reversed by `groupGames`, so this walks back from the most recent. Not
@@ -72,7 +62,7 @@ const openAPlayedGame = async (page: Page, wanted?: (page: Page) => Promise<bool
 		if (!hasLineup) continue;
 
 		await teamSheet.click();
-		await expect(page).toHaveURL(/\/tournament$/);
+		await expect(page).toHaveURL(AT.teamSheet);
 
 		// Asked on the team sheet rather than on the row, because what the
 		// callers want to know — whether this game has been confirmed — is a
@@ -130,8 +120,8 @@ const openTheVotingGame = async (page: Page): Promise<void> => {
 	const section = sectionUnder(page, /^Man of the match$/);
 	await expect(section, 'no game in this season has a vote open').toBeVisible();
 
-	await section.locator('a[href*="/g/"]').first().click();
-	await expect(page).toHaveURL(/\/tournament$/);
+	await gameLinks(section).first().click();
+	await expect(page).toHaveURL(AT.teamSheet);
 };
 
 test.describe('the team sheet', () => {
@@ -295,7 +285,7 @@ test.describe('man of the match', () => {
 		expect(player, `no seeded account in this lineup — ${(await namesOnBallot()).join(', ')}`).toBeTruthy();
 
 		await signInAs(page, player!);
-		await expect(page).toHaveURL(/\/tournament$/);
+		await expect(page).toHaveURL(AT.teamSheet);
 
 		// Somebody they have not already picked. Like the In/Out pair, the ballot
 		// is a toggle — tapping your own pick takes it back — and the seeded game

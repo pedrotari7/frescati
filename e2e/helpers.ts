@@ -2,8 +2,16 @@ import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { escapeForRegExp, openAs, seasonsOf } from './fixtures';
 import type { DevUser } from './fixtures';
+import { AT } from './locators';
 
-/** Navigation and the handful of controls more than one journey drives. */
+/**
+ * Getting from one screen to the next.
+ *
+ * The verbs, in other words — `fixtures.ts` holds who you are and
+ * `locators.ts` holds what a screen is made of. What lives here is a walk that
+ * more than one journey starts with and that has a reason to be done in a
+ * particular order, which is the whole of `openSeasonAs` below.
+ */
 
 /**
  * A season card on the picker: a link into a season carrying its status pill.
@@ -65,14 +73,8 @@ export const openSeasonAs = async (page: Page, user: DevUser): Promise<void> => 
 	await expect(season, `no active season on ${user.displayName}'s roster — "${user.hint}"`).toBeVisible();
 
 	await season.click();
-	await expect(page).toHaveURL(/\/s\/[^/]+/);
+	await expect(page).toHaveURL(AT.season);
 };
-
-/** The In / Out pair, which appears on the hero card and the game screen. */
-export const respondControl = (page: Page): { inButton: Locator; outButton: Locator } => ({
-	inButton: page.getByRole('button', { name: /I'm in|Saving/ }).first(),
-	outButton: page.getByRole('button', { name: /Can't make it|Saving/ }).first(),
-});
 
 /** Move to one of the season's tabs by its visible name. */
 export const openTab = async (page: Page, name: RegExp): Promise<void> => {

@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { aMember, whoIs } from './fixtures';
-import { openSeasonAs } from './helpers';
+import { openSeasonAs, openTab } from './helpers';
+import { AT, dialog } from './locators';
 
 /**
  * Handing the ball over, and the two rules that meet on that screen.
@@ -24,6 +25,20 @@ import { openSeasonAs } from './helpers';
  * moving the ball to somebody who is out has to change what the next-game card
  * says, immediately and with nothing in between.
  */
+
+/**
+ * Into the register, which lives behind the Squad tab rather than beside it.
+ *
+ * Two taps because it is two screens: the Squad tab is the roster, and the kit
+ * is one of the things that roster owns. Worth naming once — every test here
+ * starts with the same walk, and none of them is about the walk.
+ */
+const openTheKitRegister = async (page: Page): Promise<void> => {
+	await openTab(page, /^Squad$/);
+	await page.getByRole('link', { name: /Kit/i }).first().click();
+
+	await expect(page).toHaveURL(AT.kit);
+};
 
 /**
  * The name on one of the sheet's rows.
@@ -90,19 +105,13 @@ test.describe('the kit register', () => {
 	test('lets an ordinary member hand an item to somebody else', async ({ page }) => {
 		const member = aMember();
 		await openSeasonAs(page, member);
-
-		await page
-			.getByRole('link', { name: /Squad|Members/i })
-			.first()
-			.click();
-		await page.getByRole('link', { name: /Kit/i }).first().click();
-		await expect(page).toHaveURL(/\/kit$/);
+		await openTheKitRegister(page);
 
 		const handOver = page.getByRole('button', { name: 'Hand over' }).first();
 		await expect(handOver).toBeVisible();
 		await handOver.click();
 
-		const sheet = page.getByRole('dialog');
+		const sheet = dialog(page);
 		await expect(sheet.getByText(/Who has /)).toBeVisible();
 
 		const other = await handItToSomebody(page, sheet);
@@ -123,11 +132,7 @@ test.describe('the kit register', () => {
 		expect(member, 'no seeded season member who is not also an admin').toBeTruthy();
 
 		await openSeasonAs(page, member!);
-		await page
-			.getByRole('link', { name: /Squad|Members/i })
-			.first()
-			.click();
-		await page.getByRole('link', { name: /Kit/i }).first().click();
+		await openTheKitRegister(page);
 
 		await expect(page.getByRole('button', { name: /^Rename / })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: /^Remove / })).toHaveCount(0);
@@ -138,14 +143,10 @@ test.describe('the kit register', () => {
 	test('survives a reload, because the handover was written', async ({ page }) => {
 		const member = aMember();
 		await openSeasonAs(page, member);
-		await page
-			.getByRole('link', { name: /Squad|Members/i })
-			.first()
-			.click();
-		await page.getByRole('link', { name: /Kit/i }).first().click();
+		await openTheKitRegister(page);
 
 		await page.getByRole('button', { name: 'Hand over' }).first().click();
-		const sheet = page.getByRole('dialog');
+		const sheet = dialog(page);
 
 		// Never the current holder — that button is disabled, and a handover that
 		// was a no-op would survive a reload for the wrong reason.

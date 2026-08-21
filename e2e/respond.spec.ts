@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { aMember } from './fixtures';
-import { openSeasonAs, respondControl } from './helpers';
+import { openSeasonAs } from './helpers';
+import { AT, respondControl, sectionUnder } from './locators';
 
 /**
  * The loop the whole app exists for: somebody says they are in, and the
@@ -60,30 +61,34 @@ const settledHeadcount = async (page: Page): Promise<number> => {
 };
 
 /**
- * Get this player to the given answer, and wait for the count to agree.
+ * Put a control into the state a test needs it in, whichever one it is in now.
  *
- * Idempotent on purpose, because the pair is a **toggle and not a radio group**:
- * `RespondControl` withdraws an answer when you tap the one already given, back
- * to no response at all. A helper that tapped regardless would take somebody out
- * of a game it had been asked to put them in — and it did, which is what made
- * every test after the first one in this file fail for a reason none of them was
- * about.
+ * Both controls this file drives are **toggles and not radio groups** — tapping
+ * the answer already given withdraws it, and tapping a bell already on unfollows
+ * — so a helper that tapped regardless would take somebody out of a game it had
+ * been asked to put them in. It did, and that is what made every test after the
+ * first one here fail for a reason none of them was about.
  *
- * `aria-pressed` is safe to read here and only here. It is driven straight off
- * the response document as the listener has it, with no optimistic state behind
- * it — "Saving…" is the pending state, and the button does not move until the
- * write has come back. So it is server truth; it just isn't there yet on
- * arrival, which is what the settle above is for.
+ * Which attribute says so depends on the control: the In/Out pair are buttons
+ * with `aria-pressed`, the bell is a `switch` with `aria-checked`. Both are
+ * driven straight off the document as the listener has it, with no optimistic
+ * state behind them — "Saving…" is the pending state and the button does not
+ * move until the write has come back — so both are server truth. They just are
+ * not there yet on arrival, which is what each caller waits out first.
  */
+const ensureOn = async (control: Locator, attribute: 'aria-pressed' | 'aria-checked'): Promise<void> => {
+	if ((await control.getAttribute(attribute)) !== 'true') await control.click();
+
+	await expect(control).toHaveAttribute(attribute, 'true');
+};
+
+/** Get this player to the given answer, and wait for the count to agree. */
 const answer = async (page: Page, status: 'in' | 'out'): Promise<number> => {
 	await settledHeadcount(page);
 
 	const { inButton, outButton } = respondControl(page);
-	const button = status === 'in' ? inButton : outButton;
 
-	if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click();
-
-	await expect(button).toHaveAttribute('aria-pressed', 'true');
+	await ensureOn(status === 'in' ? inButton : outButton, 'aria-pressed');
 
 	return settledHeadcount(page);
 };
@@ -155,7 +160,7 @@ test.describe('answering the next game', () => {
 			.first()
 			.click();
 
-		await expect(page).toHaveURL(/\/s\/[^/]+\/g\/[^/]+$/);
+		await expect(page).toHaveURL(AT.game);
 		await expect(respondControl(page).inButton.first()).toHaveAttribute('aria-pressed', 'true');
 	});
 });
@@ -177,7 +182,7 @@ test.describe('following a game from the calendar', () => {
 		const member = aMember();
 		await openSeasonAs(page, member);
 
-		const coming = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Coming up$/ }) });
+		const coming = sectionUnder(page, /^Coming up$/);
 		await expect(coming, 'this season has nothing further out than its next game').toBeVisible();
 
 		// Found by the bell rather than by position. A called-off game carries
@@ -192,15 +197,14 @@ test.describe('following a game from the calendar', () => {
 		const href = await row.getByRole('link').getAttribute('href');
 		expect(href, 'the row leads nowhere').toBeTruthy();
 
-		// Idempotent like `answer` above, for a subtler version of the same
-		// reason: the bell draws off until the watchers snapshot lands, so a tap
+		// Through `ensureOn` for a subtler version of the same reason the answers
+		// need it: the bell draws off until the watchers snapshot lands, so a tap
 		// on whatever was found could be acting on a state one frame old.
 		// Following is a `setDoc`, so following twice is following.
-		if ((await bell.getAttribute('aria-checked')) !== 'true') await bell.click();
-		await expect(bell).toHaveAttribute('aria-checked', 'true');
+		await ensureOn(bell, 'aria-checked');
 
 		await row.getByRole('link').click();
-		await expect(page).toHaveURL(/\/s\/[^/]+\/g\/[^/]+$/);
+		await expect(page).toHaveURL(AT.game);
 		expect(new URL(page.url()).pathname, 'landed on a different game than the bell was tapped on').toBe(href);
 
 		// The same document read back by a different screen off its own listener,

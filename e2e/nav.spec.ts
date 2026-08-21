@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { aMember } from './fixtures';
 import { openSeasonAs, openTab } from './helpers';
+import { AT, gameLinks, playerLinks } from './locators';
 
 /**
  * The way back out of a screen.
@@ -27,8 +28,8 @@ import { openSeasonAs, openTab } from './helpers';
  * on. So every journey below runs at both widths and drives the same control.
  *
  * **This spec writes nothing**, like `admin.spec.ts` and for the same reason:
- * the files run in parallel against one seeded database, so a spec that only
- * ever navigates is one that can overlap with all of them.
+ * the files here run in parallel against one seeded database, so a spec that
+ * only ever navigates is one that can overlap with all of them.
  */
 
 /** The chevron in the top bar. A button rather than a link — it moves the router. */
@@ -42,12 +43,12 @@ const backChevron = (page: Page) => page.getByRole('button', { name: 'Back' });
  * moment later — and none of this is about which player it is.
  */
 const openAPlayer = async (page: Page): Promise<void> => {
-	const player = page.locator('a[href^="/u/"]').first();
+	const player = playerLinks(page).first();
 
 	await expect(player, 'no player to open on this screen').toBeVisible();
 	await player.click();
 
-	await expect(page).toHaveURL(/\/u\/[^/]+$/);
+	await expect(page).toHaveURL(AT.player);
 };
 
 /**
@@ -65,18 +66,23 @@ const tabsStartAt = async (page: Page): Promise<number> => {
 	return (await firstTab.boundingBox())!.x;
 };
 
-/** Into the season, then into a game on it. Returns the game's URL. */
-const openAGame = async (page: Page): Promise<string> => {
-	await openSeasonAs(page, aMember());
-
-	const game = page.locator('a[href*="/g/"]').first();
+/** The first game on the season already open. Returns its URL. */
+const openTheFirstGame = async (page: Page): Promise<string> => {
+	const game = gameLinks(page).first();
 
 	await expect(game, 'this season has no games on it').toBeVisible();
 	await game.click();
 
-	await expect(page).toHaveURL(/\/s\/[^/]+\/g\/[^/]+$/);
+	await expect(page).toHaveURL(AT.game);
 
 	return page.url();
+};
+
+/** Into the season, then into a game on it. Returns the game's URL. */
+const openAGame = async (page: Page): Promise<string> => {
+	await openSeasonAs(page, aMember());
+
+	return openTheFirstGame(page);
 };
 
 test.describe('the way back out of a screen', () => {
@@ -100,7 +106,7 @@ test.describe('the way back out of a screen', () => {
 		await openSeasonAs(page, aMember());
 
 		await openTab(page, /^Squad$/);
-		await expect(page).toHaveURL(/\/members$/);
+		await expect(page).toHaveURL(AT.squad);
 
 		const squad = page.url();
 		await openAPlayer(page);
@@ -136,10 +142,7 @@ test.describe('the way back out of a screen', () => {
 		await openSeasonAs(page, aMember());
 		const onTheSeason = await tabsStartAt(page);
 
-		const game = page.locator('a[href*="/g/"]').first();
-		await expect(game, 'this season has no games on it').toBeVisible();
-		await game.click();
-		await expect(page).toHaveURL(/\/s\/[^/]+\/g\/[^/]+$/);
+		await openTheFirstGame(page);
 
 		await expect(backChevron(page), 'no chevron on a game above lg').toBeVisible();
 		expect(await tabsStartAt(page), 'the tabs moved when the chevron appeared').toBeCloseTo(onTheSeason, 0);
@@ -161,10 +164,10 @@ test.describe('the way back out of a screen', () => {
 
 		// The roster having rendered is the signal the app came back up signed
 		// in — a chevron is drawn long before that, and on desktop not at all.
-		await expect(page.locator('a[href^="/u/"]').first(), 'the game did not come back after a reload').toBeVisible();
+		await expect(playerLinks(page).first(), 'the game did not come back after a reload').toBeVisible();
 
 		await backChevron(page).click();
 
-		await expect(page, 'a cold-loaded game had somewhere to go back to').toHaveURL(/\/s\/[^/]+$/);
+		await expect(page, 'a cold-loaded game had somewhere to go back to').toHaveURL(AT.season);
 	});
 });
