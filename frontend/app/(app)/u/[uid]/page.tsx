@@ -96,6 +96,11 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 
 	// Everywhere out of a season keeps the tabs of the season you came from, the
 	// same trade /me makes: the bar you tapped shouldn't move out from under you.
+	//
+	// The season is the fallback way out rather than the way out: a profile is
+	// opened from a game's roster, a team sheet, the table and other profiles,
+	// and the chevron goes back the way it came whenever there is a way — see
+	// `AppHistory`. This is what is left for somebody who arrived by link.
 	const shell = {
 		navItems: seasonId ? seasonNavItems(seasonId) : undefined,
 		backHref: seasonId ? `/s/${seasonId}` : '/seasons',

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ChevronLeftIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../lib/auth';
+import { useAppHistory } from './AppHistory';
 import Avatar from './Avatar';
 import { activeIndexFor, matchesHref } from './BottomNav';
 import type { NavItem } from './BottomNav';
@@ -18,7 +19,13 @@ const TopBar = ({
 }: {
 	title: string;
 	subtitle?: string;
-	/** Shows a back chevron on mobile. Omit on top-level tabs. */
+	/**
+	 * Draws the back chevron. Omit on a tab root, which is nobody's child.
+	 *
+	 * Where the chevron goes when there is nothing behind it — a screen opened
+	 * from a notification, a pasted link, the first load of the installed app.
+	 * Every other arrival goes back the way it came; see `AppHistory`.
+	 */
 	backHref?: string;
 	navItems?: NavItem[];
 	/** Season admins only. Kept out of the tab bar so the tabs never reflow. */
@@ -27,6 +34,7 @@ const TopBar = ({
 	const router = useRouter();
 	const pathname = usePathname();
 	const { user } = useAuth();
+	const { canGoBack } = useAppHistory();
 	const sectionHrefs = adminHref ? [adminHref] : [];
 	const activeIndex = activeIndexFor(navItems, pathname, sectionHrefs);
 	const adminIsActive = !!adminHref && matchesHref(pathname, adminHref);
@@ -34,21 +42,30 @@ const TopBar = ({
 	return (
 		<header className='pt-safe glass fixed inset-x-0 top-0 z-30 border-x-0 border-t-0'>
 			<div className='mx-auto flex h-16 max-w-4xl items-center gap-3 px-3'>
-				{backHref && (
+				{/* Drawn on both, because the tabs are not the way back. Desktop
+				    used to hide this on any screen carrying them, on the grounds
+				    that they were up here instead — and they are, but they lead
+				    to four places, none of which is the screen you came from. A
+				    team sheet, a player, the kit register and every admin screen
+				    sit below a tab rather than on one, so hiding it left them
+				    with no way out at all bar the browser's own Back — which an
+				    installed desktop window does not have. */}
+				{backHref ? (
 					<button
 						type='button'
-						onClick={() => router.push(backHref)}
+						onClick={() => (canGoBack ? router.back() : router.push(backHref))}
 						aria-label='Back'
-						className={classNames(
-							'text-muted hover:text-ink -ml-1 flex size-10 shrink-0 items-center justify-center rounded-full active:bg-white/5',
-							// Desktop hides the chevron because the tabs are up here
-							// instead — unless this screen has none, and it's the only
-							// way out.
-							navItems.length > 0 && 'lg:hidden'
-						)}
+						className='text-muted hover:text-ink -ml-1 flex size-10 shrink-0 items-center justify-center rounded-full active:bg-white/5'
 					>
 						<ChevronLeftIcon className='size-6' />
 					</button>
+				) : (
+					// A tab root has nowhere above it to go, and on a phone that is
+					// simply no chevron. Up here it has to be a held slot, or the
+					// tabs would sit a chevron's width further left on the three
+					// screens without one and jump sideways every time you left
+					// them.
+					navItems.length > 0 && <div className='-ml-1 hidden size-10 shrink-0 lg:block' aria-hidden='true' />
 				)}
 
 				{/* Fixed column once the tabs are up here, so a longer title can't

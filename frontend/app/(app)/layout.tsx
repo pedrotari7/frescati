@@ -6,6 +6,7 @@ import { useLastSeen } from '../../hooks/useLastSeen';
 import Login from '../../components/Login';
 import Spinner from '../../components/Spinner';
 import { SeasonScopeProvider } from '../../components/SeasonScope';
+import { AppHistoryProvider } from '../../components/AppHistory';
 
 /**
  * Auth gate for every signed-in screen.
@@ -35,8 +36,14 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
 
 	if (user === undefined) return <Login />;
 
-	// Above the season route, so the tabs survive a trip to /me and back.
-	return <SeasonScopeProvider>{children}</SeasonScopeProvider>;
+	// Both above the season route: the tabs survive a trip to /me and back, and
+	// so does the record of how somebody got there. Every screen with a back
+	// chevron is below this, and the login screen has none.
+	return (
+		<AppHistoryProvider>
+			<SeasonScopeProvider>{children}</SeasonScopeProvider>
+		</AppHistoryProvider>
+	);
 };
 
 export default AppLayout;
