@@ -59,6 +59,26 @@ const RespondControl = ({
 		}
 	};
 
+	/**
+	 * The control is busy until the write comes back, and it has to *say* so.
+	 *
+	 * `handle` has always refused a tap while one was in flight, but it refused
+	 * it invisibly: both halves stayed live and looked exactly as they do when
+	 * they are waiting for you, so answering Out and then changing your mind
+	 * quickly enough lost the second tap with nothing on screen to suggest it
+	 * had not landed. And the window is longer than it looks — `aria-pressed`
+	 * moves off Firestore's local cache, which reflects a write before the
+	 * server has acknowledged it, so the control finishes *looking* settled a
+	 * whole round trip before it is.
+	 *
+	 * Disabling is the honest version of the guard that was already there
+	 * rather than a new rule: the same taps are refused, they are just refused
+	 * where somebody can see it. `handle` keeps its own check, because a
+	 * `disabled` button is a thing the browser enforces and the guard is a thing
+	 * this component promises.
+	 */
+	const busy = disabled || pending !== null;
+
 	const base = classNames(
 		'flex flex-1 items-center justify-center gap-2 font-semibold transition-all duration-150',
 		'disabled:opacity-40 active:scale-[0.98]',
@@ -69,7 +89,7 @@ const RespondControl = ({
 		<div className={classNames('flex w-full', size === 'lg' ? 'gap-3' : 'gap-2')}>
 			<button
 				type='button'
-				disabled={disabled}
+				disabled={busy}
 				aria-pressed={status === 'in'}
 				onClick={() => handle('in')}
 				className={classNames(
@@ -85,7 +105,7 @@ const RespondControl = ({
 
 			<button
 				type='button'
-				disabled={disabled}
+				disabled={busy}
 				aria-pressed={status === 'out'}
 				onClick={() => handle('out')}
 				className={classNames(

@@ -71,6 +71,42 @@ describe('RespondControl', () => {
 		expect(screen.getByRole('button', { name: /I'm in/ })).toBeDisabled();
 	});
 
+	it('refuses a second tap while the first write is still in flight', async () => {
+		let settle: () => void = () => {};
+		const onRespond = jest.fn().mockImplementation(
+			() =>
+				new Promise<void>(resolve => {
+					settle = resolve;
+				})
+		);
+
+		render(<RespondControl status='out' onRespond={onRespond} />);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: /I'm in/ }));
+		});
+
+		// Both halves are held, and visibly. The tap below used to be swallowed
+		// by `handle`'s own guard with the buttons still looking live, which is
+		// indistinguishable from a tap that missed.
+		expect(screen.getByRole('button', { name: /Saving/ })).toBeDisabled();
+		expect(screen.getByRole('button', { name: /Can't make it/ })).toBeDisabled();
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: /Can't make it/ }));
+		});
+
+		expect(onRespond).toHaveBeenCalledTimes(1);
+		expect(onRespond).toHaveBeenCalledWith('in');
+
+		// And handed back the moment the write lands.
+		await act(async () => {
+			settle();
+		});
+
+		expect(screen.getByRole('button', { name: /I'm in/ })).toBeEnabled();
+	});
+
 	it('warns when the write fails, and clears the pending state either way', async () => {
 		const onRespond = jest.fn().mockRejectedValue(new Error('offline'));
 		jest.spyOn(console, 'error').mockImplementation(() => {});
