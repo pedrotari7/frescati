@@ -29,15 +29,30 @@ describe('HeadcountBar', () => {
 	});
 
 	it('counts confirmed extras toward playing and shows them in the breakdown', () => {
-		render(
-			<HeadcountBar
-				game={game({ membersIn: 8, extrasConfirmed: 2, playing: 10 })}
-				season={season}
-			/>
-		);
+		render(<HeadcountBar game={game({ membersIn: 8, extrasConfirmed: 2, playing: 10 })} season={season} />);
 
 		expect(screen.getByText('8 squad')).toBeInTheDocument();
 		expect(screen.getByText('2 extra')).toBeInTheDocument();
+	});
+
+	/**
+	 * The gap the strip exists to explain: three extras have said they are
+	 * coming and the number above has moved for one of them.
+	 */
+	it('says how many extras are waiting on a spot', () => {
+		render(
+			<HeadcountBar game={game({ membersIn: 8, extrasIn: 3, extrasConfirmed: 1, playing: 9 })} season={season} />
+		);
+
+		expect(screen.getByText('2 awaiting a spot')).toBeInTheDocument();
+	});
+
+	it('says nothing about a queue once every extra has been waved through', () => {
+		render(
+			<HeadcountBar game={game({ membersIn: 8, extrasIn: 2, extrasConfirmed: 2, playing: 10 })} season={season} />
+		);
+
+		expect(screen.queryByText(/awaiting a spot/)).not.toBeInTheDocument();
 	});
 
 	it('mentions members who are out only when there are some', () => {
@@ -56,10 +71,7 @@ describe('HeadcountBar', () => {
 
 	it('lets a per-game minimum override the season default', () => {
 		render(
-			<HeadcountBar
-				game={{ ...game({ membersIn: 4, playing: 4 }), minPlayers: 4 } as Game}
-				season={season}
-			/>
+			<HeadcountBar game={{ ...game({ membersIn: 4, playing: 4 }), minPlayers: 4 } as Game} season={season} />
 		);
 
 		expect(screen.getByText('playing')).toBeInTheDocument();

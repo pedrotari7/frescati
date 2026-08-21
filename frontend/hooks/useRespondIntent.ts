@@ -24,12 +24,23 @@ const isResponseStatus = (value: string | null): value is ResponseStatus => valu
 export const useRespondIntent = ({
 	ready,
 	isOpen,
+	pendingSpot = false,
 	onRespond,
 }: {
 	/** Season and game have loaded, so the role behind the write is the real one. */
 	ready: boolean;
 	/** The game is still accepting answers. */
 	isOpen: boolean;
+	/**
+	 * Whether an In here lands as an extra still waiting on an admin's nod.
+	 *
+	 * Worked out by the caller, which holds both halves of it — the role this
+	 * write is recorded under and whether an admin has already waved this person
+	 * through on this game. "See you there" is the one thing the app must not
+	 * say to somebody who is not in the headcount yet, least of all seconds
+	 * before the screen behind the toast tells them they are waiting.
+	 */
+	pendingSpot?: boolean;
 	onRespond: (status: ResponseStatus) => Promise<void>;
 }) => {
 	const { notify, warn } = useToast();
@@ -50,11 +61,19 @@ export const useRespondIntent = ({
 		}
 
 		onRespond(intent)
-			.then(() => notify(intent === 'in' ? "You're in — see you there." : "Thanks, you're marked as out."))
+			.then(() =>
+				notify(
+					intent === 'out'
+						? "Thanks, you're marked as out."
+						: pendingSpot
+							? "Thanks — an admin has to confirm your spot before you're in."
+							: "You're in — see you there."
+				)
+			)
 			.catch(error => {
 				console.error('Could not save the response from a notification', error);
 				warn("Couldn't save your answer. Open the game and try again.");
 				void captureError(error, { stage: 'respondIntent' });
 			});
-	}, [ready, isOpen, onRespond, notify, warn]);
+	}, [ready, isOpen, pendingSpot, onRespond, notify, warn]);
 };

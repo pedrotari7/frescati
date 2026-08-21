@@ -96,6 +96,76 @@ describe('NextGameHero', () => {
 		expect(screen.getByRole('button', { name: /I'm in/ })).not.toBeDisabled();
 	});
 
+	/**
+	 * An extra's In moves nothing on this card — the headcount above it is
+	 * `membersIn + extrasConfirmed` — so the note under the buttons is the only
+	 * receipt for the tap, and the only place the admin's nod shows up.
+	 */
+	it('tells an extra their spot is waiting on an admin', () => {
+		render(
+			<NextGameHero
+				game={game({})}
+				season={season}
+				myResponse={response({ role: 'extra' })}
+				isExtra
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.getByText('Waiting on a spot.')).toBeInTheDocument();
+	});
+
+	it('tells an extra when an admin has given them the spot', () => {
+		render(
+			<NextGameHero
+				game={game({})}
+				season={season}
+				myResponse={response({ role: 'extra', confirmOverride: true })}
+				isExtra
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.getByText("You're in.")).toBeInTheDocument();
+		expect(screen.queryByText('Waiting on a spot.')).not.toBeInTheDocument();
+	});
+
+	it('explains the queue to an extra who has not answered yet', () => {
+		render(
+			<NextGameHero
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				isExtra
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.getByText(/listed as an extra/)).toBeInTheDocument();
+	});
+
+	it('says none of that to a squad member', () => {
+		render(
+			<NextGameHero
+				game={game({})}
+				season={season}
+				myResponse={response({})}
+				isExtra={false}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.queryByText(/spot/)).not.toBeInTheDocument();
+	});
+
 	it('locks the respond control and explains why once past the response deadline', () => {
 		const locked = new Date('2026-08-31T18:00:00.000Z');
 

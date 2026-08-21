@@ -183,6 +183,51 @@ export const isConfirmed = (response: Pick<GameResponse, 'role' | 'confirmOverri
 	response.role === 'member' || response.confirmOverride === true;
 
 /**
+ * Where an extra stands on a game they said they were coming to: `pending`
+ * until a season admin gives them a spot, `confirmed` once one has. `null`
+ * whenever the question doesn't arise — a member, or anybody who has not said
+ * they are in.
+ *
+ * This is the one thing in the app that changes underneath somebody without
+ * them touching it, and it is the one the headcount deliberately says nothing
+ * about: tapping In as an extra moves no number on any screen, so without this
+ * the answer to "did that work?" was a pill beside their own name on a roster
+ * they had to go and find.
+ *
+ * Read off the response rather than off the season, so a row that knows nothing
+ * about who is looking at it can still tell the two kinds of In apart — `role`
+ * is snapshotted on the document when it is written. That is also the honest
+ * source when the two disagree: somebody added to `memberUids` after answering
+ * is still tallied as the extra their response says they are, until they answer
+ * again.
+ */
+export type ExtraSpot = 'pending' | 'confirmed';
+
+export const getExtraSpot = (
+	response: Pick<GameResponse, 'status' | 'role' | 'confirmOverride'> | undefined
+): ExtraSpot | null => {
+	if (response?.role !== 'extra' || response.status !== 'in') return null;
+
+	return isConfirmed(response) ? 'confirmed' : 'pending';
+};
+
+/**
+ * Extras who put their hand up and are waiting on an admin's nod.
+ *
+ * Derived from the two counters rather than stored beside them — `extrasIn`
+ * counts everybody who said they were coming and `extrasConfirmed` the ones
+ * holding a spot, so the difference is the queue. Clamped like
+ * `getNoResponseCount`, because a game whose trigger is behind must not render
+ * a negative.
+ *
+ * The number the headcount above it pointedly does not move for. Saying it out
+ * loud is what turns "nothing happened when I tapped In" into "somebody has to
+ * confirm you", and it is the only thing on that strip anybody has to act on.
+ */
+export const getAwaitingSpotCount = (counts: Pick<GameCounts, 'extrasIn' | 'extrasConfirmed'>): number =>
+	Math.max(0, counts.extrasIn - counts.extrasConfirmed);
+
+/**
  * Whether somebody said they were coming and then didn't turn up.
  *
  * A mark beside the answer rather than a change to it, which is what makes this

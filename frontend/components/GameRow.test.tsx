@@ -100,6 +100,59 @@ describe('GameRow', () => {
 		expect(screen.getByText("You're in")).toBeInTheDocument();
 	});
 
+	/**
+	 * The headcount beside this pill is the number an extra's In deliberately
+	 * does not move, so this is the row that has to say why.
+	 */
+	it('says an extra is still waiting on a spot', () => {
+		render(
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={response({ status: 'in', role: 'extra' })}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.getByText('Spot pending')).toBeInTheDocument();
+		expect(screen.queryByText("You're in")).not.toBeInTheDocument();
+	});
+
+	it('says an extra is in once an admin has confirmed them', () => {
+		render(
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={response({ status: 'in', role: 'extra', confirmOverride: true })}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.getByText("You're in")).toBeInTheDocument();
+	});
+
+	// Nobody is going to confirm a spot for a game that has been played, so the
+	// wait is over rather than pending.
+	it('settles a never-confirmed extra to no spot once the game is behind us', () => {
+		render(
+			<GameRow
+				game={game({ kickoff: '2026-08-18T17:00:00.000Z', endsAt: '2026-08-18T18:30:00.000Z' })}
+				season={season}
+				myResponse={response({ status: 'in', role: 'extra' })}
+				now={now}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.getByText('No spot')).toBeInTheDocument();
+		expect(screen.queryByText('Spot pending')).not.toBeInTheDocument();
+	});
+
 	it('prompts an answer for an open game with no response yet', () => {
 		render(
 			<GameRow

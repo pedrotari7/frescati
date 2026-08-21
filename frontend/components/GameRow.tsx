@@ -3,13 +3,41 @@
 import Link from 'next/link';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
-import { getFormat, getGameLifecycle, getHeadcountState, isWatchable } from '@shared/game';
+import { getExtraSpot, getFormat, getGameLifecycle, getHeadcountState, isWatchable } from '@shared/game';
 import { formatGameDate, formatGameTime } from '@shared/format';
 import { isMotmVotingOpen } from '@shared/motm';
 import { classNames } from '../lib/utils/reactHelper';
 import RespondControl from './RespondControl';
+import type { PillTone } from './StatusPill';
 import StatusPill from './StatusPill';
 import WatchToggle from './WatchToggle';
+
+/**
+ * What the row says about your own answer, or `null` when you haven't given one.
+ *
+ * An extra's In is not the same fact as a member's, and this row is where that
+ * shows: the headcount beside this pill is the one this answer deliberately
+ * does not move. "You're in" there would be the app agreeing with a tap it has
+ * not honoured yet, on the screen somebody checks precisely to find out whether
+ * it has.
+ *
+ * Once the game is behind us the wait is not pending, it is over — nobody
+ * confirms a spot for a game that has been played, and a cancelled one has no
+ * spots left to give. So it settles to the plain fact that they never got on,
+ * rather than an amber pill on a dead question.
+ */
+const answerPill = (
+	myResponse: GameResponse | undefined,
+	settled: boolean
+): { tone: PillTone; label: string } | null => {
+	if (!myResponse) return null;
+
+	if (getExtraSpot(myResponse) === 'pending') {
+		return settled ? { tone: 'neutral', label: 'No spot' } : { tone: 'pending', label: 'Spot pending' };
+	}
+
+	return myResponse.status === 'in' ? { tone: 'in', label: "You're in" } : { tone: 'out', label: "You're out" };
+};
 
 const GameRow = ({
 	game,
@@ -45,6 +73,7 @@ const GameRow = ({
 	const voting = isMotmVotingOpen(game.motmVotingUntilMillis, now.getTime());
 	const atRisk = getHeadcountState(game, season) === 'at-risk';
 	const timezone = season.slot.timezone;
+	const answer = answerPill(myResponse, isPast || lifecycle === 'cancelled');
 
 	return (
 		<div
@@ -100,11 +129,7 @@ const GameRow = ({
 							    not that they have one. */}
 							{voting && <StatusPill tone='pending'>Vote open</StatusPill>}
 
-							{myResponse && (
-								<StatusPill tone={myResponse.status === 'in' ? 'in' : 'out'}>
-									{myResponse.status === 'in' ? "You're in" : "You're out"}
-								</StatusPill>
-							)}
+							{answer && <StatusPill tone={answer.tone}>{answer.label}</StatusPill>}
 							{!myResponse && lifecycle === 'open' && <StatusPill tone='pending'>No answer</StatusPill>}
 						</div>
 					</div>

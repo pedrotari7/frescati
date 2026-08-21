@@ -1,5 +1,5 @@
 import type { Game, Season } from '@shared/types';
-import { getFormat, getHeadcountState, getMinPlayers, getNoResponseCount } from '@shared/game';
+import { getAwaitingSpotCount, getFormat, getHeadcountState, getMinPlayers, getNoResponseCount } from '@shared/game';
 import { classNames } from '../lib/utils/reactHelper';
 import StatusPill from './StatusPill';
 
@@ -14,6 +14,7 @@ const HeadcountBar = ({ game, season, className = '' }: { game: Game; season: Se
 	const atRisk = getHeadcountState(game, season) === 'at-risk';
 	const format = getFormat(playing);
 	const awaiting = getNoResponseCount(game.counts, season.memberUids.length);
+	const awaitingSpot = getAwaitingSpotCount(game.counts);
 
 	const progress = minimum > 0 ? Math.min(100, (playing / minimum) * 100) : 100;
 
@@ -52,6 +53,12 @@ const HeadcountBar = ({ game, season, className = '' }: { game: Game; season: Se
 			<div className='text-faint mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs'>
 				<span>{game.counts.membersIn} squad</span>
 				{game.counts.extrasConfirmed > 0 && <span>{game.counts.extrasConfirmed} extra</span>}
+				{/* The one item on this strip that is a request rather than a
+				    report, and coloured for it: these are the people the number
+				    above deliberately did not move for, and an admin is the only
+				    one who can. Without it, an extra tapping In changes nothing
+				    anybody can see. */}
+				{awaitingSpot > 0 && <span className='text-pending'>{awaitingSpot} awaiting a spot</span>}
 				{game.counts.membersOut > 0 && <span>{game.counts.membersOut} out</span>}
 				{awaiting > 0 && <span>{awaiting} yet to answer</span>}
 			</div>

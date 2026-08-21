@@ -6,6 +6,7 @@ import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useKit, useResponses, useUsersByUid } from '../hooks/useData';
+import ExtraSpotNote from './ExtraSpotNote';
 import GameKit from './GameKit';
 import HeadcountBar from './HeadcountBar';
 import RespondControl from './RespondControl';
@@ -157,12 +158,11 @@ const NextGameHero = ({
 							</p>
 						)}
 
-						{isExtra && lifecycle === 'open' && (
-							<p className='text-extra mt-3 text-center text-xs'>
-								You&apos;re not in the squad for this season, so you&apos;ll be listed as an extra — an
-								admin confirms your spot before you count towards the headcount.
-							</p>
-						)}
+						{/* Directly under the buttons, because it is the receipt for
+						    the tap that just happened — an extra's In moves nothing
+						    on this card, headcount included, so this is the only
+						    thing on screen that answers it. */}
+						<ExtraSpotNote isExtra={isExtra} myResponse={myResponse} lifecycle={lifecycle} />
 					</>
 				)}
 			</div>

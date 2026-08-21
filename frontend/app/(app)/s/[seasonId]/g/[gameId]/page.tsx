@@ -3,7 +3,7 @@
 import { use, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon, TrophyIcon } from '@heroicons/react/24/outline';
-import { canReportAbsence, getFormat, getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
+import { canReportAbsence, getExtraSpot, getFormat, getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
@@ -20,6 +20,7 @@ import { setAbsent, setConfirmOverride } from '../../../../../../lib/db/response
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
+import ExtraSpotNote from '../../../../../../components/ExtraSpotNote';
 import LoadFailed from '../../../../../../components/LoadFailed';
 import GameKit from '../../../../../../components/GameKit';
 import GameWatchers from '../../../../../../components/GameWatchers';
@@ -71,6 +72,13 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	useRespondIntent({
 		ready: !loading && !!season && !!game,
 		isOpen: currentLifecycle === 'open',
+		// What an In from that button will actually land as. Both halves are
+		// here and nowhere else: the role it is recorded under, and whether an
+		// admin has already waved this person through on this game — an extra
+		// who was confirmed, said Out and is now changing their mind back keeps
+		// the spot they were given, because `setResponse` preserves it.
+		pendingSpot:
+			getExtraSpot({ status: 'in', role, confirmOverride: myResponses[gameId]?.confirmOverride }) === 'pending',
 		onRespond: useCallback(status => respond(gameId, status), [respond, gameId]),
 	});
 
@@ -157,6 +165,18 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 								onRespond={status => respond(gameId, status)}
 								onClear={() => clear(gameId)}
 								disabled={lifecycle !== 'open'}
+							/>
+
+							{/* The same note the season's home card draws, because
+							    the tap happens on both screens and the answer to
+							    "did that work?" has to be where it was asked. The
+							    roster below says the same thing about an extra, but
+							    beside their own name in a list they have to find
+							    themselves in. */}
+							<ExtraSpotNote
+								isExtra={role === 'extra'}
+								myResponse={myResponses[gameId]}
+								lifecycle={lifecycle}
 							/>
 						</div>
 					)}

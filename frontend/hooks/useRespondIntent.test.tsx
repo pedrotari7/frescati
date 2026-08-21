@@ -58,6 +58,21 @@ describe('useRespondIntent', () => {
 		await waitFor(() => expect(notify).toHaveBeenCalledWith("You're in — see you there."));
 	});
 
+	// The one thing the app must not tell somebody who is not in the headcount
+	// yet — least of all seconds before the screen behind the toast says they
+	// are waiting on an admin.
+	it('does not promise an extra a game they have not been given a spot in', async () => {
+		setUrl('?respond=in');
+		const onRespond = jest.fn().mockResolvedValue(undefined);
+
+		renderHook(() => useRespondIntent({ ready: true, isOpen: true, pendingSpot: true, onRespond }));
+
+		await waitFor(() => expect(onRespond).toHaveBeenCalledWith('in'));
+		await waitFor(() =>
+			expect(notify).toHaveBeenCalledWith("Thanks — an admin has to confirm your spot before you're in.")
+		);
+	});
+
 	it('answers out on behalf of the notification tap', async () => {
 		setUrl('?respond=out');
 		const onRespond = jest.fn().mockResolvedValue(undefined);
@@ -84,7 +99,9 @@ describe('useRespondIntent', () => {
 
 		renderHook(() => useRespondIntent({ ready: true, isOpen: true, onRespond }));
 
-		await waitFor(() => expect(warn).toHaveBeenCalledWith("Couldn't save your answer. Open the game and try again."));
+		await waitFor(() =>
+			expect(warn).toHaveBeenCalledWith("Couldn't save your answer. Open the game and try again.")
+		);
 	});
 
 	it('only ever handles the intent once', async () => {

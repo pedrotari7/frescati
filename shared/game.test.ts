@@ -4,6 +4,8 @@ import {
 	findLiveGame,
 	getAbsentUids,
 	getAvailabilityChange,
+	getAwaitingSpotCount,
+	getExtraSpot,
 	getFormat,
 	getGameLifecycle,
 	getHeadcountState,
@@ -182,6 +184,51 @@ describe('isConfirmed', () => {
 
 	it('respects an admin dropping an extra', () => {
 		expect(isConfirmed({ role: 'extra', confirmOverride: false })).toBe(false);
+	});
+});
+
+describe('getExtraSpot', () => {
+	it('is nothing for a member, however they answered', () => {
+		expect(getExtraSpot({ status: 'in', role: 'member' })).toBeNull();
+	});
+
+	it('is pending for an extra nobody has given a spot to yet', () => {
+		expect(getExtraSpot({ status: 'in', role: 'extra' })).toBe('pending');
+	});
+
+	it('is confirmed once an admin has waved them through', () => {
+		expect(getExtraSpot({ status: 'in', role: 'extra', confirmOverride: true })).toBe('confirmed');
+	});
+
+	// An extra an admin dropped is back where they started, not out — they are
+	// still down as coming, and still waiting to hear.
+	it('is pending again for an extra an admin dropped', () => {
+		expect(getExtraSpot({ status: 'in', role: 'extra', confirmOverride: false })).toBe('pending');
+	});
+
+	it('is nothing for an extra who said they cannot make it', () => {
+		expect(getExtraSpot({ status: 'out', role: 'extra' })).toBeNull();
+	});
+
+	// The third state, the same one a missing document means everywhere else.
+	it('is nothing when there is no response at all', () => {
+		expect(getExtraSpot(undefined)).toBeNull();
+	});
+});
+
+describe('getAwaitingSpotCount', () => {
+	it('is the extras who said in and are not holding a spot', () => {
+		expect(getAwaitingSpotCount({ extrasIn: 3, extrasConfirmed: 1 })).toBe(2);
+	});
+
+	it('is nothing when every extra has been waved through', () => {
+		expect(getAwaitingSpotCount({ extrasIn: 2, extrasConfirmed: 2 })).toBe(0);
+	});
+
+	// A game whose trigger is behind can carry counters that disagree. A queue
+	// of minus one is worse than a stale zero.
+	it('never goes negative on counters that have drifted', () => {
+		expect(getAwaitingSpotCount({ extrasIn: 0, extrasConfirmed: 2 })).toBe(0);
 	});
 });
 
@@ -578,9 +625,7 @@ describe('hasBeenPlayed', () => {
 	});
 
 	it('is false while it is still being played', () => {
-		expect(hasBeenPlayed({ endsAt: '2026-03-03T19:30:00.000Z' }, new Date('2026-03-03T19:29:59.000Z'))).toBe(
-			false
-		);
+		expect(hasBeenPlayed({ endsAt: '2026-03-03T19:30:00.000Z' }, new Date('2026-03-03T19:29:59.000Z'))).toBe(false);
 	});
 
 	// The whole reason this asks the clock rather than the lifecycle:
