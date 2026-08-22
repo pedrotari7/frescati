@@ -16,6 +16,7 @@ import {
 	PROVISIONAL_GAMES,
 	toDisplayRating,
 } from './rating';
+import { toDisplayMovement } from './leaderboard';
 import type { PlayerRating, TournamentMatch } from './types';
 
 const rated = (elo: number, games = PROVISIONAL_GAMES): PlayerRating => ({
@@ -444,5 +445,31 @@ describe('applyMotmBonus', () => {
 
 		expect(after[0].delta).toBeCloseTo(MOTM_BONUS_ELO - MOTM_BONUS_ELO / 10, 9);
 		expect(sum(after.map(change => change.delta))).toBeCloseTo(0, 9);
+	});
+
+	// The property the bonus exists for, and the one it lost in silence when
+	// `K_FACTOR` was retuned from 50 to 20: `toDisplayMovement` rounds to whole
+	// display points, so a pot under 5 Elo leaves the winner reading the same
+	// `+4` as the four teammates they were voted ahead of. Every test above
+	// passed throughout, because each is written relative to `MOTM_BONUS_ELO`
+	// and the bonus was applied correctly — it just could not be seen.
+	//
+	// Pinned against the display rather than against a number, so the next
+	// retune of K fails here rather than in front of the group. The gap is
+	// exactly one point for any football underneath: the levy moves winner and
+	// teammate together, leaving a whole display point between them, and
+	// `round(x + 1)` is always `round(x) + 1`.
+	it('moves the winner a visible display point clear of their team', () => {
+		const alone = applyMotmBonus(changes(11), ['p-0']);
+
+		expect(toDisplayMovement(alone[0].delta) - toDisplayMovement(alone[1].delta)).toBe(1);
+
+		// The evening that reported this: eleven played, five of them won it
+		// outright at the provisional K, and one was man of the match.
+		const won = changes(11).map(change => ({ ...change, delta: 19.79, after: BASE_ELO + 19.79 }));
+		const after = applyMotmBonus(won, ['p-0']);
+
+		expect(toDisplayMovement(after[0].delta)).toBe(5);
+		expect(toDisplayMovement(after[1].delta)).toBe(4);
 	});
 });

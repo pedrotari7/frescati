@@ -28,8 +28,14 @@
  * are one game's movement each, never a season's drift.
  *
  * K is swept rather than fixed because the whole delta is linear in it —
- * `PROVISIONAL_K_FACTOR` is 2K and `MOTM_BONUS_ELO` is K/8, so scaling one
+ * `PROVISIONAL_K_FACTOR` is 2K and `MOTM_BONUS_ELO` is K/4, so scaling one
  * scales all three together and a single pass can price every candidate.
+ *
+ * The sweep prices the football and says nothing about the vote, which is the
+ * gap that let a retune ship a man-of-the-match bonus too small to render. K/4
+ * is a floor as much as a ratio: below 5 Elo the bonus is under one display
+ * point and rounds away whatever the football did. A candidate K under 20 needs
+ * that checked separately — `shared/rating.test.ts` is where it is pinned.
  *
  * Read "as rated" as the old formula only while that is still true: once
  * `replayRatingsFrom` has been, the ledger holds the new numbers and that column

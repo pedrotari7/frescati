@@ -100,19 +100,30 @@ const RATE_WEIGHT = 0.8;
 /**
  * What being voted man of the match is worth, in Elo.
  *
- * A quarter of a perfect evening — half a point of the displayed 0–100 — which
- * is enough to be worth winning and short of enough to outrank the football.
- * Somebody voted best on the pitch every single week gains about as much from
- * the votes as from consistently beating a stacked field, which is the balance
- * intended: this is a correction the scoreboard cannot make on its own, not a
- * second ladder running alongside the first.
+ * Half of winning your evening — **exactly one point of the displayed 0–100**,
+ * which is the floor rather than a preference. `toDisplayMovement` rounds to
+ * whole display points, so anything under 5 Elo is a bonus the screen can never
+ * show: at `K_FACTOR / 8` the winner and their teammates both read `+4` off
+ * deltas that genuinely differed, and the one thing the group asks of this
+ * number is that the person who won it can see they won it.
+ *
+ * Below the football on purpose, and by half. Somebody voted best on the pitch
+ * every single week gains about as much from the votes as from consistently
+ * beating a stacked field — a correction the scoreboard cannot make on its own,
+ * not a second ladder running alongside the first.
+ *
+ * **Flat, not scaled by the provisional K.** That doubles a newcomer's football
+ * and leaves their vote alone, which is the right way round: the provisional
+ * multiplier exists because the ladder does not yet know what they are worth,
+ * and a room full of people who watched them play is not less sure of its
+ * answer for their being new.
  *
  * Derived from `K_FACTOR` rather than written as a number, because the two only
  * mean anything against each other. Left as a constant it would silently become
  * a different proportion of the football every time the football was retuned —
- * and it has already been retuned once.
+ * which is exactly what happened when it was, and how it went invisible.
  */
-export const MOTM_BONUS_ELO = K_FACTOR / 8;
+export const MOTM_BONUS_ELO = K_FACTOR / 4;
 
 /** Rated games before the provisional period ends. */
 export const PROVISIONAL_GAMES = 5;
