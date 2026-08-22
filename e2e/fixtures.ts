@@ -83,7 +83,7 @@ export const someone = (pattern: RegExp): DevUser => {
 /** Somebody on a season's roster who is not also running it. */
 export const aMember = (): DevUser => someone(/^Member of /);
 
-/** Somebody who can confirm a game and reshuffle a lineup. */
+/** Somebody who can confirm a game and move players between squads. */
 export const aSeasonAdmin = (): DevUser => someone(/Admin of /);
 
 /**

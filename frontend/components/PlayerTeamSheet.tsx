@@ -58,7 +58,7 @@ const PlayerTeamSheet = ({
 					<p className='text-muted mt-1 text-sm'>
 						{isTheirLastTeammate
 							? 'They are the last one on their team, so this is a swap for another day — a team with nobody on it still gets a fixture.'
-							: 'The teams stop being re-picked once you move somebody. Reshuffle hands them back.'}
+							: 'The teams stop being re-picked once you move somebody, so from here the sheet is yours to keep straight.'}
 					</p>
 
 					<ul className='-mx-1 mt-4 min-h-0 flex-1 space-y-1 overflow-y-auto px-1'>

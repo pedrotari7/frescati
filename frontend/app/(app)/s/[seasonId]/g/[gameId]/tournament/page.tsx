@@ -211,20 +211,25 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// a game nobody played. The lineup is settled from the first score in, and
 	// frozen outright once the game is confirmed, which `runTeamRebuild` enforces
 	// on its side too.
-	const canReshuffle = played === 0 && !finalised;
+	const lineupOpen = played === 0 && !finalised;
+
+	// Not `isAdmin`, which is either kind of admin, and not `isSeasonAdmin`,
+	// which is neither — Reshuffle is the one button here that asks for the
+	// global claim, and the block that draws it says why.
+	const isAppAdmin = user?.isAppAdmin === true;
 
 	// The lineup is frozen once the ledger has been computed against it, which
 	// `setPlayerTeam` refuses on its side too — this is about which buttons get
-	// offered. Season admins rather than everyone `isAdmin` covers, for the same
-	// reason Reshuffle is: an app admin passing through somebody else's season
-	// has no standing to re-pick their teams.
+	// offered. Season admins rather than everyone `isAdmin` covers: an app admin
+	// passing through somebody else's season has no standing to move their
+	// players around.
 	const canMovePlayers = isSeasonAdmin && !finalised;
 
-	// The same window Reshuffle has, for a stricter version of the same reason: a
-	// match document stores the two team indices it was played between, so a swap
-	// underneath one hands a scoreline to a squad that never played it. Once a
-	// score is in, who kicks off has been decided anyway.
-	const canChangeLetters = isSeasonAdmin && canReshuffle;
+	// The same window Reshuffle has, and for a stricter reason: a match document
+	// stores the two team indices it was played between, so a swap underneath one
+	// hands a scoreline to a squad that never played it. Once a score is in, who
+	// kicks off has been decided anyway.
+	const canChangeLetters = isSeasonAdmin && lineupOpen;
 
 	const poolUids = sortResponses(responses.filter(response => response.status === 'in' && isConfirmed(response))).map(
 		response => response.uid
@@ -307,10 +312,13 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					{lineup.edited ? (
 						<p className='text-muted mt-3 flex items-start gap-1.5 text-sm'>
 							<PencilSquareIcon className='mt-0.5 size-4 shrink-0' aria-hidden='true' />
+							{/* The way back out of a pinned lineup is named only to the
+							    people who have it. Everyone else gets the fact without a
+							    button they will go looking for and not find. */}
 							<span>
 								Sorted out by {displayNameOf(usersByUid.get(lineup.edited.by))}{' '}
-								{formatRelative(lineup.edited.at)}. These teams stay as they are now — Reshuffle hands
-								them back to the app.
+								{formatRelative(lineup.edited.at)}. These teams stay as they are now
+								{isAppAdmin ? ' — Reshuffle hands them back to the app.' : '.'}
 							</span>
 						</p>
 					) : (
@@ -330,17 +338,24 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 						</p>
 					)}
 
-					{/* Season admins only, rather than everyone `isAdmin` covers: re-picking
-					    a lineup is a decision about one group's game, and an app admin
-					    passing through a season they don't run has no standing to make it.
-					    The rules still let them — `isSeasonAdmin` there includes app admins,
-					    as it does everywhere — so this is about who is offered the button. */}
-					{isSeasonAdmin && (
+					{/* App admins only — narrower than every other button on this screen,
+					    and narrower than it used to be. Re-picking is free, instant and
+					    leaves no mark, so a button in front of every season admin is one
+					    that gets pulled again and again until the squads come out the way
+					    somebody fancies — which is the one thing a seeded optimizer exists
+					    to take out of anybody's hands. A season admin who genuinely needs a
+					    different sheet still has `setPlayerTeam`, which moves the person
+					    they mean and signs the lineup with their name.
+
+					    The rules are untouched: a reshuffle is a bump of `reshuffleCount`
+					    and stays a season-admin write, as every other field on the game
+					    document is. This is about who is offered the button. */}
+					{isAppAdmin && (
 						<>
 							<Button
 								variant='secondary'
 								className='mt-4'
-								disabled={!canReshuffle}
+								disabled={!lineupOpen}
 								onClick={async () => {
 									await write(
 										() => reshuffleTeams(seasonId, gameId),
@@ -353,7 +368,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 							</Button>
 
 							{/* A greyed-out button with no reason beside it reads as a bug. */}
-							{!canReshuffle && (
+							{!lineupOpen && (
 								<p className='text-faint mt-2 text-xs'>
 									{finalised
 										? 'The lineup is frozen now the game is confirmed.'
