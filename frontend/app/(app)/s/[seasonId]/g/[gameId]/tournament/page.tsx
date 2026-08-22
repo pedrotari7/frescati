@@ -501,14 +501,23 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 						<h2 className='text-ink mb-3 text-sm font-semibold'>Table</h2>
 						<StandingsTable standings={standings} unequal={unequal} />
 
+						{/* Said on the screen the table is on, because this is where
+						    somebody works out why their rating moved the way it did —
+						    and the answer stopped being "we came second" in Aug 2026. */}
+						<p className='text-faint mt-4 text-xs'>
+							Ratings read how much of the evening each team won, not just where it finished — so two
+							teams that end up level move almost together, and the team that wins the table always moves
+							further.
+						</p>
+
 						{finalised ? (
-							<p className='text-faint mt-4 text-xs'>
+							<p className='text-faint mt-2 text-xs'>
 								Confirmed {formatRelative(game.resultFinalisedAt!)}. Ratings have been applied — a
 								season admin correcting a score from here will work them out again.
 							</p>
 						) : (
 							<>
-								<p className='text-faint mt-4 text-xs'>
+								<p className='text-faint mt-2 text-xs'>
 									Nothing counts towards anyone&apos;s rating until this is confirmed, which happens
 									on its own {AUTO_FINALISE_HOURS} hours after kick-off.
 								</p>

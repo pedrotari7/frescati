@@ -23,6 +23,8 @@
 		"strip-user-emails": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/stripUserEmails.ts",
 		"forget-player": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/forgetPlayer.ts",
 		"recount-games": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/recountGames.ts",
+		"rate-replay-report": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/rateReplayReport.ts",
+		"replay-ratings": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/replayRatings.ts",
 		"whoami": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/whoami.ts",
 		"prune-orphans": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/pruneOrphans.ts"
 	},

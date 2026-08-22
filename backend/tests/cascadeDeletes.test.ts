@@ -88,7 +88,9 @@ describe('onGameDeleted, for a game that had been confirmed', () => {
 	it('rewinds every rating the game moved', async () => {
 		const game = await playAndConfirm(GAME_ID, '2026-09-01T17:00:00.000Z');
 
-		// Team A won two and drew one against an evenly-seeded field.
+		// Team A won the one match a two-team rotation actually puts on — the
+		// other two scorelines are at orders no rotation reaches, and
+		// `selectPlayedMatches` drops them before anything is rated.
 		expect((await readUser('p1'))?.rating).toMatchObject({ elo: 1020, games: 1 });
 		expect((await readUser('p5'))?.rating).toMatchObject({ elo: 980, games: 1 });
 

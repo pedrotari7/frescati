@@ -608,6 +608,21 @@ export interface RatingDelta {
 	before: number;
 	after: number;
 	delta: number;
+	/**
+	 * What the movement was actually read off: the share of its matches this
+	 * player's team won, and the share it was expected to win.
+	 *
+	 * Here so a delta stays explicable after the fact without re-deriving the
+	 * whole evening from the match list — "your team won 70% and was expected to
+	 * win 50%" is the entire answer to why two teams level on points moved
+	 * together.
+	 *
+	 * Optional because a result confirmed before the rating read a rate has
+	 * neither, and the number genuinely isn't recoverable for one: it was rated
+	 * on finishing position. A replay writes them.
+	 */
+	rate?: number;
+	expected?: number;
 }
 
 /**
@@ -691,6 +706,22 @@ export interface RatingLedgerEntry {
 	 * game's lineup is never rebuilt.
 	 */
 	teams?: Record<string, number>;
+	/**
+	 * What each player's team won and was expected to win, as shares of the
+	 * matches it played.
+	 *
+	 * Per player rather than per team for the same reason `positions` is: a
+	 * career screen reads this collection and nothing else, and pairing these
+	 * with `teams` to find your own would make that two lookups and a field that
+	 * old entries may not have.
+	 *
+	 * Absent on every entry written before the rating read a rate, where the
+	 * movement came from finishing position and there is no share to record.
+	 * A replay writes them, so they arrive on history the first time the ladder
+	 * is replayed rather than needing a backfill of their own.
+	 */
+	rate?: Record<string, number>;
+	expected?: Record<string, number>;
 	/**
 	 * Who the group voted man of the match, if the vote had closed by the time
 	 * this entry was written. Shared on a tie, like `positions`.

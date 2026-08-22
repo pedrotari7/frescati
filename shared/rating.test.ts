@@ -5,9 +5,10 @@ import {
 	createStartingRating,
 	fromDisplayRating,
 	getActualWins,
-	getExpectedWins,
+	getExpectedRate,
 	getRatingChanges,
 	getSeedElo,
+	getTeamRecords,
 	getWinProbability,
 	hasPlayed,
 	isProvisional,
@@ -15,7 +16,7 @@ import {
 	PROVISIONAL_GAMES,
 	toDisplayRating,
 } from './rating';
-import type { PlayerRating } from './types';
+import type { PlayerRating, TournamentMatch } from './types';
 
 const rated = (elo: number, games = PROVISIONAL_GAMES): PlayerRating => ({
 	elo,
@@ -31,7 +32,25 @@ const squad = (team: number, elo: number, count: number, prefix: string) =>
 		team,
 	}));
 
+const match = (teamA: number, teamB: number, scoreA: number, scoreB: number): TournamentMatch => ({
+	order: 0,
+	teamA,
+	teamB,
+	scoreA,
+	scoreB,
+	updatedBy: 'ref',
+	updatedAt: '2026-08-01T00:00:00.000Z',
+});
+
+/** Each pair reads "the first team beat the second". */
+const beat = (...pairs: [number, number][]) => pairs.map(([a, b]) => match(a, b, 1, 0));
+
+const drew = (...pairs: [number, number][]) => pairs.map(([a, b]) => match(a, b, 0, 0));
+
 const sum = (numbers: number[]) => numbers.reduce((total, value) => total + value, 0);
+
+const deltaOf = (changes: { uid: string; delta: number }[], uid: string) =>
+	changes.find(change => change.uid === uid)!.delta;
 
 describe('toDisplayRating', () => {
 	it('puts the base rating in the middle', () => {
@@ -158,43 +177,117 @@ describe('getActualWins', () => {
 	});
 });
 
-describe('getExpectedWins', () => {
-	it('expects an even field to split its matches evenly', () => {
-		const elos = [BASE_ELO, BASE_ELO, BASE_ELO, BASE_ELO];
+describe('getTeamRecords', () => {
+	it('counts a win whole and a draw as half to each, whichever way round it was scored', () => {
+		const records = getTeamRecords(2, [...beat([0, 1]), ...drew([0, 1]), match(0, 1, 0, 2)]);
 
-		expect(getExpectedWins(elos, 0)).toBeCloseTo(1.5, 9);
+		expect(records[0]).toMatchObject({ played: 3, score: 1.5 });
+		expect(records[1]).toMatchObject({ played: 3, score: 1.5 });
 	});
 
-	it('totals the same as the actual wins do, which is what keeps it zero-sum', () => {
-		const elos = [1150, 1000, 950, 900];
-		const total = sum(elos.map((_, index) => getExpectedWins(elos, index)));
+	it('records who each team actually faced, not who it was scheduled to', () => {
+		const records = getTeamRecords(3, beat([0, 1], [0, 2]));
 
-		expect(total).toBeCloseTo(6, 9);
+		expect(records[0].opponents).toEqual([1, 2]);
+		expect(records[2]).toEqual({ played: 1, score: 0, opponents: [0] });
+	});
+
+	// Left over from a lineup rebuilt after it was scored — the same case
+	// `getStandings` ignores rather than throws on.
+	it('ignores a match naming a team the lineup no longer has', () => {
+		const records = getTeamRecords(2, beat([0, 1], [0, 5]));
+
+		expect(records[0].played).toBe(1);
+	});
+});
+
+describe('getExpectedRate', () => {
+	it('expects an even field to split its matches evenly', () => {
+		expect(getExpectedRate([BASE_ELO, BASE_ELO, BASE_ELO], 0, [1, 2])).toBeCloseTo(0.5, 9);
+	});
+
+	// The property the whole update rests on: two teams' expectations of each
+	// other total exactly what their rates will, so the swings cancel.
+	it('totals one across the two sides of a match', () => {
+		const elos = [1200, 950];
+
+		expect(getExpectedRate(elos, 0, [1]) + getExpectedRate(elos, 1, [0])).toBeCloseTo(1, 9);
+	});
+
+	it('is zero for a team that faced nobody', () => {
+		expect(getExpectedRate([BASE_ELO, BASE_ELO], 0, [])).toBe(0);
 	});
 });
 
 describe('getRatingChanges', () => {
-	it('pays the published position scores when the field is even', () => {
-		const players = [
-			...squad(0, BASE_ELO, 4, 'a'),
-			...squad(1, BASE_ELO, 4, 'b'),
-			...squad(2, BASE_ELO, 4, 'c'),
-			...squad(3, BASE_ELO, 4, 'd'),
-		];
+	const four = [
+		...squad(0, BASE_ELO, 4, 'a'),
+		...squad(1, BASE_ELO, 4, 'b'),
+		...squad(2, BASE_ELO, 4, 'c'),
+		...squad(3, BASE_ELO, 4, 'd'),
+	];
 
-		const byTeam = getRatingChanges(players, [0, 1, 2, 3], BASE_ELO);
+	/** A full four-team round robin finishing exactly in team order. */
+	const ladder = beat([0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]);
 
-		// 1.5 / 0.5 / -0.5 / -1.5 wins of overperformance, at K = 20.
-		expect(byTeam.find(change => change.uid === 'a-0')?.delta).toBeCloseTo(30, 6);
-		expect(byTeam.find(change => change.uid === 'b-0')?.delta).toBeCloseTo(10, 6);
-		expect(byTeam.find(change => change.uid === 'c-0')?.delta).toBeCloseTo(-10, 6);
-		expect(byTeam.find(change => change.uid === 'd-0')?.delta).toBeCloseTo(-30, 6);
+	it('pays a clean sweep half a K, and the team that lost everything the same the other way', () => {
+		const changes = getRatingChanges(four, ladder, [0, 1, 2, 3], BASE_ELO);
+
+		// 0.8 x (rate - 0.5) + 0.2 x place, at K = 20.
+		expect(deltaOf(changes, 'a-0')).toBeCloseTo(10, 6);
+		expect(deltaOf(changes, 'b-0')).toBeCloseTo(20 / 6, 6);
+		expect(deltaOf(changes, 'c-0')).toBeCloseTo(-20 / 6, 6);
+		expect(deltaOf(changes, 'd-0')).toBeCloseTo(-10, 6);
 	});
 
-	it('moves a two-team game less than a four-team one', () => {
-		const two = getRatingChanges([...squad(0, BASE_ELO, 5, 'a'), ...squad(1, BASE_ELO, 5, 'b')], [0, 1], BASE_ELO);
+	// The whole point of reading a rate rather than a finishing place: winning
+	// your evening is worth the same however many teams it was split into. Three
+	// teams play more matches, not a longer slot.
+	it('moves a two-team game exactly as far as a four-team one', () => {
+		const two = getRatingChanges(
+			[...squad(0, BASE_ELO, 5, 'a'), ...squad(1, BASE_ELO, 5, 'b')],
+			beat([0, 1]),
+			[0, 1],
+			BASE_ELO
+		);
 
-		expect(two.find(change => change.uid === 'a-0')?.delta).toBeCloseTo(10, 6);
+		expect(deltaOf(two, 'a-0')).toBeCloseTo(10, 6);
+	});
+
+	// The complaint this change came from: two teams with identical records and a
+	// third nowhere near used to read as +8 / 0 / -8, which said the top two were
+	// as far apart as the bottom two.
+	it('separates two teams level on record by where they finished, not by a whole place', () => {
+		const players = [...squad(0, BASE_ELO, 5, 'a'), ...squad(1, BASE_ELO, 5, 'b'), ...squad(2, BASE_ELO, 5, 'c')];
+		const matches = [...drew([0, 1], [0, 1]), ...beat([0, 2], [0, 2], [1, 2], [1, 2])];
+
+		const changes = getRatingChanges(players, matches, [0, 1, 2], BASE_ELO);
+
+		expect(deltaOf(changes, 'a-0')).toBeCloseTo(6, 6);
+		expect(deltaOf(changes, 'b-0')).toBeCloseTo(4, 6);
+		expect(deltaOf(changes, 'c-0')).toBeCloseTo(-10, 6);
+	});
+
+	// What the ordinal fifth is for. A pure rate cannot tell these two apart —
+	// same wins, same draws, and only goal difference between them.
+	it('always pays the team that won the table more than the one it edged out', () => {
+		const players = [...squad(0, BASE_ELO, 5, 'a'), ...squad(1, BASE_ELO, 5, 'b'), ...squad(2, BASE_ELO, 5, 'c')];
+		const matches = [...drew([0, 1], [0, 1]), match(0, 2, 4, 0), match(0, 2, 1, 0), ...beat([1, 2], [1, 2])];
+
+		const changes = getRatingChanges(players, matches, [0, 1, 2], BASE_ELO);
+
+		expect(deltaOf(changes, 'a-0')).toBeGreaterThan(deltaOf(changes, 'b-0'));
+	});
+
+	// Goal difference decides the order and nothing else. Running up a cricket
+	// score against a squad that is a man down must not pay.
+	it('does not pay for the size of the margin', () => {
+		const players = [...squad(0, BASE_ELO, 5, 'a'), ...squad(1, BASE_ELO, 5, 'b')];
+
+		const narrow = getRatingChanges(players, [match(0, 1, 1, 0)], [0, 1], BASE_ELO);
+		const rout = getRatingChanges(players, [match(0, 1, 9, 0)], [0, 1], BASE_ELO);
+
+		expect(deltaOf(rout, 'a-0')).toBeCloseTo(deltaOf(narrow, 'a-0'), 9);
 	});
 
 	it('is zero-sum among settled players', () => {
@@ -205,17 +298,22 @@ describe('getRatingChanges', () => {
 			...squad(3, 850, 4, 'd'),
 		];
 
-		expect(sum(getRatingChanges(players, [0, 1, 2, 3], BASE_ELO).map(change => change.delta))).toBeCloseTo(0, 6);
+		expect(sum(getRatingChanges(players, ladder, [0, 1, 2, 3], BASE_ELO).map(change => change.delta))).toBeCloseTo(
+			0,
+			6
+		);
 	});
 
 	it('pays less for winning with a stacked team than with a weak one', () => {
-		const stacked = getRatingChanges([...squad(0, 1300, 5, 'a'), ...squad(1, 900, 5, 'b')], [0, 1], BASE_ELO).find(
-			change => change.uid === 'a-0'
-		)!.delta;
+		const stacked = deltaOf(
+			getRatingChanges([...squad(0, 1300, 5, 'a'), ...squad(1, 900, 5, 'b')], beat([0, 1]), [0, 1], BASE_ELO),
+			'a-0'
+		);
 
-		const underdog = getRatingChanges([...squad(0, 900, 5, 'a'), ...squad(1, 1300, 5, 'b')], [0, 1], BASE_ELO).find(
-			change => change.uid === 'a-0'
-		)!.delta;
+		const underdog = deltaOf(
+			getRatingChanges([...squad(0, 900, 5, 'a'), ...squad(1, 1300, 5, 'b')], beat([0, 1]), [0, 1], BASE_ELO),
+			'a-0'
+		);
 
 		expect(stacked).toBeGreaterThan(0);
 		expect(underdog).toBeGreaterThan(stacked);
@@ -223,9 +321,16 @@ describe('getRatingChanges', () => {
 
 	it('draws nothing when a team finishes exactly where it was expected to', () => {
 		const players = [...squad(0, 1200, 5, 'a'), ...squad(1, 1200, 5, 'b')];
-		const changes = getRatingChanges(players, [0, 0], BASE_ELO);
+		const changes = getRatingChanges(players, drew([0, 1]), [0, 0], BASE_ELO);
 
 		expect(changes.every(change => Math.abs(change.delta) < 1e-9)).toBe(true);
+	});
+
+	it('records what the movement was read off', () => {
+		const players = [...squad(0, BASE_ELO, 5, 'a'), ...squad(1, BASE_ELO, 5, 'b')];
+		const changes = getRatingChanges(players, [...beat([0, 1]), ...drew([0, 1])], [0, 1], BASE_ELO);
+
+		expect(changes.find(change => change.uid === 'a-0')).toMatchObject({ rate: 0.75, expected: 0.5 });
 	});
 
 	it('swings a provisional player harder than a settled one', () => {
@@ -235,23 +340,37 @@ describe('getRatingChanges', () => {
 			...squad(1, BASE_ELO, 5, 'b'),
 		];
 
-		const changes = getRatingChanges(players, [0, 1], BASE_ELO);
-		const newcomer = changes.find(change => change.uid === 'new')!;
-		const settled = changes.find(change => change.uid === 'a-0')!;
+		const changes = getRatingChanges(players, beat([0, 1]), [0, 1], BASE_ELO);
 
-		expect(newcomer.delta).toBeCloseTo(settled.delta * 2, 6);
+		expect(deltaOf(changes, 'new')).toBeCloseTo(deltaOf(changes, 'a-0') * 2, 6);
 	});
 
 	it('seeds an unrated player from the group average', () => {
-		const changes = getRatingChanges([{ uid: 'new', rating: undefined, team: 0 }], [0], 1150);
+		const changes = getRatingChanges(
+			[{ uid: 'new', rating: undefined, team: 0 }, ...squad(1, 1150, 1, 'b')],
+			beat([0, 1]),
+			[0, 1],
+			1150
+		);
 
-		expect(changes[0].before).toBe(1150);
+		expect(changes.find(change => change.uid === 'new')!.before).toBe(1150);
+	});
+
+	// An evening that stopped after one scoreline said nothing about the team
+	// that never got on — so they get no change rather than a zero one, and the
+	// two who did play are rated as the two-team game it turned out to be.
+	it('leaves out a team that never got on the pitch', () => {
+		const players = [...squad(0, BASE_ELO, 4, 'a'), ...squad(1, BASE_ELO, 4, 'b'), ...squad(2, BASE_ELO, 4, 'c')];
+		const changes = getRatingChanges(players, beat([0, 1]), [0, 1, 2], BASE_ELO);
+
+		expect(changes.some(change => change.uid.startsWith('c-'))).toBe(false);
+		expect(deltaOf(changes, 'a-0')).toBeCloseTo(10, 6);
 	});
 });
 
 describe('applyRatingChange', () => {
 	it('counts the game so the provisional period can end', () => {
-		const change = { uid: 'a', before: 1000, after: 1030, delta: 30 };
+		const change = { uid: 'a', before: 1000, after: 1030, delta: 30, rate: 1, expected: 0.5 };
 
 		expect(applyRatingChange(rated(1000, 2), change, '2026-09-01T19:00:00.000Z')).toEqual({
 			elo: 1030,
@@ -261,7 +380,7 @@ describe('applyRatingChange', () => {
 	});
 
 	it('starts the count at one for a player who has never been rated', () => {
-		const change = { uid: 'a', before: 1000, after: 1030, delta: 30 };
+		const change = { uid: 'a', before: 1000, after: 1030, delta: 30, rate: 1, expected: 0.5 };
 
 		expect(applyRatingChange(undefined, change, '2026-09-01T19:00:00.000Z').games).toBe(1);
 	});
@@ -274,6 +393,8 @@ describe('applyMotmBonus', () => {
 			before: BASE_ELO,
 			after: BASE_ELO,
 			delta: 0,
+			rate: 0.5,
+			expected: 0.5,
 		}));
 
 	it('pays the winner the bonus, less their own share of it', () => {
@@ -302,7 +423,7 @@ describe('applyMotmBonus', () => {
 	});
 
 	it('adds to whatever the football already did rather than replacing it', () => {
-		const played = [{ uid: 'a', before: BASE_ELO, after: BASE_ELO + 30, delta: 30 }];
+		const played = [{ uid: 'a', before: BASE_ELO, after: BASE_ELO + 30, delta: 30, rate: 1, expected: 0.5 }];
 
 		expect(applyMotmBonus(played, ['a'])[0].delta).toBe(30);
 	});

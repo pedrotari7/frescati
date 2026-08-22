@@ -172,7 +172,7 @@ Project: **`footballfrescati`**.
 
 ### One-off maintenance
 
-Each takes `--dry-run` (except `recount-games`) and is safe to run twice.
+Each takes `--dry-run` (except `recount-games`, and `rate-replay-report`, which never writes at all) and is safe to run twice.
 
 |  |  |
 | --- | --- |
@@ -181,6 +181,8 @@ Each takes `--dry-run` (except `recount-games`) and is safe to run twice.
 | `pnpm --filter backend recount-games` | recompute `counts` and repair drifted `role`s across every game |
 | `pnpm --filter backend prune-orphans` | delete responses and games left behind by deletions that predate the cascade triggers |
 | `pnpm --filter backend forget-player <uid\|email>` | remove somebody who has asked to be taken off — see below |
+| `pnpm --filter backend rate-replay-report [K…]` | price the rating formula against the real ledger — how far an ordinary game moves somebody, by team count and by K. Reads only |
+| `pnpm --filter backend replay-ratings [date]` | rewind and re-rate the whole ladder, in kickoff order — what a change to the rating formula needs after it deploys. Takes a date to start from something later than the beginning |
 
 Anything touching the emulators needs a JDK 21+, which `scripts/emulators.sh` goes and finds — no `JAVA_HOME` prefix required.
 

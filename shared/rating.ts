@@ -6,14 +6,27 @@
  *
  * The central idea: a game is a round robin between teams, and a team's
  * strength is the average of its squad. What moves your rating is the gap
- * between how your team *finished* and how it was *expected* to finish given
+ * between how much your team *won* and how much it was *expected* to win given
  * that strength. This matters more than it looks — if the balancer is doing its
- * job every team is roughly equal, so raw finishing position is close to a coin
- * flip and carries almost no information about you. Beating a stacked field
- * does.
+ * job every team is roughly equal, so the result carries information about you
+ * only to the extent it beat the expectation. Beating a stacked field does.
+ *
+ * "How much you won" is a **rate**: wins plus half a draw each, over the matches
+ * you actually played. That is the same currency `getWinProbability` returns, so
+ * the two sides of the comparison are directly subtractable and the whole update
+ * is zero-sum without a normalisation step. It is also bounded 0–1 whatever the
+ * team count, which is what stops a three-team evening moving a rating twice as
+ * far as a two-team one for no reason anybody could defend: three teams play
+ * more matches, not a longer slot.
+ *
+ * A fifth of the swing is set aside for **where you finished** rather than how
+ * much you won, and that part is raw position — see `RATE_WEIGHT`. It is what
+ * makes the team that wins the table always gain more than the team level with
+ * it on points, which a pure rate cannot do: two squads with the same record are
+ * the same number, and one of them has the trophy.
  */
 
-import type { PlayerRating } from './types';
+import type { PlayerRating, TournamentMatch } from './types';
 
 /** Where a group with no history starts. Maps to 50 on the displayed scale. */
 export const BASE_ELO = 1000;
@@ -32,10 +45,25 @@ const DISPLAY_SPAN = 250;
 const ELO_SCALE = 400;
 
 /**
- * Elo per win of overperformance. Winning a four-team game outright against an
- * even field is worth 1.5 wins, so about 30 Elo — six points of the displayed
- * 0–100, which settles a newcomer inside a couple of months without letting one
- * good Tuesday rewrite the ladder.
+ * Elo per unit of overperformance, where one unit is winning every match of an
+ * evening you were expected to draw.
+ *
+ * That ceiling used to grow with the number of teams — winning your evening was
+ * worth `(teamCount - 1) / 2` units, so a three-team game paid twice a two-team
+ * one and a four-team game three times, for no footballing reason at all. It is
+ * now the same 0.5 whatever the team count, which is the whole change: the only
+ * thing left that varies between a two-team evening and a four-team one is how
+ * much of it you actually won.
+ *
+ * K is unchanged through that, deliberately. Equalising had to move one of the
+ * two — they were 2:1 and are now 1:1 — and the one held still is the **smaller**
+ * one: a settled player who wins outright moves two points of the displayed
+ * 0–100, exactly what a two-team game already paid, and the three-team game
+ * comes down to meet it rather than the other way round. Set where the ordinary
+ * evening lands rather than the perfect one, that is a real Tuesday of about a
+ * point and a half — small enough that nobody's number lurches on one result,
+ * and, over the weekly slot this is a ladder for, quick enough that a run of
+ * good evenings still catches somebody up.
  */
 const K_FACTOR = 20;
 
@@ -43,16 +71,48 @@ const K_FACTOR = 20;
 const PROVISIONAL_K_FACTOR = 40;
 
 /**
+ * How much of the swing is how much you won, leaving the rest for where you
+ * finished.
+ *
+ * The rate is the honest measure and carries the weight. But it cannot separate
+ * two teams that played identically — same wins, same draws, different only on
+ * goal difference — and one of those two won the thing. A group reading a table
+ * where they finished 1st and 2nd and gained exactly the same will conclude the
+ * rating is broken, and they will have a point.
+ *
+ * So a fifth of it is finishing place: strictly ordered, so first *always* pays
+ * more than second, and shared by teams the table itself could not separate.
+ * Pointedly **raw** position rather than position against expectation, unlike
+ * everything else here — an expectation-adjusted ordinal can pay a strong team
+ * less for winning than a weak team for coming second, which is exactly the
+ * guarantee this term exists to provide. The cost is that a stacked team gets a
+ * fifth of a place's worth of credit it did not earn, capped at 0.2 × 0.5 × K
+ * and standing against a balancer whose job is to make sure no team is stacked.
+ *
+ * Goal difference reaches the rating only through here — it decides who is
+ * first, never what first is worth. A rating that paid for the size of the
+ * margin would pay for running the score up against a squad that is a man down,
+ * in ten-minute matches with rolling subs where the margin is half about who
+ * happened to be on the pitch.
+ */
+const RATE_WEIGHT = 0.8;
+
+/**
  * What being voted man of the match is worth, in Elo.
  *
- * Half a `K_FACTOR` win — two points of the displayed 0–100 — which is enough
- * to be worth winning and short of enough to outrank the football. Somebody
- * voted best on the pitch every single week gains about as much from the votes
- * as from consistently beating a stacked field, which is the balance intended:
- * this is a correction the scoreboard cannot make on its own, not a second
- * ladder running alongside the first.
+ * A quarter of a perfect evening — half a point of the displayed 0–100 — which
+ * is enough to be worth winning and short of enough to outrank the football.
+ * Somebody voted best on the pitch every single week gains about as much from
+ * the votes as from consistently beating a stacked field, which is the balance
+ * intended: this is a correction the scoreboard cannot make on its own, not a
+ * second ladder running alongside the first.
+ *
+ * Derived from `K_FACTOR` rather than written as a number, because the two only
+ * mean anything against each other. Left as a constant it would silently become
+ * a different proportion of the football every time the football was retuned —
+ * and it has already been retuned once.
  */
-export const MOTM_BONUS_ELO = 10;
+export const MOTM_BONUS_ELO = K_FACTOR / 8;
 
 /** Rated games before the provisional period ends. */
 export const PROVISIONAL_GAMES = 5;
@@ -127,29 +187,104 @@ export const getTeamElo = (squadElos: number[]): number =>
 export const getWinProbability = (elo: number, opponentElo: number): number =>
 	1 / (1 + Math.pow(10, (opponentElo - elo) / ELO_SCALE));
 
-/**
- * How many of its matches a team was expected to win, summed pairwise across
- * the field. Ranges 0 to `teams - 1`.
- *
- * Because `P(a beats b) + P(b beats a) === 1`, these always total the same as
- * the actual wins do — which is what makes the whole update zero-sum without
- * any normalisation step.
- */
-export const getExpectedWins = (teamElos: number[], index: number): number =>
-	teamElos.reduce(
-		(total, opponentElo, other) =>
-			other === index ? total : total + getWinProbability(teamElos[index], opponentElo),
-		0
-	);
+/** What a team took from the matches it played, and who it played them against. */
+export interface TeamRecord {
+	/** Matches actually played. Zero for a team the evening never got to.  */
+	played: number;
+	/** Wins plus half a draw each — the same currency a win probability is in. */
+	score: number;
+	/**
+	 * One entry per match played, repeats and all.
+	 *
+	 * A list rather than a set because the expectation has to be weighted by how
+	 * often you actually met somebody: a three-team lap is a *double* round
+	 * robin, so an evening that stops early can genuinely leave you having faced
+	 * the strong team twice and the weak one once.
+	 */
+	opponents: number[];
+}
 
 /**
- * Position converted to the same "wins" currency as the expectation: first out
- * of four scores 3, last scores 0.
+ * What each team took from the match list.
+ *
+ * Deliberately a second walk over the same matches `tally` in `standings.ts`
+ * walks, rather than a reuse of it: that one is building the table and counts
+ * in league points, this one is building a rating and counts in wins. They agree
+ * on which matches to ignore — a match naming a team that no longer exists is
+ * left over from a lineup rebuilt after it was scored — and on nothing else.
+ */
+export const getTeamRecords = (teamCount: number, matches: TournamentMatch[]): TeamRecord[] => {
+	const records: TeamRecord[] = Array.from({ length: teamCount }, () => ({ played: 0, score: 0, opponents: [] }));
+
+	for (const match of matches) {
+		const [recordA, recordB] = [records[match.teamA], records[match.teamB]];
+
+		if (!recordA || !recordB) continue;
+
+		recordA.played++;
+		recordB.played++;
+		recordA.opponents.push(match.teamB);
+		recordB.opponents.push(match.teamA);
+
+		if (match.scoreA > match.scoreB) recordA.score++;
+		else if (match.scoreA < match.scoreB) recordB.score++;
+		else {
+			recordA.score += 0.5;
+			recordB.score += 0.5;
+		}
+	}
+
+	return records;
+};
+
+/**
+ * The share of its matches a team was expected to win, averaged over the
+ * opponents it actually faced. Ranges 0 to 1, like the rate it is compared
+ * against.
+ *
+ * Averaged rather than summed, which is what makes it comparable across team
+ * counts at all: a sum ranges 0 to `teams - 1` and so pays a three-team evening
+ * twice a two-team one for arithmetic reasons rather than footballing ones.
+ *
+ * Because `P(a beats b) + P(b beats a) === 1`, the expectations total the same
+ * as the rates do whenever every team played the same number of matches — which
+ * is what keeps the update zero-sum with no normalisation step. When an evening
+ * ends early and the counts differ, they don't, and the game mints or burns a
+ * fraction of one player's movement. That is left alone rather than corrected:
+ * weighting the swing by matches played would fix it by making a team that
+ * played more move further, which is the arithmetic-not-football problem again,
+ * one level down. The drift is smaller than the provisional-K drift below, which
+ * is accepted for the same reason.
+ */
+export const getExpectedRate = (teamElos: number[], index: number, opponents: number[]): number =>
+	opponents.length === 0
+		? 0
+		: opponents.reduce((total, other) => total + getWinProbability(teamElos[index], teamElos[other]), 0) /
+			opponents.length;
+
+/**
+ * Competition ranks over a subset of the table, so a team left out of the
+ * rating doesn't leave a hole in the places.
+ *
+ * `positions` comes from the full standings; drop a team that played nothing
+ * and what's left can read `[0, 2]`, which `getActualWins` would score against a
+ * field of three. Re-ranked, ties intact — two teams the table could not
+ * separate are still level here.
+ */
+const densifyPositions = (positions: number[]): number[] =>
+	positions.map(position => positions.filter(other => other < position).length);
+
+/**
+ * Finishing place as a score: first out of four gets 3, last gets 0.
+ *
+ * This is the ordinal half of the swing — `RATE_WEIGHT`'s remainder — and the
+ * only place a finishing position reaches a rating at all.
  *
  * `positions` is 0-indexed and may repeat — teams that finish level share a
  * position and take the average of the scores their places cover, so a two-way
  * tie for first in a four-team game gives both 2.5 rather than inventing a
- * winner.
+ * winner. Which is also the one case where first does *not* out-earn second:
+ * there was no first, and the table said so.
  */
 export const getActualWins = (positions: number[]): number[] => {
 	const teamCount = positions.length;
@@ -175,6 +310,10 @@ export interface RatingChange {
 	before: number;
 	after: number;
 	delta: number;
+	/** The share of its matches this player's team won, counting a draw as half. */
+	rate: number;
+	/** The share it was expected to win, off the squads it actually faced. */
+	expected: number;
 }
 
 /**
@@ -183,33 +322,68 @@ export interface RatingChange {
  * Every player in a squad moves by the same amount — minutes played are not
  * tracked, and a rolling sub contributed to the result as much as anyone.
  *
+ * A team that played no matches at all is **not rated**, and its players get no
+ * change at all rather than a zero one: an evening that stopped after one
+ * scoreline told us nothing about the team that never got on, and a game with
+ * nothing to say about somebody must not tick their provisional counter down.
+ * They are left out of everybody else's expectation and out of the places, so
+ * the rest of the field is rated as the game it actually was. This is the same
+ * rule `computeGameRatings` already applies to a game with no scores whatsoever,
+ * one team down.
+ *
  * Provisional players move further than the rest, which means a game
  * containing one is not exactly zero-sum. The drift is small and it buys new
  * players a fast, honest starting point; the alternative is rescaling everyone
  * else's change to compensate, which is impossible to explain to the person it
  * happens to.
  */
-export const getRatingChanges = (players: RatingInput[], positions: number[], seedElo: number): RatingChange[] => {
+export const getRatingChanges = (
+	players: RatingInput[],
+	matches: TournamentMatch[],
+	positions: number[],
+	seedElo: number
+): RatingChange[] => {
 	const teamCount = positions.length;
+	const records = getTeamRecords(teamCount, matches);
 
 	const squadElos: number[][] = Array.from({ length: teamCount }, () => []);
 	for (const player of players) squadElos[player.team]?.push(getElo(player.rating, seedElo));
 
 	const teamElos = squadElos.map(getTeamElo);
-	const actualWins = getActualWins(positions);
 
-	// Overperformance, in wins. Against an evenly matched field this collapses
-	// to the plain position score — a four-team game pays +1.5 / +0.5 / -0.5 /
-	// -1.5, a two-team game half a win either way — because every team's
-	// expectation is then exactly the average. More teams move a rating further,
-	// which is right: a six-match round robin says more about you than one game.
-	const teamSwing = teamElos.map((_, index) => actualWins[index] - getExpectedWins(teamElos, index));
+	// The evening as it was actually played, which is the only field anybody can
+	// be rated against.
+	const played = records.flatMap((record, team) => (record.played > 0 ? [team] : []));
+	const actualWins = getActualWins(densifyPositions(played.map(team => positions[team])));
 
-	return players.map(player => {
+	const swings = new Map<number, { swing: number; rate: number; expected: number }>(
+		played.map((team, place) => {
+			const rate = records[team].score / records[team].played;
+			const expected = getExpectedRate(teamElos, team, records[team].opponents);
+
+			// Both halves are scaled to the same +/- 0.5, so the weighting is a
+			// weighting rather than a unit conversion: a team winning everything
+			// it was expected to draw scores +0.5 on the rate, and finishing top
+			// of the table scores +0.5 on the places, whether that table has two
+			// teams in it or four. A two-team game is the one shape where the
+			// halves cannot disagree — one match, so the winner has both the
+			// perfect rate and the first place — and `RATE_WEIGHT` does nothing
+			// there at all.
+			const ordinal = played.length > 1 ? (actualWins[place] - (played.length - 1) / 2) / (played.length - 1) : 0;
+
+			return [team, { swing: RATE_WEIGHT * (rate - expected) + (1 - RATE_WEIGHT) * ordinal, rate, expected }];
+		})
+	);
+
+	return players.flatMap(player => {
+		const team = swings.get(player.team);
+
+		if (!team) return [];
+
 		const before = getElo(player.rating, seedElo);
-		const delta = kFactor(player.rating) * teamSwing[player.team];
+		const delta = kFactor(player.rating) * team.swing;
 
-		return { uid: player.uid, before, after: before + delta, delta };
+		return [{ uid: player.uid, before, after: before + delta, delta, rate: team.rate, expected: team.expected }];
 	});
 };
 

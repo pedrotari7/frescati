@@ -98,8 +98,9 @@ describe('finaliseTournament', () => {
 		const game = await readGame(SEASON_ID, GAME_ID);
 		expect(game?.resultFinalisedAt).toBeTruthy();
 
-		// Team A won against an evenly-seeded field, so every provisional player
-		// swings the full 40 * 0.5 = 20 Elo either way.
+		// Team A won its one match against an evenly-seeded field — a perfect rate
+		// and first place, so the full 40 * 0.5 = 20 Elo either way at the
+		// provisional K.
 		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: 1020, games: 1 });
 		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: 980, games: 1 });
 

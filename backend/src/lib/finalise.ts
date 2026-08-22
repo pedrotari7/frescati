@@ -43,6 +43,10 @@ interface GameRatings {
 	positions: Record<string, number>;
 	/** Which team each player was on, by its place in the lineup. */
 	teams: Record<string, number>;
+	/** The share of its matches each player's team won, counting a draw as half. */
+	rate: Record<string, number>;
+	/** The share it was expected to win, off the squads it actually faced. */
+	expected: Record<string, number>;
 	/** Who the group voted for, once its vote has been counted. */
 	motm: string[];
 }
@@ -116,7 +120,7 @@ export const computeGameRatings = async (
 	// evening, added together into the one movement a player sees. A game
 	// confirmed while its vote is still open simply skips the second, and picks
 	// it up when the count closes and asks for a replay.
-	const changes = applyMotmBonus(getRatingChanges(players, positions, seedElo), motm);
+	const changes = applyMotmBonus(getRatingChanges(players, matches, positions, seedElo), motm);
 
 	const before = Object.fromEntries(changes.map(change => [change.uid, profiles.get(change.uid)?.rating ?? null]));
 
@@ -137,6 +141,11 @@ export const computeGameRatings = async (
 		// so it cannot say who somebody actually played alongside — see
 		// `RatingLedgerEntry.teams`.
 		teams: Object.fromEntries(players.map(player => [player.uid, player.team])),
+		// The two halves of the swing. A position no longer explains a delta on
+		// its own, and the matches that would are in a subcollection the ledger
+		// deliberately never reads — see `RatingLedgerEntry.rate`.
+		rate: Object.fromEntries(changes.map(change => [change.uid, change.rate])),
+		expected: Object.fromEntries(changes.map(change => [change.uid, change.expected])),
 	};
 };
 
@@ -175,6 +184,8 @@ const commitGameRatings = async (
 		after: ratings.after,
 		positions: ratings.positions,
 		teams: ratings.teams,
+		rate: ratings.rate,
+		expected: ratings.expected,
 		// Left off when nobody was unrated, for the same reason `motm` is left off
 		// while a vote is open: absent says the game never needed one, where a
 		// stored number would claim it did.

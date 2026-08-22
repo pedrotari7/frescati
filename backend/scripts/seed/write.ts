@@ -735,7 +735,7 @@ const playGame = (
 	const counted = (pin.motm ?? 'decided') === 'decided';
 	const tally = tallyMotmVotes(motmVotes);
 
-	const changes = applyMotmBonus(getRatingChanges(inputs, positions, seedElo), counted ? tally.winners : []);
+	const changes = applyMotmBonus(getRatingChanges(inputs, matches, positions, seedElo), counted ? tally.winners : []);
 
 	const before = Object.fromEntries(changes.map(change => [change.uid, ratings.get(change.uid) ?? null]));
 	const after = Object.fromEntries(
@@ -775,6 +775,10 @@ const playGame = (
 			// `RatingLedgerEntry.teams`. Without this the seeded ladder looks
 			// right and every profile's teammates panel is empty.
 			teams: Object.fromEntries(inputs.map(input => [input.uid, input.team])),
+			// What the movement was read off, since a finishing position no longer
+			// explains one on its own — see `RatingLedgerEntry.rate`.
+			rate: Object.fromEntries(changes.map(change => [change.uid, change.rate])),
+			expected: Object.fromEntries(changes.map(change => [change.uid, change.expected])),
 			// Only where somebody arrived unrated, exactly as `commitGameRatings`
 			// decides it — a seeded first appearance has to move a season table by
 			// the same amount the real thing would.
