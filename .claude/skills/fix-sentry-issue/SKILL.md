@@ -6,7 +6,7 @@ description: Investigate a Sentry issue (by URL or short ID) using the connected
 # Fix a Sentry issue
 
 Frescati reports both halves (frontend and backend) to **one** Sentry project — see
-"Error reporting" in the root `CLAUDE.md` before touching anything here. That section
+`docs/error-reporting.md` before touching anything here. That file
 explains what's deliberate (e.g. `HttpsError` never reaches Sentry, `instrument()` always
 rethrows, the frontend's `ignoreErrors` list in `frontend/lib/sentry.ts` already filters known
 non-bugs) versus what's a genuine defect worth fixing.
