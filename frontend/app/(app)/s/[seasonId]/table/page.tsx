@@ -190,7 +190,7 @@ const LeaderboardPage = () => {
 				<p className='text-faint px-1 text-xs'>
 					{tab === 'season'
 						? 'Ordered on games won, then on how much rating you gained — who had a good season, rather than who is best. The dots are the last five games, oldest first, and a filled one is a win.'
-						: 'Your rating follows you across every season. It moves on how your team did against how it was expected to, so beating a stronger side is worth more.'}
+						: 'Your rating follows you across every season. It moves on how your team did against how it was expected to, so beating a stronger side is worth more — and beating them comfortably more again.'}
 				</p>
 			</div>
 		</SeasonShell>

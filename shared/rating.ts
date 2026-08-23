@@ -11,13 +11,17 @@
  * job every team is roughly equal, so the result carries information about you
  * only to the extent it beat the expectation. Beating a stacked field does.
  *
- * "How much you won" is a **rate**: wins plus half a draw each, over the matches
- * you actually played. That is the same currency `getWinProbability` returns, so
- * the two sides of the comparison are directly subtractable and the whole update
- * is zero-sum without a normalisation step. It is also bounded 0–1 whatever the
+ * "How much you won" is a **rate** over the matches you actually played, where
+ * each match scores half on the result and half on the share of the goals — see
+ * `RESULT_WEIGHT`. That is the same currency `getWinProbability` returns, so the
+ * two sides of the comparison are directly subtractable and the whole update is
+ * zero-sum without a normalisation step. It is also bounded 0–1 whatever the
  * team count, which is what stops a three-team evening moving a rating twice as
  * far as a two-team one for no reason anybody could defend: three teams play
  * more matches, not a longer slot.
+ *
+ * The scoreline half is what stops a two-team evening — one match, so a result
+ * of 1, 0.5 or 0 and nothing else — paying a 14-13 exactly what it pays a 14-0.
  *
  * A fifth of the swing is set aside for **where you finished** rather than how
  * much you won, and that part is raw position — see `RATE_WEIGHT`. It is what
@@ -45,8 +49,9 @@ const DISPLAY_SPAN = 250;
 const ELO_SCALE = 400;
 
 /**
- * Elo per unit of overperformance, where one unit is winning every match of an
- * evening you were expected to draw.
+ * Elo per unit of overperformance, where one unit is sweeping an evening you
+ * were expected to draw — and sweeping it by enough that the scoreline has
+ * nothing left to add, which is now part of what the perfect evening means.
  *
  * That ceiling used to grow with the number of teams — winning your evening was
  * worth `(teamCount - 1) / 2` units, so a three-team game paid twice a two-team
@@ -57,13 +62,13 @@ const ELO_SCALE = 400;
  *
  * K is unchanged through that, deliberately. Equalising had to move one of the
  * two — they were 2:1 and are now 1:1 — and the one held still is the **smaller**
- * one: a settled player who wins outright moves two points of the displayed
- * 0–100, exactly what a two-team game already paid, and the three-team game
- * comes down to meet it rather than the other way round. Set where the ordinary
- * evening lands rather than the perfect one, that is a real Tuesday of about a
- * point and a half — small enough that nobody's number lurches on one result,
- * and, over the weekly slot this is a ladder for, quick enough that a run of
- * good evenings still catches somebody up.
+ * one: a settled player who sweeps their evening at a distance moves two points
+ * of the displayed 0–100, exactly what a two-team game already paid, and the
+ * three-team game comes down to meet it rather than the other way round. Set
+ * where the ordinary evening lands rather than the perfect one, that is a real
+ * Tuesday of about a point — small enough that nobody's number lurches on one
+ * result, and, over the weekly slot this is a ladder for, quick enough that a
+ * run of good evenings still catches somebody up.
  */
 const K_FACTOR = 20;
 
@@ -89,13 +94,61 @@ const PROVISIONAL_K_FACTOR = 40;
  * fifth of a place's worth of credit it did not earn, capped at 0.2 × 0.5 × K
  * and standing against a balancer whose job is to make sure no team is stacked.
  *
- * Goal difference reaches the rating only through here — it decides who is
- * first, never what first is worth. A rating that paid for the size of the
- * margin would pay for running the score up against a squad that is a man down,
- * in ten-minute matches with rolling subs where the margin is half about who
- * happened to be on the pitch.
+ * The rate reads goals too now, per match and heavily damped, so the two halves
+ * can genuinely disagree — a team can win the table on goal difference while
+ * scoring the lower rate, which is what happens when its margin came from one
+ * rout and it lost the two matches either side. That makes this fifth more
+ * load-bearing than it was, not less: it is the only thing here that knows who
+ * actually won the thing.
+ *
+ * Which is why it stays a **place** and not a margin. Goal difference reaches
+ * the ordinal only by deciding the order — never by deciding what first is
+ * worth. The size of a win is paid for once, in the rate, on a curve that gives
+ * almost nothing past the second goal.
  */
 const RATE_WEIGHT = 0.8;
+
+/**
+ * How much of a single match is the result, leaving the rest for the scoreline.
+ *
+ * Not to be confused with `RATE_WEIGHT` one level up: that splits the *swing*
+ * between the rate and the finishing place, this splits the *rate* between
+ * winning and how much you won by.
+ *
+ * A result on its own is three values, and in a two-team game that is the whole
+ * evening — one match, so the rate could only ever read 1, 0.5 or 0. A 14-13
+ * and a 14-0 paid identically, which is the maximum this file can pay, for a
+ * game that was a coin flip. The scoreline is the only thing left that knows
+ * the difference.
+ *
+ * Half and half, so **winning still pays on its own**. That is the property
+ * worth protecting: on goals alone a settled winner of a 14-13 moves less than
+ * half a display point and reads `+0`, which is the same unreadable answer the
+ * man-of-the-match bonus shipped with. Holding half the rate on the result puts
+ * a floor under a win that no scoreline can take away, and leaves the other half
+ * to say whether it was a squeak or a rout.
+ */
+const RESULT_WEIGHT = 0.5;
+
+/**
+ * Goals credited to both sides before taking the share of them.
+ *
+ * Without it a 1-0 and a 5-0 are the same scoreline — both "all of the goals" —
+ * and 0-0 is 0/0. With one apiece a 1-0 is two thirds and a 5-0 is six sevenths,
+ * which is the shape this wants: the first goal of margin is worth far more than
+ * the fifth.
+ *
+ * That is also the answer to the objection this used to carry, that paying for
+ * the margin pays for running the score up on a squad that is a man down. It
+ * still pays something — but going from 5-0 to 9-0 is worth a twentieth of what
+ * going from 0-0 to 1-0 is, so there is nothing there for anybody to chase.
+ *
+ * One rather than a bigger number because the group plays both a single long
+ * match into the teens and a card of ten-minute matches that finish 1-0. A share
+ * is the only currency those two have in common — a goal of margin is nothing in
+ * a 14-13 and is the entire game in a 1-0, and it reads correctly as both.
+ */
+const GOAL_SMOOTHING = 1;
 
 /**
  * What being voted man of the match is worth, in Elo.
@@ -198,11 +251,32 @@ export const getTeamElo = (squadElos: number[]): number =>
 export const getWinProbability = (elo: number, opponentElo: number): number =>
 	1 / (1 + Math.pow(10, (opponentElo - elo) / ELO_SCALE));
 
+/**
+ * What one team took from one match: 1 is everything, 0.5 a draw, 0 nothing.
+ *
+ * Half the result and half the share of the goals — see `RESULT_WEIGHT`. Both
+ * halves are symmetric, so the two sides of a match total exactly 1 and the
+ * update stays zero-sum without a normalisation step, which is the same property
+ * a win probability has and the reason the two can be subtracted at all.
+ *
+ * Any draw is exactly 0.5 however it was scored: 0-0 and 3-3 were both shared,
+ * and the goals in them say nothing the result did not.
+ */
+export const getMatchScore = (scoreFor: number, scoreAgainst: number): number => {
+	const result = scoreFor > scoreAgainst ? 1 : scoreFor < scoreAgainst ? 0 : 0.5;
+	const share = (scoreFor + GOAL_SMOOTHING) / (scoreFor + scoreAgainst + 2 * GOAL_SMOOTHING);
+
+	return RESULT_WEIGHT * result + (1 - RESULT_WEIGHT) * share;
+};
+
 /** What a team took from the matches it played, and who it played them against. */
 export interface TeamRecord {
 	/** Matches actually played. Zero for a team the evening never got to.  */
 	played: number;
-	/** Wins plus half a draw each — the same currency a win probability is in. */
+	/**
+	 * What it took from them, by `getMatchScore` — the same currency a win
+	 * probability is in, and bounded the same 0 to `played`.
+	 */
 	score: number;
 	/**
 	 * One entry per match played, repeats and all.
@@ -219,10 +293,13 @@ export interface TeamRecord {
  * What each team took from the match list.
  *
  * Deliberately a second walk over the same matches `tally` in `standings.ts`
- * walks, rather than a reuse of it: that one is building the table and counts
- * in league points, this one is building a rating and counts in wins. They agree
- * on which matches to ignore — a match naming a team that no longer exists is
- * left over from a lineup rebuilt after it was scored — and on nothing else.
+ * walks, rather than a reuse of it: that one is building the table and counts in
+ * league points, this one is building a rating and counts in `getMatchScore`.
+ * They agree on which matches to ignore — a match naming a team that no longer
+ * exists is left over from a lineup rebuilt after it was scored — and on nothing
+ * else. Both read the goals now, and still not for the same thing: the table
+ * keeps them as a tiebreak between whole results, this spends them on how much
+ * of each match was won.
  */
 export const getTeamRecords = (teamCount: number, matches: TournamentMatch[]): TeamRecord[] => {
 	const records: TeamRecord[] = Array.from({ length: teamCount }, () => ({ played: 0, score: 0, opponents: [] }));
@@ -237,12 +314,8 @@ export const getTeamRecords = (teamCount: number, matches: TournamentMatch[]): T
 		recordA.opponents.push(match.teamB);
 		recordB.opponents.push(match.teamA);
 
-		if (match.scoreA > match.scoreB) recordA.score++;
-		else if (match.scoreA < match.scoreB) recordB.score++;
-		else {
-			recordA.score += 0.5;
-			recordB.score += 0.5;
-		}
+		recordA.score += getMatchScore(match.scoreA, match.scoreB);
+		recordB.score += getMatchScore(match.scoreB, match.scoreA);
 	}
 
 	return records;
@@ -321,7 +394,7 @@ export interface RatingChange {
 	before: number;
 	after: number;
 	delta: number;
-	/** The share of its matches this player's team won, counting a draw as half. */
+	/** How much of its matches this player's team won, by `getMatchScore`. */
 	rate: number;
 	/** The share it was expected to win, off the squads it actually faced. */
 	expected: number;
@@ -373,13 +446,13 @@ export const getRatingChanges = (
 			const expected = getExpectedRate(teamElos, team, records[team].opponents);
 
 			// Both halves are scaled to the same +/- 0.5, so the weighting is a
-			// weighting rather than a unit conversion: a team winning everything
-			// it was expected to draw scores +0.5 on the rate, and finishing top
-			// of the table scores +0.5 on the places, whether that table has two
-			// teams in it or four. A two-team game is the one shape where the
-			// halves cannot disagree — one match, so the winner has both the
-			// perfect rate and the first place — and `RATE_WEIGHT` does nothing
-			// there at all.
+			// weighting rather than a unit conversion: a team sweeping an evening
+			// it was expected to draw, by a distance, scores +0.5 on the rate,
+			// and finishing top of the table scores +0.5 on the places, whether
+			// that table has two teams in it or four. In a two-team game the
+			// places are the result restated — one match, so whoever won it came
+			// first — which leaves the rate as the only half with anything left
+			// to say, and what it says is the scoreline.
 			const ordinal = played.length > 1 ? (actualWins[place] - (played.length - 1) / 2) / (played.length - 1) : 0;
 
 			return [team, { swing: RATE_WEIGHT * (rate - expected) + (1 - RATE_WEIGHT) * ordinal, rate, expected }];

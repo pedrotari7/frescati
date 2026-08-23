@@ -80,8 +80,12 @@ const ratedGame = async (gameId: string, kickoff: string, paid: number) => {
 	}
 };
 
-/** What the current formula pays a settled winner of a level two-team game. */
-const NOW_PAYS = 10;
+/**
+ * What the current formula pays a settled winner of a level two-team game — the
+ * 2-1 above, so a scoreline the rate reads as four fifths rather than a whole
+ * win. `0.8 x (0.8 - 0.5) + 0.2 x 0.5`, at K = 20.
+ */
+const NOW_PAYS = 6.8;
 
 /** What the old one paid, still sitting in the ledger. */
 const USED_TO_PAY = 25;

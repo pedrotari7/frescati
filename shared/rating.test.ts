@@ -6,6 +6,7 @@ import {
 	fromDisplayRating,
 	getActualWins,
 	getExpectedRate,
+	getMatchScore,
 	getRatingChanges,
 	getSeedElo,
 	getTeamRecords,
@@ -178,19 +179,73 @@ describe('getActualWins', () => {
 	});
 });
 
+describe('getMatchScore', () => {
+	it('splits a draw down the middle however many goals were in it', () => {
+		expect(getMatchScore(0, 0)).toBe(0.5);
+		expect(getMatchScore(3, 3)).toBe(0.5);
+	});
+
+	// The property the zero-sum update rests on, and the reason a share is used
+	// rather than a margin: whatever one side takes, the other is left with.
+	it('totals one across the two sides of any scoreline', () => {
+		for (const [a, b] of [
+			[0, 0],
+			[1, 0],
+			[9, 0],
+			[14, 13],
+			[2, 5],
+		]) {
+			expect(getMatchScore(a, b) + getMatchScore(b, a)).toBeCloseTo(1, 9);
+		}
+	});
+
+	it('pays more the wider the win, without ever paying a loss more than a draw', () => {
+		expect(getMatchScore(1, 0)).toBeGreaterThan(getMatchScore(0, 0));
+		expect(getMatchScore(5, 0)).toBeGreaterThan(getMatchScore(1, 0));
+		expect(getMatchScore(0, 1)).toBeLessThan(0.5);
+	});
+
+	// The whole reason this exists. The group plays both a single match into the
+	// teens and a card of ten-minute matches, and a goal of margin means opposite
+	// things in the two — which is what a share reads correctly and a margin
+	// cannot. A 14-13 is a coin flip; a 1-0 in ten minutes is not.
+	it('reads a one-goal win as a coin flip in a long game and a win in a short one', () => {
+		expect(getMatchScore(14, 13)).toBeCloseTo(0.5 + 0.5 * (15 / 29), 9);
+		expect(getMatchScore(1, 0)).toBeCloseTo(0.5 + 0.5 * (2 / 3), 9);
+
+		// Any win scores at least 0.75 — half for the result, and half of a share
+		// a winner cannot get below 0.5. What each spends of the quarter above
+		// that is the whole difference between the two: the 14-13 barely a fifth
+		// of what the 1-0 does, off the same one goal.
+		expect(getMatchScore(14, 13) - 0.75).toBeLessThan((getMatchScore(1, 0) - 0.75) / 5);
+	});
+
+	// Damped hard on purpose: the objection to paying for a margin at all is that
+	// it pays for running the score up on a squad that is a man down. The first
+	// goal of margin is worth more than the next eight put together.
+	it('gives almost nothing for running the score up', () => {
+		const first = getMatchScore(1, 0) - getMatchScore(0, 0);
+		const rest = getMatchScore(9, 0) - getMatchScore(1, 0);
+
+		expect(first).toBeGreaterThan(rest);
+	});
+});
+
 describe('getTeamRecords', () => {
-	it('counts a win whole and a draw as half to each, whichever way round it was scored', () => {
+	it('scores each match from both sides, whichever way round it was scored', () => {
 		const records = getTeamRecords(2, [...beat([0, 1]), ...drew([0, 1]), match(0, 1, 0, 2)]);
 
-		expect(records[0]).toMatchObject({ played: 3, score: 1.5 });
-		expect(records[1]).toMatchObject({ played: 3, score: 1.5 });
+		// A 1-0 win, a 0-0 draw and a 0-2 loss. The pair totals the matches played.
+		expect(records[0].score).toBeCloseTo(getMatchScore(1, 0) + 0.5 + getMatchScore(0, 2), 9);
+		expect(records[0].score + records[1].score).toBeCloseTo(3, 9);
+		expect(records[0]).toMatchObject({ played: 3 });
 	});
 
 	it('records who each team actually faced, not who it was scheduled to', () => {
 		const records = getTeamRecords(3, beat([0, 1], [0, 2]));
 
 		expect(records[0].opponents).toEqual([1, 2]);
-		expect(records[2]).toEqual({ played: 1, score: 0, opponents: [0] });
+		expect(records[2]).toEqual({ played: 1, score: getMatchScore(0, 1), opponents: [0] });
 	});
 
 	// Left over from a lineup rebuilt after it was scored — the same case
@@ -231,14 +286,28 @@ describe('getRatingChanges', () => {
 	/** A full four-team round robin finishing exactly in team order. */
 	const ladder = beat([0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]);
 
-	it('pays a clean sweep half a K, and the team that lost everything the same the other way', () => {
+	// 0.8 x (rate - 0.5) + 0.2 x place, at K = 20. A sweep of 1-0s scores 5/6
+	// rather than a perfect 1 — winning every match is most of a perfect evening
+	// and winning them all by one goal is not the rest of it.
+	it('pays a clean sweep of one-goal wins, and the team that lost everything the same the other way', () => {
 		const changes = getRatingChanges(four, ladder, [0, 1, 2, 3], BASE_ELO);
 
-		// 0.8 x (rate - 0.5) + 0.2 x place, at K = 20.
-		expect(deltaOf(changes, 'a-0')).toBeCloseTo(10, 6);
-		expect(deltaOf(changes, 'b-0')).toBeCloseTo(20 / 6, 6);
-		expect(deltaOf(changes, 'c-0')).toBeCloseTo(-20 / 6, 6);
-		expect(deltaOf(changes, 'd-0')).toBeCloseTo(-10, 6);
+		expect(deltaOf(changes, 'a-0')).toBeCloseTo(22 / 3, 6);
+		expect(deltaOf(changes, 'b-0')).toBeCloseTo(22 / 9, 6);
+		expect(deltaOf(changes, 'c-0')).toBeCloseTo(-22 / 9, 6);
+		expect(deltaOf(changes, 'd-0')).toBeCloseTo(-22 / 3, 6);
+	});
+
+	// Half a K is still there to be had, and now it takes the scoreline as well
+	// as the sweep — which is what stops the maximum drifting when the football
+	// changes underneath it, and why nothing about K or the MOTM point moved.
+	it('still tops out at half a K for a sweep with nothing left to add', () => {
+		const rout = beat([0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]).map(fixture => ({
+			...fixture,
+			scoreA: 200,
+		}));
+
+		expect(deltaOf(getRatingChanges(four, rout, [0, 1, 2, 3], BASE_ELO), 'a-0')).toBeCloseTo(10, 1);
 	});
 
 	// The whole point of reading a rate rather than a finishing place: winning
@@ -252,7 +321,7 @@ describe('getRatingChanges', () => {
 			BASE_ELO
 		);
 
-		expect(deltaOf(two, 'a-0')).toBeCloseTo(10, 6);
+		expect(deltaOf(two, 'a-0')).toBeCloseTo(22 / 3, 6);
 	});
 
 	// The complaint this change came from: two teams with identical records and a
@@ -264,9 +333,9 @@ describe('getRatingChanges', () => {
 
 		const changes = getRatingChanges(players, matches, [0, 1, 2], BASE_ELO);
 
-		expect(deltaOf(changes, 'a-0')).toBeCloseTo(6, 6);
-		expect(deltaOf(changes, 'b-0')).toBeCloseTo(4, 6);
-		expect(deltaOf(changes, 'c-0')).toBeCloseTo(-10, 6);
+		expect(deltaOf(changes, 'a-0')).toBeCloseTo(14 / 3, 6);
+		expect(deltaOf(changes, 'b-0')).toBeCloseTo(8 / 3, 6);
+		expect(deltaOf(changes, 'c-0')).toBeCloseTo(-22 / 3, 6);
 	});
 
 	// What the ordinal fifth is for. A pure rate cannot tell these two apart —
@@ -280,15 +349,33 @@ describe('getRatingChanges', () => {
 		expect(deltaOf(changes, 'a-0')).toBeGreaterThan(deltaOf(changes, 'b-0'));
 	});
 
-	// Goal difference decides the order and nothing else. Running up a cricket
-	// score against a squad that is a man down must not pay.
-	it('does not pay for the size of the margin', () => {
+	// A two-team evening is one match, so before the scoreline was read there was
+	// nothing at all to separate these three: the winner had the only result
+	// going and took the maximum this file can pay for a game that was a coin
+	// flip. This is the reason the rate stopped being a count of wins.
+	it('pays a two-team game by how the one match went', () => {
 		const players = [...squad(0, BASE_ELO, 5, 'a'), ...squad(1, BASE_ELO, 5, 'b')];
+		const won = (scoreA: number, scoreB: number) =>
+			deltaOf(getRatingChanges(players, [match(0, 1, scoreA, scoreB)], [0, 1], BASE_ELO), 'a-0');
 
-		const narrow = getRatingChanges(players, [match(0, 1, 1, 0)], [0, 1], BASE_ELO);
-		const rout = getRatingChanges(players, [match(0, 1, 9, 0)], [0, 1], BASE_ELO);
+		expect(won(14, 13)).toBeLessThan(won(14, 3));
+		expect(won(14, 3)).toBeLessThan(won(14, 0));
 
-		expect(deltaOf(rout, 'a-0')).toBeCloseTo(deltaOf(narrow, 'a-0'), 9);
+		// And a squeaked win is still a win: clear of a draw, and clear enough to
+		// read as a whole display point rather than rounding to nothing.
+		expect(won(14, 13)).toBeGreaterThan(2.5);
+	});
+
+	// The objection this used to answer by refusing goals altogether. It still
+	// holds, just on a curve instead of a rule: the reward for turning a 5-0 into
+	// a 9-0 against a squad that is a man down is a fifth of a display point.
+	it('has almost nothing left to give for running the score up', () => {
+		const players = [...squad(0, BASE_ELO, 5, 'a'), ...squad(1, BASE_ELO, 5, 'b')];
+		const won = (scoreA: number, scoreB: number) =>
+			deltaOf(getRatingChanges(players, [match(0, 1, scoreA, scoreB)], [0, 1], BASE_ELO), 'a-0');
+
+		expect(won(9, 0) - won(5, 0)).toBeLessThan(1);
+		expect(won(1, 0) - won(0, 0)).toBeGreaterThan(won(9, 0) - won(1, 0));
 	});
 
 	it('is zero-sum among settled players', () => {
@@ -331,7 +418,8 @@ describe('getRatingChanges', () => {
 		const players = [...squad(0, BASE_ELO, 5, 'a'), ...squad(1, BASE_ELO, 5, 'b')];
 		const changes = getRatingChanges(players, [...beat([0, 1]), ...drew([0, 1])], [0, 1], BASE_ELO);
 
-		expect(changes.find(change => change.uid === 'a-0')).toMatchObject({ rate: 0.75, expected: 0.5 });
+		// A 1-0 and a 0-0: five sixths of the first, half of the second.
+		expect(changes.find(change => change.uid === 'a-0')).toMatchObject({ rate: 2 / 3, expected: 0.5 });
 	});
 
 	it('swings a provisional player harder than a settled one', () => {
@@ -365,7 +453,7 @@ describe('getRatingChanges', () => {
 		const changes = getRatingChanges(players, beat([0, 1]), [0, 1, 2], BASE_ELO);
 
 		expect(changes.some(change => change.uid.startsWith('c-'))).toBe(false);
-		expect(deltaOf(changes, 'a-0')).toBeCloseTo(10, 6);
+		expect(deltaOf(changes, 'a-0')).toBeCloseTo(22 / 3, 6);
 	});
 });
 

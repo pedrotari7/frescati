@@ -85,14 +85,15 @@ describe('rate-replay-report', () => {
 	});
 
 	// The headline the whole change is being judged on. Team A won its one match
-	// against an even field, which is a perfect rate and first place: half a K,
-	// or two of the displayed 0-100 at the shipped 20.
+	// against an even field — first place, but only 2-1, so four fifths of the
+	// rate rather than all of it and short of the two displayed points a rout
+	// would pay at the shipped 20.
 	it('reads a settled movement off the state the game was originally rated from', async () => {
 		await playedGame('game-1', '2026-09-01T17:00:00.000Z');
 
 		await rateReplayReport(context({ args: ['20'] }));
 
-		expect(output()).toMatch(/K=20\s+2\.0\s+2\.0\s+2\.0/);
+		expect(output()).toMatch(/K=20\s+1\.4\s+1\.4\s+1\.4/);
 		// And what the entry says it paid at the time: 20 Elo, four of the same
 		// points — which is the comparison the whole report exists to draw.
 		expect(output()).toMatch(/as rated\s+4\.0/);
@@ -109,8 +110,8 @@ describe('rate-replay-report', () => {
 		await rateReplayReport(context({ args: ['20'] }));
 
 		expect(output()).toContain('provisional swing');
-		// Twice the settled swing above, by design: four of the displayed 0-100.
-		expect(output()).toMatch(/K=20\s+4\.0\s+4\.0\s+4\.0/);
+		// Twice the settled swing above, by design.
+		expect(output()).toMatch(/K=20\s+2\.7\s+2\.7\s+2\.7/);
 	});
 
 	it('refuses a K that is not a number', async () => {

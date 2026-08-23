@@ -221,8 +221,9 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 								/>
 
 								<p className='text-faint mt-4 text-xs leading-relaxed'>
-									A rating moves on how your team finished against how it was expected to, so a win
-									over a stronger field is worth more than one over a weaker.
+									A rating moves on how your team did against how it was expected to, so a win over
+									a stronger field is worth more than one over a weaker — and a comfortable win
+									more than a squeak.
 								</p>
 							</section>
 						)}

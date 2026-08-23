@@ -609,12 +609,16 @@ export interface RatingDelta {
 	after: number;
 	delta: number;
 	/**
-	 * What the movement was actually read off: the share of its matches this
-	 * player's team won, and the share it was expected to win.
+	 * What the movement was actually read off: how much of its matches this
+	 * player's team took, and how much it was expected to take.
+	 *
+	 * A match is scored half on the result and half on the share of the goals —
+	 * see `getMatchScore` — so this is not a count of wins and a 1-0 and a 5-0
+	 * are different numbers.
 	 *
 	 * Here so a delta stays explicable after the fact without re-deriving the
-	 * whole evening from the match list — "your team won 70% and was expected to
-	 * win 50%" is the entire answer to why two teams level on points moved
+	 * whole evening from the match list — "your team took 70% and was expected to
+	 * take 50%" is the entire answer to why two teams level on points moved
 	 * together.
 	 *
 	 * Optional because a result confirmed before the rating read a rate has
@@ -707,8 +711,11 @@ export interface RatingLedgerEntry {
 	 */
 	teams?: Record<string, number>;
 	/**
-	 * What each player's team won and was expected to win, as shares of the
-	 * matches it played.
+	 * What each player's team took and was expected to take, per match played.
+	 *
+	 * A match is scored half on the result and half on the share of the goals —
+	 * see `getMatchScore` — so a team that won everything 1-0 and one that won
+	 * everything 5-0 are not the same number.
 	 *
 	 * Per player rather than per team for the same reason `positions` is: a
 	 * career screen reads this collection and nothing else, and pairing these

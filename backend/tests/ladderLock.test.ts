@@ -31,6 +31,20 @@ const TEAM_B = ['p5', 'p6', 'p7', 'p8'];
 const KICKOFF = '2026-09-01T17:00:00.000Z';
 const KICKOFF_MILLIS = Date.parse(KICKOFF);
 
+/**
+ * What the ladder pays for the one match a two-team rotation actually plays —
+ * the 2-1 at order 0, and the 0-5 a correction below replaces it with.
+ *
+ * Two numbers rather than a sign flip because a rating reads the scoreline as
+ * well as the result: `0.8 x (rate - 0.5) + 0.2 x place`, at the provisional K
+ * of 40, off a rate of 0.8 for winning 2-1 and 1/14 for losing 0-5.
+ */
+const WON_2_1 = 13.6;
+const LOST_0_5 = -17.714286;
+
+/** A rating, to the sixth decimal — that arithmetic is not exact in binary. */
+const elo = (movement: number) => expect.closeTo(1000 + movement, 5);
+
 const lockDoc = () => getDb().doc('meta/ladder');
 
 const readLock = async () => (await lockDoc().get()).data() ?? {};
@@ -134,7 +148,7 @@ describe('drainAbandonedReplays', () => {
 		expect(await drainAbandonedReplays()).toBe(1);
 
 		// Team B now takes the game, and the ladder says so.
-		expect((await readUser('p1'))?.rating).toMatchObject({ elo: 980 });
+		expect((await readUser('p1'))?.rating).toMatchObject({ elo: elo(LOST_0_5) });
 		expect((await readLock()).pendingFrom).toBeUndefined();
 	});
 
@@ -202,6 +216,6 @@ describe('finaliseGame under the lock', () => {
 		// One game's worth of movement, not two — which is what a second
 		// application would have produced, rating the same result against the
 		// ratings the first one had just written.
-		expect((await readUser('p1'))?.rating).toMatchObject({ elo: 1020, games: 1 });
+		expect((await readUser('p1'))?.rating).toMatchObject({ elo: elo(WON_2_1), games: 1 });
 	});
 });

@@ -38,6 +38,19 @@ const setUpGame = async (overrides: Parameters<typeof writeGame>[2] = {}) => {
 	await writeTeams(SEASON_ID, GAME_ID, [TEAM_A, TEAM_B]);
 };
 
+/**
+ * What the ladder pays a provisional player for the one match these tests score.
+ *
+ * Two numbers rather than one because a rating reads the scoreline as well as
+ * the result — see `getMatchScore`. `0.8 x (rate - 0.5) + 0.2 x 0.5` at the
+ * provisional K of 40, off a rate of 0.8 for the 2-1 and 0.9 for the 3-0.
+ */
+const WON_2_1 = 13.6;
+const WON_3_0 = 16.8;
+
+/** A rating, to the sixth decimal — the arithmetic above is not exact in binary. */
+const elo = (movement: number) => expect.closeTo(1000 + movement, 6);
+
 beforeEach(async () => {
 	await clearFirestore();
 	await clearAuth();
@@ -98,11 +111,11 @@ describe('finaliseTournament', () => {
 		const game = await readGame(SEASON_ID, GAME_ID);
 		expect(game?.resultFinalisedAt).toBeTruthy();
 
-		// Team A won its one match against an evenly-seeded field — a perfect rate
-		// and first place, so the full 40 * 0.5 = 20 Elo either way at the
-		// provisional K.
-		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: 1020, games: 1 });
-		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: 980, games: 1 });
+		// Team A won its one match against an evenly-seeded field. First place, but
+		// only a 2-1 — so four fifths of the rate rather than all of it, and short
+		// of the 20 Elo a two-team game pays at the provisional K for a rout.
+		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: elo(WON_2_1), games: 1 });
+		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: elo(-WON_2_1), games: 1 });
 
 		const ledger = await readRatingLedger(GAME_ID);
 		expect(ledger?.positions).toMatchObject({ p1: 0, p5: 1 });
@@ -235,7 +248,7 @@ describe('finaliseDueTournaments', () => {
 		await finaliseDueTournaments.run(undefined as never);
 
 		expect((await readGame(SEASON_ID, GAME_ID))?.resultFinalisedAt).toBeTruthy();
-		expect((await readUser('p1'))?.rating).toMatchObject({ elo: 1020, games: 1 });
+		expect((await readUser('p1'))?.rating).toMatchObject({ elo: elo(WON_2_1), games: 1 });
 	});
 
 	// Rated before confirming began marking the status, so still answering the
@@ -267,14 +280,14 @@ describe('onMatchWrite', () => {
 		await setUpGame();
 		await writeGameMatches([[2, 1]]);
 		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
-		expect((await readUser('p1'))?.rating).toMatchObject({ elo: 1020 });
+		expect((await readUser('p1'))?.rating).toMatchObject({ elo: elo(WON_2_1) });
 
 		// Reverse the outcome entirely: team B now wins the game instead of team A.
 		await writeGameMatches([[0, 3]]);
 		await onMatchWrite.run(paramsEvent({ seasonId: SEASON_ID, gameId: GAME_ID, order: '0' }));
 
-		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: 980, games: 1 });
-		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: 1020, games: 1 });
+		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: elo(-WON_3_0), games: 1 });
+		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: elo(WON_3_0), games: 1 });
 
 		const game = await readGame(SEASON_ID, GAME_ID);
 		// A replay doesn't re-confirm the game — who confirmed it stands.
@@ -313,7 +326,7 @@ describe('onMatchWrite', () => {
 
 		// Whatever order they landed in, the ladder agrees with the scoreboard
 		// — and each player moved exactly one game's worth, not three.
-		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: 980, games: 1 });
-		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: 1020, games: 1 });
+		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: elo(-WON_3_0), games: 1 });
+		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: elo(WON_3_0), games: 1 });
 	});
 });

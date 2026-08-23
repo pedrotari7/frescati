@@ -24,6 +24,18 @@ const ADMIN = 'season-admin-1';
 const TEAM_A = ['p1', 'p2', 'p3', 'p4'];
 const TEAM_B = ['p5', 'p6', 'p7', 'p8'];
 
+/**
+ * What the ladder pays the winner of the one match these games actually play.
+ *
+ * A rating reads the scoreline as well as the result, so a 2-1 is four fifths
+ * of the rate rather than all of it — `0.8 x (0.8 - 0.5) + 0.2 x 0.5`, at the
+ * provisional K of 40 nobody here has played their way out of.
+ */
+const WON_2_1 = 13.6;
+
+/** A rating, to the sixth decimal — that arithmetic is not exact in binary. */
+const elo = (movement: number) => expect.closeTo(1000 + movement, 6);
+
 beforeEach(async () => {
 	await clearFirestore();
 	await clearAuth();
@@ -91,8 +103,8 @@ describe('onGameDeleted, for a game that had been confirmed', () => {
 		// Team A won the one match a two-team rotation actually puts on — the
 		// other two scorelines are at orders no rotation reaches, and
 		// `selectPlayedMatches` drops them before anything is rated.
-		expect((await readUser('p1'))?.rating).toMatchObject({ elo: 1020, games: 1 });
-		expect((await readUser('p5'))?.rating).toMatchObject({ elo: 980, games: 1 });
+		expect((await readUser('p1'))?.rating).toMatchObject({ elo: elo(WON_2_1), games: 1 });
+		expect((await readUser('p5'))?.rating).toMatchObject({ elo: elo(-WON_2_1), games: 1 });
 
 		await deleteGame(GAME_ID, game);
 
@@ -123,7 +135,7 @@ describe('onGameDeleted, for a game that had been confirmed', () => {
 		const after = await readUser('p1');
 		// One game's worth of history left, and rated as if it were the only
 		// one ever played rather than carrying the deleted game's Elo forward.
-		expect(after?.rating).toMatchObject({ elo: 1020, games: 1 });
+		expect(after?.rating).toMatchObject({ elo: elo(WON_2_1), games: 1 });
 		expect(after!.rating!.elo).not.toBe(before);
 		expect(await readRatingLedger('game-2')).toBeDefined();
 	});
