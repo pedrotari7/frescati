@@ -19,22 +19,22 @@ type Subscribe<T> = (onChange: (value: T) => void, onError: (error: Error) => vo
  * state and tears the listener down on unmount.
  *
  * Pass `null` for `subscribe` when the inputs aren't ready yet (no season id,
- * no signed-in user) — the hook settles into "not loading" rather than
+ * no signed-in user), the hook settles into "not loading" rather than
  * subscribing to a half-built path.
  *
  * `deps` is what the subscription is keyed on; it is deliberately caller-owned
  * because `subscribe` is a fresh closure on every render.
  *
  * `source` names the subscription for `captureError` below. A listener's error
- * callback is not a rejected promise — nothing about it becomes an unhandled
+ * callback is not a rejected promise: nothing about it becomes an unhandled
  * rejection for Sentry's default browser instrumentation to pick up on its
- * own, unlike almost every other failure in this app — so this is the one
+ * own, unlike almost every other failure in this app, so this is the one
  * place that has to report it, and `source` is what turns "a subscription
  * failed" into "which one".
  *
  * `retry` re-runs the effect by bumping a counter in its deps. Firestore tears
  * a listener down for good when it hands one to `onError`, so there is nothing
- * left to resume — the only way back is a fresh `onSnapshot`, and a screen
+ * left to resume. The only way back is a fresh `onSnapshot`, and a screen
  * showing a failure needs something to offer besides a page reload.
  */
 export const useFirestoreSubscription = <T>(

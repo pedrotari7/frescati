@@ -83,7 +83,7 @@ describe('getStandings', () => {
 
 	it('falls through to goals scored when the goal difference matches too', () => {
 		// A and B draw with each other and each beat C by one. Same points, same
-		// goal difference, same head-to-head — only the goals scored differ.
+		// goal difference, same head-to-head. Only the goals scored differ.
 		const matches = [match(0, 0, 1, 1, 1), match(1, 0, 2, 3, 2), match(2, 1, 2, 2, 1)];
 		const rows = getStandings(3, matches).sort((a, b) => a.position - b.position);
 

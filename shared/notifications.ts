@@ -5,7 +5,7 @@ import { MOTM_VOTING_HOURS } from './motm';
  * Every notification the app sends, built in one place.
  *
  * The payloads used to be written inline at each trigger, which was fine until
- * something needed to send one on purpose — a debug screen composing its own
+ * something needed to send one on purpose. A debug screen composing its own
  * copies would be a test of the copies, not of what players actually receive.
  * Same reasoning as the seeder deriving its data from `shared/` rather than
  * hand-writing it.
@@ -54,8 +54,8 @@ export const GAME_NOTIFICATIONS: GameNotification[] = [
 ];
 
 /**
- * Notifications about the app itself rather than about one game. Only app
- * admins are sent these — there is nobody else they would mean anything to.
+ * Notifications about the app itself rather than about one game. These go to
+ * app admins only, because there is nobody else they would mean anything to.
  */
 export type AppNotification = 'newPlayer';
 
@@ -70,7 +70,7 @@ export interface GameNotificationContext {
 	/** Deep link to the game. */
 	url: string;
 	gameId: string;
-	/** `cancelled` only, and optional there — an admin needn't give a reason. */
+	/** `cancelled` only, and optional there, since an admin needn't give a reason. */
 	cancelledReason?: string;
 	/** `atRisk` only: how many more players the game needs. */
 	shortBy?: number;
@@ -83,7 +83,7 @@ export interface GameNotificationContext {
 	/**
 	 * `motmResult` only: who the group picked, by display name rather than uid,
 	 * because this is the one payload whose subject isn't the person reading it.
-	 * More than one is a tie, which is a real outcome — see `MotmTally`.
+	 * More than one is a tie, which is a real outcome. See `MotmTally`.
 	 */
 	winners?: string[];
 	/**
@@ -102,13 +102,13 @@ export interface GameNotificationContext {
  * reasonable and reach people who had switched cancellations off.
  *
  * `null` is not "ungated". Every other kind here goes to a standing audience
- * nobody signed up for — the season roster, everyone who answered, every app
- * admin — so a switch on the profile is the only place to say no to it.
+ * nobody signed up for: the season roster, everyone who answered, every app
+ * admin. A switch on the profile is the only place to say no to those.
  * `availability` goes only to people who followed one specific game, and
  * following is off by default; unfollowing is the switch, and it is one tap
  * from the notification itself. A second one on the profile would be a setting
- * that means nothing until you have already opted in somewhere else — the same
- * reason `relevantPrefs` below hides `newPlayers` from everybody but an admin.
+ * that means nothing until you have already opted in somewhere else. That is
+ * why `relevantPrefs` below hides `newPlayers` from everybody but an admin.
  */
 export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof NotificationPrefs | null> = {
 	cancelled: 'gameChanges',
@@ -119,8 +119,8 @@ export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof
 	newPlayer: 'newPlayers',
 	motm: 'motm',
 	// The answer shares the question's switch rather than earning one of its own.
-	// A kind needs a switch when it goes to a standing audience, which this does
-	// — but it goes to *the same* standing audience, about the same vote, as the
+	// A kind needs a switch when it goes to a standing audience, which this does.
+	// But it goes to *the same* standing audience, about the same vote, as the
 	// half that asked. Somebody who wanted to be asked wants to hear how it went,
 	// and somebody who muted being asked has already said they don't. A second
 	// switch would only offer the two settings nobody wants: to be canvassed and
@@ -132,13 +132,13 @@ export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof
 /**
  * Which switches on a profile mean anything for this person.
  *
- * `newPlayers` is only ever sent to app admins, so for everybody else it is a
- * setting with nothing behind it — counting it would report a player as
- * partially muted for turning off something they were never going to get.
+ * `newPlayers` only ever goes to app admins, so for everybody else it is a
+ * setting with nothing behind it. Counting it would report a player as partly
+ * muted for turning off something they were never going to get.
  *
  * `emailFallback` is deliberately absent: it picks a channel rather than a kind,
  * and counting it here would report somebody who wants push and nothing else as
- * partially muted.
+ * partly muted.
  */
 export const relevantPrefs = (isAppAdmin: boolean): (keyof NotificationPrefs)[] =>
 	isAppAdmin ? ['reminders', 'gameChanges', 'motm', 'newPlayers'] : ['reminders', 'gameChanges', 'motm'];
@@ -166,7 +166,7 @@ export const getPushReach = ({
 	if (devices === 0) return 'noDevice';
 
 	const relevant = relevantPrefs(isAppAdmin);
-	// Absent means opted in, matching `tokensFor` on the backend — a profile
+	// Absent means opted in, matching `tokensFor` on the backend. A profile
 	// written before a preference existed must not read as switched off.
 	const on = relevant.filter(key => prefs?.[key] !== false);
 
@@ -178,11 +178,11 @@ export const getPushReach = ({
 /**
  * Whether email would carry something a push could not.
  *
- * Needs an address to send to and the switch left on — and, like every
- * preference here, absent means opted in. Kept separate from `getPushReach`
- * rather than folded into it because the two answer different questions: that
- * one is about a channel this person may simply not want, and a screen that
- * conflated them could no longer say *which* of the two is silent.
+ * Needs an address to send to and the switch left on. Like every preference
+ * here, absent means opted in. Kept separate from `getPushReach` rather than
+ * folded into it because the two answer different questions. That one is about
+ * a channel this person may not want, and a screen that conflated them could no
+ * longer say *which* of the two is silent.
  *
  * Says nothing about the kinds. A cancellation still needs `gameChanges` on;
  * this only decides how it travels once it's going out at all.
@@ -191,18 +191,18 @@ export const canEmail = ({ prefs, hasEmail }: { prefs?: NotificationPrefs; hasEm
 	hasEmail && prefs?.emailFallback !== false;
 
 /**
- * Exactly the four switches, whatever came in.
+ * Exactly the five switches, whatever came in.
  *
- * Every writer used to spread the stored map forward — `{ ...defaults,
+ * Every writer used to spread the stored map forward: `{ ...defaults,
  * ...profile?.notificationPrefs }` on the settings screen, and the stored value
  * verbatim on sign-in. Fine while the only things writing it were those two,
- * and not fine as a rule: security rules now bound this map to these four keys,
- * so a profile that had somehow acquired a fifth would have had every
- * subsequent write to it rejected — its owner unable to save a preference, and
- * their sign-in profile sync failing quietly behind a `.catch`.
+ * and not fine as a rule. Security rules now bound this map to these five keys,
+ * so a profile that had somehow acquired a sixth would have had every
+ * subsequent write to it rejected. Its owner could not save a preference, and
+ * their sign-in profile sync failed quietly behind a `.catch`.
  *
  * Picking the keys out explicitly rather than spreading is what makes "the
- * client only ever writes the four" true by construction instead of by luck.
+ * client only ever writes the five" true by construction instead of by luck.
  *
  * Missing becomes `true`, matching how every reader treats an absent key: the
  * defaults are on, and a preference nobody has expressed is not an opt-out.
@@ -231,15 +231,14 @@ const AVAILABILITY_COPY: Record<AvailabilityChange, string> = {
  * "Anders", "Anders and Björn", "Anders, Björn and Chris".
  *
  * Only a tie ever brings more than one name here, and a tie between more than
- * two is vanishingly rare — but a vote of one, two or three all being level is
- * exactly the shape a small turnout takes, so this handles the list rather than
- * the pair.
+ * two is rare. But a vote of one, two or three all being level is exactly the
+ * shape a small turnout takes, so this handles the list rather than the pair.
  */
 const formatNames = (names: string[]): string => {
-	// A blank is a profile caught mid-write rather than somebody to leave out —
-	// see `getDisplayName`. Dropping it would turn a tie into a title claiming a
-	// single winner, which is the one thing here that would be read as wrong
-	// rather than as missing.
+	// A blank is a profile caught mid-write rather than somebody to leave out.
+	// See `getDisplayName`. Dropping it would turn a tie into a title claiming a
+	// single winner, which is the one thing here that reads as wrong rather than
+	// as missing.
 	const named = names.map(name => name.trim() || 'Somebody');
 
 	return named.length <= 1 ? (named[0] ?? '') : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`;
@@ -248,7 +247,7 @@ const formatNames = (names: string[]): string => {
 const COPY: Record<GameNotification, Copy> = {
 	cancelled: ({ when, cancelledReason }) => ({
 		title: 'Game called off',
-		body: cancelledReason ? `${when} is off — ${cancelledReason}` : `${when} is off.`,
+		body: cancelledReason ? `${when} is off: ${cancelledReason}` : `${when} is off.`,
 	}),
 
 	restored: ({ when }) => ({
@@ -268,32 +267,32 @@ const COPY: Record<GameNotification, Copy> = {
 
 	reminder: ({ when, playing }) => ({
 		title: 'Are you playing?',
-		body: `${when} — ${playing ?? 0} in so far.`,
+		body: `${when}. ${playing ?? 0} in so far.`,
 	}),
 
 	// The name is the whole notification, so it goes in the title where a lock
 	// screen will not truncate it. Defaults for both halves because this is the
 	// first copy here that interpolates anything required, and the debug screen
-	// renders a title from an empty context — "Somebody is in" is a fair
+	// renders a title from an empty context. "Somebody is in" is a fair
 	// stand-in, where `undefined is in` would be the drift that comment warns
 	// about.
 	availability: ({ when, who, availability, playing }) => ({
 		title: `${who?.trim() || 'Somebody'} ${AVAILABILITY_COPY[availability ?? 'in']}`,
-		body: `${when} — ${playing ?? 0} in so far.`,
+		body: `${when}. ${playing ?? 0} in so far.`,
 	}),
 
 	// Arrives after the football rather than before it, so the date is what
-	// places it — "which Tuesday is this about" is a real question two days
+	// places it. "Which Tuesday is this about" is a real question two days
 	// later, and the same goes for the result below.
 	motm: ({ when }) => ({
 		title: 'Who was man of the match?',
-		body: `${when} — pick whoever stood out. Voting closes in ${MOTM_VOTING_HOURS} hours.`,
+		body: `${when}. Pick whoever stood out. Voting closes in ${MOTM_VOTING_HOURS} hours.`,
 	}),
 
 	// The other half of that exchange, and the only thing the app sends that is
 	// purely news: nothing to answer, nobody to bring a ball. It is here because
 	// everybody in the lineup was interrupted to vote and the result otherwise
-	// reached them only if they happened to open the app again — a question asked
+	// reached them only if they happened to open the app again. A question asked
 	// and never answered back is the kind people stop replying to.
 	//
 	// The name goes in the title for the same reason `availability` puts one
@@ -305,7 +304,7 @@ const COPY: Record<GameNotification, Copy> = {
 			winners.length > 1
 				? `${formatNames(winners)} share man of the match`
 				: `${formatNames(winners) || 'Somebody'} is man of the match`,
-		body: `${when} — ${votes} ${votes === 1 ? 'vote' : 'votes'}${winners.length > 1 ? ' each' : ''}.`,
+		body: `${when}. ${votes} ${votes === 1 ? 'vote' : 'votes'}${winners.length > 1 ? ' each' : ''}.`,
 	}),
 };
 
@@ -314,10 +313,10 @@ const COPY: Record<GameNotification, Copy> = {
  *
  * The service worker's "I'm in" shortcut belongs on a notification asking a
  * question somebody can still answer, and by the time either of these lands
- * there is nothing left to be in for — the button would open the app and
- * silently do nothing. A list rather than a `!== 'motm'` because the vote
- * stopped being the only one the moment its result was sent too, and the next
- * post-game kind added here should not have to rediscover that.
+ * there is nothing left to be in for. The button would open the app and do
+ * nothing. A list rather than a `!== 'motm'` because the vote stopped being the
+ * only one the moment its result was sent too, and the next post-game kind
+ * added here should not have to rediscover that.
  */
 const AFTER_THE_GAME: GameNotification[] = ['motm', 'motmResult'];
 
@@ -334,15 +333,15 @@ export interface NewPlayerContext {
 	uid: string;
 	/**
 	 * May be empty. A profile is written in a single merge, but one can already
-	 * exist in a partial state — see `upsertUserDoc` — so this never assumes a
-	 * name is there to print.
+	 * exist in a partial state, as `upsertUserDoc` shows, so this never assumes
+	 * a name is there to print.
 	 */
 	displayName: string;
 	/**
 	 * The season whose squad this newcomer most likely belongs on, or `null`
-	 * when there is none. Seasons can genuinely overlap — a Tuesday season and a
-	 * Sunday offshoot both `active` at once, each with their own admins — so
-	 * there is no single "the" season to resolve by construction. The caller
+	 * when there is none. Seasons can genuinely overlap. A Tuesday season and a
+	 * Sunday offshoot can both be `active` at once, each with their own admins,
+	 * so there is no single "the" season to resolve by construction. The caller
 	 * (`getMostRecentActiveSeasonId`) stands in "most recently created" for
 	 * "the one an admin reached for last".
 	 */
@@ -372,13 +371,13 @@ export const buildNewPlayerPush = ({ uid, displayName, seasonId }: NewPlayerCont
  *
  * Built **from the push payload** rather than from the kind and context, which
  * is the whole point: there is one set of copy, and an email can't drift from
- * the notification it stands in for. It reads as second-class on purpose — a
+ * the notification it stands in for. It reads as second-class on purpose: a
  * subject, the line that would have been on the lock screen, and a way in.
  */
 export interface EmailPayload {
 	subject: string;
 	html: string;
-	/** Plain-text alternative. Not optional — a mail with only HTML scores as spam. */
+	/** Plain-text alternative. Not optional, because a mail with only HTML scores as spam. */
 	text: string;
 }
 
@@ -397,9 +396,9 @@ const escapeHtml = (value: string): string =>
 /**
  * Hex rather than the `@theme` tokens every component uses.
  *
- * The one place in the app allowed to: an email is rendered by somebody else's
- * mail client, where there is no stylesheet, no custom properties and often no
- * `<style>` block at all — inline attributes on tables is the whole toolkit.
+ * The one place in the app allowed to. Somebody else's mail client renders
+ * this, and there it has no stylesheet, no custom properties and often no
+ * `<style>` block at all. Inline attributes on tables is the whole toolkit.
  * Kept in step with `globals.css` by hand.
  */
 const CANVAS = '#07080a';
@@ -424,7 +423,7 @@ export const buildEmail = (payload: PushPayload, { appUrl }: { appUrl: string })
 	const settings = absolute(appUrl, '/me');
 	// `respondable` already marks the ones with a question in them, which is
 	// exactly when "open the app" has something for you to do.
-	const action = payload.respondable ? 'Say if you’re in' : 'Open Frescati';
+	const action = payload.respondable ? "Say if you're in" : 'Open Frescati';
 
 	const text = [
 		payload.title,
@@ -433,7 +432,7 @@ export const buildEmail = (payload: PushPayload, { appUrl }: { appUrl: string })
 		'',
 		`${action}: ${link}`,
 		'',
-		'You’re getting this by email because Frescati couldn’t reach this account with a push notification.',
+		"You're getting this by email because Frescati couldn't reach this account with a push notification.",
 		`Turn notifications on, or switch these emails off, at ${settings}`,
 	].join('\n');
 
@@ -459,7 +458,7 @@ export const buildEmail = (payload: PushPayload, { appUrl }: { appUrl: string })
         <tr>
           <td style="padding:0 24px 24px;font-family:${FONT};">
             <p style="margin:0;padding-top:20px;border-top:1px solid ${LINE};font-size:12px;line-height:1.6;color:${FAINT};">
-              You’re getting this by email because Frescati couldn’t reach this account with a push notification.
+              You're getting this by email because Frescati couldn't reach this account with a push notification.
               <a href="${escapeHtml(settings)}" style="color:${MUTED};">Turn notifications on, or switch these emails off.</a>
             </p>
           </td>

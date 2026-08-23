@@ -41,7 +41,7 @@ describe('getCalendarLink', () => {
 		});
 	});
 
-	// No allowlist here on purpose — reads are already open to anyone signed
+	// No allowlist here on purpose, reads are already open to anyone signed
 	// in, and this hands out a link to the same thing, not anything wider.
 	it('mints a link for any signed-in user, member or extra', async () => {
 		const { url } = await getCalendarLink.run(callRequest({ seasonId: SEASON_ID }, { uid: EXTRA }));
@@ -57,7 +57,7 @@ describe('getCalendarLink', () => {
 		expect(await feedIndexFor(token!)).toMatchObject({ seasonId: SEASON_ID });
 	});
 
-	it('is idempotent — a second call returns the same token', async () => {
+	it('is idempotent, a second call returns the same token', async () => {
 		const first = await getCalendarLink.run(callRequest({ seasonId: SEASON_ID }, { uid: MEMBER }));
 		const second = await getCalendarLink.run(callRequest({ seasonId: SEASON_ID }, { uid: MEMBER }));
 

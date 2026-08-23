@@ -23,7 +23,7 @@ import { instrument } from './lib/sentry';
  * Tuesday; nothing that reaches the browser could be used to send to it.
  *
  * One unfiltered collection-group query over what is, by design, one football
- * group's worth of devices — a handful per person at most. Not realtime, unlike
+ * group's worth of devices, a handful per person at most. Not realtime, unlike
  * the rest of the app: this is a diagnostic screen an admin opens when somebody
  * says notifications aren't arriving, and a token appearing a few seconds late
  * changes nothing about the answer.
@@ -31,7 +31,7 @@ import { instrument } from './lib/sentry';
  * Also reports which accounts have an address the email fallback could use, for
  * the same reason and with the same restraint: a boolean, never the address.
  * Without it the screen would have to guess, and it would guess wrong in both
- * directions — claiming email reach on a project with no sender configured, or
+ * directions, claiming email reach on a project with no sender configured, or
  * calling somebody unreachable who has been getting the mail all along.
  */
 export const getPushDevices = onCall<void>(
@@ -44,7 +44,7 @@ export const getPushDevices = onCall<void>(
 		const devices: Record<string, PushDevice[]> = {};
 
 		for (const token of snapshot.docs) {
-			// `users/{uid}/pushTokens/{token}` — the grandparent is the account. A
+			// `users/{uid}/pushTokens/{token}`. The grandparent is the account. A
 			// collection group query can only be scoped by collection id, so the uid
 			// comes off the path rather than out of the document.
 			const uid = token.ref.parent.parent?.id;
@@ -70,8 +70,8 @@ export const getPushDevices = onCall<void>(
 /**
  * The uids the fallback has somewhere to write to.
  *
- * Auth is the only place an address lives — `users/{uid}` deliberately holds no
- * contact details — so this pages the account list rather than reading
+ * Auth is the only place an address lives. `users/{uid}` deliberately holds no
+ * contact details, so this pages the account list rather than reading
  * Firestore. One page covers a football group several times over.
  *
  * Unverified addresses are left out, matching what `sendEmail` will actually

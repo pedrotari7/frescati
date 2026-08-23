@@ -74,7 +74,7 @@ const AdminMembersPage = () => {
 
 	/**
 	 * Taking somebody off the roster, which every other destructive button in
-	 * this app asks about first and this one didn't — sitting a thumb's width
+	 * this app asks about first and this one didn't. Sitting a thumb's width
 	 * from Demote, in a row about forty pixels tall.
 	 *
 	 * It is not trivially reversible either. Whatever kit they were holding is
@@ -134,7 +134,7 @@ const AdminMembersPage = () => {
 					<SectionHeading className='mb-2 px-1'>In the squad ({members.length})</SectionHeading>
 
 					<ListCard>
-						{members.length === 0 && <ListEmpty>Nobody yet — add players from below.</ListEmpty>}
+						{members.length === 0 && <ListEmpty>Nobody yet, add players from below.</ListEmpty>}
 
 						{members.map(user => {
 							const isSeasonAdmin = season.adminUids.includes(user.uid);

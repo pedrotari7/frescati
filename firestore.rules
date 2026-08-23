@@ -1,11 +1,11 @@
 rules_version = '2';
 
-// Frescati — the client talks to Firestore directly, so these rules ARE the
+// Frescati. The client talks to Firestore directly, so these rules ARE the
 // authorization layer. There is no API in front of them.
 //
 // Two roles:
-//   * app admin  — the `admin` Firebase Auth custom claim. Creates seasons.
-//   * season admin — listed in `adminUids` on a season. Runs that season.
+//   * app admin: the `admin` Firebase Auth custom claim. Creates seasons.
+//   * season admin: listed in `adminUids` on a season. Runs that season.
 //
 // Anyone signed in can read seasons and games (that's how "extras" find a game
 // to fill), but only their own response is theirs to write.
@@ -23,9 +23,9 @@ service cloud.firestore {
 
     // Read the claim with a default: most people don't carry `admin` at all, and
     // addressing a missing key directly *errors* rather than evaluating false.
-    // Today that error is masked — `isSeasonAdmin` ORs this with a membership
+    // Today that error is masked. `isSeasonAdmin` ORs this with a membership
     // check, and Firestore's `||` tolerates one side erroring when the other is
-    // true — but anywhere this stands alone the error would deny the write.
+    // true, but anywhere this stands alone the error would deny the write.
     function isAppAdmin() {
       return isSignedIn() && request.auth.token.get('admin', false) == true;
     }
@@ -45,7 +45,7 @@ service cloud.firestore {
     // ── shared shapes ────────────────────────────────────────────────────────
     // Seasons and games are both readable by every signed-in user and writable
     // by season admins, and both hang maps off themselves. An allowlist stops
-    // at the edge of a map, so each one it names needs bounding too — the same
+    // at the edge of a map, so each one it names needs bounding too, the same
     // reasoning as `clientShapeOk` on a profile, applied to the two documents
     // the whole app subscribes to.
     //
@@ -81,7 +81,7 @@ service cloud.firestore {
              && balance.get('matchMinutes', 0) is number;
     }
 
-    // Fields the client may never write — Cloud Functions own them.
+    // Fields the client may never write. Cloud Functions own them.
     //
     // `teamsGeneration` is in here because it is the staleness guard the
     // debounced team rebuild reads: a client that could move it could make
@@ -98,7 +98,7 @@ service cloud.firestore {
                  'motmVotingUntilMillis']);
     }
 
-    // A brand new game has nobody in it, so every counter starts at zero — not
+    // A brand new game has nobody in it, so every counter starts at zero, not
     // just `playing`. `values().hasOnly([0])` says "every value in this map is
     // 0", and the key check stops a short map slipping through with the missing
     // counters simply absent.
@@ -112,14 +112,14 @@ service cloud.firestore {
     // ── users ────────────────────────────────────────────────────────────────
     // Readable by anyone signed in: the admin member-picker and every roster
     // needs names and avatars. Which is exactly why no contact details live
-    // here — a profile is a name, an avatar and a badge, nothing more.
+    // here. A profile is a name, an avatar and a badge, nothing more.
     match /users/{uid} {
       allow read: if isSignedIn();
 
       // Email is tolerated on an existing document but can never be added or
       // changed, only dropped. Profiles written before it moved out still carry
       // one, and refusing those outright would lock their owner out of signing
-      // in until `strip-user-emails` had run — a deploy-order trap. Sign-in
+      // in until `strip-user-emails` had run, a deploy-order trap. Sign-in
       // clears the field, so they heal on their own.
       function keepsContactDetailsOut() {
         return !request.resource.data.keys().hasAny(['email'])
@@ -127,7 +127,7 @@ service cloud.firestore {
       }
 
       // A profile is these fields and nothing else. Without an allowlist anyone
-      // could hang arbitrary payloads off their own document — it is writable by
+      // could hang arbitrary payloads off their own document. It is writable by
       // its owner and readable by everyone, which is a combination worth
       // bounding. `email` stays listed only so legacy documents still validate;
       // `keepsContactDetailsOut` is what stops it coming back.
@@ -137,19 +137,19 @@ service cloud.firestore {
       // yielding null.
       // `rating` is owned by the rating functions. It has to be frozen
       // explicitly rather than merely left off the allowlist, because this
-      // document is writable by the person it describes — without this, anyone
+      // document is writable by the person it describes. Without this, anyone
       // could set their own rating to whatever they fancied and walk onto the
       // strongest team every week.
       //
       // Expressed as a diff rather than an equality so a profile that has no
-      // rating yet — which is most of them — doesn't have to address a missing
+      // rating yet, which is most of them, doesn't have to address a missing
       // key to prove it hasn't changed.
       function keepsRatingFrozen() {
         return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rating']);
       }
 
       // The device notes behind the admin notification screen. Self-reported
-      // and self-written, which is fine — nothing is authorized on the back of
+      // and self-written, which is fine. Nothing is authorized on the back of
       // it, and the worst a person can do is lie about their own phone. Bounded
       // anyway, because `client` being a map means the allowlist above stops at
       // its edge and anything could otherwise be nested inside a document the
@@ -164,7 +164,7 @@ service cloud.firestore {
       }
 
       // The four switches, and nothing else. Bounded for the same reason
-      // `client` is — a map is where the allowlist below stops, and this
+      // `client` is, a map is where the allowlist below stops, and this
       // document is writable by its owner and read by every roster screen in
       // the app through one live listener over the whole collection. Anything
       // parked here is downloaded by everybody, repeatedly.
@@ -215,7 +215,7 @@ service cloud.firestore {
 
       // Read through `get()` with a default rather than the field directly: a
       // doc written by `set-admin` alone may not carry every field, and a
-      // missing key would make this expression error out and deny the write —
+      // missing key would make this expression error out and deny the write,
       // permanently locking its owner out of fixing their own profile.
       allow update: if isSelf(uid)
                     && request.resource.data.uid == uid
@@ -227,7 +227,7 @@ service cloud.firestore {
 
       allow delete: if false;
 
-      // FCM registration tokens. Private to their owner — a token is a
+      // FCM registration tokens. Private to their owner. A token is a
       // capability to push to that device.
       match /pushTokens/{token} {
         allow read, write: if isSelf(uid);
@@ -240,7 +240,7 @@ service cloud.firestore {
       // `responseDeadlineHours` being a number is the load-bearing one: the
       // response rule multiplies it, and a rule that errors *denies*. Written as
       // a string it locked every ordinary player out of every game in the
-      // season, silently and invisibly from the admin's own account — season
+      // season, silently and invisibly from the admin's own account. Season
       // admins keep writing through their own rule.
       //
       // `id` is on the allowlist for tolerance, not because anything should
@@ -276,7 +276,7 @@ service cloud.firestore {
                && balanceShapeOk(request.resource.data.get('balance', {}));
       }
 
-      // `size()` alone would not prove this is a list — it works on strings too,
+      // `size()` alone would not prove this is a list. It works on strings too,
       // and `adminUids: 'x'` passed while making `uid in adminUids` error, which
       // locked the season's own admins out of it.
       function keepsAnAdmin() {
@@ -309,7 +309,7 @@ service cloud.firestore {
         // week and which every season screen subscribes to as a collection.
         //
         // The function-owned fields are named here so a merged update still
-        // validates, not because a client may write them — `countsStartEmpty`
+        // validates, not because a client may write them. `countsStartEmpty`
         // bounds `counts` at creation and `touchesDerivedGameFields` freezes it
         // and the rest afterwards, so there is nothing left for a shape check to
         // catch.
@@ -352,7 +352,7 @@ service cloud.firestore {
         // `kickoffMillis` is required rather than optional: it is what the
         // response deadline is enforced against, so a game without one would
         // silently never lock. Its agreement with `kickoff` can't be checked
-        // here — rules can't parse ISO 8601 — but only season admins get this
+        // here, rules can't parse ISO 8601, but only season admins get this
         // far, and they can already set kickoff to whatever they like.
         //
         // Create has to be as strict as update about the function-owned fields.
@@ -376,15 +376,15 @@ service cloud.firestore {
         // ── tournament ───────────────────────────────────────────────────────
         // The generated lineup, written only by `rebuildTeams`.
         //
-        // Readable by anyone signed in — a team sheet nobody can see is no use
-        // — and writable by nobody at all. That is the whole guarantee behind
+        // Readable by anyone signed in, a team sheet nobody can see is no use,
+        // and writable by nobody at all. That is the whole guarantee behind
         // the Reshuffle button being the only way to change a lineup: a player
         // cannot quietly move themselves onto the side they fancy, and two
         // admins looking at the same game cannot produce different teams.
         //
         // Reshuffling goes through `reshuffleCount` on the game document
         // instead, which is a season-admin write like any other, and moving
-        // somebody by hand goes through the `setPlayerTeam` callable — which is
+        // somebody by hand goes through the `setPlayerTeam` callable, which is
         // the same arrangement rather than an exception to it: the checks it
         // makes are a squad that cannot be emptied and a player who has to be in
         // the pool, neither of which can be expressed here against a list of
@@ -397,7 +397,7 @@ service cloud.firestore {
         // ── matches ──────────────────────────────────────────────────────────
         // The scoreboard. The document id is the fixture's position in the
         // running order, so two people scoring the same match write the same
-        // document instead of creating two — and no document at all means "not
+        // document instead of creating two, and no document at all means "not
         // played yet", the same third state responses use.
         //
         // This is the only place in the app where somebody writes something
@@ -427,7 +427,7 @@ service cloud.firestore {
                    && request.resource.data.order is int
                    && request.resource.data.order >= 0
                    // The document id IS the fixture's place in the running
-                   // order — that is what makes two people scoring the same
+                   // order, that is what makes two people scoring the same
                    // match write one document instead of two. Nothing tied the
                    // two together, so a score could be filed under an id
                    // nothing draws and still count in full towards the table
@@ -438,7 +438,7 @@ service cloud.firestore {
                    // denies, so this also turns away `matches/whatever`.
                    && request.resource.data.order == int(order)
                    // A rotation now laps to fill the slot, so the real ceiling
-                   // moves with the season and the match length — see
+                   // moves with the season and the match length, see
                    // `getFixtures` in shared/tournament.ts. `MAX_MATCHES` there
                    // is the one number that doesn't move, and is mirrored here
                    // the same way the four-team ceiling below is: a rule cannot
@@ -463,7 +463,7 @@ service cloud.firestore {
 
           allow read: if isSignedIn();
 
-          // A season admin keeps writing after the game is confirmed — that is
+          // A season admin keeps writing after the game is confirmed, that is
           // what makes a correction possible at all, and the rating replay is
           // built to follow one.
           allow create, update: if matchShapeOk()
@@ -477,14 +477,14 @@ service cloud.firestore {
           //
           // It hands nobody anything new: anyone who can overwrite a scoreline
           // can already destroy what it recorded, and a plausible wrong score
-          // does more damage than a removal — it still counts towards the table
+          // does more damage than a removal, it still counts towards the table
           // and towards everyone's rating, where a gap is visible on screen.
           allow delete: if isSeasonAdmin(seasonId)
                            || (respondedToThisGame() && !isFinalised());
         }
 
         // ── man of the match ─────────────────────────────────────────────────
-        // One vote per player, the document id being the voter — so nobody
+        // One vote per player, the document id being the voter, so nobody
         // holds two, and changing your mind overwrites rather than stuffs the
         // ballot. No document means they haven't voted, the same third state
         // responses and scorelines use.
@@ -494,11 +494,11 @@ service cloud.firestore {
         // visible while the vote is open turns an early lead into a bandwagon.
         // The totals are published by the sweep that counts them, onto
         // `tournament/motm`, which everybody can read. Season admins and app
-        // admins are shut out here like everyone else — an admin who could read
+        // admins are shut out here like everyone else. An admin who could read
         // the votes as they arrived is exactly the leak this prevents.
         //
         // What is published while the vote runs is the turnout, on
-        // `tournament/motmVoters` — who has answered, never what they answered.
+        // `tournament/motmVoters`, who has answered, never what they answered.
         // That is not a hole in the rule above but the other side of it: a list
         // of names with no picks attached offers nothing to fall in behind, and
         // it is the only way the group can be told who still needs asking, since
@@ -511,13 +511,13 @@ service cloud.firestore {
           // The lineup rather than the responses: a vote is about who was on
           // the pitch, and the team sheet is the only record of that. It is
           // also function-written and unforgeable, where a response is
-          // self-written — so this cannot be talked into counting somebody who
+          // self-written, so this cannot be talked into counting somebody who
           // never played.
           //
           // A rule cannot flatten a list of maps, so the four-team ceiling is
           // mirrored here the way `matches` already mirrors it on `teamA`:
           // `MAX_TEAMS` in shared/tournament.ts is the number this tracks. The
-          // guards are load-bearing rather than tidy — indexing past the end of
+          // guards are load-bearing rather than tidy, indexing past the end of
           // the list errors, and an error denies.
           function playedIn(squads, candidate) {
             return (squads.size() > 0 && candidate in squads[0].uids)
@@ -537,7 +537,7 @@ service cloud.firestore {
           }
 
           // Read live off the game, against the numeric deadline the function
-          // put there — the same arrangement `kickoffMillis` exists for, and
+          // put there, the same arrangement `kickoffMillis` exists for, and
           // for the same reason: a rule cannot parse an instant.
           //
           // Defaulting to 0 closes the vote for every game that has no window,
@@ -575,11 +575,11 @@ service cloud.firestore {
         // ── watchers ─────────────────────────────────────────────────────────
         // Who has asked to hear when somebody's answer to this game moves. The
         // document id is the uid and its presence IS the subscription, so
-        // unfollowing is a delete rather than a `false` — the same third state
+        // unfollowing is a delete rather than a `false`, the same third state
         // responses and scorelines use.
         //
         // Private to its owner, like a push token. Not because it is sensitive
-        // in the way a token is — it grants nothing — but because nothing needs
+        // in the way a token is, it grants nothing, but because nothing needs
         // it: the only screen that reads this draws one person's own switch, and
         // a game the whole group can read has no business also publishing who is
         // quietly keeping an eye on it. `getWatcherUids` reads it with the Admin
@@ -603,7 +603,7 @@ service cloud.firestore {
 
         // ── responses ────────────────────────────────────────────────────────
         // The document id IS the uid, so one person can only ever hold one
-        // response per game. No document at all means "no response" — that is a
+        // response per game. No document at all means "no response", that is a
         // real third state, so nothing here ever writes a placeholder.
         match /responses/{uid} {
 
@@ -620,8 +620,8 @@ service cloud.firestore {
           // than only for games created afterwards.
           //
           // Games written before `kickoffMillis` existed default to a year far
-          // enough out that they stay answerable — the same as the old
-          // behaviour — until `backfill-kickoff-millis` has run over them.
+          // enough out that they stay answerable, the same as the old
+          // behaviour, until `backfill-kickoff-millis` has run over them.
           function responsesOpen(game) {
             return game.status == 'scheduled'
                    && request.time.toMillis()
@@ -630,14 +630,14 @@ service cloud.firestore {
           }
 
           // `role` is snapshotted onto the response, so it has to match reality
-          // at write time — otherwise an extra could claim a member's ranking.
+          // at write time, otherwise an extra could claim a member's ranking.
           function roleMatchesMembership() {
             return request.resource.data.role == (isSeasonMember(seasonId) ? 'member' : 'extra');
           }
 
           // Confirming or dropping an extra is an admin decision, and so is
           // reporting that somebody said they were coming and didn't turn up.
-          // Neither is the player's to write about themselves — one is a spot
+          // Neither is the player's to write about themselves. One is a spot
           // they'd be granting themselves, the other a mark they'd be rubbing
           // out.
           function setsAdminFields() {
@@ -654,7 +654,7 @@ service cloud.firestore {
                      ['uid', 'status', 'role', 'respondedAt', 'updatedAt', 'note', 'confirmOverride',
                       'absent'])
                    // On the allowlist so a player rewriting their own answer can
-                   // carry an admin's mark through untouched — `setResponse`
+                   // carry an admin's mark through untouched, `setResponse`
                    // writes the whole document, so a key it may not send is a
                    // key it cannot preserve. Setting or changing one is still
                    // refused below, which is why this bound is the only thing
@@ -681,7 +681,7 @@ service cloud.firestore {
 
           // Changing your mind is allowed right up to the deadline. Past it the
           // headcount is what the organiser is acting on, so only a season admin
-          // can still move it — see the admin `write` below.
+          // can still move it, see the admin `write` below.
           // `respondedAt` is the extras queue order, so it is written once and
           // then frozen. Without this an extra could backdate themselves ahead
           // of everyone who signed up before them.
@@ -720,7 +720,7 @@ service cloud.firestore {
       //
       // What they cannot do is change what an item *is*. Naming, re-kinding,
       // adding and deleting stay with the season admins, because the kind is
-      // what decides whether a game gets warned about a missing ball — a member
+      // what decides whether a game gets warned about a missing ball. A member
       // who could re-kind the vests as `other` could silence that warning for
       // the whole squad, which is a different power from carrying a bag home.
       match /kit/{itemId} {
@@ -737,7 +737,7 @@ service cloud.firestore {
                  && request.resource.data.kind in ['ball', 'vests', 'other']
                  && request.resource.data.holderUid is string
                  && request.resource.data.holderUid.size() <= 128
-                 // Signed, so a wrong handover has a face on it — the same
+                 // Signed, so a wrong handover has a face on it, the same
                  // reason `matches` pins `updatedBy` to the caller.
                  && request.resource.data.updatedBy == request.auth.uid
                  && request.resource.data.updatedAt is string
@@ -746,7 +746,7 @@ service cloud.firestore {
 
         // An item is always handed to somebody on the roster. Checked on the way
         // in only: a member who leaves afterwards strands whatever they were
-        // holding, which `findStrandedKit` surfaces rather than repairs — the
+        // holding, which `findStrandedKit` surfaces rather than repairs. The
         // app has no idea who has it now, and guessing would replace a visible
         // problem with an invisible wrong answer.
         //
@@ -782,11 +782,11 @@ service cloud.firestore {
       }
 
       // The subscribable calendar's token. Closed to every client, season
-      // admin included — the only doors in are `getCalendarLink` and
+      // admin included. The only doors in are `getCalendarLink` and
       // `rotateCalendarToken`, which read and write it with the Admin SDK.
       // Nothing here is more sensitive than what `allow read: if isSignedIn()`
       // already hands out above; it just hands it to whoever holds the token,
-      // signed in or not, which is exactly why a client write is never safe —
+      // signed in or not, which is exactly why a client write is never safe.
       // it would let anyone who can already read the season mint or overwrite
       // the one credential that skips signing in altogether.
       match /calendar/{docId} {
@@ -808,7 +808,7 @@ service cloud.firestore {
     // is nothing season-scoped to iterate.
     //
     // Written only by the finalise functions. This is the undo history for the
-    // whole ladder — anyone able to edit it could rewrite everybody's rating by
+    // whole ladder, anyone able to edit it could rewrite everybody's rating by
     // forging what theirs used to be, and the replay would faithfully apply it.
     match /ratingLedger/{gameId} {
       allow read: if isSignedIn();
@@ -829,7 +829,7 @@ service cloud.firestore {
     // Matched on the `uid` **field** rather than on the document id, which is
     // the only form that can stay as private as the rule above. A query is
     // allowed by proving every document it could return would pass, and the id
-    // is not something a collection-group query can constrain — so a rule
+    // is not something a collection-group query can constrain, so a rule
     // reading the wildcard would leave this readable by nobody at all. The
     // field says the same thing the id does, which is why it is written and
     // why the nested rule pins the two together.
@@ -837,7 +837,7 @@ service cloud.firestore {
     // Nothing is published by this that wasn't already private: without the
     // `where('uid', '==', <you>)` this refuses, and with it the answer is your
     // own following and nobody else's. Listing who is following one game stays
-    // impossible, app admins included — that is `getGameWatchers`' job.
+    // impossible, app admins included. That is `getGameWatchers`' job.
     match /{path=**}/watchers/{uid} {
       allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
     }

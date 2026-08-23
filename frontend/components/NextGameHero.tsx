@@ -38,7 +38,7 @@ const NextGameHero = ({
 	onRespond: (status: ResponseStatus) => Promise<void>;
 	onClear: () => Promise<void>;
 	/**
-	 * Left off when nobody is signed in — no handler, no bell, rather than a
+	 * Left off when nobody is signed in, no handler, no bell, rather than a
 	 * dead one. The state behind it belongs to the screen: this card and the
 	 * rows below it read one listener between them.
 	 */
@@ -50,14 +50,14 @@ const NextGameHero = ({
 	// `game.counts` comes from the games list query and only moves once the
 	// `onResponseWrite` trigger has caught up with a response write. This is
 	// the one card every player checks right after answering, so it's worth a
-	// dedicated subscription to the responses it's tallying — subscribing per
+	// dedicated subscription to the responses it's tallying, subscribing per
 	// row on the list below it is what the denormalised counts exist to avoid.
 	const { responses, loading: responsesLoading } = useResponses(season.id, game.id);
 	const liveGame = responsesLoading ? game : { ...game, counts: tallyResponses(responses) };
 
 	// The register and the profiles behind the names in it. Both are small and
 	// both are already cached by the time this card is the second screen
-	// somebody has opened — and `GameKit` draws nothing at all here unless
+	// somebody has opened, and `GameKit` draws nothing at all here unless
 	// something required is genuinely missing, so the usual cost is a listener
 	// and no pixels.
 	const { kit } = useKit(season.id);
@@ -75,9 +75,9 @@ const NextGameHero = ({
 				    top-right of the card rather than wrapping with them.
 
 				    The gap below is wider than it looks: both neighbours paint
-				    outside their layout box — the bell's 44px circle hangs 8px
+				    outside their layout box, the bell's 44px circle hangs 8px
 				    below this row, and the link panel's hover surface reaches
-				    8px above its text — so anything under 16px has the panel's
+				    8px above its text, so anything under 16px has the panel's
 				    corner painting over the bell. */}
 				<div className='mb-5 flex items-center justify-between gap-2'>
 					<div className='flex flex-wrap items-center gap-2'>
@@ -98,7 +98,7 @@ const NextGameHero = ({
 				    the game rows use, a surface that answers a tap, and a line
 				    saying what is on the other side. Negative margins cancel the
 				    padding, so the panel is bigger than the text without moving it.
-				    Only this block is a link — the bell and the answer buttons are
+				    Only this block is a link, the bell and the answer buttons are
 				    inside the card too, and nesting them in one would swallow them. */}
 				<Link
 					href={`/s/${season.id}/g/${game.id}`}
@@ -159,7 +159,7 @@ const NextGameHero = ({
 						)}
 
 						{/* Directly under the buttons, because it is the receipt for
-						    the tap that just happened — an extra's In moves nothing
+						    the tap that just happened, an extra's In moves nothing
 						    on this card, headcount included, so this is the only
 						    thing on screen that answers it. */}
 						<ExtraSpotNote isExtra={isExtra} myResponse={myResponse} lifecycle={lifecycle} />

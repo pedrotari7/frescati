@@ -10,7 +10,7 @@ import { captureError } from '../lib/sentry';
  * Modelled on `usePushDevices`, and not realtime for the same reason: the
  * collection behind it is unreadable from the client by design, so this comes
  * back from a callable rather than an `onSnapshot`. `reload` is what the screen
- * offers instead — an admin is usually looking at this a moment before doing
+ * offers instead, an admin is usually looking at this a moment before doing
  * something, and a refresh button is more honest than a poll that hides how
  * stale the answer is.
  *

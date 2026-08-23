@@ -117,7 +117,7 @@ describe('useLiveGameRedirect', () => {
 	});
 
 	// An installed app can sit in one document for weeks, so the mark is the game
-	// id — spending it on one game must not silence every game after it.
+	// id, spending it on one game must not silence every game after it.
 	it('sends them again for a different game', () => {
 		render().unmount();
 
@@ -160,7 +160,7 @@ describe('useLiveGameRedirect', () => {
 	});
 
 	// Storage throws in Safari's private mode. Unable to record the jump means
-	// not taking it — an unrecorded redirect is one Back can't escape.
+	// not taking it, an unrecorded redirect is one Back can't escape.
 	it('stays put when the jump cannot be recorded', () => {
 		jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
 			throw new Error('blocked');

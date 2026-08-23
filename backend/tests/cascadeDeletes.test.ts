@@ -28,12 +28,12 @@ const TEAM_B = ['p5', 'p6', 'p7', 'p8'];
  * What the ladder pays the winner of the one match these games actually play.
  *
  * A rating reads the scoreline as well as the result, so a 2-1 is four fifths
- * of the rate rather than all of it — `0.8 x (0.8 - 0.5) + 0.2 x 0.5`, at the
+ * of the rate rather than all of it, `0.8 x (0.8 - 0.5) + 0.2 x 0.5`, at the
  * provisional K of 40 nobody here has played their way out of.
  */
 const WON_2_1 = 13.6;
 
-/** A rating, to the sixth decimal — that arithmetic is not exact in binary. */
+/** A rating, to the sixth decimal, that arithmetic is not exact in binary. */
 const elo = (movement: number) => expect.closeTo(1000 + movement, 6);
 
 beforeEach(async () => {
@@ -48,7 +48,7 @@ describe('onGameDeleted', () => {
 		await writeResponse(SEASON_ID, GAME_ID, MEMBER);
 		await getDb().doc(`seasons/${SEASON_ID}/games/${GAME_ID}/tournament/teams`).set({ teams: [] });
 
-		// Firestore doesn't fire deletes for us here — the game document is
+		// Firestore doesn't fire deletes for us here, the game document is
 		// already gone by the time this trigger would run in production.
 		await getDb().doc(`seasons/${SEASON_ID}/games/${GAME_ID}`).delete();
 
@@ -100,7 +100,7 @@ describe('onGameDeleted, for a game that had been confirmed', () => {
 	it('rewinds every rating the game moved', async () => {
 		const game = await playAndConfirm(GAME_ID, '2026-09-01T17:00:00.000Z');
 
-		// Team A won the one match a two-team rotation actually puts on — the
+		// Team A won the one match a two-team rotation actually puts on, the
 		// other two scorelines are at orders no rotation reaches, and
 		// `selectPlayedMatches` drops them before anything is rated.
 		expect((await readUser('p1'))?.rating).toMatchObject({ elo: elo(WON_2_1), games: 1 });
@@ -108,8 +108,8 @@ describe('onGameDeleted, for a game that had been confirmed', () => {
 
 		await deleteGame(GAME_ID, game);
 
-		// Nobody had a rating before this game, so nobody has one after it goes
-		// — restoring a stand-in would read as a real, settled rating.
+		// Nobody had a rating before this game, so nobody has one after it goes.
+		// Restoring a stand-in would read as a real, settled rating.
 		for (const uid of [...TEAM_A, ...TEAM_B]) expect((await readUser(uid))?.rating).toBeUndefined();
 	});
 
@@ -170,7 +170,7 @@ describe('onSeasonDeleted', () => {
 		expect(responseSnap.exists).toBe(false);
 	});
 
-	// The token itself sits under the season, so `recursiveDelete` reaches it —
+	// The token itself sits under the season, so `recursiveDelete` reaches it,
 	// but `calendarFeeds` is top-level on purpose, so nothing else would ever
 	// take it with the rest.
 	it('takes the calendar token and its reverse index with it', async () => {

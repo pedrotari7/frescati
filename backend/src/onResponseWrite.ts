@@ -21,7 +21,7 @@ import { instrument } from './lib/sentry';
  * that started it.
  *
  * Sharing the `game-{id}` tag with every other notification about this game is
- * what keeps a run of late changes from stacking up — the lock screen shows the
+ * what keeps a run of late changes from stacking up. The lock screen shows the
  * latest state, which is the only one worth reading.
  *
  * Whoever just answered is never told about their own answer.
@@ -53,7 +53,7 @@ const notifyWatchers = async ({
 	// The same predicate the bell is drawn from, so this can never be the half
 	// that keeps sending after the button offering to stop it has gone. A game
 	// that was called off already told everyone who answered, and one that has
-	// been played is history — tidying the roster on either is housekeeping.
+	// been played is history. Tidying the roster on either is housekeeping.
 	if (!game || !isWatchable(getGameLifecycle(game, season))) return;
 
 	const sent = await sendGamePush(watchers, 'availability', {
@@ -76,7 +76,7 @@ const notifyWatchers = async ({
  * is the only thing that may write them.
  *
  * Recomputes from scratch rather than incrementing: a full re-tally of ~30
- * documents is cheap, whereas a delta applied twice — retries happen — silently
+ * documents is cheap, whereas a delta applied twice, retries happen, silently
  * corrupts the count.
  *
  * The re-tally runs inside a transaction because recomputing is not on its own
@@ -88,7 +88,7 @@ const notifyWatchers = async ({
  * loser retries against fresh data instead of overwriting the winner.
  *
  * It is also the only thing in the app that sees an answer *move* rather than
- * just what it now is, which is what a watcher subscribed to — hence the
+ * just what it now is, which is what a watcher subscribed to. Hence the
  * notification below, and hence `EMAIL_SECRETS`, without which its fallback
  * would silently mail nobody.
  */

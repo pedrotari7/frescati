@@ -152,7 +152,7 @@ describe('onGameWrite', () => {
 
 		await onGameWrite.run(writtenEvent({ seasonId: SEASON_ID, gameId: GAME_ID }, before, after));
 
-		// `force`, because a reshuffle is somebody asking for different teams —
+		// `force`, because a reshuffle is somebody asking for different teams,
 		// the one instruction that outranks a lineup they picked by hand earlier.
 		expect(enqueue).toHaveBeenCalledWith({
 			seasonId: SEASON_ID,
@@ -177,7 +177,7 @@ describe('onGameWrite', () => {
 /**
  * The numeric mirror the response deadline is enforced against. No rule can
  * check it agrees with `kickoff`, because parsing the ISO form is the thing a
- * rule cannot do — which is why the mirror exists at all.
+ * rule cannot do, which is why the mirror exists at all.
  */
 describe('onGameWrite, keeping kickoffMillis in step', () => {
 	const MOVED = '2026-09-08T17:00:00.000Z';
@@ -195,7 +195,7 @@ describe('onGameWrite, keeping kickoffMillis in step', () => {
 	});
 
 	// A creation can arrive already disagreeing, and that is the state the
-	// deadline would then be enforced against for the game's whole life — so
+	// deadline would then be enforced against for the game's whole life, so
 	// the repair runs ahead of the guard that skips creations for notifications.
 	it('corrects a game that was created already disagreeing', async () => {
 		await writeGame(SEASON_ID, GAME_ID, { kickoff: MOVED, kickoffMillis: 0 });
@@ -224,7 +224,7 @@ describe('onGameWrite, keeping kickoffMillis in step', () => {
 		expect(console.warn).not.toHaveBeenCalledWith('Repaired a drifted kickoffMillis', expect.anything());
 	});
 
-	// `Date.parse` gives NaN, and writing that would fail the update outright —
+	// `Date.parse` gives NaN, and writing that would fail the update outright,
 	// so the mirror is left as it is rather than replaced with something worse.
 	//
 	// No season here on purpose, so the handler returns before it formats

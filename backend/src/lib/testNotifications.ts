@@ -10,12 +10,12 @@ import { formatGameWhen } from '../../../shared/format';
 import { getGame, getMostRecentActiveSeasonId, getSeason } from './data';
 
 /**
- * Builds the payload for a debug send — shared by `sendTestPush` and
+ * Builds the payload for a debug send. Shared by `sendTestPush` and
  * `sendTestEmail` so a hand-triggered notification is built exactly the same
  * way regardless of which channel it goes out on, and there is one place that
  * decides what a test send looks like rather than two that could drift.
  *
- * `newPlayer` stands `sender` in as the newcomer — sending it as if they had
+ * `newPlayer` stands `sender` in as the newcomer, sending it as if they had
  * just signed up themselves is the only honest way to see what an admin gets,
  * short of creating an account to throw away. `availability` borrows them the
  * same way, as the player whose answer moved, and `motmResult` as the player
@@ -26,7 +26,7 @@ import { getGame, getMostRecentActiveSeasonId, getSeason } from './data';
  * folding a name into it would make it answer two questions.
  *
  * `newPlayer` resolves its own deep link through `getMostRecentActiveSeasonId`
- * rather than the caller's `seasonId` — the debug screen's season picker is
+ * rather than the caller's `seasonId`. The debug screen's season picker is
  * for the game kinds, and a test send is only honest if it deep-links exactly
  * where the real trigger would.
  */
@@ -44,7 +44,7 @@ export const buildTestPayload = async (
 	return buildGamePush(kind, {
 		...context,
 		// The vote and its result both live on the team sheet rather than the
-		// game page, so a test send has to land there too — same reasoning as
+		// game page, so a test send has to land there too. Same reasoning as
 		// `newPlayer` resolving its own deep link: a test that opens somewhere
 		// else is a test of something else. Only when a real game was named; the
 		// stand-in context has no team sheet to point at.
@@ -53,8 +53,8 @@ export const buildTestPayload = async (
 		winners: [sender.displayName],
 		// Stated rather than left to the builder's default, so a test send
 		// goes down the same path a real one does. The vote count has nothing
-		// real to derive from — a game that has not been voted on has no totals,
-		// and reading a decision back would test the read rather than the copy —
+		// real to derive from. A game that has not been voted on has no totals,
+		// and reading a decision back would test the read rather than the copy,
 		// so it is a plausible number, chosen odd enough to be recognisable as
 		// the stand-in it is.
 		availability: 'in',

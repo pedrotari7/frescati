@@ -7,9 +7,9 @@ import { AT, dialog, expand, sectionUnder } from './locators';
 /**
  * The admin calendar, and the one button on it that notifies the whole group.
  *
- * Cancelling is the write on this screen with the widest blast radius —
- * `onGameWrite` pushes to everybody the game affects the moment `status` moves
- * — and it is the smallest, quietest control in the row, sitting beside a
+ * Cancelling is the write on this screen with the widest blast radius,
+ * `onGameWrite` pushes to everybody the game affects the moment `status` moves,
+ * and it is the smallest, quietest control in the row, sitting beside a
  * Delete that has always asked first. Two things guard it now and neither can
  * be checked anywhere but here: a confirm dialog, and the refusal to offer it
  * at all once the football has been played.
@@ -24,7 +24,7 @@ import { AT, dialog, expand, sectionUnder } from './locators';
  * against one seeded database and are disjoint on purpose; `respond.spec.ts`
  * answers the current season's next game, which is the very game an admin spec
  * would reach for. So the destructive half is tested by opening the dialog and
- * dismissing it — which is exactly the assertion worth making anyway, since the
+ * dismissing it, which is exactly the assertion worth making anyway, since the
  * bug was that no dialog stood between a tap and the notification.
  */
 
@@ -70,7 +70,7 @@ test.describe('the admin calendar', () => {
 
 		// Every played row still offers Delete, so this is the absence of one
 		// control rather than of the whole row. Restore is the exception and
-		// stays on a cancelled game whenever it happened — that is the way back
+		// stays on a cancelled game whenever it happened, that is the way back
 		// from having called one off by mistake.
 		const cancels = await played.getByRole('button', { name: 'Cancel' }).count();
 		expect(cancels, 'a played game still offered Cancel').toBe(0);
@@ -78,7 +78,7 @@ test.describe('the admin calendar', () => {
 
 	// A cancelled game that hasn't been played yet stays here rather than moving
 	// to Played, because putting it back on is a thing an admin does from this
-	// list — so Coming up is where Restore has to be.
+	// list, so Coming up is where Restore has to be.
 	test('keeps a called-off game that has not been played under Coming up', async ({ page }) => {
 		await openTheCalendar(page);
 

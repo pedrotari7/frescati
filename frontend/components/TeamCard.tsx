@@ -16,7 +16,7 @@ import { classNames } from '../lib/utils/reactHelper';
  * One squad's team sheet.
  *
  * `sideSize` is how many of them are on the pitch at once. When the squad is
- * bigger than that — which happens on any odd headcount — the surplus rotate
+ * bigger than that, which happens on any odd headcount, the surplus rotate
  * through rather than one person watching the whole game, so the card says so
  * instead of implying somebody is dropped.
  */
@@ -41,7 +41,7 @@ const TeamCard = ({
 	deltas?: Map<string, number>;
 	/**
 	 * Anyone on this sheet who is no longer in the playing pool. Only possible
-	 * on a hand-picked lineup, which stops being re-picked — so the sheet can
+	 * on a hand-picked lineup, which stops being re-picked, so the sheet can
 	 * outlive somebody's answer, and saying nothing would leave a squad quietly
 	 * a man short on the night.
 	 */
@@ -66,14 +66,14 @@ const TeamCard = ({
 	const style = teamStyle(team.index);
 	// Only over the ratings we actually hold. Treating a missing one as zero
 	// dragged the whole squad's badge down by whatever share of it that player
-	// was — a worse answer than an average of the people we can price.
+	// was, a worse answer than an average of the people we can price.
 	const rated = team.uids.map(uid => elos[uid]).filter((elo): elo is number => typeof elo === 'number');
 	const average = rated.length > 0 ? rated.reduce((total, elo) => total + elo, 0) / rated.length : null;
 	const rotating = team.uids.length - sideSize;
 
 	// The last player on a squad has nowhere to go. `setPlayerTeam` refuses to
 	// leave a team with nobody on it, and that covers taking them off the sheet
-	// as well — so the move sheet opens for them with every control greyed and
+	// as well, so the move sheet opens for them with every control greyed and
 	// only Cancel live. Better said here, where the tap would have been.
 	const isOnlyTeammate = team.uids.length === 1;
 
@@ -99,8 +99,8 @@ const TeamCard = ({
 			<div className='p-4'>
 				<header className='mb-3 flex items-center justify-between gap-2'>
 					{/* The letter is the biggest thing on the card and the thing being
-					    changed, so it is the target rather than a control of its own —
-					    but only a button when there is somebody who can press it. A
+					    changed, so it is the target rather than a control of its own.
+					    But only a button when there is somebody who can press it. A
 					    disabled one would still be in every player's tab order,
 					    offering nothing. */}
 					{onChangeLetter ? (
@@ -188,7 +188,7 @@ const TeamCard = ({
 										}
 										title={
 											isOnlyTeammate
-												? 'The only player on a team can’t be moved — a team with nobody on it still gets a fixture.'
+												? "The only player on a team can't be moved, a team with nobody on it still gets a fixture."
 												: undefined
 										}
 										className={classNames(

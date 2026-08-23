@@ -13,14 +13,14 @@ import TeamBadge, { teamName } from './TeamBadge';
  * Which letter this squad should have.
  *
  * The question people actually arrive with is "team A is still tying their
- * laces, can we start with the other two" — and the answer is not a fixture
+ * laces, can we start with the other two", and the answer is not a fixture
  * editor, it is this: team A is the first index, the rotation always opens A
  * against B, so saying the squad that is ready is A puts them on first. One
  * idea instead of two, and the bibs, the scoreboard and the table all keep
  * agreeing because they all read the same index.
  *
  * Each row names two or three of the squad it would swap with, because a letter
- * on its own is not something anybody can pick between at the side of a pitch —
+ * on its own is not something anybody can pick between at the side of a pitch:
  * "make them A" is a decision about who team A currently is.
  */
 const TeamLetterSheet = ({
@@ -39,7 +39,7 @@ const TeamLetterSheet = ({
 	onClose: () => void;
 	onSwap: (withIndex: number) => Promise<void>;
 }) => {
-	// Enough to recognise a side by, and no more — a full squad list per row
+	// Enough to recognise a side by, and no more, a full squad list per row
 	// turns a four-team sheet into something you have to scroll and read.
 	const nameFew = (squad: TournamentTeam): string => {
 		const names = squad.uids.slice(0, 2).map(uid => displayNameOf(usersByUid.get(uid)).split(' ')[0]);
@@ -60,7 +60,7 @@ const TeamLetterSheet = ({
 
 					<p className='text-muted mt-1 text-sm'>
 						The first two teams kick off, so this is how you start with a side that is ready. They swap
-						letters — nobody changes team.
+						letters. Nobody changes team.
 					</p>
 
 					<ul className='-mx-1 mt-4 min-h-0 flex-1 space-y-1 overflow-y-auto px-1'>

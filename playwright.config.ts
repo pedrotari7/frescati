@@ -6,7 +6,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Every other suite here stops at a seam. `shared/` is pure, the frontend tests
  * render components over mocked modules, the rules tests drive Firestore with no
  * app in front of it, and the backend tests call handlers directly with
- * hand-built events. Nothing joins them up — so the one path the group actually
+ * hand-built events. Nothing joins them up, so the one path the group actually
  * uses, tap In and watch the headcount move, is covered in four pieces and not
  * once end to end. That path crosses the client, the security rules, a
  * background trigger and a realtime listener, and each of those is exactly where
@@ -36,9 +36,9 @@ export default defineConfig({
 	// One worker per spec file, and no more. There is a single seeded emulator
 	// database behind all of this, so what can safely overlap is decided by what
 	// the specs touch rather than by how many cores are going spare: the five
-	// files are disjoint — responses on the next game, the kit register, the
+	// files are disjoint: responses on the next game, the kit register, the
 	// scoreline and vote on a played one, and two that write nothing at all for
-	// exactly this reason, the admin calendar and the way back out of a screen —
+	// exactly this reason, the admin calendar and the way back out of a screen,
 	// while the tests *inside* a file deliberately hand state to each other.
 	// `fullyParallel: false` is what draws that line, giving each file to one
 	// worker and keeping its tests in order.
@@ -62,8 +62,8 @@ export default defineConfig({
 		{ name: 'mobile', use: { ...devices['Pixel 5'] } },
 		// Runs only once mobile is done, and that is the other half of the
 		// worker count above. The two viewports run the *same* specs against the
-		// same database — the same member's response document, the same ball,
-		// the same scoreline — so left to overlap they are not two viewports but
+		// same database: the same member's response document, the same ball,
+		// the same scoreline, so left to overlap they are not two viewports but
 		// two people racing for one row. `dependencies` is the ordering
 		// Playwright already has for this; the alternative is teaching every
 		// fixture to pick a different player per project, which buys nothing
@@ -76,7 +76,7 @@ export default defineConfig({
 		{ name: 'desktop', use: { ...devices['Desktop Chrome'] }, dependencies: ['mobile'] },
 	],
 	/**
-	 * The whole stack in one command — `scripts/e2e-stack.sh`, which builds both
+	 * The whole stack in one command: `scripts/e2e-stack.sh`, which builds both
 	 * halves, boots every emulator, seeds a real scenario and serves the built
 	 * app. Not `dev:seeded`: that adds the emulator UI nobody is watching here,
 	 * and it runs `next dev`, which compiles each route the first time a test

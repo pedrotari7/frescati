@@ -43,7 +43,7 @@ describe('getRatingLadder', () => {
 		expect(getRatingLadder([user('a', rating(1000)), user('b')]).map(row => row.uid)).toEqual(['a']);
 	});
 
-	// An admin's estimate is a real rating — the balancer picks teams with it —
+	// An admin's estimate is a real rating, the balancer picks teams with it,
 	// but it is not a place on the ladder, and showing it as one would rank
 	// somebody who has never turned up above people who earned their rung.
 	it('leaves out a starting rating nobody has played off yet', () => {
@@ -140,8 +140,8 @@ describe('getSeasonTable', () => {
 		expect(table[0]).toMatchObject({ appearances: 1, wins: 1, movement: 0 });
 	});
 
-	// The seed only ever answers for somebody who arrived without a rating —
-	// a rated player's own `before` is the only thing that can speak for them.
+	// The seed only ever answers for somebody who arrived without a rating.
+	// A rated player's own `before` is the only thing that can speak for them.
 	it('ignores the seed for a player who carried a rating in', () => {
 		const table = getSeasonTable([entry('g1', 's1', { a: 0 }, { a: 1000 }, { a: 1030 }, 900)], 's1');
 
@@ -182,7 +182,7 @@ describe('getSeasonTable', () => {
 			's1'
 		);
 
-		// a and b both won once, but a gained far more — a real order, not a tie.
+		// a and b both won once, but a gained far more. A real order, not a tie.
 		expect(table.map(row => row.uid)).toEqual(['a', 'b', 'c']);
 		expect(table.map(row => row.position)).toEqual([0, 1, 2]);
 	});
@@ -200,7 +200,7 @@ describe('getSeasonTable', () => {
 });
 
 describe('the form guide', () => {
-	/** A one-team game on a given day — enough to say won or lost, and when. */
+	/** A one-team game on a given day. Enough to say won or lost, and when. */
 	const result = (gameId: string, day: number, position: number): RatingLedgerEntry => ({
 		...entry(gameId, 's1', { a: position }, { a: 1000 }, { a: 1000 }),
 		kickoff: `2026-09-${String(day).padStart(2, '0')}T17:00:00.000Z`,
@@ -256,7 +256,7 @@ describe('the form guide', () => {
 	});
 
 	// A place only means something against the number of teams that played,
-	// which the ledger cannot say — so the place is carried through untouched
+	// which the ledger cannot say, so the place is carried through untouched
 	// and it is the screen's business what to do with it.
 	it('carries the finishing place through as it was recorded', () => {
 		expect(formOf([result('g1', 1, 2)])[0]).toMatchObject({ position: 2, won: false });

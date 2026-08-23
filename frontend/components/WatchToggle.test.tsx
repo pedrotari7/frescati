@@ -3,7 +3,7 @@ import WatchToggle from './WatchToggle';
 
 describe('WatchToggle', () => {
 	// The icon is the whole control, so the accessible name is the only thing
-	// carrying what it does — there is no visible label to fall back on.
+	// carrying what it does, there is no visible label to fall back on.
 	it('says what it will do, not just what it is', () => {
 		const { rerender } = render(<WatchToggle watching={false} onChange={jest.fn()} />);
 

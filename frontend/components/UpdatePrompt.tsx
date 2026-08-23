@@ -8,7 +8,7 @@ import Button from './Button';
  * Offers the new build that is sitting behind the running one.
  *
  * No dismiss. Everything else that appears down here is a suggestion somebody
- * is entitled to refuse forever — the install banner writes its refusal to
+ * is entitled to refuse forever, the install banner writes its refusal to
  * `localStorage` and never asks again. This is a build already downloaded and
  * waiting, and the answer is either "now" or "next time you open the app",
  * which closing the tab already means. A dismiss button would offer a third
@@ -17,7 +17,7 @@ import Button from './Button';
  *
  * Sits in the same slot as `PwaInstallPrompt` and above it, on the rare
  * occasion both are up: an update is a thing to act on now, an install nudge
- * has been waiting weeks. That ordering is `BottomStack`'s to enforce now —
+ * has been waiting weeks. That ordering is `BottomStack`'s to enforce now,
  * these two used to be separate fixed elements at the same offset, so "above"
  * meant "exactly on top of".
  */

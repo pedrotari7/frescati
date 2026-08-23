@@ -37,7 +37,7 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
       # Chromium only. These journeys are about the stack behind the screen
       # rather than browser differences, and the two viewports already cover the
-      # thing that does vary — mobile is the primary target.
+      # thing that does vary: mobile is the primary target.
       - run: pnpm exec playwright install --with-deps chromium
       # `pnpm test:e2e` starts the stack itself, through Playwright's webServer:
       # `pnpm dev:e2e` builds both halves, boots every emulator, seeds a real
@@ -48,7 +48,7 @@ jobs:
       - run: pnpm test:e2e
         env:
           # Emulator-only config. Every route into Firebase goes through the
-          # emulators here, so these never reach a real project — but the client
+          # emulators here, so these never reach a real project, but the client
           # refuses to initialise without them. The project id has to match
           # .firebaserc, which is what the seeder writes under.
           NEXT_PUBLIC_FIREBASE_API_KEY: demo-key
@@ -59,7 +59,7 @@ jobs:
           NEXT_PUBLIC_FIREBASE_APP_ID: 1:000000000000:web:demo
           # No App Check site key on purpose: absent, the bundle sends no token,
           # which is what the emulators expect and what the frontend job already
-          # builds. No Sentry DSN either — nothing is reported from a local run.
+          # builds. No Sentry DSN either, nothing is reported from a local run.
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:

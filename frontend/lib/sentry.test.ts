@@ -2,8 +2,8 @@
  * The two promises `lib/sentry.ts` makes to the rest of the app.
  *
  * Both are easy to break by accident and invisible when broken. Nothing else
- * in the app awaits these calls — every caller fires them with `void`, having
- * already dealt with the real failure — so a regression here does not fail a
+ * in the app awaits these calls: every caller fires them with `void`, having
+ * already dealt with the real failure, so a regression here does not fail a
  * write or blank a screen. It just quietly turns the reporter into a second
  * source of errors, on top of the one being reported.
  *
@@ -46,7 +46,7 @@ describe('sentry', () => {
 	 *
 	 * This one is invisible in the other direction from the rest of the file: a
 	 * regression here does not break the app, it fills the inbox with somebody's
-	 * dev server. That already happened — `dev:live` sets
+	 * dev server. That already happened: `dev:live` sets
 	 * `NEXT_PUBLIC_USE_EMULATORS=0`, so an emulator-only check let a local run
 	 * through, and `next dev`'s HMR throws from the webpack runtime constantly.
 	 * The signal that separates them is who built the bundle, not what it talks
@@ -61,7 +61,7 @@ describe('sentry', () => {
 
 		it('reports from a deploy', async () => {
 			await expect(enabledFor({ NEXT_PUBLIC_VERCEL_ENV: 'production' })).resolves.toBe(true);
-			// A preview reports too — it is tagged apart, not silenced.
+			// A preview reports too. It is tagged apart, not silenced.
 			await expect(enabledFor({ NEXT_PUBLIC_VERCEL_ENV: 'preview' })).resolves.toBe(true);
 		});
 

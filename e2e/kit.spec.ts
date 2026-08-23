@@ -8,7 +8,7 @@ import { AT, dialog } from './locators';
  * Handing the ball over, and the two rules that meet on that screen.
  *
  * The register is the one place where an ordinary member may write to a document
- * they do not own — any member may hand any item to any other member, because a
+ * they do not own, any member may hand any item to any other member, because a
  * handover happens at a pitch between two people and routing it through an admin
  * means it never gets recorded at all. What they may not do is change what an
  * item *is*, and the rules express that as a diff: a member's write may touch
@@ -17,7 +17,7 @@ import { AT, dialog } from './locators';
  * A diff rule is exactly the kind that passes a hand-written rules test and
  * fails against the real client, because what it accepts depends on the precise
  * field set the app sends. `transferKitItem` writes those three and no more; if
- * a fourth were ever added — a `transferredAt`, a denormalised name — every
+ * a fourth were ever added, a `transferredAt`, a denormalised name, every
  * handover by every non-admin would start failing and no unit test would notice.
  *
  * The other half is `getKitStatus`, which is derived rather than stored: no
@@ -30,7 +30,7 @@ import { AT, dialog } from './locators';
  * Into the register, which lives behind the Squad tab rather than beside it.
  *
  * Two taps because it is two screens: the Squad tab is the roster, and the kit
- * is one of the things that roster owns. Worth naming once — every test here
+ * is one of the things that roster owns. Worth naming once, every test here
  * starts with the same walk, and none of them is about the walk.
  */
 const openTheKitRegister = async (page: Page): Promise<void> => {
@@ -66,13 +66,13 @@ const NO_PROFILE_YET = 'Unknown player';
  * Whoever the sheet itself offers, rather than a name picked out of the cast: it
  * lists the squad and only the squad, because the rules refuse a holder who
  * isn't on `memberUids`, and it disables whoever has it already. So the first
- * enabled option is by construction a legal new holder — which a name chosen
+ * enabled option is by construction a legal new holder, which a name chosen
  * here would only be by luck.
  *
  * But it has to be read and clicked as a *person*, not as a position, because
  * the list re-orders underneath itself. `squad` is `season.memberUids` joined
  * against the profiles subscription and sorted by display name, and the page
- * draws before that subscription has landed — so for a moment every row reads
+ * draws before that subscription has landed, so for a moment every row reads
  * "Unknown player", they are in `memberUids` order, and the sort that puts them
  * in alphabetical order happens afterwards. Reading a name off row one and then
  * clicking row one are two different people either side of that.
@@ -127,7 +127,7 @@ test.describe('the kit register', () => {
 		// warning for the whole squad.
 		const member = whoIs(/^Member of /).find(candidate => !/Admin of /.test(candidate.hint));
 		// Not a skip: every scenario seeds seasons with ordinary members in them,
-		// so no such person means the cast changed shape — which is a thing to
+		// so no such person means the cast changed shape, which is a thing to
 		// fix, not to quietly step over.
 		expect(member, 'no seeded season member who is not also an admin').toBeTruthy();
 
@@ -148,7 +148,7 @@ test.describe('the kit register', () => {
 		await page.getByRole('button', { name: 'Hand over' }).first().click();
 		const sheet = dialog(page);
 
-		// Never the current holder — that button is disabled, and a handover that
+		// Never the current holder, that button is disabled, and a handover that
 		// was a no-op would survive a reload for the wrong reason.
 		const holder = await handItToSomebody(page, sheet);
 		await expect(sheet).toBeHidden();

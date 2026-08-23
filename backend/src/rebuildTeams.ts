@@ -13,14 +13,14 @@ import { instrument } from './lib/sentry';
  * actually looking at.
  *
  * The work itself lives in `lib/rebuild` so it can be run without a queue,
- * which is what the emulator does — Cloud Tasks has none.
+ * which is what the emulator does. Cloud Tasks has none.
  */
 export const rebuildTeams = onTaskDispatched<TeamRebuildTask>(
 	{
 		region: REGION,
 		retryConfig: { maxAttempts: 3, minBackoffSeconds: 10 },
-		// One rebuild at a time per instance. There is no rush — the work is
-		// already deferred — and this keeps a busy Sunday from fanning out.
+		// One rebuild at a time per instance. There is no rush, the work is
+		// already deferred, and this keeps a busy Sunday from fanning out.
 		rateLimits: { maxConcurrentDispatches: 4 },
 	},
 	instrument('rebuildTeams', request => runTeamRebuild(request.data))

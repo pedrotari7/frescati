@@ -3,14 +3,14 @@
  *
  * The one thing a rating change needs that nothing else can do. Every other
  * replay in the app starts from a game: a corrected scoreline, a counted vote, a
- * deleted game. Retuning `getRatingChanges` itself starts from *no* game — every
+ * deleted game. Retuning `getRatingChanges` itself starts from *no* game: every
  * entry in the ledger was rated by the old code and none of them is wrong in a
  * way any trigger will ever notice. So this exists to say "from the beginning",
  * which is the only argument the replay machinery has no other caller for.
  *
  * **It changes almost nothing about how the replay runs.** `requestRatingReplay`
  * is the same door `finaliseTournament` and `closeMotmVoting` knock on, taking
- * the same ladder lock and draining the same pending floor — deliberately, and
+ * the same ladder lock and draining the same pending floor, deliberately, and
  * not `replayRatingsFrom`, which that module says out loud is exported for its
  * tests. Between a rewind and the end of a replay the ladder is in a state
  * nobody should read or write, and a script is no more entitled to skip that
@@ -27,7 +27,7 @@
  * and then simply not replayed.
  *
  * **Deploy before running it.** This rates each game with the `getRatingChanges`
- * on the machine it runs from, not the one in production — so a replay done
+ * on the machine it runs from, not the one in production, so a replay done
  * first writes a ladder the deployed functions disagree with, and the next
  * confirmation or correction quietly re-rates its game the old way, unpicking
  * the new ladder a game at a time.
@@ -35,7 +35,7 @@
  * **Nobody should be using the app while this runs.** The ladder lock keeps the
  * writes consistent; it does not stop a screen reading a half-rewound rating and
  * showing somebody a number that never existed. It is a few seconds of work for
- * a group with years of history — run it, then look at the table.
+ * a group with years of history. Run it, then look at the table.
  *
  * `rate-replay-report` is how to see what it will do before doing it, and how to
  * check afterwards that it landed: once this has been, that report's "as rated"
@@ -85,7 +85,7 @@ export const main = async ({ db, dryRun, args }: ScriptContext) => {
 	const entries = entriesSnap.docs.map(doc => doc.data() as RatingLedgerEntry);
 	const scope = from === FROM_THE_START ? 'the whole ledger' : `from ${new Date(from).toISOString().slice(0, 10)}`;
 
-	console.log(`${counted(entries.length, 'rated game')} to replay — ${scope}.`);
+	console.log(`${counted(entries.length, 'rated game')} to replay: ${scope}.`);
 
 	if (entries.length === 0) {
 		console.log('Nothing to do.');
@@ -116,7 +116,7 @@ export const main = async ({ db, dryRun, args }: ScriptContext) => {
 	// floor is recorded either way, so a deferred request is still honoured.
 	console.log(
 		replayed === 0
-			? '\nNothing re-rated here — either a ladder run was already in flight and has ' +
+			? '\nNothing re-rated here. Either a ladder run was already in flight and has ' +
 					'taken this on, or every game in the window has since been deleted.'
 			: `\nDone. ${counted(replayed, 'game')} re-rated.`
 	);

@@ -3,28 +3,28 @@ import type { Game, Season } from './types';
 /**
  * Builds the iCalendar (RFC 5545) text for a season's subscribable feed.
  *
- * Pure and deterministic given the same inputs — the actual freshness comes
+ * Pure and deterministic given the same inputs. The actual freshness comes
  * from the caller re-running this against current Firestore state on every
  * fetch, not from anything stateful in here. `calendarFeed` in the backend is
  * the only caller; this exists separately so the format itself is unit-tested
  * without an emulator.
  *
  * Deliberately excludes response counts and rosters. The link this feed is
- * served from doesn't require signing in — see `calendarFeed.ts` — so nothing
+ * served from doesn't require signing in, see `calendarFeed.ts`, so nothing
  * goes in here beyond what a game's own screen already shows to a stranger
  * with the URL: when, where, and whether it's still on.
  */
 
 const CRLF = '\r\n';
 
-/** RFC 5545 §3.3.11 — these four characters need a backslash in TEXT values. */
+/** RFC 5545 §3.3.11. These four characters need a backslash in TEXT values. */
 const escapeText = (value: string): string =>
 	value.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 
 /**
  * Folds a line at 75 octets as RFC 5545 §3.1 requires, continuing on the next
  * line with a single leading space. Splits on UTF-16 code units rather than
- * bytes — good enough here since venue names and notes are typically ASCII,
+ * bytes, good enough here since venue names and notes are typically ASCII,
  * and a slightly-early fold on a multibyte character costs nothing a reader
  * would notice.
  */
@@ -45,7 +45,7 @@ const foldLine = (line: string): string => {
 
 const line = (name: string, value: string): string => foldLine(`${name}:${value}`);
 
-/** What the calendar itself is called in a subscriber's app — not an event's own title. */
+/** What the calendar itself is called in a subscriber's app, not an event's own title. */
 const calendarName = (season: Season): string => `Frescati - ${season.name}`;
 
 /** `2026-09-01T17:00:00.000Z` → `20260901T170000Z`. Already UTC, so this is a reformat, not a conversion. */
@@ -56,7 +56,7 @@ const eventFor = (game: Game, season: Season, appUrl: string, now: string): stri
 	const url = `${appUrl}/s/${season.id}/g/${game.id}`;
 
 	const noteLines = [game.cancelledReason, game.note].filter((text): text is string => Boolean(text));
-	// A real newline here, not a pre-escaped one — escapeText() below is what
+	// A real newline here, not a pre-escaped one. escapeText() below is what
 	// turns it into the RFC 5545 `\n` a reader expects. Pre-escaping it would
 	// have escapeText() double the backslash, leaving a literal `\n\n` visible
 	// in every subscriber's calendar app instead of a blank line.

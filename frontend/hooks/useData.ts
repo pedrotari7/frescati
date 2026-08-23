@@ -134,7 +134,7 @@ export const useUsers = () => {
  * a name to draw. Sharing the memo also means the map identity is stable per
  * render for the six components that take it as a prop.
  *
- * Returns `loading` too, unlike a bare `useMemo` over `useUsers().users` —
+ * Returns `loading` too, unlike a bare `useMemo` over `useUsers().users`,
  * three of the callers gate a skeleton on it.
  */
 export const useUsersByUid = () => {
@@ -196,7 +196,7 @@ export const useMotm = (seasonId: string | null, gameId: string | null) => {
 };
 
 /**
- * Who has voted, while the vote is open. Never who they voted for — that is the
+ * Who has voted, while the vote is open. Never who they voted for, that is the
  * one thing about it nobody may see until it closes.
  *
  * Empty covers both ends of it: nobody has answered yet, and a vote that has

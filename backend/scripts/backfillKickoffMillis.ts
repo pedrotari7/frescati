@@ -1,11 +1,11 @@
 /**
- * Reconciles `kickoffMillis` with `kickoff` across the whole calendar — filling
+ * Reconciles `kickoffMillis` with `kickoff` across the whole calendar, filling
  * it in where it is missing, and correcting it where the two have drifted apart.
  *
  * Security rules enforce the response deadline against this number, because they
  * have no way to parse the ISO 8601 `kickoff`. Games missing it fall back to a
- * far-future default in the rules — answerable forever, exactly as they were
- * before — so this is what turns the deadline on for an existing calendar.
+ * far-future default in the rules, answerable forever, exactly as they were
+ * before. This is what turns the deadline on for an existing calendar.
  *
  * The correcting half matters as much as the backfilling one, and for a sharper
  * reason: a game whose mirror is *wrong* rather than absent has its deadline

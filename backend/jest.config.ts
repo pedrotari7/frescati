@@ -3,7 +3,7 @@ import type { Config } from 'jest';
 /**
  * Backend tests exercise the real Cloud Functions against a live Firestore +
  * Auth emulator, so they run separately from the pure `shared/` suites:
- * `pnpm test:backend`. Serialised — every test clears the whole emulator
+ * `pnpm test:backend`. Serialised: every test clears the whole emulator
  * database in `beforeEach`, which would race a sibling file running in a
  * second worker against the same instance.
  */

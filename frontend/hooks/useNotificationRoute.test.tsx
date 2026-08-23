@@ -11,9 +11,9 @@ import { useNotificationRoute } from './useNotificationRoute';
 /**
  * The page's half of a notification tap.
  *
- * What matters is that the worker always gets an answer — its fallback is a
+ * What matters is that the worker always gets an answer: its fallback is a
  * full page load, which is the thing that broke iOS's fixed positioning in the
- * first place — and that the answer goes out whether or not the route change
+ * first place, and that the answer goes out whether or not the route change
  * that follows is a `router.push`.
  */
 
@@ -86,7 +86,7 @@ describe('useNotificationRoute', () => {
 
 	/**
 	 * `router.push` to the path we are already on re-renders without remounting,
-	 * and `useRespondIntent` reads the parameter once on mount — so this tap
+	 * and `useRespondIntent` reads the parameter once on mount, so this tap
 	 * would answer for nobody. Reloading is safe from here: the window is
 	 * focused, on screen and measured, which is exactly what it is not when the
 	 * worker starts a navigation into a backgrounded web view.

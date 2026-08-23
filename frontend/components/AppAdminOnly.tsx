@@ -12,7 +12,7 @@ import EmptyState from './EmptyState';
  * telling somebody who followed a link why there is nothing here.
  *
  * Rendered from the page's early return rather than wrapped around its body, so
- * each page keeps the guard-then-loading-then-content shape it already had —
+ * each page keeps the guard-then-loading-then-content shape it already had,
  * and so the hooks above it still run in the same order for everybody.
  *
  * `message` says what the screen would have done. "App admins only" alone

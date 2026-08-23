@@ -10,13 +10,13 @@ import { BATCH_LIMIT, chunksOf } from '../../src/lib/batch';
  *
  * Resolving the project, initialising the app, parsing `--dry-run`, saying
  * which database is about to be touched, and turning a missing credential into
- * the one sentence that fixes it — none of that is what any of these scripts is
+ * the one sentence that fixes it, none of that is what any of these scripts is
  * about, and all of it was copied into nine of them. `resolveProjectId` was
  * byte-identical in all nine; `whoami` had its own weaker version that read
  * `.firebaserc` unguarded, which is exactly the drift this prevents.
  *
  * Importing `src/lib/batch` is safe from here because that module imports only
- * types — nothing in it reaches for a Firestore handle at load, so no app is
+ * types, nothing in it reaches for a Firestore handle at load, so no app is
  * needed before `runScript` has made one.
  */
 
@@ -40,7 +40,7 @@ export class UsageError extends Error {}
 
 /**
  * Application-default credentials from `gcloud` carry no project, unlike a
- * service account key — so read it from the same place the CLI does.
+ * service account key, so read it from the same place the CLI does.
  */
 const resolveProjectId = (): string => {
 	if (process.env.GOOGLE_CLOUD_PROJECT) return process.env.GOOGLE_CLOUD_PROJECT;
@@ -115,7 +115,7 @@ export const runScript = (main: (context: ScriptContext) => Promise<void>): void
 /**
  * Apply a pile of single-document updates, reporting progress as it goes.
  *
- * The progress line is the point — these run against the real project over a
+ * The progress line is the point. These run against the real project over a
  * home connection, and a backfill that prints nothing for ninety seconds is
  * indistinguishable from one that has hung.
  *

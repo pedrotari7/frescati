@@ -12,8 +12,8 @@ interface SeasonScopeValue {
 const SeasonScopeContext = createContext<SeasonScopeValue>({ seasonId: null, remember: () => {} });
 
 /**
- * Lives above the whole signed-in app, so screens that sit outside a season —
- * /me — can still show that season's tabs.
+ * Lives above the whole signed-in app, so screens that sit outside a season,
+ * /me, can still show that season's tabs.
  *
  * Without it, opening the Me tab from inside a season would swap the bar for a
  * different set of destinations and then swap it back on the way out, which is

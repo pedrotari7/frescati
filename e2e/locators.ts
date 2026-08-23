@@ -4,7 +4,7 @@ import type { Locator, Page } from '@playwright/test';
  * The shapes this app draws, named once.
  *
  * `fixtures.ts` says who you are and `helpers.ts` walks you from one screen to
- * the next. This is the layer under both — the handful of selectors and URLs
+ * the next. This is the layer under both: the handful of selectors and URLs
  * that more than one spec has to agree about.
  *
  * They are here because every one of them has already been got wrong somewhere,
@@ -39,7 +39,7 @@ export const AT = {
  * The section of a screen under a given heading.
  *
  * Both the season's home page and the admin calendar are a column of these, and
- * which section a row came from is usually the whole question — `groupGames`
+ * which section a row came from is usually the whole question: `groupGames`
  * splits the calendar into four, so a test that means "the ones already played"
  * takes whatever the page drew first unless it says so.
  */
@@ -49,7 +49,7 @@ export const sectionUnder = (page: Page, heading: RegExp): Locator =>
 /**
  * Open a collapsed section.
  *
- * Played is collapsed by default on both screens that draw it — it is where a
+ * Played is collapsed by default on both screens that draw it, it is where a
  * two-day vote goes to be missed, which is why an open vote holds a game out of
  * it. The control is the **Show** button beside the heading; the heading itself
  * is an `h2` and was never a button, so a click on `Played` expanded nothing and
@@ -74,7 +74,7 @@ export const playerLinks = (scope: Page | Locator): Locator => scope.locator('a[
 /**
  * The sheet on top of whatever is behind it.
  *
- * Wait on its *content* rather than on this — Headless UI's root is a zero-size
+ * Wait on its *content* rather than on this, Headless UI's root is a zero-size
  * `relative` wrapper around a `fixed` panel, so Playwright reads the dialog
  * itself as hidden while the sheet is plainly up. `toBeHidden` on the way out is
  * a different question and is safe, which is why every caller closes on it.
@@ -86,8 +86,8 @@ export const dialog = (page: Page): Locator => page.getByRole('dialog');
  *
  * Both alternations carry `Saving`, because a half being written says that
  * instead of its name and a locator that lost it mid-write would resolve to
- * nothing. The cost is that the two patterns overlap while a write is out — the
- * In button reading "Saving…" matches the Out pattern as well — so `.first()`
+ * nothing. The cost is that the two patterns overlap while a write is out, the
+ * In button reading "Saving…" matches the Out pattern as well, so `.first()`
  * is doing real work: `RespondControl` draws In first, so the earlier match is
  * In whichever of them is busy. It self-corrects either way, since the overlap
  * lasts exactly as long as the round trip and every assertion here retries.

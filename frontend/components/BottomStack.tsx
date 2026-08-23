@@ -11,16 +11,16 @@ const HOST_ID = 'bottom-stack';
  * The one slot at the bottom of the screen, and the only thing that knows where
  * it is.
  *
- * Three things want that space — a toast, the offer of a new build, and the
- * nudge to install — and each of them used to be its own fixed element guessing
+ * Three things want that space: a toast, the offer of a new build, and the
+ * nudge to install. Each of them used to be its own fixed element guessing
  * its own offset. The two banners guessed the same one and differed only in
  * `z-index`, so the case `UpdatePrompt`'s comment anticipates ("on the rare
  * occasion both are up") put one exactly on top of the other rather than above
  * it, and the toast cleared a tab bar that isn't there on a desktop.
  *
- * They are in three different subtrees — the toast belongs to its provider, the
+ * They are in three different subtrees: the toast belongs to its provider, the
  * update prompt to the service worker registration that alone knows an update
- * exists — so they reach this through a portal rather than by being made
+ * exists, so they reach this through a portal rather than by being made
  * children of it. Which is the point: one container laying them out with `gap`,
  * and nobody adding a fourth has to work out what the other three are doing.
  */
@@ -44,7 +44,7 @@ const BottomStackHost = () => (
  * of a new build is the one thing here worth acting on now, and a toast is
  * transient, so it goes nearest the thumb.
  *
- * Renders nothing until the host is found, which takes an effect — the host is
+ * Renders nothing until the host is found, which takes an effect. The host is
  * a sibling in the layout and does not exist during the render that first asks
  * for it, nor on the server at all.
  */

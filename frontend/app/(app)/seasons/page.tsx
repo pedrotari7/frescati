@@ -24,13 +24,13 @@ const SeasonsPage = () => {
 	const active = useMemo(() => seasons.filter(season => season.status === 'active'), [seasons]);
 
 	// With a single group there is almost always exactly one season on the go.
-	// Skipping the picker saves a tap on every single visit — but only when
+	// Skipping the picker saves a tap on every single visit, but only when
 	// landing here fresh (from "/"). `?browse=1` marks a deliberate visit (the
 	// "Switch season" button), which always shows the list, even with one
-	// season — otherwise a solo season could never be reached to manage.
+	// season, otherwise a solo season could never be reached to manage.
 	//
 	// Keyed on the id rather than the array: `filter` returns a new reference
-	// every render, which would re-run this — and `router.replace` — in a loop.
+	// every render, which would re-run this, and `router.replace`, in a loop.
 	const browsing = searchParams.get('browse') === '1';
 	const soleActiveId = !browsing && active.length === 1 ? active[0].id : null;
 

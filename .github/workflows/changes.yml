@@ -49,12 +49,12 @@ jobs:
             rules:
               - 'firestore.rules'
               # Deployed config with no compiler to answer to, and the emulator
-              # serves queries it does not cover — so editing it alone used to
+              # serves queries it does not cover, so editing it alone used to
               # run no job at all. rules/indexes.test.ts is what checks it.
               - 'firestore.indexes.json'
               - 'rules/**'
               # rules/clientWrites.test.ts drives these through the real rules,
-              # so a path or shape changed here has to re-run this job — the
+              # so a path or shape changed here has to re-run this job, the
               # drift it exists to catch is exactly a client that moved while
               # the rules stayed put.
               - 'frontend/lib/db/**'

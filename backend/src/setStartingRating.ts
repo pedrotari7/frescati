@@ -13,8 +13,8 @@ import { instrument } from './lib/sentry';
  * Giving somebody a starting rating, before the ladder has had its say.
  *
  * The group is not a room of identical strangers. A newcomer who has played for
- * twenty years and one who has never played land on the same seed — the season
- * average — and the balancer spends their first few games discovering, at the
+ * twenty years and one who has never played land on the same seed, the season
+ * average, and the balancer spends their first few games discovering, at the
  * expense of whoever was put on their team, something an admin knew on day one.
  * This is how that knowledge gets in.
  *
@@ -51,12 +51,12 @@ const REPICK_CONCURRENCY = 10;
  * have said In to, that haven't kicked off, and that nobody has confirmed.
  *
  * Found through a collection-group query on their responses rather than by
- * walking every season's calendar — `responses.uid` is already indexed for it,
+ * walking every season's calendar. `responses.uid` is already indexed for it,
  * being what the app's own "my answers everywhere" listener runs on.
  *
  * Deliberately not every game with an unrated player in it. Changing a member's
  * rating also moves the season's seed average, and therefore what every *other*
- * unrated player in that season is worth to the optimizer — but chasing that
+ * unrated player in that season is worth to the optimizer, but chasing that
  * would mean rebuilding most of the calendar for a second-order nudge, and the
  * next answer on any of those games rebuilds it anyway.
  */
@@ -65,7 +65,7 @@ const gamesToRepick = async (uid: string): Promise<{ seasonId: string; gameId: s
 
 	const playing = responsesSnap.docs.filter(doc => (doc.data() as GameResponse).status === 'in');
 
-	// `.../games/{gameId}/responses/{uid}` — up to the game, then up again to
+	// `.../games/{gameId}/responses/{uid}`, up to the game, then up again to
 	// the season it belongs to.
 	const gameRefs = playing
 		.map(doc => doc.ref.parent.parent)
@@ -111,7 +111,7 @@ export const setStartingRating = onCall<{ uid: string; rating: number | null }>(
 
 		// The profile has to exist. Unlike `setAppAdmin`, which can promote
 		// somebody who has never opened the app, there is nothing to rate about an
-		// account with no profile — and creating one here to hang a rating off
+		// account with no profile, and creating one here to hang a rating off
 		// would put a player in every roster who has never signed in.
 		const ref = db.doc(`users/${uid}`);
 		const snapshot = await ref.get();
@@ -123,7 +123,7 @@ export const setStartingRating = onCall<{ uid: string; rating: number | null }>(
 		if (hasPlayed(profile.rating)) {
 			throw new HttpsError(
 				'failed-precondition',
-				'They have already played a rated game, so their rating is the ladder’s now.'
+				"They have already played a rated game, so their rating is the ladder's now."
 			);
 		}
 

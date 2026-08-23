@@ -178,7 +178,7 @@ describe('users', () => {
 	});
 
 	// The bug this guards: a merge that only refreshed the display fields left a
-	// half-written doc with no `uid`, so every sign-in was denied — silently.
+	// half-written doc with no `uid`, so every sign-in was denied, silently.
 	it('rejects a profile write that leaves the doc with no uid', async () => {
 		await testEnv.withSecurityRulesDisabled(async context => {
 			await setDoc(doc(context.firestore(), `users/${MEMBER}`), { isAppAdmin: true });
@@ -193,7 +193,7 @@ describe('users', () => {
 		await assertFails(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { uid: 'someone-else' }));
 	});
 
-	it('stops a user writing someone else’s profile', async () => {
+	it("stops a user writing someone else's profile", async () => {
 		await assertFails(
 			setDoc(doc(authed(EXTRA), `users/${MEMBER}`), { uid: MEMBER, displayName: 'hacked', isAppAdmin: false })
 		);
@@ -221,7 +221,7 @@ describe('users', () => {
 	});
 
 	// Profiles written before the field moved out still have one. Refusing those
-	// outright would deny their owner's next sign-in, so they stay writable —
+	// outright would deny their owner's next sign-in, so they stay writable,
 	// they just can't keep the address.
 	it('lets a legacy profile be updated, and clears the email as it goes', async () => {
 		await testEnv.withSecurityRulesDisabled(async context => {
@@ -277,7 +277,7 @@ describe('users', () => {
 	});
 
 	// The rating is what team selection and the ladder are built on, and this
-	// document is writable by the person it describes — so it has to be frozen
+	// document is writable by the person it describes, so it has to be frozen
 	// explicitly, not merely left off the allowlist.
 	it('stops a user rating themselves on create', async () => {
 		await assertFails(
@@ -331,7 +331,7 @@ describe('users', () => {
 	});
 
 	// A rated player still has to be able to change their name and their
-	// notification settings — the freeze must not lock them out of their own
+	// notification settings. The freeze must not lock them out of their own
 	// profile the way an unguarded equality check would.
 	it('lets a rated user still edit the rest of their profile', async () => {
 		await testEnv.withSecurityRulesDisabled(async context => {
@@ -374,7 +374,7 @@ describe('users', () => {
 	});
 
 	// The device notes the admin notification screen reads. Self-reported, so
-	// the rules only bound them — there is nothing here to authorize against.
+	// the rules only bound them, there is nothing here to authorize against.
 	it('lets a user record what they are opening the app on', async () => {
 		await assertSucceeds(
 			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
@@ -386,7 +386,7 @@ describe('users', () => {
 		);
 	});
 
-	// Somebody who has never opened it installed simply has no timestamp — the
+	// Somebody who has never opened it installed simply has no timestamp, the
 	// same third state a missing response document means.
 	it('accepts client notes with no standalone timestamp', async () => {
 		await assertSucceeds(
@@ -545,7 +545,7 @@ describe('seasons', () => {
 	});
 
 	// The response rule multiplies `responseDeadlineHours`, and a rule that
-	// errors denies — so a season admin writing a string here locked every
+	// errors denies, so a season admin writing a string here locked every
 	// ordinary player out of every game in the season, invisibly from their own
 	// account, since admins keep writing through their own rule.
 	it('rejects a response deadline that is not a number', async () => {
@@ -559,7 +559,7 @@ describe('seasons', () => {
 	});
 
 	// `size()` works on strings too, so this passed the "never leave a season
-	// without an admin" check while making `uid in adminUids` error — which
+	// without an admin" check while making `uid in adminUids` error, which
 	// locked the season's own admins out of it.
 	it('rejects adminUids that is not a list', async () => {
 		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { adminUids: 'season-admin' }));
@@ -576,7 +576,7 @@ describe('seasons', () => {
 	});
 
 	// The allowlist stops at the edge of a map, so each one it names is bounded
-	// in turn — otherwise the payload just moves one level down.
+	// in turn, otherwise the payload just moves one level down.
 	it('rejects junk nested inside the venue, the slot or the balance levers', async () => {
 		await assertFails(
 			updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), {
@@ -719,7 +719,7 @@ describe('games', () => {
 	});
 
 	// One document per week, and every season screen subscribes to the whole
-	// collection — so the same bound a season needs, for the same reason.
+	// collection, so the same bound a season needs, for the same reason.
 	it('rejects fields the game schema does not have', async () => {
 		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { payload: 'y'.repeat(50_000) }));
 	});
@@ -960,7 +960,7 @@ describe('the scoreboard', () => {
 	// The id is the fixture's place in the running order, and the table and
 	// every rating on the game are built from whatever this collection holds.
 	// Unbound, a score could be filed under an id the screen never draws and
-	// still count in full — which is a way to move the ladder that leaves
+	// still count in full, which is a way to move the ladder that leaves
 	// nothing on screen to explain it.
 	it('stops a score being filed under an id that disagrees with its order', async () => {
 		await respond(MEMBER, 'member');
@@ -968,10 +968,10 @@ describe('the scoreboard', () => {
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { order: 5 })));
 	});
 
-	it('stops a match invented past the rotation’s hard ceiling', async () => {
+	it("stops a match invented past the rotation's hard ceiling", async () => {
 		await respond(MEMBER, 'member');
 
-		// MAX_MATCHES in shared/tournament.ts — the rule's worst case, whatever
+		// MAX_MATCHES in shared/tournament.ts, the rule's worst case, whatever
 		// the season and match length actually allow.
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(30)), aScore(MEMBER, { order: 30 })));
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(200)), aScore(MEMBER, { order: 200 })));
@@ -1001,7 +1001,7 @@ describe('the scoreboard', () => {
 	});
 
 	// A rotation laps to fill the slot now, so a long slot at short matches
-	// legitimately reaches well past six — the rule's job is only the outer
+	// legitimately reaches well past six, the rule's job is only the outer
 	// bound; `selectPlayedMatches` is what checks a game's actual fixture list.
 	it('accepts an order only a longer slot would reach', async () => {
 		await respond(MEMBER, 'member');
@@ -1018,7 +1018,7 @@ describe('the scoreboard', () => {
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { scoreA: 9 })));
 	});
 
-	// The replay is built to follow exactly this — without it a confirmed
+	// The replay is built to follow exactly this, without it a confirmed
 	// mistake would be baked into everyone's rating forever.
 	it('still lets a season admin correct a confirmed game', async () => {
 		await respond(MEMBER, 'member');
@@ -1138,7 +1138,7 @@ describe('the rating ledger', () => {
 	});
 });
 
-// The subscribable calendar's token — closed to every client, including a
+// The subscribable calendar's token, closed to every client, including a
 // season admin. `getCalendarLink`/`rotateCalendarToken` are the only doors in,
 // and both use the Admin SDK, which these rules never run against.
 describe('the calendar feed token', () => {
@@ -1205,7 +1205,7 @@ describe('responses', () => {
 		await assertFails(setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'extra')));
 	});
 
-	it('stops anyone answering on someone else’s behalf', async () => {
+	it("stops anyone answering on someone else's behalf", async () => {
 		await assertFails(setDoc(doc(authed(EXTRA), responseDoc(MEMBER)), aResponse(MEMBER, 'member')));
 	});
 
@@ -1272,7 +1272,7 @@ describe('responses', () => {
 	});
 
 	// A no-show is a season admin's report about somebody, so it is theirs to
-	// write and — more to the point — not the player's to rub out.
+	// write and, more to the point, not the player's to rub out.
 	it('stops a player reporting themselves as a no-show', async () => {
 		await assertFails(
 			setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member', { absent: true }))
@@ -1293,7 +1293,7 @@ describe('responses', () => {
 
 	// Changing your mind rewrites the whole document, so without the freeze a
 	// no-show could clear the mark by tapping Out and In again.
-	it('stops a player clearing an admin’s mark by answering again', async () => {
+	it("stops a player clearing an admin's mark by answering again", async () => {
 		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member'));
 		await updateDoc(doc(authed(SEASON_ADMIN), responseDoc(MEMBER)), { absent: true });
 
@@ -1320,7 +1320,7 @@ describe('responses', () => {
 		await assertSucceeds(deleteDoc(doc(authed(MEMBER), responseDoc(MEMBER))));
 	});
 
-	it('stops a player deleting someone else’s response', async () => {
+	it("stops a player deleting someone else's response", async () => {
 		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member'));
 
 		await assertFails(deleteDoc(doc(authed(EXTRA), responseDoc(MEMBER))));
@@ -1365,7 +1365,7 @@ describe('responses', () => {
 });
 
 // The UI disables the In/Out buttons past the deadline, but that is cosmetic on
-// its own — a direct SDK call, or a tab left open since before it passed, would
+// its own. A direct SDK call, or a tab left open since before it passed, would
 // otherwise still land. These lock it down for real.
 describe('the response deadline', () => {
 	it('stops a member answering once the deadline has passed', async () => {
@@ -1436,7 +1436,7 @@ describe('the man-of-the-match vote', () => {
 	/**
 	 * A played game: the lineup up, and the vote open for another hour.
 	 *
-	 * `APP_ADMIN` is deliberately left out of it — they are this suite's person
+	 * `APP_ADMIN` is deliberately left out of it, they are this suite's person
 	 * who wasn't there, and the badge buys them nothing here.
 	 */
 	const openTheVote = async (until: number = Date.now() + 3_600_000) => {
@@ -1490,7 +1490,7 @@ describe('the man-of-the-match vote', () => {
 		await assertSucceeds(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, MEMBER)));
 	});
 
-	it('refuses to let anyone vote on somebody else’s behalf', async () => {
+	it("refuses to let anyone vote on somebody else's behalf", async () => {
 		await openTheVote();
 
 		await assertFails(setDoc(doc(authed(MEMBER), voteDoc(OTHER_MEMBER)), aVote(OTHER_MEMBER, MEMBER)));
@@ -1661,11 +1661,11 @@ describe('watchers', () => {
 		await assertSucceeds(deleteDoc(doc(authed(EXTRA), watcherDoc(EXTRA))));
 	});
 
-	it('refuses to let anyone follow on somebody else’s behalf', async () => {
+	it("refuses to let anyone follow on somebody else's behalf", async () => {
 		await assertFails(setDoc(doc(authed(MEMBER), watcherDoc(OTHER_MEMBER)), aWatcher(OTHER_MEMBER)));
 	});
 
-	// Not because the document grants anything — it doesn't — but because
+	// Not because the document grants anything, it doesn't, but because
 	// nothing needs it, and a game the whole group can read has no business
 	// publishing who is quietly keeping an eye on it.
 	//
@@ -1685,7 +1685,7 @@ describe('watchers', () => {
 		await assertFails(getDoc(doc(authed(APP_ADMIN, { admin: true }), watcherDoc(MEMBER))));
 	});
 
-	// The collection, not one document — the shape an admin screen would reach
+	// The collection, not one document. The shape an admin screen would reach
 	// for first, and the one a rule granting per-document reads would still have
 	// to refuse.
 	it('refuses to list who is following, app admin included', async () => {
@@ -1719,7 +1719,7 @@ describe('watchers', () => {
 		await assertFails(setDoc(doc(authed(MEMBER), watcherDoc(MEMBER)), aWatcher(OTHER_MEMBER)));
 	});
 
-	// Following is about the game, not about answering it — you might be
+	// Following is about the game, not about answering it. You might be
 	// watching precisely because you haven't decided yet, or because the
 	// deadline has passed and you want to know who dropped out.
 	it('does not need a response, or an open game', async () => {
@@ -1815,7 +1815,7 @@ describe('kit', () => {
 	// The kind is what decides whether a game gets warned about a missing ball.
 	// A member who could re-kind the vests as `other` could switch that warning
 	// off for the whole squad, which is a different power from carrying a bag
-	// home — so a member's write is a handover and nothing else.
+	// home, so a member's write is a handover and nothing else.
 	it('refuses to let a member rename an item or change its kind', async () => {
 		await seedItem();
 
@@ -1875,7 +1875,7 @@ describe('kit', () => {
 	});
 
 	// Anybody in the squad can move an item, so a wrong handover needs a face on
-	// it — the same reason the scoreboard pins `updatedBy` to the caller.
+	// it, the same reason the scoreboard pins `updatedBy` to the caller.
 	it('refuses a handover signed as somebody else', async () => {
 		await seedItem();
 
@@ -1940,7 +1940,7 @@ describe('collection-group reads', () => {
 	// The whole point of matching on the field rather than waving the collection
 	// through: this is the query the rule for responses would have allowed, and
 	// who is following a game stays as private as it was.
-	it('refuses to hand anybody somebody else’s following, or everybody’s', async () => {
+	it("refuses to hand anybody somebody else's following, or everybody's", async () => {
 		await assertFails(
 			getDocs(query(collectionGroup(authed(MEMBER), 'watchers'), where('uid', '==', OTHER_MEMBER)))
 		);

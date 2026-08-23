@@ -38,7 +38,7 @@ export const sendReminders = onSchedule(
 				emailed += sent.emailed;
 			} catch (error) {
 				// One malformed season must not cost every other season its
-				// reminders for the hour. Nothing retries this — the schedule is
+				// reminders for the hour. Nothing retries this. The schedule is
 				// the retry, and the next run is an hour of silence away.
 				reportError('Could not sweep a season for reminders', { seasonId: seasonDoc.id }, error);
 			}

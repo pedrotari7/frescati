@@ -122,7 +122,7 @@ describe('getKitGaps', () => {
 		).toEqual([]);
 	});
 
-	// You can only be missing something you have — a group that has never owned
+	// You can only be missing something you have. A group that has never owned
 	// vests is not short of them.
 	it('says nothing about a kind the season owns none of', () => {
 		expect(gaps([item('ball-1', 'ball', 'anna')], [answer('anna', 'in')])).toEqual([]);

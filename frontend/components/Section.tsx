@@ -10,7 +10,7 @@ import { classNames } from '../lib/utils/reactHelper';
  * a dozen files and hoping none of them had drifted a space.
  *
  * Kept as three primitives rather than one `<ListSection title count empty>`
- * deliberately. Eight call sites would fit that exactly and four would not —
+ * deliberately. Eight call sites would fit that exactly and four would not:
  * the kit register's headings are kind labels with no count, the games calendar
  * has no count either, and the squad screen has a card with no heading above it
  * at all. A component that eight of twelve callers can use is one the other
@@ -24,7 +24,7 @@ import { classNames } from '../lib/utils/reactHelper';
  * differs: the season home page wants `mb-3` between a heading and a stack of
  * game cards, everything else wants `mb-2`, and the Played section puts the
  * heading in a flex row with a button and wants no margin at all. Baking one in
- * would mean three callers overriding it — and `classNames` concatenates rather
+ * would mean three callers overriding it, and `classNames` concatenates rather
  * than merging, so `mb-2 mb-3` would leave the winner to CSS source order.
  */
 export const SectionHeading = ({ children, className }: { children: ReactNode; className?: string }) => (
@@ -35,7 +35,7 @@ export const SectionHeading = ({ children, className }: { children: ReactNode; c
  * The card a list of rows sits in.
  *
  * `divide-y` rather than a border per row, so the first and last rows have no
- * stray edge against the card's own rounding — which is why rows inside it
+ * stray edge against the card's own rounding, which is why rows inside it
  * carry only vertical padding and never a border of their own.
  */
 export const ListCard = ({ children, className }: { children: ReactNode; className?: string }) => (
@@ -46,7 +46,7 @@ export const ListCard = ({ children, className }: { children: ReactNode; classNa
  * What a `ListCard` says when there is nothing in it.
  *
  * Inside the card rather than replacing it, so an empty section keeps its shape
- * on the page instead of collapsing — a heading with a card under it reads as
+ * on the page instead of collapsing, a heading with a card under it reads as
  * "nothing here yet", where a heading with nothing under it reads as broken.
  */
 export const ListEmpty = ({ children }: { children: ReactNode }) => (

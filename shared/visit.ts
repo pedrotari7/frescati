@@ -1,14 +1,14 @@
 /**
  * When somebody last actually looked at Frescati.
  *
- * `lastSeenAt` exists to answer one question — "is this person still around?" —
+ * `lastSeenAt` exists to answer one question, "is this person still around?",
  * and it is only worth asking if the stamp means *opened it* rather than *has
  * it open*. Both of the obvious ways to record presence get that wrong:
  *
  * - A phone in a pocket with the installed app suspended behind the lock screen
  *   is not a visit, and neither is a laptop tab from last Tuesday sitting
  *   behind forty others. Either one, left to a timer, keeps the stamp
- *   permanently fresh for somebody who quietly stopped turning up — which is
+ *   permanently fresh for somebody who quietly stopped turning up, which is
  *   precisely the person the field exists to surface.
  * - Nor can a heartbeat be rescued by only ticking while the page is on screen.
  *   A window left visible on a second monitor is idle, not present, and no
@@ -35,7 +35,7 @@ export const VISIT_GAP_MS = 10 * 60 * 1000;
  *
  * A stamp in the *future* counts as new. That is a clock that was wrong when it
  * was written, and treating it as merely recent would freeze the field until
- * real time caught up with it — which could be days.
+ * real time caught up with it, which could be days.
  */
 export const isNewVisit = (lastSeenAt: string | undefined, now: Date, gapMs: number = VISIT_GAP_MS): boolean => {
 	if (!lastSeenAt) return true;
@@ -43,7 +43,7 @@ export const isNewVisit = (lastSeenAt: string | undefined, now: Date, gapMs: num
 	const elapsed = now.getTime() - new Date(lastSeenAt).getTime();
 
 	// Inverted rather than written as `elapsed >= gapMs`, so the NaN an
-	// unparseable stamp produces falls through to `true` — a value we can't
+	// unparseable stamp produces falls through to `true`. A value we can't
 	// read is one worth replacing, not one worth preserving forever.
 	return !(elapsed >= 0 && elapsed < gapMs);
 };
@@ -54,7 +54,7 @@ const DAY_MS = 86_400_000;
  * How long ago somebody was last here, in the only units this group runs in.
  *
  * Measured in weeks rather than a calendar month, because the thing an admin is
- * really asking is "how many games have gone by without them" — and a season is
+ * really asking is "how many games have gone by without them", and a season is
  * a weekly slot, so a week is one game and four weeks is a month of them. A
  * calendar month would make the same absence read differently in February.
  */
@@ -67,7 +67,7 @@ export type VisitRecency = 'thisWeek' | 'thisMonth' | 'dormant' | 'never';
 /**
  * `never` is a real state, not a stale one: a profile can exist without anybody
  * having opened the app, because `set-admin` creates one from a uid alone. It
- * also covers a stamp we can't parse — a date we can't read tells us nothing
+ * also covers a stamp we can't parse. A date we can't read tells us nothing
  * about when they were here, and guessing "recently" would hide them.
  *
  * A stamp from the *future* lands in `thisWeek`, which is the harmless way to
@@ -89,12 +89,12 @@ export const visitRecency = (lastSeenAt: string | undefined, now: Date): VisitRe
  * Most recently here first, with anybody never seen at all at the bottom.
  *
  * Sorted on the raw stamp rather than the bucket, so the order inside a section
- * still means something — "who is closest to dropping off" is the question the
+ * still means something. "Who is closest to dropping off" is the question the
  * dormant section gets read for.
  */
 export const byLastSeen = (a: { lastSeenAt?: string }, b: { lastSeenAt?: string }): number => {
 	// The epoch stands in for "never", so two of them subtract to nought rather
-	// than the `NaN` an infinity would produce — a comparator that returns NaN
+	// than the `NaN` an infinity would produce. A comparator that returns NaN
 	// leaves the whole list in an order the spec doesn't define. Nobody was here
 	// in 1970, so it sorts below every real stamp either way.
 	const at = (value?: string) => {

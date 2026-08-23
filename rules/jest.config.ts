@@ -5,7 +5,7 @@ import type { Config } from 'jest';
  * pure `shared/` suites: `pnpm test:rules`.
  *
  * `clientWrites.test.ts` also drives the frontend's own `lib/db` through these
- * rules, which is why `@shared/*` has to resolve here — that code is written for
+ * rules, which is why `@shared/*` has to resolve here, that code is written for
  * the Next.js bundler and imports shared types by alias.
  */
 const config: Config = {

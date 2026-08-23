@@ -8,7 +8,7 @@ import { instrument } from './lib/sentry';
 /**
  * Deletes what Firestore leaves behind.
  *
- * Deleting a document does nothing to its subcollections — they stay, reachable
+ * Deleting a document does nothing to its subcollections. They stay, reachable
  * by path and by collection-group query, with no parent and no way to reach
  * them through the app. Deleting one game left every answer to it sitting
  * there, still turning up in the collection-group listener that powers "my
@@ -20,8 +20,8 @@ import { instrument } from './lib/sentry';
  */
 
 export const onGameDeleted = onDocumentDeleted(
-	// Long enough to finish a replay of the ladder, and — like every function
-	// that takes the lock — comfortably inside the lease, so a run that is
+	// Long enough to finish a replay of the ladder, and, like every function
+	// that takes the lock, comfortably inside the lease, so a run that is
 	// killed at its timeout has already stopped writing before its lease frees.
 	{ document: 'seasons/{seasonId}/games/{gameId}', region: REGION, timeoutSeconds: 300 },
 	instrument('onGameDeleted', async event => {
@@ -33,8 +33,8 @@ export const onGameDeleted = onDocumentDeleted(
 		logger.info('Cleaned up after a deleted game', { seasonId, gameId });
 
 		// A confirmed game also left a mark outside that subtree. Its ledger
-		// entry is top-level, deliberately — ratings are global and a replay has
-		// to walk every rated game regardless of season — so `recursiveDelete`
+		// entry is top-level, deliberately: ratings are global and a replay has
+		// to walk every rated game regardless of season, so `recursiveDelete`
 		// never touches it. Deleting the game alone left every player carrying
 		// Elo from a game that no longer exists, and left the entry counting
 		// towards its season's table forever.
@@ -56,7 +56,7 @@ export const onGameDeleted = onDocumentDeleted(
 /**
  * Fires once for the season and lets the cascade take the games with it. Each
  * deleted game then trips `onGameDeleted` against an already-empty responses
- * collection — and, for a game that had been confirmed, asks for a replay of
+ * collection, and, for a game that had been confirmed, asks for a replay of
  * the ladder from that game forward.
  *
  * A season of confirmed games therefore asks for as many replays as it has
@@ -72,9 +72,9 @@ export const onSeasonDeleted = onDocumentDeleted(
 		const { seasonId } = event.params;
 
 		// The calendar token lives under this season, so `recursiveDelete` below
-		// takes it with everything else. Its reverse index does not — `calendarFeeds`
+		// takes it with everything else. Its reverse index does not: `calendarFeeds`
 		// is top-level, deliberately, so the public feed function can look a token
-		// up without a query — so it has to be read before the season disappears
+		// up without a query. So it has to be read before the season disappears
 		// and cleaned up by hand afterwards.
 		const tokenSnap = await db.doc(`seasons/${seasonId}/calendar/token`).get();
 		const token = tokenSnap.exists ? (tokenSnap.data() as { token: string }).token : null;

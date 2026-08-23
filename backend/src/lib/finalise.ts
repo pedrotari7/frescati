@@ -26,7 +26,7 @@ import { getMotmDecision, openMotmVoting } from './motm';
  * ledger entry precise enough to undo. That last part is the whole design: a
  * correction to a confirmed result cannot be applied forward, because every
  * game after it was rated against the ratings that game produced. The only
- * correct fix is to rewind and replay — and a rewind is exact only if the state
+ * correct fix is to rewind and replay, and a rewind is exact only if the state
  * before each game was written down rather than inferred afterwards.
  */
 
@@ -82,8 +82,8 @@ export const computeGameRatings = async (
 
 	// Filtered rather than taken as read: anybody holding a response on the game
 	// may write here, so the collection is not by itself a description of what
-	// was played. Everything below — the table, the positions, every rating
-	// change and the ledger entry that has to be able to undo them — is built
+	// was played. Everything below, the table, the positions, every rating
+	// change and the ledger entry that has to be able to undo them, is built
 	// from whatever survives this.
 	const matches = selectPlayedMatches(
 		lineup.teams.length,
@@ -93,7 +93,7 @@ export const computeGameRatings = async (
 	);
 
 	// A game with no scores is not a nil-all draw for everybody, it is a game
-	// that produced no information — so it moves nothing, rather than paying
+	// that produced no information, so it moves nothing, rather than paying
 	// every team a joint first.
 	if (matches.length === 0) return null;
 
@@ -101,7 +101,7 @@ export const computeGameRatings = async (
 	const uids = lineup.teams.flatMap(team => team.uids);
 	const profiles = await getProfiles([...new Set([...season.memberUids, ...uids])]);
 
-	// Seeded from the season's rated members, not from this game's turnout — a
+	// Seeded from the season's rated members, not from this game's turnout. A
 	// newcomer's starting point shouldn't depend on who else happened to show.
 	const seedElo = getSeedElo(
 		season.memberUids
@@ -116,7 +116,7 @@ export const computeGameRatings = async (
 	const positions = getPositions(standings);
 	const motm = decision?.winners ?? [];
 
-	// The football first, then the vote — two separate statements about the
+	// The football first, then the vote, two separate statements about the
 	// evening, added together into the one movement a player sees. A game
 	// confirmed while its vote is still open simply skips the second, and picks
 	// it up when the count closes and asks for a replay.
@@ -138,12 +138,12 @@ export const computeGameRatings = async (
 		),
 		positions: Object.fromEntries(players.map(player => [player.uid, positions[player.team]])),
 		// The team itself, not only where it came. `positions` is shared on a tie,
-		// so it cannot say who somebody actually played alongside — see
+		// so it cannot say who somebody actually played alongside, see
 		// `RatingLedgerEntry.teams`.
 		teams: Object.fromEntries(players.map(player => [player.uid, player.team])),
 		// The two halves of the swing. A position no longer explains a delta on
 		// its own, and the matches that would are in a subcollection the ledger
-		// deliberately never reads — see `RatingLedgerEntry.rate`.
+		// deliberately never reads. See `RatingLedgerEntry.rate`.
 		rate: Object.fromEntries(changes.map(change => [change.uid, change.rate])),
 		expected: Object.fromEntries(changes.map(change => [change.uid, change.expected])),
 	};
@@ -208,14 +208,14 @@ const commitGameRatings = async (
 		// `played` is what retires the game from the hourly sweep's query, which
 		// is what lets that query drop its lower bound and stop being a race
 		// against a seven-day window. Nothing in the app reads the status to
-		// decide how a past game renders — `getGameLifecycle` derives that from
-		// `endsAt` — so this is a marker for the sweep rather than a state
+		// decide how a past game renders. `getGameLifecycle` derives that from
+		// `endsAt`, so this is a marker for the sweep rather than a state
 		// change anybody sees.
 		batch => batch.update(gameRef, { resultFinalisedAt: finalisedAt, status: 'played' }),
 	]);
 };
 
-/** Undo a game entirely — used when a replay finds every score has been cleared. */
+/** Undo a game entirely. Used when a replay finds every score has been cleared. */
 const clearGameRatings = async (seasonId: string, gameId: string): Promise<void> => {
 	const gameRef = db.doc(`seasons/${seasonId}/games/${gameId}`);
 
@@ -223,7 +223,7 @@ const clearGameRatings = async (seasonId: string, gameId: string): Promise<void>
 		batch => batch.delete(db.doc(`ratingLedger/${gameId}`)),
 		batch => batch.delete(gameRef.collection('tournament').doc('result')),
 		// Back to `scheduled` as well, or the game would be unrated and yet
-		// invisible to the sweep that exists to rate it — the one state this
+		// invisible to the sweep that exists to rate it. The one state this
 		// pair of fields must never be left in together.
 		batch => batch.update(gameRef, { resultFinalisedAt: FieldValue.delete(), status: 'scheduled' }),
 	]);
@@ -234,13 +234,13 @@ export type FinaliseOutcome = 'finalised' | 'nothing-to-rate' | 'already-finalis
 /**
  * Confirm a game.
  *
- * Refuses an already-confirmed game rather than applying it twice — a second
+ * Refuses an already-confirmed game rather than applying it twice. A second
  * application would rate the same result against the ratings the first one
  * produced, which is exactly the double-counting the replay exists to avoid.
  *
  * Held under the ladder lock, for two reasons. It reads every player's current
  * rating and writes it back, so a replay rewinding underneath it would have it
- * rate the game against ratings that were never real — and it writes a *new*
+ * rate the game against ratings that were never real, and it writes a *new*
  * ledger entry, which a replay already in flight never queried and so will not
  * repair. And the read of `resultFinalisedAt` and the write that sets it are
  * now one critical section, which is what stops two admins tapping Confirm at
@@ -276,7 +276,7 @@ export const finaliseGame = async (
 	// Outside the lock, and only for a confirmation that actually applied.
 	//
 	// Outside because it sends a notification to everybody who played, and the
-	// ladder has nothing to do with that — holding a global lock open for the
+	// ladder has nothing to do with that. Holding a global lock open for the
 	// length of a multicast would block every correction in the app behind a
 	// push. Only for a real confirmation because `already-finalised` is the
 	// answer a second attempt gets, and a Tuesday six weeks ago must not ask the
@@ -300,7 +300,7 @@ export const finaliseGame = async (
  *
  * **This is what triggers should call, not `replayRatingsFrom`.** A replay is
  * background repair with nobody watching, and every caller wants the same work
- * done — so one that finds the ladder busy records how far back it needs and
+ * done, so one that finds the ladder busy records how far back it needs and
  * leaves, and the holder drains that before letting go. The request is
  * honoured; just not by the invocation that made it.
  *
@@ -315,7 +315,7 @@ export const requestRatingReplay = async (fromMillis: number): Promise<number> =
  * Pick up a floor whose holder died before draining it.
  *
  * The lease frees itself after a crash, but nothing re-reads what the dead
- * holder was asked to do — so without this a correction could be recorded and
+ * holder was asked to do. Without this a correction could be recorded and
  * then quietly never applied until somebody happened to make another one. Run
  * from the hourly sweep, which is already the app's answer to "what got
  * missed".
@@ -343,7 +343,7 @@ const drainRatingReplays = async (): Promise<number> => {
  * The rewind runs latest-first, so each restore lands on the state its entry
  * was applied to and everyone ends up exactly as they were before the window.
  * The replay then runs in kickoff order, each game rated against the ratings
- * the game before it produced — which is the point, and the reason adjusting
+ * the game before it produced, which is the point, and the reason adjusting
  * only the corrected game would leave every later one wrong.
  *
  * A game that has since been deleted is rewound like any other and then
@@ -387,12 +387,12 @@ export const replayRatingsFrom = async (fromMillis: number): Promise<number> => 
 
 		// The game, or its whole season, has been deleted. The rewind above has
 		// already undone everything this game did, and there is nothing left to
-		// rate it from, so the entry goes too — otherwise it sits in the ledger
+		// rate it from, so the entry goes too. Otherwise it sits in the ledger
 		// forever, still carrying its `seasonId`, and the season table keeps
 		// counting a game nobody can open as an appearance and a win.
 		//
 		// Retired here rather than at the deletion, so there is one place that
-		// knows how to unwind a rated game — and so a ledger already holding
+		// knows how to unwind a rated game, and so a ledger already holding
 		// orphans from before anything cleaned up after a deletion heals itself
 		// the next time a replay walks over them.
 		//
@@ -417,7 +417,7 @@ export const replayRatingsFrom = async (fromMillis: number): Promise<number> => 
 			continue;
 		}
 
-		// The original confirmation stands — a correction doesn't re-confirm the
+		// The original confirmation stands. A correction doesn't re-confirm the
 		// game, so who confirmed it and when are carried through untouched.
 		const previous = await db.doc(`seasons/${entry.seasonId}/games/${entry.gameId}/tournament/result`).get();
 

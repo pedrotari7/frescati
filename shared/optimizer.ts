@@ -6,7 +6,7 @@
  *
  * Pure and deterministic: the same players, seed and settings always yield the
  * same teams. That matters because the Cloud Function is the only thing allowed
- * to write a lineup, but the client runs this too — for an instant preview, and
+ * to write a lineup, but the client runs this too, for an instant preview, and
  * so a lineup can be explained without a round trip. If the two ever disagreed,
  * the screen would lie.
  */
@@ -18,7 +18,7 @@ const REPEAT_COST_ELO = 12;
 
 /**
  * How far above the flattest split we'll wander at `randomness: 1`, in Elo of
- * team-average spread. Small on purpose — this exists to stop the same four
+ * team-average spread. Small on purpose. This exists to stop the same four
  * players finding each other every week, not to hand out unfair teams.
  */
 const RANDOMNESS_TOLERANCE_ELO = 40;
@@ -43,7 +43,7 @@ export interface OptimizerInput {
 
 /**
  * Mulberry32. A named, inlined generator rather than `Math.random` because the
- * whole point is reproducibility — two devices must roll the same teams.
+ * whole point is reproducibility. Two devices must roll the same teams.
  */
 const createRng = (seed: number): (() => number) => {
 	let state = seed >>> 0;
@@ -83,7 +83,7 @@ export const getSeed = (gameId: string, reshuffleCount = 0): number => {
 const buildRepeatWeights = (history: string[][][], lookback: number): Map<string, number> => {
 	const weights = new Map<string, number>();
 
-	// A non-positive lookback has nothing sensible to weight by — `(lookback -
+	// A non-positive lookback has nothing sensible to weight by, since `(lookback -
 	// age) / lookback` would flip sign and make older games count for more than
 	// recent ones. Rules only bound this as a number, not its sign, so this is
 	// the layer that has to hold the line: treat it the same as `repeatPenalty:
@@ -163,7 +163,7 @@ const deal = (players: OptimizerPlayer[], squadSizes: number[]): OptimizerPlayer
  * Steepest-descent swapping: repeatedly take the single best swap available
  * between two squads, until nothing improves.
  *
- * Only swaps, never moves — squad sizes are fixed by the headcount and must
+ * Only swaps, never moves. Squad sizes are fixed by the headcount and must
  * stay that way.
  */
 const improve = (squads: OptimizerPlayer[][], weights: Map<string, number>, repeatPenalty: number): number => {
@@ -199,7 +199,7 @@ const improve = (squads: OptimizerPlayer[][], weights: Map<string, number>, repe
  * Split the pool into squads.
  *
  * Runs many independent hill climbs and then, rather than always returning the
- * flattest one, picks at random among those close enough to it — how close
+ * flattest one, picks at random among those close enough to it, how close
  * being the `randomness` lever. At 0 this is a pure optimizer and the same
  * eleven players get the same teams forever; turning it up buys variety for a
  * few Elo of imbalance nobody can feel.

@@ -6,7 +6,7 @@ import { REGION } from '../src/lib/firebase';
  * What actually gets deployed.
  *
  * Every other file in here imports the function it tests straight from its own
- * module, which means none of them touch `src/index.ts` — so a function that
+ * module, which means none of them touch `src/index.ts`, so a function that
  * exists, works and is exhaustively tested still deploys nowhere if it is
  * missing from the export list, and the whole suite stays green while it does.
  * That is the one failure this file exists to catch, and it is invisible
@@ -14,7 +14,7 @@ import { REGION } from '../src/lib/firebase';
  *
  * The rest is the wiring nothing else can see either. A handler is tested by
  * calling `.run()` with a hand-built event, which says nothing about *when* the
- * real one fires — the document path, the schedule and the region live in the
+ * real one fires: the document path, the schedule and the region live in the
  * trigger options, are read only by the deploy manifest, and would take a
  * deploy to disprove. `__endpoint` is that manifest, so these read it directly.
  */
@@ -48,7 +48,7 @@ const endpointOf = (name: string): Endpoint => {
  *
  * Written out rather than derived, because deriving it from the exports would
  * make the list agree with itself and assert nothing. Adding a function means
- * adding a line here, deliberately — that step *is* the check.
+ * adding a line here, deliberately, that step *is* the check.
  */
 const DEPLOYED = [
 	'auditGameCounts',
@@ -113,8 +113,8 @@ const SWEEPS: Record<string, string> = {
  *
  * `sendPush` falls back to email for anybody it reached no device for, so the
  * secret has to be declared by whatever *triggers* a notification, not just by
- * the code that sends one. Undeclared, the fallback silently mails nobody —
- * push still works, so nothing looks broken from the inside.
+ * the code that sends one. Undeclared, the fallback silently mails nobody.
+ * Push still works, so nothing looks broken from the inside.
  */
 const REACHES_EMAIL = [
 	'closeMotmVoting',
@@ -142,7 +142,7 @@ describe('the deployed surface', () => {
 	it('pins every function to the region the database is in', () => {
 		// `setGlobalOptions` in src/index.ts is the only thing setting this, and
 		// a function in the wrong region reads its own Firestore across a
-		// continent — or, for the triggers, is refused at deploy.
+		// continent, or, for the triggers, is refused at deploy.
 		for (const name of DEPLOYED) expect(endpointOf(name).region).toEqual([REGION]);
 	});
 });

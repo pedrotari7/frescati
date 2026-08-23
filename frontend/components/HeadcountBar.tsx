@@ -4,7 +4,7 @@ import { classNames } from '../lib/utils/reactHelper';
 import StatusPill from './StatusPill';
 
 /**
- * Progress towards the season minimum. There is no cap — the bar fills to the
+ * Progress towards the season minimum. There is no cap. The bar fills to the
  * minimum and then simply reads "ready", because more players is never a
  * problem, only fewer is.
  */

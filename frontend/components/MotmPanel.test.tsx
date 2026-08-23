@@ -107,8 +107,8 @@ describe('MotmPanel', () => {
 	// panel says who has answered, and that it still says nothing about what any
 	// of them answered.
 	describe('the turnout while it is open', () => {
-		const voted = (name: string) => screen.getByRole('listitem', { name: `${name} — voted` });
-		const notYet = (name: string) => screen.getByRole('listitem', { name: `${name} — not yet` });
+		const voted = (name: string) => screen.getByRole('listitem', { name: `${name}, voted` });
+		const notYet = (name: string) => screen.getByRole('listitem', { name: `${name}, not yet` });
 
 		it('says how many of the lineup have voted', () => {
 			renderPanel({ voterUids: ['anna', 'zara'] });
@@ -126,7 +126,7 @@ describe('MotmPanel', () => {
 		});
 
 		// The document behind this carries uids and no picks at all, so there is
-		// nothing for the panel to leak — this pins that it stays that way.
+		// nothing for the panel to leak. This pins that it stays that way.
 		it('still shows no count of who is leading', () => {
 			renderPanel({ voterUids: ['anna', 'zara'], vote: vote('erik') });
 
@@ -146,8 +146,8 @@ describe('MotmPanel', () => {
 			expect(screen.getByText('Everybody has voted')).toBeInTheDocument();
 		});
 
-		// Somebody who never played cannot vote — rules check the team sheet at
-		// both ends — but the two halves on screen must sum to the lineup anyway.
+		// Somebody who never played cannot vote. Rules check the team sheet at
+		// both ends, but the two halves on screen must sum to the lineup anyway.
 		it('counts against the lineup rather than against the votes stored', () => {
 			renderPanel({ voterUids: ['anna', 'ghost'] });
 
@@ -169,7 +169,7 @@ describe('MotmPanel', () => {
 			});
 
 			// Twice: announced as the result, and still in the list underneath it
-			// — which is where the counts hang.
+			// which is where the counts hang.
 			expect(screen.getAllByText('Zara')).toHaveLength(2);
 			expect(screen.getByText('3 of 4 votes')).toBeInTheDocument();
 			expect(screen.getByText('Decided')).toBeInTheDocument();
@@ -177,7 +177,7 @@ describe('MotmPanel', () => {
 
 		// The ballot was in team order because there was nothing to rank by. A
 		// result is ranked, and everybody level keeps the order they were drawn
-		// in — including the tail nobody voted for.
+		// in, including the tail nobody voted for.
 		it('reorders the list by votes, most first', () => {
 			renderPanel({
 				motm: decided(
@@ -197,7 +197,7 @@ describe('MotmPanel', () => {
 			expect(order).toEqual(['erik', 'johan', 'anna', 'zara']);
 		});
 
-		// A tie is stated as a tie rather than resolved — the group produced two
+		// A tie is stated as a tie rather than resolved. The group produced two
 		// names, and they share the bonus.
 		it('names both when the vote tied', () => {
 			renderPanel({
@@ -237,7 +237,7 @@ describe('MotmPanel', () => {
 		});
 
 		// Backing the winner is the common case, and both the picked and the won
-		// styling used to land on that one element — leaving Tailwind's output
+		// styling used to land on that one element, leaving Tailwind's output
 		// order to decide which ring showed on the most rewarding row.
 		it('gives the winner you voted for a treatment of its own', () => {
 			renderPanel({
@@ -266,7 +266,7 @@ describe('MotmPanel', () => {
 			expect(screen.getByRole('button', { name: /Anna/ })).toHaveClass('ring-brand/30');
 		});
 
-		// A window that has run out but hasn't been counted yet — the hour
+		// A window that has run out but hasn't been counted yet. The hour
 		// between the deadline and the sweep. Nothing to announce, and nothing
 		// left to vote on.
 		it('stops taking votes the moment the deadline passes, before the count', () => {

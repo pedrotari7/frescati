@@ -20,7 +20,7 @@ const RELOAD_KEY = 'frescati:error-reload';
  *
  * Landing back here inside this window means the reload was not the answer, so
  * the fallback below is what the person should see. Landing back here an hour
- * later is a new problem and deserves its own attempt — which is why this is a
+ * later is a new problem and deserves its own attempt, which is why this is a
  * timestamp rather than a once-per-session flag that would leave a phone stuck
  * asking for a manual tap for the rest of the day.
  */
@@ -29,7 +29,7 @@ const RELOAD_WINDOW_MS = 10_000;
 /**
  * Whether to reload, recording the attempt if so.
  *
- * `sessionStorage` throws outright when storage is blocked — Safari has done
+ * `sessionStorage` throws outright when storage is blocked, Safari has done
  * this in private mode, and it is exactly the sort of phone this app runs on.
  * A boundary that throws while handling an error leaves the app with no
  * fallback at all, so both directions swallow. Being unable to *record* the
@@ -64,7 +64,7 @@ class ErrorBoundary extends Component<Props, State> {
 
 		// React has already swallowed this to render the fallback below, so
 		// Sentry's global handler will never see it. The component stack is the
-		// useful half — it names the screen, which a minified trace may not.
+		// useful half, it names the screen, which a minified trace may not.
 		//
 		// Flushed rather than fired and forgotten because of the reload below.
 		const reported = captureErrorAndFlush(error, { componentStack: info.componentStack });
@@ -74,7 +74,7 @@ class ErrorBoundary extends Component<Props, State> {
 		// but the errors that reach a phone disproportionately are: a chunk that
 		// never arrived on one bar of signal leaves a module missing from the
 		// bundle, and nothing short of fetching it again will do. The reload
-		// gets it, because a failed response is never cached — see `sw.js`.
+		// gets it, because a failed response is never cached, see `sw.js`.
 		//
 		// Once per episode. If this was a real bug in the tree it throws again
 		// on the way back, `claimReload` says no the second time, and the person

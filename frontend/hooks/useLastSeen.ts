@@ -11,7 +11,7 @@ import { captureError } from '../lib/sentry';
  *
  * The other half of the stamp lives in `upsertUserDoc`, which records the
  * arrival that *loaded* the page. This covers every return afterwards, which on
- * a phone is nearly all of them — an installed app is resumed far more often
+ * a phone is nearly all of them, an installed app is resumed far more often
  * than it is launched, and a session that lasts a fortnight would otherwise
  * report the fortnight-old launch as the last time they were seen.
  *
@@ -19,7 +19,7 @@ import { captureError } from '../lib/sentry';
  * loads hidden and reaches the screen through a `visibilitychange`. Nothing
  * else brings the app to the foreground.
  *
- * Note what is deliberately *absent*: any timer. See `shared/visit.ts` — the
+ * Note what is deliberately *absent*: any timer. See `shared/visit.ts`, the
  * point of the field is to go stale on somebody who has drifted away, and a
  * heartbeat from a backgrounded phone is exactly what stops it doing that.
  */
@@ -56,7 +56,7 @@ export const useLastSeen = (uid: string | null | undefined) => {
 				// the strength of a write that never landed.
 				lastSeen.current = null;
 
-				// Nothing on screen depends on this, so it stays quiet — but a
+				// Nothing on screen depends on this, so it stays quiet, but a
 				// stamp that never moves makes everybody look inactive, and
 				// that failure is invisible from the inside.
 				console.error('Failed to record visit', error);

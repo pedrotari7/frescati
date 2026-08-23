@@ -4,7 +4,7 @@
  * Only the admin notification screen needs this, and only to answer one
  * question: when somebody says they aren't getting notifications, what are they
  * on and can that device even receive one? A registration token carries the
- * user agent it was created with, so the answer is already stored — it just
+ * user agent it was created with, so the answer is already stored. It just
  * needs decoding.
  *
  * Deliberately coarse. This is not analytics and nothing branches on it: a
@@ -38,7 +38,7 @@ const BROWSERS: [RegExp, string][] = [
 
 /**
  * `iPad` disappeared from the user agent in iPadOS 13, which reports itself as
- * a Mac. There is no way to tell the two apart from the string alone — the
+ * a Mac. There is no way to tell the two apart from the string alone. The
  * browser-side check adds `navigator.maxTouchPoints`, which nothing server-side
  * has. An iPad therefore reads as a desktop here, which is wrong but harmless.
  */

@@ -16,7 +16,7 @@ import {
  *
  * Worth testing at this level rather than through the triggers: the failure it
  * prevents is an interleaving, which no assertion on a finished trigger can
- * see. What can be checked is the mechanism — who gets in, who is turned away,
+ * see. What can be checked is the mechanism: who gets in, who is turned away,
  * what a caller that is turned away leaves behind, and that nothing it leaves
  * behind is forgotten.
  */
@@ -32,7 +32,7 @@ const KICKOFF = '2026-09-01T17:00:00.000Z';
 const KICKOFF_MILLIS = Date.parse(KICKOFF);
 
 /**
- * What the ladder pays for the one match a two-team rotation actually plays —
+ * What the ladder pays for the one match a two-team rotation actually plays,
  * the 2-1 at order 0, and the 0-5 a correction below replaces it with.
  *
  * Two numbers rather than a sign flip because a rating reads the scoreline as
@@ -42,7 +42,7 @@ const KICKOFF_MILLIS = Date.parse(KICKOFF);
 const WON_2_1 = 13.6;
 const LOST_0_5 = -17.714286;
 
-/** A rating, to the sixth decimal — that arithmetic is not exact in binary. */
+/** A rating, to the sixth decimal, that arithmetic is not exact in binary. */
 const elo = (movement: number) => expect.closeTo(1000 + movement, 5);
 
 const lockDoc = () => getDb().doc('meta/ladder');
@@ -135,7 +135,7 @@ describe('requestRatingReplay', () => {
 
 describe('drainAbandonedReplays', () => {
 	// The lease frees itself after a crash, but nothing re-reads what the dead
-	// holder was asked to do — so without this a correction could sit recorded
+	// holder was asked to do, so without this a correction could sit recorded
 	// and never applied until somebody happened to make another one.
 	it('picks up a floor left behind by a holder that died', async () => {
 		await playGame(GAME_ID, KICKOFF);
@@ -213,7 +213,7 @@ describe('finaliseGame under the lock', () => {
 		expect(outcomes.filter(outcome => outcome === 'finalised')).toHaveLength(1);
 		expect(outcomes).toContainEqual(expect.stringMatching(/^(already-finalised|busy)$/));
 
-		// One game's worth of movement, not two — which is what a second
+		// One game's worth of movement, not two, which is what a second
 		// application would have produced, rating the same result against the
 		// ratings the first one had just written.
 		expect((await readUser('p1'))?.rating).toMatchObject({ elo: elo(WON_2_1), games: 1 });

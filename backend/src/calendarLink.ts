@@ -8,22 +8,22 @@ import { hasAppAdminClaim, isSeasonAdmin, requireAuth } from './lib/auth';
 import { instrument } from './lib/sentry';
 
 /**
- * The subscribable calendar link, per season — see `shared/calendar.ts` for
+ * The subscribable calendar link, per season. See `shared/calendar.ts` for
  * the feed itself and `calendarFeed.ts` for what serves it.
  *
  * One shared link per season, not one per person: a calendar app polls with a
  * plain unauthenticated `GET`, so the token in the URL *is* the auth, and that
- * matches how everything else here already works — "anyone signed in can read
+ * matches how everything else here already works. "Anyone signed in can read
  * everything", just handed to whoever holds the link instead of whoever is
  * signed in. Rotating it (below) is the only way to close a leaked copy, and
  * it closes every copy at once, which is why it is season-admin only.
  *
  * Both the token and its reverse index (`calendarFeeds/{token}`) are closed to
- * every client — see `firestore.rules` — so this and `rotateCalendarToken` are
+ * every client, see `firestore.rules`, so this and `rotateCalendarToken` are
  * the only two places either document is ever read or written.
  */
 
-/** 32 random bytes, base64url — long enough that guessing one is not a real attack surface. */
+/** 32 random bytes, base64url, long enough that guessing one is not worth attempting. */
 const newToken = (): string => randomBytes(32).toString('base64url');
 
 const projectId = (): string =>
@@ -46,7 +46,7 @@ export const getCalendarLink = onCall<{ seasonId: string }>(
 		const tokenRef = db.doc(`seasons/${seasonId}/calendar/token`);
 
 		// Read and write inside one transaction so two people tapping "Subscribe"
-		// at once can't both see nothing there and mint two tokens — the second
+		// at once can't both see nothing there and mint two tokens. The second
 		// would leave the first's reverse index orphaned, pointing at a token
 		// nothing hands out any more.
 		const token = await db.runTransaction(async transaction => {

@@ -41,7 +41,7 @@ describe('runTeamRebuild', () => {
 		for (const uid of players) expect(lineup?.elos[uid]).toBe(getSeedElo([]));
 
 		// `pickTeams` is pure and seeded, so the exact split this pool produces is
-		// predictable — worth pinning down once so a change to the optimizer's
+		// predictable. Worth pinning down once so a change to the optimizer's
 		// wiring here doesn't go unnoticed.
 		const seed = getSeed(GAME_ID, 0);
 		const expected = pickTeams({
@@ -93,7 +93,7 @@ describe('runTeamRebuild', () => {
 		).resolves.toBeUndefined();
 	});
 
-	it('leaves a confirmed game’s lineup alone', async () => {
+	it("leaves a confirmed game's lineup alone", async () => {
 		const players = uids(8);
 		await writeSeason(SEASON_ID, { memberUids: players });
 		await writeGame(SEASON_ID, GAME_ID, { teamsGeneration: 3, resultFinalisedAt: '2026-09-01T21:00:00.000Z' });

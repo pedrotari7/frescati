@@ -14,7 +14,7 @@ import { db } from './firebase';
  *
  * Every guard returns the caller's uid rather than `void`. That is not a
  * convenience: after a guard runs, TypeScript still has `request.auth` as
- * possibly undefined — the narrowing doesn't cross the function boundary — and
+ * possibly undefined, the narrowing doesn't cross the function boundary, and
  * every caller wants the uid immediately afterwards, to log it or to stamp it
  * on a document. Returning it is what stops each of them reaching back for
  * `request.auth!.uid` and re-asserting what the guard has already proved.
@@ -31,7 +31,7 @@ export const requireAuth = (request: CallableRequest<unknown>): string => {
  * Carrying the global `admin` custom claim.
  *
  * Read off the token rather than the `isAppAdmin` mirror on the profile, which
- * needs a document read and is only a display copy — see `getAppAdminUids` for
+ * needs a document read and is only a display copy. See `getAppAdminUids` for
  * the one place that deliberately reads the mirror instead, and why a stale one
  * there costs a notification rather than a permission.
  */
@@ -49,7 +49,7 @@ export const hasAppAdminClaim = (request: CallableRequest<unknown>): boolean => 
 /**
  * Whether somebody can act on this season.
  *
- * An app admin always can — the global role outranks a per-season one
+ * An app admin always can. The global role outranks a per-season one
  * everywhere in the app, and `firestore.rules` says the same. A missing season
  * is nobody's to administer, so it answers `false` rather than throwing; the
  * callers that care whether it exists check that separately and say so with a
@@ -66,7 +66,7 @@ export const isSeasonAdmin = (season: Pick<Season, 'adminUids'> | undefined, uid
  * answer a question already settled.
  *
  * The message is the caller's because `permission-denied` is one of the few
- * errors a person actually reads — "only a season admin can confirm results"
+ * errors a person actually reads. "Only a season admin can confirm results"
  * says which season admin power they were reaching for, where a shared sentence
  * would leave them guessing.
  */

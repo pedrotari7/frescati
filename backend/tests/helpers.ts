@@ -38,7 +38,7 @@ export const clearAuth = async (): Promise<void> => {
 
 /**
  * Creates a real Auth-emulator account. Needed wherever a function looks the
- * uid up through `getAuth()` — `setAppAdmin` most of all, which 404s a uid
+ * uid up through `getAuth()`, `setAppAdmin` most of all, which 404s a uid
  * with no account, and the email fallback, which reads the address from here
  * because Firestore deliberately doesn't hold one.
  *
@@ -167,14 +167,14 @@ export const readUser = async (uid: string): Promise<AppUser | undefined> => {
 
 /**
  * A `DocumentSnapshot.data()`-shaped stand-in, for building the `before`/`after`
- * halves of an `onDocumentWritten` event by hand — the tests never go through
+ * halves of an `onDocumentWritten` event by hand, the tests never go through
  * the real Functions emulator, so nothing else produces these for them.
  */
 export const snap = <T>(data: T) => ({ data: () => data });
 
 /**
  * Every exported Cloud Function carries a `.run()` that *is* the handler we
- * wrote — confirmed by reading the compiled `firebase-functions` package —
+ * wrote, confirmed by reading the compiled `firebase-functions` package,
  * so a test can call it directly with only the fields the handler actually
  * reads, instead of standing up the Functions emulator for a real
  * `CloudEvent`. These build just enough of one, per trigger shape; the `any`

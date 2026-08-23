@@ -15,19 +15,19 @@ import { hapticLight } from '../lib/utils/haptics';
  * Man of the match: the vote while it is open, the result once it is decided.
  *
  * Deliberately shows **no running total**. Until the vote is counted, what is on
- * screen is your own pick and how many people have made one — never who is
+ * screen is your own pick and how many people have made one, never who is
  * leading, because a visible lead is a lead people vote for. That is a rule
  * rather than a layout choice: nobody else's pick is readable at all, so this
  * screen could not draw a tally if it wanted to.
  *
  * Turnout is the one thing about a vote in progress that is published, and it is
- * a different question with a different answer — eight names with nothing
+ * a different question with a different answer: eight names with nothing
  * attached to them is not a leaderboard. What it is instead is the list the
  * group would otherwise reconstruct by asking each other, which is who still
  * hasn't voted.
  *
  * Whoever is looking is not necessarily in it. A game is public to the whole
- * group, so somebody who didn't play sees the same panel with no buttons in it —
+ * group, so somebody who didn't play sees the same panel with no buttons in it,
  * which is the honest state, rather than a control that fails on write.
  */
 const MotmPanel = ({
@@ -47,7 +47,7 @@ const MotmPanel = ({
 	motm: TournamentMotm | null;
 	/** Your own vote, or `null` if you haven't cast one. */
 	vote: MotmVote | null;
-	/** Who has voted so far. Empty once it is counted — see `Decided`. */
+	/** Who has voted so far. Empty once it is counted. See `Decided`. */
 	voterUids: string[];
 	/** When the vote closes, as epoch milliseconds. Absent means it is shut. */
 	votingUntil?: number;
@@ -71,8 +71,8 @@ const MotmPanel = ({
 	// Decided, the list stops being a ballot and becomes a result, so it is
 	// ordered like one: most votes first. While the vote is open it stays in team
 	// order, because there is nothing to rank by that anybody is allowed to see.
-	// The sort is stable, so everybody level — including the whole tail nobody
-	// voted for — keeps the team order they were drawn in.
+	// The sort is stable, so everybody level, including the whole tail nobody
+	// voted for, keeps the team order they were drawn in.
 	const ordered = motm
 		? [...candidates].sort((a, b) => (votes.get(b.uid) ?? 0) - (votes.get(a.uid) ?? 0))
 		: candidates;
@@ -106,7 +106,7 @@ const MotmPanel = ({
 				</p>
 			)}
 
-			{/* The list stays up after the vote closes, carrying the counts — the
+			{/* The list stays up after the vote closes, carrying the counts, the
 			    same list, now answering a different question, and reordered to
 			    answer it. */}
 			<ul className='mt-3 grid gap-1.5 sm:grid-cols-2'>
@@ -128,7 +128,7 @@ const MotmPanel = ({
 								className={classNames(
 									'flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors',
 									'focus-visible:ring-brand/60 focus-visible:ring-2 focus-visible:outline-none',
-									// Not a disabled control once the vote is over — it is
+									// Not a disabled control once the vote is over. It is
 									// a list again, and greying every name would read as
 									// something being unavailable rather than finished.
 									open && canVote && 'hover:bg-white/5 active:scale-[0.99]',
@@ -136,7 +136,7 @@ const MotmPanel = ({
 									// the winner is the common case, and it used to put
 									// both class strings on one element and leave
 									// Tailwind's output order to decide which ring
-									// showed — on the most rewarding row on the screen.
+									// showed, on the most rewarding row on the screen.
 									// It gets its own treatment: the trophy's wash, ringed
 									// in the colour of your own pick, so it says both.
 									won && picked && 'bg-pending/15 ring-brand/40 ring-1',
@@ -157,7 +157,7 @@ const MotmPanel = ({
 								)}
 
 								{/* Counts only exist once it is decided, and a nil is
-								    left blank — a column of zeroes is a list of people
+								    left blank, a column of zeroes is a list of people
 								    nobody voted for, printed out. */}
 								{motm && count > 0 && (
 									<span className='text-muted shrink-0 text-xs font-semibold tabular-nums'>
@@ -196,7 +196,7 @@ const MotmPanel = ({
  *
  * Drawn as the lineup with the people who haven't voted faded, rather than as a
  * list of names: the question is asked at a glance, on a phone, by somebody
- * deciding whether to nudge the group chat — and a sentence with eleven names in
+ * deciding whether to nudge the group chat, and a sentence with eleven names in
  * it is not read at a glance. Everybody stays on screen either way, so the strip
  * is the same size all week and nobody's absence is a gap they have to be
  * counted to notice.
@@ -236,7 +236,7 @@ const Turnout = ({
 					const hasVoted = answered.has(uid);
 
 					return (
-						<li key={uid} aria-label={`${displayName} — ${hasVoted ? 'voted' : 'not yet'}`}>
+						<li key={uid} aria-label={`${displayName}, ${hasVoted ? 'voted' : 'not yet'}`}>
 							<Avatar
 								displayName={displayName}
 								photoURL={usersByUid.get(uid)?.photoURL}
@@ -279,7 +279,7 @@ const Decided = ({
 		<div className='mb-1'>
 			<p className='text-ink text-lg leading-tight font-bold'>
 				{motm.winners.map(name).join(' & ')}
-				{motm.winners.length > 1 && <span className='text-muted text-sm font-normal'> — shared</span>}
+				{motm.winners.length > 1 && <span className='text-muted text-sm font-normal'>, shared</span>}
 			</p>
 			<p className='text-faint mt-0.5 text-xs'>
 				{votes.get(top) ?? 0} of {[...votes.values()].reduce((total, count) => total + count, 0)} votes

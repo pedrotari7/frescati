@@ -5,7 +5,7 @@ const SEASON_ID = 'season-1';
 const TOKEN = 'a-real-looking-token';
 
 /**
- * `calendarFeed` is a plain `onRequest` handler — no `.run()` wrapper, unlike
+ * `calendarFeed` is a plain `onRequest` handler, no `.run()` wrapper, unlike
  * the callables elsewhere in this suite, because it *is* the function. These
  * stand in for just enough of Express to drive it: a `query` object to read
  * the token from, and a response whose chained calls this can inspect.

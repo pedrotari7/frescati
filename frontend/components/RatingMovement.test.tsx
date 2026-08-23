@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import RatingMovement from './RatingMovement';
 
 /**
- * The zero rule is the whole reason this component exists — the team sheet and
+ * The zero rule is the whole reason this component exists, the team sheet and
  * the player profile each documented it and then implemented it differently,
  * with nothing pinning either. These are the two behaviours that divergence
  * turned on.
@@ -34,7 +34,7 @@ describe('RatingMovement', () => {
 		expect(screen.getByText('—')).toBeInTheDocument();
 	});
 
-	// An unrated game, not a game worth nothing — the two must not look alike.
+	// An unrated game, not a game worth nothing. The two must not look alike.
 	it('draws nothing for a game with no rating yet', () => {
 		const { container } = render(<RatingMovement delta={undefined} flat={<span>—</span>} />);
 

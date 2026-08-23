@@ -7,7 +7,7 @@ import { useServiceWorkerUpdate } from './useServiceWorkerUpdate';
 /**
  * jsdom has no `navigator.serviceWorker` at all, so the whole container is
  * stood up here. What is worth covering is the handover: when the prompt is
- * offered, and — the one that matters — when the page is allowed to reload
+ * offered, and, the one that matters, when the page is allowed to reload
  * itself, because getting that wrong turns every first visit into a refresh
  * loop.
  */

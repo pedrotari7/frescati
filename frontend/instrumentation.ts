@@ -2,8 +2,8 @@
  * Server-side Sentry init, for the sliver of this app that runs on a server.
  *
  * Nearly every screen is a client component talking to Firestore directly, so
- * what's left here is the root layout's render and the CSP report handler. Thin
- * — but a failure in either is a blank page for everybody at once, which is the
+ * what's left here is the root layout's render and the CSP report handler. Thin,
+ * but a failure in either is a blank page for everybody at once, which is the
  * one failure mode worth hearing about immediately.
  */
 

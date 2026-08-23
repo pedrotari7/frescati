@@ -48,8 +48,8 @@ const describeDeletion = (game: Game): string => {
 /**
  * One game on the admin calendar.
  *
- * Its own component because the list is drawn twice now — what is coming up,
- * and what has been played — and two copies of a row carrying three buttons is
+ * Its own component because the list is drawn twice now: what is coming up,
+ * and what has been played, and two copies of a row carrying three buttons is
  * two places for them to drift apart.
  */
 const CalendarRow = ({
@@ -88,7 +88,7 @@ const CalendarRow = ({
 
 			{/* Calling a game off past the final whistle is not a decision anybody
 			    can still make, and it is worse than useless: `cancelled` is read
-			    before `finished`, so a played — even a confirmed and rated — game
+			    before `finished`, so a played, even a confirmed and rated, game
 			    would stop being finished and reappear as the top card on the
 			    season home screen. Restore stays on a cancelled game whenever it
 			    happened, because that is the way back from exactly this. */}
@@ -207,7 +207,7 @@ const AdminGamesPage = () => {
 	 * Calling a game off, and putting it back on.
 	 *
 	 * Both ask first, because both send a notification to everybody the game
-	 * affects — `onGameWrite` pushes the moment `status` moves. Cancel was the
+	 * affects. `onGameWrite` pushes the moment `status` moves. Cancel was the
 	 * one button on this row doing that unguarded, and it is the smaller and
 	 * quieter of the two beside a Delete that has always confirmed.
 	 */

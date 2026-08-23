@@ -1,6 +1,6 @@
 {
 	// `pnpm seed` runs through `ts-node --transpile-only`, which is what makes it
-	// quick enough to sit in front of every `dev:seeded` and every e2e run — and
+	// quick enough to sit in front of every `dev:seeded` and every e2e run, and
 	// transpiling means nothing typechecks it there. The build above cannot
 	// stand in: it excludes `scripts/` on purpose, because none of it is deployed
 	// with the functions.

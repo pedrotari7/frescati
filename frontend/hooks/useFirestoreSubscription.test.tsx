@@ -78,7 +78,7 @@ describe('useFirestoreSubscription', () => {
 
 	describe('retry', () => {
 		// Firestore drops a listener for good once it has handed one to
-		// `onError`, so there is nothing to resume — the only way back is a
+		// `onError`, so there is nothing to resume, the only way back is a
 		// fresh `onSnapshot`, and this is the whole reason `LoadFailed` can
 		// offer a button rather than telling somebody to reload the page.
 		it('subscribes again', () => {

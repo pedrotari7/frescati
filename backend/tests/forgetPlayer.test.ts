@@ -22,14 +22,14 @@ import {
  *
  * It runs against the real project from somebody's laptop, it deletes a Firebase
  * Auth account, and until now nothing exercised a line of it. The risk is not
- * that it fails loudly — that would be obvious on the first run. It is that it
+ * that it fails loudly, that would be obvious on the first run. It is that it
  * erases one field too many, quietly, in a way that only shows up as a corrupted
  * ladder weeks later.
  *
  * So these are mostly about the second half of its contract: what it must
  * **keep**. The uid in shared history is the whole reason this script exists in
  * place of a delete, and `replayRatingsFrom` rebuilds each game from the state
- * the one before it left — so dropping one player's ledger entries would not
+ * the one before it left, so dropping one player's ledger entries would not
  * lose their history alone, it would corrupt every replay for everybody who ever
  * played alongside them.
  */
@@ -108,7 +108,7 @@ describe('what forget-player erases', () => {
 	});
 
 	it('anonymises the profile without deleting it', async () => {
-		// `users/{uid}` is `allow delete: if false` on purpose — every roster
+		// `users/{uid}` is `allow delete: if false` on purpose, every roster
 		// renders names off it, so a missing one turns a squad list into a wall
 		// of "Unknown player".
 		await main(context([LEAVER]));
@@ -160,7 +160,7 @@ describe('what forget-player keeps', () => {
 		// The undo history for the *whole* ladder. `replayRatingsFrom` rebuilds
 		// each game from the state the one before it left, so removing these
 		// entries would corrupt every replay for everybody who played alongside
-		// them — not just lose their own history.
+		// them, not just lose their own history.
 		const before = (await getDb().doc(`ratingLedger/${GAME_ID}`).get()).data();
 
 		await main(context([LEAVER]));
@@ -198,7 +198,7 @@ describe('kit still recorded as theirs', () => {
 	it('is reported rather than reassigned', async () => {
 		// The app has no idea who has the ball now. Quietly handing it to the
 		// nearest admin would replace a visible problem with an invisible wrong
-		// answer — `findStrandedKit` strikes the same bargain.
+		// answer, `findStrandedKit` strikes the same bargain.
 		await main(context([LEAVER]));
 
 		expect(output()).toContain('Match ball');

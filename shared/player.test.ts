@@ -93,7 +93,7 @@ describe('getPlayerGames', () => {
 	});
 
 	// The seed is the rating the game rated them off, so it is what they carried
-	// in — and the movement matches the one the team sheet showed on the night.
+	// in, and the movement matches the one the team sheet showed on the night.
 	it('reads a player who arrived unrated from the seed the game used', () => {
 		const games = getPlayerGames([entry('g1', 0, { a: 0 }, { a: null }, { a: 1030 }, 's1', 1010)], 'a');
 
@@ -157,7 +157,7 @@ describe('getPlayerRecord', () => {
 	});
 
 	// The chart opens on the rating they took in, so a career of nothing but
-	// losses peaked there — a peak below the visible start of the line is the
+	// losses peaked there. A peak below the visible start of the line is the
 	// screen disagreeing with itself.
 	it('counts the rating carried into the first game', () => {
 		expect(getPlayerRecord([entry('g1', 0, { a: 1 }, { a: 1040 }, { a: 1020 })], 'a').peak).toBe(1040);
@@ -223,7 +223,7 @@ describe('getRatingTrend', () => {
 });
 
 /**
- * A lineup and how it finished, which is all a link reads — the ratings on the
+ * A lineup and how it finished, which is all a link reads. The ratings on the
  * entry are irrelevant here. `teams` puts each player on a team; `places` says
  * where each of those teams came, 0-indexed and shared on a tie exactly as
  * `getStandings` hands them over.
@@ -248,7 +248,7 @@ describe('getPlayerLinks', () => {
 	});
 
 	// The case the whole team map exists for. Both players are on position 0, so
-	// reading places alone makes a drawn game look like a partnership — and in a
+	// reading places alone makes a drawn game look like a partnership, and in a
 	// two-team draw it makes the entire lineup look like one team.
 	it('reads a two-team draw as a draw, not as a partnership', () => {
 		expect(getPlayerLinks([played('g1', { a: 0, b: 1 }, [0, 0])], 'a')).toEqual([
@@ -268,7 +268,7 @@ describe('getPlayerLinks', () => {
 	});
 
 	// A shared first is still a win by the app's own definition, the same way the
-	// record above counts it — it just isn't a win over the team you shared it
+	// record above counts it. It just isn't a win over the team you shared it
 	// with.
 	it('still counts a shared first as a win for the pair who shared it', () => {
 		const links = getPlayerLinks([played('g1', { a: 0, b: 0, c: 1 }, [0, 0])], 'a');
@@ -393,7 +393,7 @@ describe('getPlayerChemistry', () => {
 		expect(chemistry.nemesis?.uid).toBe('p0');
 	});
 
-	// Somebody this player is level with, or ahead of, is not a nemesis — and
+	// Somebody this player is level with, or ahead of, is not a nemesis, and
 	// "worst" against a group they beat every week would be an invented enemy.
 	it('has no nemesis among opponents it is level with or beating', () => {
 		expect(

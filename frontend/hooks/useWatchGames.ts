@@ -12,8 +12,8 @@ const NONE: ReadonlySet<string> = new Set<string>();
  * Following games, from anywhere.
  *
  * Bundles the signed-in uid, the live state and the write, because the bell is
- * drawn on three screens now — the game itself, the next-game card, and every
- * row of the season's calendar — and the three of them have to move together.
+ * drawn on three screens now: the game itself, the next-game card, and every
+ * row of the season's calendar, and the three of them have to move together.
  * Split across the call sites, the toggle on one screen could quietly write
  * while another only read.
  *
@@ -24,7 +24,7 @@ const NONE: ReadonlySet<string> = new Set<string>();
  * read.
  *
  * Empty until the first snapshot lands, so a bell draws *off* before it draws
- * anything: off is both the default and the safe thing to show — an on switch
+ * anything: off is both the default and the safe thing to show, an on switch
  * that flicks off a moment later reads as a lost setting.
  *
  * `canWatch` is false when nobody is signed in, which is the caller's cue to

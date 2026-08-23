@@ -3,7 +3,7 @@
  *
  * The guiding rule: nothing is invented that the app could work out for itself.
  * Counts come from `tallyResponses`, lineups from `pickTeams`, tables from
- * `getStandings`, ratings from `getRatingChanges` — the same functions the Cloud
+ * `getStandings`, ratings from `getRatingChanges`, the same functions the Cloud
  * Functions call. A seeded database is therefore one the app could genuinely
  * have arrived at, which is what makes testing against it worth anything. Make
  * up a rating column by hand and the first replay you trigger disagrees with it.
@@ -59,7 +59,7 @@ const MINIMUM_WATCH = 12;
  * answered and how the fixtures are shaped come out the same on every run and a
  * layout you saw once can be looked at twice. The lineups and scorelines do
  * move, because those hang off the game's document id and that carries the run
- * id — the alternative being that a rebuild triggered from the app produces
+ * id. The alternative is that a rebuild triggered from the app produces
  * different teams from the ones the seed wrote, which is exactly the kind of
  * quiet disagreement a fixture is supposed to be free of.
  */
@@ -119,7 +119,7 @@ const db = () => getFirestore();
 /**
  * Where the app is served from, so an avatar written into `frontend/public`
  * resolves. Firebase Auth insists on an absolute URL, and the app copies the
- * auth record's `photoURL` onto the profile on every sign-in — so a relative
+ * auth record's `photoURL` onto the profile on every sign-in, so a relative
  * path would be rejected here and an absolute one is what has to be stored.
  */
 let appOrigin = 'http://localhost:3000';
@@ -147,9 +147,9 @@ const USER_AGENTS = {
  * A table rather than a roll off the RNG, because the admin notification screen
  * exists to explain *why* a push doesn't arrive, and every one of those reasons
  * has to be sitting in a seeded database or the screen can't be looked at. So
- * the list covers each of them once — the iPhone nobody ever added to the home
+ * the list covers each of them once: the iPhone nobody ever added to the home
  * screen, the account with two devices, the person who muted everything, the
- * profile written before any of this was recorded — rather than thirty
+ * profile written before any of this was recorded, rather than thirty
  * variations on "works fine".
  */
 interface DeviceProfile {
@@ -169,7 +169,7 @@ const DEVICE_PROFILES: DeviceProfile[] = [
 	},
 
 	// The one this screen is really for. On iPhone, push simply does not work
-	// until the app is on the home screen — and nothing else in the database
+	// until the app is on the home screen, and nothing else in the database
 	// says so.
 	{ client: { platform: 'ios' } },
 
@@ -177,7 +177,7 @@ const DEVICE_PROFILES: DeviceProfile[] = [
 	// the row above: this one only needs a nudge, not an explanation.
 	{ client: { platform: 'ios', standaloneHoursAgo: 50 } },
 
-	// No device and no email either — the only way left to be genuinely
+	// No device and no email either. The only way left to be genuinely
 	// unreachable now that the fallback catches everybody else with nothing
 	// registered. Without this the admin screen's "Nothing gets through"
 	// section is empty in every seeded run.
@@ -191,7 +191,7 @@ const DEVICE_PROFILES: DeviceProfile[] = [
 		prefs: { reminders: false, gameChanges: false },
 	},
 
-	// Half muted — the reminders are off, the cancellations still land.
+	// Half muted. The reminders are off, the cancellations still land.
 	{
 		client: { platform: 'android', standaloneHoursAgo: 90 },
 		devices: [{ agent: USER_AGENTS.android, hoursAgo: 700 }],
@@ -207,12 +207,12 @@ const DEVICE_PROFILES: DeviceProfile[] = [
 		],
 	},
 
-	// Signed in on a laptop and never on a phone. Fine — push works from a
+	// Signed in on a laptop and never on a phone. Fine, push works from a
 	// browser tab everywhere except iOS.
 	{ client: { platform: 'desktop' }, devices: [{ agent: USER_AGENTS.mac, hoursAgo: 40 }] },
 
 	// A profile from before the app recorded any of this. Reads as "never
-	// seen", which is the truth — not as "not installed".
+	// seen", which is the truth, not as "not installed".
 	{},
 ];
 
@@ -222,7 +222,7 @@ const DEVICE_PROFILES: DeviceProfile[] = [
  * empty. Picked by key, like everything else here, so two runs on the same day
  * produce the same database.
  *
- * Weighted the way a real group is — most of them were here since the last
+ * Weighted the way a real group is: most of them were here since the last
  * game, one or two have drifted off entirely. That last pair is the whole point
  * of the screen, so a seeded database without them makes it untestable.
  */
@@ -324,7 +324,7 @@ const buildSeason = (plan: SeasonPlan, createdBy: string, runId: string): Season
 	return {
 		// Scoped to the run, so the cascade set off by wiping the *previous*
 		// seed goes looking for paths this one will never write to. Stable ids
-		// would read better in a URL and were what this did first — until a
+		// would read better in a URL and were what this did first, until a
 		// recursive delete arrived forty seconds late and quietly emptied a
 		// freshly seeded database.
 		id: `${plan.id}-${runId}`,
@@ -350,7 +350,7 @@ const buildSeason = (plan: SeasonPlan, createdBy: string, runId: string): Season
 /**
  * The season's kit register.
  *
- * A scenario declares each item's holder as a *state* — in, out, silent, gone —
+ * A scenario declares each item's holder as a *state*: in, out, silent or gone,
  * and this resolves it against the answers already generated for the next
  * upcoming game. That way round because the person is arbitrary and the state
  * is not: naming Pedro in the scenario would produce whatever coverage the
@@ -358,7 +358,7 @@ const buildSeason = (plan: SeasonPlan, createdBy: string, runId: string): Season
  * one where the vests are with somebody who is out.
  *
  * `left` deliberately writes a holder who is *not* on `memberUids`, which the
- * security rules would refuse — the seeder holds an Admin SDK handle and is not
+ * security rules would refuse. The seeder holds an Admin SDK handle and is not
  * bound by them. That is the right call here: a stranded item is a real state,
  * reached by a roster moving underneath a register rather than by a bad write,
  * and it is the only way to see that screen without editing Firestore by hand.
@@ -418,7 +418,7 @@ interface PlannedGame {
  * `playing` is the target confirmed headcount, and the members who say yes are
  * drawn per game rather than per season, so the same fourteen people don't turn
  * up every single week. Members who neither said in nor out get **no document
- * at all** — that is the third state, and a seeder that wrote a placeholder for
+ * at all**. That is the third state, and a seeder that wrote a placeholder for
  * them would quietly hide every bug in how the app handles silence.
  */
 const buildResponses = (
@@ -434,7 +434,7 @@ const buildResponses = (
 	const target = pin.playing ?? between(rng, plan.turnout[0], plan.turnout[1]);
 	const memberUids = shuffled(season.memberUids, rng);
 
-	// Extras top up a thin game rather than swelling a healthy one — which is
+	// Extras top up a thin game rather than swelling a healthy one, which is
 	// what they are for, and it keeps confirmed extras worth looking at.
 	const extraTarget = Math.min(plan.extraKeys.length, Math.max(0, target - memberUids.length));
 	const membersIn = Math.min(memberUids.length, target - extraTarget);
@@ -508,7 +508,7 @@ const buildGames = (plan: SeasonPlan, season: Season, createdBy: string): Planne
 		const rng = createRng(hashSeed(`${plan.id}:${index}`));
 
 		const game: Game = {
-			// Under the season's run-scoped id, so this is unique per run too —
+			// Under the season's run-scoped id, so this is unique per run too,
 			// which matters for `ratingLedger`, keyed on the game id alone.
 			id: `${season.id}-g${String(index + 1).padStart(2, '0')}`,
 			seasonId: season.id,
@@ -542,8 +542,8 @@ const buildGames = (plan: SeasonPlan, season: Season, createdBy: string): Planne
 			pin,
 			offset,
 			responses,
-			// Following is deliberately unrelated to answering — you might be
-			// watching precisely because you haven't decided yet — so these are
+			// Following is deliberately unrelated to answering. You might be
+			// watching precisely because you haven't decided yet, so these are
 			// named outright rather than drawn from whoever said In.
 			watchers: (pin.watcherKeys ?? []).map(uidFor),
 		};
@@ -577,8 +577,8 @@ const strengthOf = (uid: string): number => castMember(uid.replace(/^dev-/, ''))
  * A scoreline, from what the two squads are actually made of.
  *
  * Deliberately driven by hidden strength rather than by rating: that is the
- * direction the real thing runs in — ability produces results, results move
- * ratings — and it means a seeded ladder ends up roughly sorted by ability
+ * direction the real thing runs in: ability produces results, results move
+ * ratings, and it means a seeded ladder ends up roughly sorted by ability
  * without ever being told to be, which is the best evidence available that the
  * rating maths is doing something sensible.
  */
@@ -600,7 +600,7 @@ const playMatch = (squadA: string[], squadB: string[], rng: () => number): [numb
  * Who the squad voted man of the match.
  *
  * Weighted by the same hidden `strength` the scorelines come from, sharpened so
- * the standout usually — not always — takes it. Which is the same trick the
+ * the standout usually, not always, takes it. Which is the same trick the
  * scorelines use, and for the same reason: a seeded ladder that ends up roughly
  * sorted by ability without ever being told to be is the best evidence
  * available that the maths behind it works.
@@ -636,8 +636,8 @@ const runMotmVote = (uids: string[], kickoff: string, rng: () => number): MotmVo
 };
 
 /**
- * Play one game out: pick the teams, roll the scores, and — if it was
- * confirmed — work out what it did to everyone's rating.
+ * Play one game out: pick the teams, roll the scores and, if it was
+ * confirmed, work out what it did to everyone's rating.
  *
  * `ratings` is the live ladder as it stood *going into* this game, and is
  * mutated on the way out. Games are played in kickoff order across every
@@ -725,7 +725,7 @@ const playGame = (
 
 	// Confirming is what opens the vote, so every confirmed game has one. An
 	// `open` pin is a game somebody confirmed late: the votes are in, nothing
-	// has counted them, and the bonus is therefore *not* in these ratings —
+	// has counted them, and the bonus is therefore *not* in these ratings,
 	// which is exactly the state `closeMotmVoting` will find and replay.
 	const motmVotes = runMotmVote(
 		teams.flatMap(team => team.uids),
@@ -751,13 +751,13 @@ const playGame = (
 		...(counted
 			? { motm: { winners: tally.winners, counts: tally.counts, decidedAt: addHours(finalisedAt, 48) } }
 			: // Still running, so the window is ahead of now rather than behind the
-				// game — the state a game confirmed a moment ago is in.
+				// game, the state a game confirmed a moment ago is in.
 				{ motmVotingUntilMillis: Date.now() + MOTM_VOTING_HOURS * 3_600_000 }),
 		result: {
 			standings,
 			changes,
 			finalisedAt,
-			// Every so often nobody got round to it and the sweep did it — the
+			// Every so often nobody got round to it and the sweep did it. The
 			// screen says so, and `null` is how it knows.
 			finalisedBy: rng() < 0.25 ? null : season.adminUids[0],
 		},
@@ -771,20 +771,20 @@ const playGame = (
 			after,
 			positions: Object.fromEntries(inputs.map(input => [input.uid, positions[input.team]])),
 			// The team itself as well as where it came, because a shared place
-			// cannot say which side of it two players were on — see
+			// cannot say which side of it two players were on, see
 			// `RatingLedgerEntry.teams`. Without this the seeded ladder looks
 			// right and every profile's teammates panel is empty.
 			teams: Object.fromEntries(inputs.map(input => [input.uid, input.team])),
 			// What the movement was read off, since a finishing position no longer
-			// explains one on its own — see `RatingLedgerEntry.rate`.
+			// explains one on its own, see `RatingLedgerEntry.rate`.
 			rate: Object.fromEntries(changes.map(change => [change.uid, change.rate])),
 			expected: Object.fromEntries(changes.map(change => [change.uid, change.expected])),
 			// Only where somebody arrived unrated, exactly as `commitGameRatings`
-			// decides it — a seeded first appearance has to move a season table by
+			// decides it. A seeded first appearance has to move a season table by
 			// the same amount the real thing would.
 			...(Object.values(before).some(rating => rating === null) ? { seedElo } : {}),
 			// Left off entirely while the vote is open, the same way
-			// `commitGameRatings` leaves it off — "nobody won it" and "it hasn't
+			// `commitGameRatings` leaves it off. "Nobody won it" and "it hasn't
 			// been counted" must not look the same on a career screen.
 			...(counted && tally.winners.length > 0 ? { motm: tally.winners } : {}),
 		},
@@ -816,7 +816,7 @@ const describe = (member: CastMember, scenario: Scenario, seasons: Season[]): st
 	if (adminOf.length > 0) parts.push(`Admin of ${adminOf.map(season => season.name).join(', ')}`);
 	if (memberOf.length > 0) parts.push(`Member of ${memberOf.map(season => season.name).join(', ')}`);
 
-	if (parts.length === 0) parts.push('Signed in, but in no season — an extra');
+	if (parts.length === 0) parts.push('Signed in, but in no season, an extra');
 
 	return parts.join(' · ');
 };
@@ -833,11 +833,11 @@ export interface SeedSummary {
 	devUsers: DevUser[];
 	/** Keyed by game path, for `settle` to re-assert. */
 	lineups: Map<string, TournamentTeams>;
-	/** Resolved, run-scoped — not the ids the scenario declares. */
+	/** Resolved, run-scoped, not the ids the scenario declares. */
 	seasonIds: string[];
 	/**
 	 * When each confirmed game was confirmed, keyed by game path. Applied by
-	 * `settle` rather than here — see the note on `onMatchWrite` there.
+	 * `settle` rather than here, see the note on `onMatchWrite` there.
 	 */
 	finalisedAt: Map<string, string>;
 }
@@ -846,12 +846,12 @@ export interface SeedSummary {
  * Wipe both emulators.
  *
  * The REST endpoints rather than a recursive delete: they are instant, they
- * take the Auth accounts with them, and they exist only on the emulator — so a
+ * take the Auth accounts with them, and they exist only on the emulator, so a
  * seed pointed at anything real fails here rather than half way through.
  *
  * Note what this does *not* do: wait. Deleting a season fires `onSeasonDeleted`,
  * whose recursive delete can still be walking the tree minutes later, and there
- * is no way to observe from out here that the queue has drained — a trigger
+ * is no way to observe from out here that the queue has drained. A trigger
  * that has been queued but not yet dispatched is indistinguishable from one
  * that has finished. That is why every seeded season carries a run id: the
  * cascade goes looking for paths this run will never write to.
@@ -920,7 +920,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			displayName: member.displayName,
 			photoURL: photoFor(member),
 			createdAt: addHours(now, -24 * 400),
-			// Staggered, but from the key rather than the clock — two seed runs
+			// Staggered, but from the key rather than the clock, two seed runs
 			// on the same day should produce the same database.
 			lastSeenAt: addHours(now, -VISIT_HOURS_AGO[hashSeed(`visit:${member.key}`) % VISIT_HOURS_AGO.length]),
 			isAppAdmin,
@@ -929,7 +929,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			// can receive it makes that path untestable.
 			notificationPrefs: isAppAdmin ? DEFAULT_NOTIFICATION_PREFS : prefs,
 			...(client ? { client } : {}),
-			// Absent until they have played a rated game — the app treats a
+			// Absent until they have played a rated game. The app treats a
 			// missing rating as "no rating", never as zero.
 			...(rating ? { rating } : {}),
 		};
@@ -953,7 +953,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			const { id: _id, ...data } = season;
 			batch.set(db().doc(`seasons/${season.id}`), data);
 		}),
-		// The document id is the id, exactly as the app writes it — nothing
+		// The document id is the id, exactly as the app writes it, nothing
 		// stores a copy of it in the document.
 		...kit.map(item => (batch: WriteBatch) => {
 			const { id, seasonId, ...data } = item;
@@ -976,7 +976,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			documents.push(batch => batch.set(gameRef.collection('responses').doc(response.uid), response));
 		}
 
-		// The id is the uid — that is what `getWatcherUids` reads, and what the
+		// The id is the uid, that is what `getWatcherUids` reads, and what the
 		// rules bind the `uid` field to.
 		for (const uid of entry.watchers) {
 			documents.push(batch =>
@@ -993,7 +993,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			documents.push(batch => batch.set(gameRef.collection('matches').doc(String(match.order)), match));
 		}
 
-		// The id is the voter, exactly as the rules require — and the votes stay
+		// The id is the voter, exactly as the rules require, and the votes stay
 		// on a decided game too, because counting them is not consuming them.
 		for (const vote of game.motmVotes) {
 			documents.push(batch => batch.set(gameRef.collection('motmVotes').doc(vote.uid), vote));
@@ -1002,7 +1002,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 		if (game.motm) {
 			documents.push(batch => batch.set(gameRef.collection('tournament').doc('motm'), game.motm!));
 		} else if (game.motmVotes.length > 0) {
-			// The turnout, but only while the vote is open — `closeMotmVote` takes
+			// The turnout, but only while the vote is open. `closeMotmVote` takes
 			// this document with the window, so a decided game must not have one.
 			// Written here rather than left to `onMotmVoteWrite` for the reason the
 			// counters are: a seed that only looked right once the triggers had
@@ -1019,7 +1019,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			const { result, ledger } = game;
 			documents.push(batch => batch.set(gameRef.collection('tournament').doc('result'), result));
 			documents.push(batch => batch.set(db().doc(`ratingLedger/${entry.game.id}`), ledger!));
-			// `resultFinalisedAt` deliberately not written here — `settle` does it.
+			// `resultFinalisedAt` deliberately not written here. `settle` does it.
 		}
 	}
 
@@ -1032,7 +1032,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 		photoURL: photoFor(member),
 		sub: googleSubFor(member.key),
 		hint: scenario.newcomerKeys.includes(member.key)
-			? 'Never signed in — no profile, no season'
+			? 'Never signed in, no profile, no season'
 			: describe(member, scenario, seasons),
 	}));
 
@@ -1071,7 +1071,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
  * rebuild. Those keep arriving well after the last write lands, and a rebuild
  * that runs afterwards would re-pick the teams for a game whose scores are
  * already in. So wait for the generations to go quiet, write the seeded lineups
- * back over anything that got rebuilt, and bump the generation once more —
+ * back over anything that got rebuilt, and bump the generation once more,
  * leaving every rebuild still in flight carrying a stale generation, which is
  * exactly what makes it drop itself.
  *
@@ -1080,11 +1080,11 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
  * would therefore set off a hundred and eighty overlapping replays against a
  * database still being written, and they interleave into a ladder that is not
  * quite what any single clean replay produces. So the seeder leaves the marker
- * off, and it goes on here — by which point most of the match triggers have run,
+ * off, and it goes on here, by which point most of the match triggers have run,
  * seen an unconfirmed game, and correctly done nothing.
  *
  * Most, not all: the queue runs deep enough that some arrive after the marker
- * lands and start replaying anyway. Hence the last step — one clean replay,
+ * lands and start replaying anyway. Hence the last step: one clean replay,
  * run once everything has gone quiet. It is idempotent and it converges, so it
  * repairs whatever the overlapping ones left behind, and any straggler that
  * fires afterwards computes the same answer and changes nothing.
@@ -1127,7 +1127,7 @@ export const settle = async (
 		// Four still seconds, and never fewer than `MINIMUM_WATCH` in total. The
 		// floor is the important half: the triggers take a moment to get going,
 		// so the seconds either side of the last write look exactly as quiet as
-		// the far end of the storm — and without it this calls the whole thing
+		// the far end of the storm, and without it this calls the whole thing
 		// over before a single recount has arrived.
 		for (let attempt = 0; attempt < 90 && (quiet < 4 || attempt < MINIMUM_WATCH); attempt++) {
 			await new Promise(resolve => setTimeout(resolve, 1000));

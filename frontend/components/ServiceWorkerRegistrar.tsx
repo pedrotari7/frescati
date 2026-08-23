@@ -13,8 +13,8 @@ import UpdatePrompt from './UpdatePrompt';
  * is a deliberate, user-triggered step.
  *
  * It renders now, where it used to render nothing. The prompt belongs to the
- * registration — only the object returned by `register` knows an update exists
- * — and putting it anywhere else would mean threading that state up through the
+ * registration, only the object returned by `register` knows an update exists
+ * and putting it anywhere else would mean threading that state up through the
  * root layout to a sibling.
  *
  * The other half of the worker's conversation with the page lives here too: a

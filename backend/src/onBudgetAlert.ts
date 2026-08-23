@@ -10,7 +10,7 @@ import { instrument } from './lib/sentry';
  * the budget, which takes the whole app down.
  *
  * That is the point, and it is worth being blunt about the trade. Every other
- * cost control here bounds a rate — `maxInstances` caps how much compute can
+ * cost control here bounds a rate. `maxInstances` caps how much compute can
  * run at once, the Cloud Tasks debounce keeps the optimizer from rebuilding per
  * keystroke, App Check keeps a script out of a database whose every read is a
  * plain signed-in read. None of them bounds a *total*, because nothing in GCP
@@ -29,8 +29,8 @@ import { instrument } from './lib/sentry';
  * - It fires at **100%**, not at the 50% and 90% rules on the same budget.
  *   Those exist to reach a human while there is still something to decide.
  * - It can only ever detach **its own project**. The call is built from the
- *   runtime's own project id, so there is no input — from the message or
- *   anywhere else — that can point it at something else.
+ *   runtime's own project id, so there is no input, from the message or
+ *   anywhere else, that can point it at something else.
  * - It does nothing at all locally. `pnpm test:backend` imports these handlers
  *   straight into jest, so without that guard a test fixture shaped like a
  *   budget alert would take production offline.
@@ -40,7 +40,7 @@ import { instrument } from './lib/sentry';
  * The published-to-Pub/Sub shape of a budget alert. Only the four fields this
  * decision rests on are modelled; the message carries more.
  *
- * `costAmount` and `budgetAmount` are plain numbers in `currencyCode` — SEK
+ * `costAmount` and `budgetAmount` are plain numbers in `currencyCode`. SEK
  * here, which is the budget's currency and not something to convert.
  *
  * The `forecastThresholdExceeded` field is *not* modelled, on purpose. It is
@@ -60,7 +60,7 @@ const PROJECT_ID = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJEC
 /**
  * Same predicate as the one in `email.ts` and the wider one in `sentry.ts`, and
  * the widest of the three on purpose: `FUNCTIONS_EMULATOR` alone is only set by
- * the functions emulator, and the backend test suite doesn't use it — it points
+ * the functions emulator, and the backend test suite doesn't use it. It points
  * the handlers at the Firestore emulator and calls them directly. A guard that
  * missed that case would be a test that disables billing on the real project.
  */
@@ -72,7 +72,7 @@ const isLocal = (): boolean =>
  * server rather than a library.
  *
  * `google-auth-library` would do this in one line, but it is only present as a
- * transitive dependency of `firebase-admin` — reaching for it from here would
+ * transitive dependency of `firebase-admin`. Reaching for it from here would
  * be a phantom import that pnpm is right to break. One `fetch` against a
  * link-local address is not worth a declared dependency.
  */
@@ -97,7 +97,7 @@ const billingInfoUrl = (): string => `https://cloudbilling.googleapis.com/v1/pro
  *
  * Checked before writing because the budget republishes its alert every twenty
  * minutes or so for the rest of the month once a threshold is crossed. The
- * write is idempotent anyway, but the read keeps the log honest — one line
+ * write is idempotent anyway, but the read keeps the log honest. One line
  * saying billing was disabled, then quiet, rather than the same alarming line
  * every twenty minutes for three weeks.
  */
@@ -114,8 +114,8 @@ const isBillingEnabled = async (accessToken: string): Promise<boolean> => {
 /**
  * Detach the project from its billing account.
  *
- * An empty `billingAccountName` is how the Cloud Billing API spells "none" —
- * there is no delete verb for the association.
+ * An empty `billingAccountName` is how the Cloud Billing API spells "none".
+ * There is no delete verb for the association.
  */
 const disableBilling = async (accessToken: string): Promise<void> => {
 	const response = await fetch(billingInfoUrl(), {
@@ -151,7 +151,7 @@ export const onBudgetAlert = onMessagePublished(
 		}
 
 		if (isLocal()) {
-			logger.warn('Budget alert at or over the cap — would disable billing, but this is a local run', spend);
+			logger.warn('Budget alert at or over the cap, would disable billing, but this is a local run', spend);
 			return;
 		}
 
@@ -164,7 +164,7 @@ export const onBudgetAlert = onMessagePublished(
 
 		// Deliberately `error`, not `warn`. This is the loudest thing this
 		// backend can do to itself and the log should read like it.
-		logger.error('Budget cap reached — disabling billing, which takes the app offline', spend);
+		logger.error('Budget cap reached, disabling billing, which takes the app offline', spend);
 
 		await disableBilling(accessToken);
 

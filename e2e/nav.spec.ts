@@ -7,8 +7,8 @@ import { AT, gameLinks, playerLinks } from './locators';
 /**
  * The way back out of a screen.
  *
- * Every screen declares its way out as a `backHref` — the parent in the
- * hierarchy — and for a long time the chevron pushed exactly that, wherever
+ * Every screen declares its way out as a `backHref`, the parent in the
+ * hierarchy, and for a long time the chevron pushed exactly that, wherever
  * somebody had come from. On the screens that hang under one parent nobody
  * notices. On the ones that don't it throws away the screen they were reading:
  * a player's profile is opened from a game's roster, a team sheet, the squad
@@ -17,13 +17,13 @@ import { AT, gameLinks, playerLinks } from './locators';
  *
  * `AppHistory` is the half that decides, and it can only be checked here.
  * jsdom can prove it counts a push, a replace and a `popstate` correctly, which
- * is worth proving — but not that the counting matches what a browser and the
+ * is worth proving, but not that the counting matches what a browser and the
  * Next router actually do between two real screens, which is the whole claim.
  *
  * The same goes double for **which viewport draws the chevron at all**, which is
  * a media query and therefore invisible to a jsdom render. Desktop used to hide
  * it on every screen carrying tabs, on the grounds that the tabs were up there
- * instead — leaving a team sheet, a player and the kit register with no way back
+ * instead, leaving a team sheet, a player and the kit register with no way back
  * whatsoever in an installed window, which has no browser chrome to fall back
  * on. So every journey below runs at both widths and drives the same control.
  *
@@ -32,7 +32,7 @@ import { AT, gameLinks, playerLinks } from './locators';
  * only ever navigates is one that can overlap with all of them.
  */
 
-/** The chevron in the top bar. A button rather than a link — it moves the router. */
+/** The chevron in the top bar. A button rather than a link, it moves the router. */
 const backChevron = (page: Page) => page.getByRole('button', { name: 'Back' });
 
 /**
@@ -40,7 +40,7 @@ const backChevron = (page: Page) => page.getByRole('button', { name: 'Back' });
  *
  * Deliberately not by name. The profiles subscription lands after the first
  * paint and re-sorts these lists, so a row read now is not the row clicked a
- * moment later — and none of this is about which player it is.
+ * moment later, and none of this is about which player it is.
  */
 const openAPlayer = async (page: Page): Promise<void> => {
 	const player = playerLinks(page).first();
@@ -87,7 +87,7 @@ const openAGame = async (page: Page): Promise<string> => {
 
 test.describe('the way back out of a screen', () => {
 	// The reported bug, in the order it was reported: season, game, a player off
-	// the roster, back — and back used to mean the season page, with the game
+	// the roster, back, and back used to mean the season page, with the game
 	// somebody was reading gone.
 	test('returns to the game a player was opened from', async ({ page }) => {
 		const game = await openAGame(page);
@@ -118,9 +118,9 @@ test.describe('the way back out of a screen', () => {
 
 	// The boundary on the change above: drawn on desktop too is not drawn
 	// everywhere. A tab root has nothing above it, and the tabs are how you leave
-	// it — the season's home page is the one screen in the app that is nobody's
+	// it, the season's home page is the one screen in the app that is nobody's
 	// child.
-	test('draws no chevron on a screen that is nobody’s child', async ({ page }) => {
+	test("draws no chevron on a screen that is nobody's child", async ({ page }) => {
 		await openSeasonAs(page, aMember());
 
 		await expect(backChevron(page), 'the season home offered a way up out of itself').toHaveCount(0);
@@ -134,7 +134,7 @@ test.describe('the way back out of a screen', () => {
 	 * and the whole layout is arranged so that nothing which comes and goes can
 	 * move them. A chevron that simply appeared would put its own width in front
 	 * of the title on every screen below a tab and take it away again on the way
-	 * back — the tabs sliding sideways under the pointer each time.
+	 * back, the tabs sliding sideways under the pointer each time.
 	 */
 	test('holds the tabs still between a screen with a way back and one without', async ({ page }, testInfo) => {
 		test.skip(testInfo.project.name !== 'desktop', 'below lg the tabs are in the bottom bar, not beside the title');
@@ -149,7 +149,7 @@ test.describe('the way back out of a screen', () => {
 	});
 
 	/**
-	 * A game opened cold — a notification tap, a pasted link, the first screen of
+	 * A game opened cold, a notification tap, a pasted link, the first screen of
 	 * the installed app. There is no screen behind this one, so the declared
 	 * parent is the only answer there is, and a `router.back()` here would walk
 	 * out of the app entirely.
@@ -163,7 +163,7 @@ test.describe('the way back out of a screen', () => {
 		await page.reload();
 
 		// The roster having rendered is the signal the app came back up signed
-		// in — a chevron is drawn long before that, and on desktop not at all.
+		// in, a chevron is drawn long before that, and on desktop not at all.
 		await expect(playerLinks(page).first(), 'the game did not come back after a reload').toBeVisible();
 
 		await backChevron(page).click();

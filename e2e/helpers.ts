@@ -7,7 +7,7 @@ import { AT } from './locators';
 /**
  * Getting from one screen to the next.
  *
- * The verbs, in other words — `fixtures.ts` holds who you are and
+ * The verbs, in other words: `fixtures.ts` holds who you are and
  * `locators.ts` holds what a screen is made of. What lives here is a walk that
  * more than one journey starts with and that has a reason to be done in a
  * particular order, which is the whole of `openSeasonAs` below.
@@ -41,14 +41,14 @@ const seasonCards = (page: Page): Locator =>
  *
  * Which season is deliberately not the first card. The list is ordered by start
  * date descending, so a season that has not started yet sorts above every season
- * that has — and the seeded scenario opens with a draft one, which has no games
+ * that has, and the seeded scenario opens with a draft one, which has no games
  * and no kit because that is what a draft is. Every journey here needs a
  * calendar, and the kit rules check the signed-in player against `memberUids`,
  * so the season and the person have to be chosen together rather than one hoping
  * for the other.
  *
- * The link between them is the seeder's own hint — it names the seasons it put
- * each account on, and a card is labelled with that same name — so this survives
+ * The link between them is the seeder's own hint, it names the seasons it put
+ * each account on, and a card is labelled with that same name, so this survives
  * a change to the scenario, which an id written down here would not.
  *
  * `?browse=1` marks a deliberate visit: `/seasons` forwards straight into the
@@ -57,7 +57,7 @@ const seasonCards = (page: Page): Locator =>
  */
 export const openSeasonAs = async (page: Page, user: DevUser): Promise<void> => {
 	const names = seasonsOf(user);
-	expect(names, `${user.displayName} is on no season's roster — "${user.hint}"`).not.toHaveLength(0);
+	expect(names, `${user.displayName} is on no season's roster: "${user.hint}"`).not.toHaveLength(0);
 
 	await openAs(page, user, '/seasons?browse=1');
 
@@ -70,7 +70,7 @@ export const openSeasonAs = async (page: Page, user: DevUser): Promise<void> => 
 		.filter({ has: page.getByText('Active', { exact: true }) })
 		.first();
 
-	await expect(season, `no active season on ${user.displayName}'s roster — "${user.hint}"`).toBeVisible();
+	await expect(season, `no active season on ${user.displayName}'s roster: "${user.hint}"`).toBeVisible();
 
 	await season.click();
 	await expect(page).toHaveURL(AT.season);

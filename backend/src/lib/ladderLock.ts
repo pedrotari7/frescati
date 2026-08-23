@@ -8,7 +8,7 @@ import { db } from './firebase';
  * Everything that rates a game reads every affected player's current rating
  * and writes it straight back: `finaliseGame` for one game, `replayRatingsFrom`
  * for a window of them. Two of those at once is not a lost update that the next
- * run repairs — a replay rewinds everybody to before the window and then rebuilds
+ * run repairs. A replay rewinds everybody to before the window and then rebuilds
  * forward, so a second rewind landing inside the first run's forward pass makes
  * it rate a game against ratings that were never real. The answer goes into the
  * profiles *and* into the ledger entries that exist to be able to undo them, and
@@ -46,7 +46,7 @@ const RETRY_MS = 400;
  * beats a spinner that outlasts their interest. A replay of a season's ledger
  * runs in a second or two, so this is already generous.
  *
- * Shorter against an emulator, the same way the team rebuild's debounce is —
+ * Shorter against an emulator, the same way the team rebuild's debounce is,
  * `FIRESTORE_EMULATOR_HOST` rather than `FUNCTIONS_EMULATOR`, because the lock
  * lives in Firestore and the backend tests drive these functions directly
  * without a Functions emulator to set that.
@@ -58,13 +58,13 @@ const maxWaitMs = (): number => (isEmulated() ? 5_000 : 10_000);
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Take the lease if it is free, and — for a caller that wants a replay —
+ * Take the lease if it is free, and, for a caller that wants a replay,
  * record how far back it needs one, whether or not it got the lease.
  *
  * The floor is a **minimum**, not the latest request. Two corrections to
  * different games collapse into a single replay from the earlier of them,
  * which covers both. Keeping the latest would be the natural "this supersedes
- * that" move and would silently skip the earlier game — the opposite of what
+ * that" move and would silently skip the earlier game. The opposite of what
  * `teamsGeneration` does for team rebuilds, where a later request genuinely
  * does supersede an earlier one.
  */
@@ -106,7 +106,7 @@ export const readPendingFrom = async (): Promise<number | null> => {
  *
  * A request arriving mid-replay may need an earlier kickoff than the one just
  * covered; clearing blindly would drop it. One arriving with a *later* kickoff
- * leaves the floor alone — the minimum already covers it.
+ * leaves the floor alone. The minimum already covers it.
  */
 export const clearPendingIfUnmoved = async (covered: number): Promise<void> => {
 	await db.runTransaction(async transaction => {
@@ -120,7 +120,7 @@ export const clearPendingIfUnmoved = async (covered: number): Promise<void> => {
 
 /**
  * Run `task` with the ladder to itself, waiting for the lease rather than
- * deferring — for work somebody is waiting on an answer for, which a replay is
+ * deferring, for work somebody is waiting on an answer for, which a replay is
  * not.
  *
  * Returns `null` if the lease never came free, rather than throwing, because
@@ -152,7 +152,7 @@ export const withLadderLock = async <T>(task: () => Promise<T>): Promise<T | nul
  *
  * `replayFrom` is recorded either way, so a caller that leaves has still been
  * heard: the holder drains whatever has accumulated before letting go. That is
- * what collapses a burst — an admin fixing three scorelines fires three of
+ * what collapses a burst. An admin fixing three scorelines fires three of
  * these, the first does the work and the other two lower a floor it is already
  * covering and return.
  *

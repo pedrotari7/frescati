@@ -14,7 +14,7 @@ import Button from './Button';
  * Breaks things on purpose, so error reporting can be proved rather than hoped
  * for.
  *
- * A reporting pipeline looks identical working and broken — a typo'd DSN, a
+ * A reporting pipeline looks identical working and broken. A typo'd DSN, a
  * content blocker eating the tunnel, a source map that never uploaded, a flush
  * frozen before it landed. All of them present as a quiet inbox, which is also
  * what a good week looks like. The only way to tell them apart is to break
@@ -53,14 +53,14 @@ const ErrorTriggers = () => {
 			id: 'render',
 			label: 'Render error',
 			description:
-				'Throws while rendering. ErrorBoundary catches it, reports the component stack, waits for that to leave, and then reloads the page itself — most of what lands there is a chunk that never arrived. The reload is the test working. Press it twice in a row and the second one stops and shows "Something broke" instead.',
+				'Throws while rendering. ErrorBoundary catches it, reports the component stack, waits for that to leave, and then reloads the page itself. Most of what lands there is a chunk that never arrived. The reload is the test working. Press it twice in a row and the second one stops and shows "Something broke" instead.',
 			run: () => setExploding(true),
 		},
 		{
 			id: 'event',
 			label: 'Event handler error',
 			description:
-				"Throws inside this click. React does not catch these, so it reaches Sentry's global handler instead of the boundary — a different path, and the one most real bugs take.",
+				"Throws inside this click. React does not catch these, so it reaches Sentry's global handler instead of the boundary, a different path, and the one most real bugs take.",
 			run: () => {
 				throw new Error('Debug: deliberate event handler failure');
 			},
@@ -78,7 +78,7 @@ const ErrorTriggers = () => {
 			id: 'write',
 			label: 'Rejected Firestore write',
 			description:
-				'Writes to a path the rules deny, through the same useWrite every mutation uses. You get the toast a player would; Sentry gets the reason. Nothing is written — the rules refuse it.',
+				'Writes to a path the rules deny, through the same useWrite every mutation uses. You get the toast a player would; Sentry gets the reason. Nothing is written, the rules refuse it.',
 			run: async () => {
 				await write(
 					// A collection no rule matches, so the catch-all denies it. Not
@@ -95,33 +95,33 @@ const ErrorTriggers = () => {
 			kind: 'throw',
 			label: 'Unhandled throw',
 			description:
-				'Throws out of the callable. instrument reports it and rethrows, so the call fails with "internal" — Firebase hides the real message from the client on purpose. Sentry gets the whole thing.',
+				'Throws out of the callable. instrument reports it and rethrows, so the call fails with "internal". Firebase hides the real message from the client on purpose. Sentry gets the whole thing.',
 		},
 		{
 			kind: 'httpsError',
 			label: 'HttpsError (should NOT report)',
 			description:
-				'Throws the kind of error the auth checks throw. This one must NOT appear in Sentry — if it does, the filter is broken and the inbox will fill with the rules working correctly.',
+				'Throws the kind of error the auth checks throw. This one must NOT appear in Sentry. If it does, the filter is broken and the inbox will fill with the rules working correctly.',
 		},
 		{
 			kind: 'swallowed',
 			label: 'Swallowed failure',
 			description:
-				'Reports through reportError and then returns success, exactly as the hourly sweeps do. The call succeeds and Sentry still gets an issue — the failure nothing else would have surfaced.',
+				'Reports through reportError and then returns success, exactly as the hourly sweeps do. The call succeeds and Sentry still gets an issue, the failure nothing else would have surfaced.',
 		},
 	];
 
 	const fireBackend = async (kind: BackendErrorKind) => {
 		try {
 			await throwTestError(kind);
-			notify('Call succeeded — check Sentry for the reported failure.');
+			notify('Call succeeded. Check Sentry for the reported failure.');
 		} catch (error) {
 			// Expected for two of the three, so this is a result rather than a
 			// problem. Reported plainly instead of as a failure, or the screen
 			// would look broken while working exactly as intended.
 			const message = error instanceof Error ? error.message : String(error);
 
-			notify(kind === 'httpsError' ? `Rejected: ${message}` : 'Call failed as intended — now check Sentry.');
+			notify(kind === 'httpsError' ? `Rejected: ${message}` : 'Call failed as intended. Now check Sentry.');
 		}
 	};
 
@@ -172,7 +172,7 @@ const ErrorTriggers = () => {
 			</div>
 
 			<p className='text-faint mt-5 text-xs leading-relaxed'>
-				Nothing is reported when the DSN is unset, and nothing at all is reported from a local run —{' '}
+				Nothing is reported when the DSN is unset, and nothing at all is reported from a local run,{' '}
 				<code>dev:seeded</code> and <code>dev:live</code> alike, since only a build Vercel made reports. These
 				only prove anything against a deployed build.
 			</p>

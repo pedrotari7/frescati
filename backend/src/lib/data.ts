@@ -7,7 +7,7 @@ import { db } from './firebase';
  * The profiles behind a list of uids, keyed by uid.
  *
  * One `getAll` rather than a read each, and missing accounts are simply absent
- * from the map rather than present as `null` — every caller wants the rating on
+ * from the map rather than present as `null`. Every caller wants the rating on
  * a profile that exists, and a `has`-then-`get` dance says nothing extra.
  *
  * The empty guard is not defensive: `getAll` throws when handed no refs, which
@@ -32,8 +32,8 @@ export const getSeason = async (seasonId: string): Promise<Season | null> => {
  * The season a "somebody just joined" notification should send an admin to,
  * or `null` when none is active.
  *
- * Seasons can genuinely overlap — a Tuesday season and a Sunday offshoot both
- * `active` at once, each with their own admins — so there is no single "the"
+ * Seasons can genuinely overlap. A Tuesday season and a Sunday offshoot both
+ * `active` at once, each with their own admins, so there is no single "the"
  * active season to ask about. Most recently created stands in for "the one an
  * admin reached for last": a new season is usually spun up because the old
  * one is winding down, so the newest active one is the one most likely to
@@ -69,8 +69,8 @@ export const getUidsWhoSaidIn = (responses: GameResponse[]): string[] =>
  * Everyone following this game's availability.
  *
  * Read off the document ids rather than the `uid` field, the same way
- * `recountGame` resolves roles: the id is the uid by construction — security
- * rules only let somebody write their own — whereas the field is data that
+ * `recountGame` resolves roles: the id is the uid by construction. Security
+ * rules only let somebody write their own, whereas the field is data that
  * happens to sit alongside it.
  */
 export const getWatcherUids = async (seasonId: string, gameId: string): Promise<string[]> => {
@@ -82,7 +82,7 @@ export const getWatcherUids = async (seasonId: string, gameId: string): Promise<
 /**
  * A name to put in a notification, empty when there isn't one.
  *
- * Deliberately not defaulted here — `buildGamePush` decides what a missing name
+ * Deliberately not defaulted here. `buildGamePush` decides what a missing name
  * reads as, so there is one place the wording lives, the same as everywhere
  * else in `shared/notifications.ts`. A profile can genuinely be missing this
  * mid-write; see `upsertUserDoc`.
@@ -98,7 +98,7 @@ export const getDisplayName = async (uid: string): Promise<string> => {
  *
  * Reads the `isAppAdmin` mirror rather than the `admin` custom claim it mirrors,
  * which would mean paging every account in Firebase Auth. The claim stays the
- * source of truth for *authorization* — this only decides who gets told
+ * source of truth for *authorization*. This only decides who gets told
  * something, and both places that grant the claim write the mirror in the same
  * breath. A stale mirror here costs somebody a notification, not a permission.
  */

@@ -3,7 +3,7 @@ import '../jest.setup';
 
 // jsdom has no layout engine, so it implements neither observer. Headless
 // UI's anchored popovers (DatePicker's calendar) reach for both to track the
-// trigger's position — without a stub, opening one throws in every test.
+// trigger's position, without a stub, opening one throws in every test.
 class ObserverStub {
 	observe() {}
 	unobserve() {}

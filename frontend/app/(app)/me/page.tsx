@@ -29,19 +29,19 @@ const MePage = () => {
 
 	const [support, setSupport] = useState<PushSupport | null>(null);
 	// `null` while we're still asking. Reflects whether this device holds a
-	// registered token, not whether the browser has granted permission — those
+	// registered token, not whether the browser has granted permission, those
 	// diverge the moment somebody turns notifications off.
 	const [enabled, setEnabled] = useState<boolean | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
 	const uid = user?.uid;
 
 	// The stored preferences, which apply to the account rather than this
-	// device — the backend checks them before sending anything.
+	// device. The backend checks them before sending anything.
 	//
 	// Merged over the defaults rather than swapped for them: a profile written
 	// before a preference existed is missing that key, and the backend reads
 	// absent as opted in. Falling back only when the whole map is missing would
-	// draw those switches off while notifications kept arriving — and saving any
+	// draw those switches off while notifications kept arriving, and saving any
 	// other row would then write the wrong value in.
 	const { user: profile, loading: profileLoading } = useUser(uid ?? null);
 	const prefs = { ...DEFAULT_NOTIFICATION_PREFS, ...profile?.notificationPrefs };
@@ -51,7 +51,7 @@ const MePage = () => {
 	 * the profile has arrived.
 	 *
 	 * Until the first snapshot lands, `prefs` above is five hard-coded defaults
-	 * rather than what this account chose — so a tap during that window saved
+	 * rather than what this account chose, so a tap during that window saved
 	 * the one preference asked for and silently turned the other four back on.
 	 * Somebody who muted reminders months ago and came here to switch off the
 	 * email fallback got both back, with nothing on screen to say so.
@@ -108,7 +108,7 @@ const MePage = () => {
 			backHref={seasonId ? undefined : '/seasons'}
 		>
 			<div className='space-y-4 p-4'>
-				{/* The card is the way to your own player screen — the same tap as
+				{/* The card is the way to your own player screen, the same tap as
 				    on your name anywhere else, rather than a row saying "Your
 				    record" that would only ever be about you. */}
 				<Link
@@ -141,7 +141,7 @@ const MePage = () => {
 
 					{support === 'needs-install' && (
 						<p className='text-pending mb-4 text-sm'>
-							On iPhone and iPad, add Frescati to your home screen first — Safari only allows
+							On iPhone and iPad, add Frescati to your home screen first. Safari only allows
 							notifications for installed apps.
 							{prefs.emailFallback && ' Until then these go to your email instead.'}
 						</p>
@@ -282,7 +282,7 @@ const MePage = () => {
 							<h2 className='text-ink mb-1 font-semibold'>Debug</h2>
 							<p className='text-muted mb-3 text-sm leading-relaxed'>
 								Send each notification to your own devices, without staging the game state that would
-								normally trigger it — and break things on purpose to check error reporting is working.
+								normally trigger it, and break things on purpose to check error reporting is working.
 							</p>
 							<Button variant='secondary' fullWidth onClick={() => router.push('/debug')}>
 								Open debug
@@ -307,7 +307,7 @@ const MePage = () => {
 				    of it is to be readable off somebody else's phone: "the app is
 				    broken" and "which build are you on" are the same question, and
 				    an admin-only version could never be asked of the person it is
-				    broken for. Faint and last — nobody needs it until they are
+				    broken for. Faint and last. Nobody needs it until they are
 				    asked for it. */}
 				<p className='text-faint pt-1 text-center text-xs'>Build {buildLabel()}</p>
 			</div>

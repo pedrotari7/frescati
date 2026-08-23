@@ -14,7 +14,7 @@ import { reportError } from './sentry';
  * ever saw.
  *
  * So each change queues a rebuild a few seconds out, carrying the generation it
- * was queued for. The handler drops itself if the game has moved on since —
+ * was queued for. The handler drops itself if the game has moved on since,
  * meaning a burst leaves several queued tasks but only the last one does any
  * work. Cheaper than cancelling, and it needs no coordination.
  */
@@ -24,7 +24,7 @@ export const TEAM_REBUILD_QUEUE = 'rebuildTeams';
 export type { TeamRebuildTask };
 
 /**
- * Queues are addressed by resource name, and the region has to be part of it —
+ * Queues are addressed by resource name, and the region has to be part of it.
  * `taskQueue`'s second argument is an extension id, not a location, so passing
  * the region there would silently look for the queue in the default region and
  * never find it.
@@ -52,7 +52,7 @@ const isEmulated = (): boolean => process.env.FUNCTIONS_EMULATOR === 'true';
  * would fail the response trigger and take the headcount down with it.
  *
  * **Cloud Tasks has no emulator.** Left alone, every local rebuild would fail
- * to queue and the teams screen would stay empty however many people answered —
+ * to queue and the teams screen would stay empty however many people answered,
  * which makes the whole tournament half of the app untestable against a local
  * database. So locally the same work runs in-process on the same kind of delay.
  * A timer rather than a queue means a rebuild is lost if the emulator restarts
@@ -81,7 +81,7 @@ export const enqueueTeamRebuild = async (task: TeamRebuildTask): Promise<void> =
 			.enqueue(task, { scheduleDelaySeconds: DEBOUNCE_SECONDS });
 	} catch (error) {
 		// A misconfigured queue (wrong region, IAM, quota) would otherwise fail
-		// every rebuild forever with nothing but a log line nobody is watching —
+		// every rebuild forever with nothing but a log line nobody is watching,
 		// exactly the class of swallowed failure `reportError` exists for.
 		reportError('Could not queue a team rebuild', { ...task }, error);
 	}
@@ -92,7 +92,7 @@ export const enqueueTeamRebuild = async (task: TeamRebuildTask): Promise<void> =
  * counters.
  *
  * Everything else that invalidates a lineup goes through `recountGame`, which
- * bumps the generation in the same transaction as the counts — because
+ * bumps the generation in the same transaction as the counts, because
  * everything else that invalidates a lineup moves the playing pool, and the
  * counters describe the pool. A rating change moves neither the pool nor the
  * counters, only what the optimizer thinks the pool is worth, so it needs the
@@ -102,7 +102,7 @@ export const enqueueTeamRebuild = async (task: TeamRebuildTask): Promise<void> =
  * otherwise settle on the same generation, and the second rebuild would drop
  * itself as superseded by a task that had already run.
  *
- * Silent on a game that has gone — the caller found it a moment ago through a
+ * Silent on a game that has gone. The caller found it a moment ago through a
  * response that outlived it, and a cascade delete is on its way to that too.
  */
 export const invalidateTeams = async (seasonId: string, gameId: string): Promise<void> => {

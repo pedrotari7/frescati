@@ -4,12 +4,12 @@ import { clearFirestore, writeGame, writeResponse, writeSeason } from './helpers
 
 /**
  * The audit reports rather than repairs, so what a test can observe is the
- * report — hence the spy on `reportError` rather than a read-back of the game.
+ * report, hence the spy on `reportError` rather than a read-back of the game.
  *
  * `writeResponse` writes to Firestore directly and these tests import the
  * handlers rather than running the functions emulator, so `onResponseWrite`
  * never fires. That is not a limitation to work around here: it produces
- * exactly the state this sweep exists to find — responses stored under a game
+ * exactly the state this sweep exists to find: responses stored under a game
  * whose counters were never updated to match.
  */
 
@@ -81,7 +81,7 @@ describe('auditGameCounts', () => {
 		expect(reportSpy).not.toHaveBeenCalled();
 	});
 
-	// A drifted counter on a game already played changes nothing — the
+	// A drifted counter on a game already played changes nothing. The
 	// tournament result is what that game means now.
 	it('ignores a game that has already kicked off', async () => {
 		await writeSeason(SEASON_ID, { status: 'active', minPlayers: 10 });

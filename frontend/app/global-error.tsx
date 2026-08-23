@@ -8,7 +8,7 @@ import './globals.css';
  * The last resort, for a crash in the root layout itself.
  *
  * `components/ErrorBoundary` handles everything below it, but it is mounted
- * *inside* that layout — so if the layout throws, it never mounts and nothing
+ * *inside* that layout, so if the layout throws, it never mounts and nothing
  * catches anything. Next swaps this in instead, replacing the whole document,
  * which is why it renders its own `<html>` and has to pull in the stylesheet
  * the layout would normally have loaded.

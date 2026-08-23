@@ -161,7 +161,7 @@ describe('pickTeams', () => {
 
 	// `(lookback - age) / lookback` inverts sign for a non-positive lookback,
 	// weighting older games *more* than recent ones instead of less. Guarded by
-	// treating it the same as `repeatPenalty: 0` — history ignored entirely —
+	// treating it the same as `repeatPenalty: 0`, history ignored entirely,
 	// rather than acting on a nonsensical weighting.
 	it('ignores history rather than inverting the weighting when the lookback is not positive', () => {
 		const players = ['a', 'b', 'c', 'd'].map(uid => ({ uid, elo: 1000 }));

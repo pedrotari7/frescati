@@ -12,8 +12,8 @@ import { asData, subscribeToCollection, subscribeToDoc } from './subscribe';
  * The plumbing under every listener in `lib/db`.
  *
  * Worth pinning directly rather than through the thirteen callers: the whole
- * point of these two is that an absent document is a value and not an error —
- * no response means no response, no match means not played — and that rule now
+ * point of these two is that an absent document is a value and not an error:
+ * no response means no response, no match means not played, and that rule now
  * lives in one place where it used to be written out at each call site.
  */
 
@@ -100,7 +100,7 @@ describe('subscribeToCollection', () => {
 	});
 
 	// Taking the whole array rather than mapping one at a time is what lets the
-	// callers that must sort — profiles, kit — do it inside the subscription.
+	// callers that must sort, profiles, kit, do it inside the subscription.
 	it('lets the mapper reorder what came back', () => {
 		const onChange = jest.fn();
 		subscribeToCollection(query, docs => [...docs].map(doc => doc.id).sort(), onChange, jest.fn());

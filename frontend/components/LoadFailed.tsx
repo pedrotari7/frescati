@@ -8,13 +8,13 @@ import Button from './Button';
  *
  * Deliberately not an `EmptyState`, because the two are the states this app was
  * confusing. A subscription that errors settles into "not loading, no data",
- * which is the same shape as a season with no games in it — so a dropped
+ * which is the same shape as a season with no games in it, so a dropped
  * connection, an expired session or a rule that said no all came up as
  * "Season not found. It may have been deleted, or the link is wrong." That
  * names a cause that didn't happen, on a screen with nothing left to press.
  *
- * `what` completes "Couldn't load ___", so it is the thing in the user's words
- * — "this season", "the teams" — never the collection it came out of.
+ * `what` completes "Couldn't load ___", so it is the thing in the user's words:
+ * "this season", "the teams", never the collection it came out of.
  */
 const LoadFailed = ({ what, onRetry }: { what: string; onRetry?: () => void }) => (
 	<div className='animate-fade-in flex flex-col items-center justify-center px-6 py-16 text-center'>

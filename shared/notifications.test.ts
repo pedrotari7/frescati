@@ -23,7 +23,7 @@ describe('buildGamePush', () => {
 	it('names the reason a game was called off', () => {
 		expect(buildGamePush('cancelled', { ...CONTEXT, cancelledReason: 'frozen pitch' })).toMatchObject({
 			title: 'Game called off',
-			body: 'Tue 1 Sep · 19:00 is off — frozen pitch',
+			body: 'Tue 1 Sep · 19:00 is off: frozen pitch',
 		});
 	});
 
@@ -60,19 +60,19 @@ describe('buildGamePush', () => {
 	it('reports the headcount in a reminder', () => {
 		expect(buildGamePush('reminder', { ...CONTEXT, playing: 7 })).toMatchObject({
 			title: 'Are you playing?',
-			body: 'Tue 1 Sep · 19:00 — 7 in so far.',
+			body: 'Tue 1 Sep · 19:00. 7 in so far.',
 		});
 	});
 
 	it('treats an unknown headcount as nobody rather than printing undefined', () => {
-		expect(buildGamePush('reminder', CONTEXT).body).toBe('Tue 1 Sep · 19:00 — 0 in so far.');
+		expect(buildGamePush('reminder', CONTEXT).body).toBe('Tue 1 Sep · 19:00. 0 in so far.');
 	});
 
 	it('names who moved, and says which way, on an availability change', () => {
 		expect(buildGamePush('availability', { ...CONTEXT, who: 'Anna Berg', availability: 'in', playing: 9 })).toEqual(
 			expect.objectContaining({
 				title: 'Anna Berg is in',
-				body: 'Tue 1 Sep · 19:00 — 9 in so far.',
+				body: 'Tue 1 Sep · 19:00. 9 in so far.',
 			})
 		);
 
@@ -82,7 +82,7 @@ describe('buildGamePush', () => {
 	});
 
 	// Taking an answer back is the response document going away, which is a real
-	// state — "Anna is out" would be a different and wrong thing to say.
+	// state. "Anna is out" would be a different and wrong thing to say.
 	it('says a withdrawal happened rather than stating an answer there no longer is', () => {
 		expect(buildGamePush('availability', { ...CONTEXT, who: 'Anna', availability: 'withdrawn' }).title).toBe(
 			'Anna took their answer back'
@@ -130,7 +130,7 @@ describe('buildNewPlayerPush', () => {
 
 	// The whole point: an admin can add the newcomer without a hunt through
 	// /admin first.
-	it('deep-links to that season’s manage-squad screen when one is active', () => {
+	it("deep-links to that season's manage-squad screen when one is active", () => {
 		expect(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe', seasonId: 'season-current' }).url).toBe(
 			'/s/season-current/admin/members'
 		);
@@ -193,19 +193,19 @@ describe('the man-of-the-match result', () => {
 	const RESULT: GameNotificationContext = { ...CONTEXT, winners: ['Anders'], votes: 4 };
 
 	// The name is the whole notification, and the body is the half a lock screen
-	// truncates — so the one thing somebody has to be able to read at a glance
+	// truncates, so the one thing somebody has to be able to read at a glance
 	// goes in the title, the same way `availability` puts one there.
 	it('leads with who the group picked', () => {
 		expect(buildGamePush('motmResult', RESULT)).toMatchObject({
 			title: 'Anders is man of the match',
-			body: 'Tue 1 Sep · 19:00 — 4 votes.',
+			body: 'Tue 1 Sep · 19:00. 4 votes.',
 		});
 	});
 
 	// "1 votes" on the one notification most likely to be read by the person who
 	// cast that vote.
 	it('counts a single vote in the singular', () => {
-		expect(buildGamePush('motmResult', { ...RESULT, votes: 1 }).body).toBe('Tue 1 Sep · 19:00 — 1 vote.');
+		expect(buildGamePush('motmResult', { ...RESULT, votes: 1 }).body).toBe('Tue 1 Sep · 19:00. 1 vote.');
 	});
 
 	// A real outcome rather than an edge case: `tallyMotmVotes` publishes every
@@ -213,7 +213,7 @@ describe('the man-of-the-match result', () => {
 	it('shares it between everybody who tied', () => {
 		expect(buildGamePush('motmResult', { ...RESULT, winners: ['Anders', 'Björn'], votes: 2 })).toMatchObject({
 			title: 'Anders and Björn share man of the match',
-			body: 'Tue 1 Sep · 19:00 — 2 votes each.',
+			body: 'Tue 1 Sep · 19:00. 2 votes each.',
 		});
 	});
 
@@ -224,8 +224,8 @@ describe('the man-of-the-match result', () => {
 	});
 
 	// A profile caught mid-write, or one that has never had a name on it. Dropped
-	// instead, a tie would become a title claiming a single winner — the one thing
-	// here that reads as wrong rather than as missing.
+	// instead, a tie would become a title claiming a single winner, which is the
+	// one thing here that reads as wrong rather than as missing.
 	it('keeps a nameless winner in the list rather than losing them', () => {
 		expect(buildGamePush('motmResult', { ...RESULT, winners: ['Anders', '  '] }).title).toBe(
 			'Anders and Somebody share man of the match'
@@ -264,7 +264,7 @@ describe('NOTIFICATION_PREF', () => {
 		expect(NOTIFICATION_PREF.availability).toBeNull();
 	});
 
-	// `availability` is the only one that may be `null` — everything else goes
+	// `availability` is the only one that may be `null`. Everything else goes
 	// out to a standing audience nobody signed up for, so the profile has to be
 	// able to say no to it.
 	it('keeps every standing-audience kind on a preference', () => {
@@ -343,8 +343,8 @@ describe('relevantPrefs', () => {
 	});
 
 	// It picks a channel, not a kind. Counted here, somebody who wants push and
-	// nothing else would show up on the admin screen as partially muted.
-	it('leaves the email fallback out — it is not a kind', () => {
+	// nothing else would show up on the admin screen as partly muted.
+	it('leaves the email fallback out, because it is not a kind', () => {
 		expect(relevantPrefs(true)).not.toContain('emailFallback');
 	});
 });
@@ -408,7 +408,7 @@ describe('normaliseNotificationPrefs', () => {
 	});
 
 	// Anything that is not exactly `false` is on, which is the same test every
-	// reader applies — so a corrupted value settles on the safe side.
+	// reader applies, so a corrupted value settles on the safe side.
 	it('treats a non-boolean as opted in rather than passing it through', () => {
 		expect(normaliseNotificationPrefs({ reminders: 'nope' } as never).reminders).toBe(true);
 	});
@@ -422,8 +422,8 @@ describe('buildEmail', () => {
 		const email = buildEmail(push, { appUrl: APP_URL });
 
 		expect(email.subject).toBe('Game called off');
-		expect(email.text).toContain('Tue 1 Sep · 19:00 is off — frozen pitch');
-		expect(email.html).toContain('Tue 1 Sep · 19:00 is off — frozen pitch');
+		expect(email.text).toContain('Tue 1 Sep · 19:00 is off: frozen pitch');
+		expect(email.html).toContain('Tue 1 Sep · 19:00 is off: frozen pitch');
 	});
 
 	// A mail client has no origin to resolve `/s/…` against.
@@ -463,10 +463,10 @@ describe('buildEmail', () => {
 	});
 
 	// Nothing behind the admin notice can be answered, so inviting somebody to
-	// say whether they're in would open the app and do nothing — the same
-	// reasoning that keeps `respondable` off it.
+	// say whether they're in would open the app and do nothing. Same reasoning
+	// that keeps `respondable` off it.
 	it('asks for an answer only where there is one to give', () => {
-		expect(buildEmail(buildGamePush('reminder', CONTEXT), { appUrl: APP_URL }).text).toContain('Say if you’re in');
+		expect(buildEmail(buildGamePush('reminder', CONTEXT), { appUrl: APP_URL }).text).toContain("Say if you're in");
 		expect(
 			buildEmail(buildNewPlayerPush({ uid: 'zoe', displayName: 'Zoe', seasonId: null }), { appUrl: APP_URL }).text
 		).toContain('Open Frescati');

@@ -39,7 +39,7 @@ describe('CalendarSubscribeSheet', () => {
 		expect(warn).not.toHaveBeenCalled();
 	});
 
-	// Copy is this dialog's primary action — a silently-swallowed rejection
+	// Copy is this dialog's primary action. A silently-swallowed rejection
 	// (permission denied, an insecure context, an older WebView) must not leave
 	// the button looking like nothing happened.
 	it('toasts an error instead of doing nothing when the clipboard write is rejected', async () => {

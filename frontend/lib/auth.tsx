@@ -16,7 +16,7 @@ export interface AuthUser {
 	displayName: string;
 	email: string;
 	photoURL: string | null;
-	/** The global `admin` custom claim — creates seasons, promotes other admins. */
+	/** The global `admin` custom claim, creates seasons, promotes other admins. */
 	isAppAdmin: boolean;
 }
 
@@ -64,7 +64,7 @@ const describeClient = (existing: ClientInfo | undefined, now: string): ClientIn
  * to render.
  *
  * One merge covers both create and refresh, and every identity field is written
- * every time — including `uid`, which never changes. That matters because the
+ * every time, including `uid`, which never changes. That matters because the
  * document can already exist in a partial state: `set-admin` promotes someone by
  * uid and will happily leave behind a doc holding nothing but `isAppAdmin`. The
  * update rule rejects any result without a `uid`, so a merge that assumed the
@@ -88,7 +88,7 @@ const upsertUserDoc = async (user: AuthUser) => {
 			email: deleteField(),
 			photoURL: user.photoURL,
 			createdAt: existing?.createdAt ?? now,
-			// Loading the app is a visit — but only if it loaded where somebody
+			// Loading the app is a visit, but only if it loaded where somebody
 			// could see it. A link cmd-clicked into a background tab, or an
 			// installed app woken behind the lock screen, is not somebody
 			// coming by, and stamping it here would be the loudest of the false
@@ -103,7 +103,7 @@ const upsertUserDoc = async (user: AuthUser) => {
 			// Only ever echoed back, never raised: rules reject a client writing
 			// itself the badge. The admin SDK owns this field.
 			isAppAdmin: existing?.isAppAdmin ?? false,
-			// Seeded once, then left to whatever the user has since chosen —
+			// Seeded once, then left to whatever the user has since chosen,
 			// but rewritten through the normaliser rather than passed straight
 			// back, so a stored map that has picked up anything the rules no
 			// longer accept heals on the next sign-in instead of failing every
@@ -122,7 +122,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	 * Who the profile document has already been synced for on this page.
 	 *
 	 * `onIdTokenChanged` fires on every token refresh as well as on sign-in,
-	 * and the refresh below forces one every ten minutes — so without this, a
+	 * and the refresh below forces one every ten minutes, so without this, a
 	 * tab left open all week re-read and rewrote the same document a thousand
 	 * times to change nothing. Nothing in the profile can move mid-session
 	 * except `lastSeenAt`, which `useLastSeen` now owns and stamps only on a
@@ -134,7 +134,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	 * The admin claim as last actually read, and who for.
 	 *
 	 * A token refresh that fails says nothing about whether somebody is an admin,
-	 * so this is what the observer falls back to rather than guessing — see the
+	 * so this is what the observer falls back to rather than guessing. See the
 	 * `catch` below for why it can't simply wait for the next one.
 	 */
 	const lastClaim = useRef<{ uid: string; isAppAdmin: boolean } | null>(null);
@@ -144,7 +144,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 		return onIdTokenChanged(auth, async firebaseUser => {
 			if (!firebaseUser) {
-				// Signing back in — as the same person or another — has to sync
+				// Signing back in, as the same person or another, has to sync
 				// again; this is a page that has stopped knowing anybody.
 				syncedUid.current = null;
 				lastClaim.current = null;
@@ -154,7 +154,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			}
 
 			const result = await firebaseUser.getIdTokenResult().catch(error => {
-				// Transient — a token refresh failing mid-flight on a bad connection.
+				// Transient. A token refresh failing mid-flight on a bad connection.
 				// Left uncaught, this was an unhandled rejection that also skipped
 				// `setUser` below, stranding whoever it hit on the "still resolving"
 				// screen instead of restoring their session.
@@ -166,12 +166,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			// Carrying on without the token rather than returning here, because on
 			// the launch this matters for there is nothing to carry on *from*.
 			// Firebase gives the refresh 30 seconds before it gives up, and its own
-			// retry then backs off from another 30 — so an installed app woken on a
+			// retry then backs off from another 30, so an installed app woken on a
 			// phone whose network isn't up yet spends a minute or more on the
 			// loading spinner, having already restored the session it is not
 			// showing. Who they are is known from the restored session either way;
 			// the only thing missing is the claim, and that decides which admin
-			// controls to draw, never what a client may do — Firestore rules are
+			// controls to draw, never what a client may do. Firestore rules are
 			// the authorisation layer and they read the token, not this. So the
 			// last claim we genuinely saw stands until a refresh succeeds, and a
 			// first load with none to go on draws the app as an ordinary player.
@@ -192,7 +192,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			syncedUid.current = authUser.uid;
 
 			// Best-effort: a failure here shouldn't block sign-in. Quiet on
-			// screen, but not quiet to us — a profile that never syncs is how
+			// screen, but not quiet to us. A profile that never syncs is how
 			// somebody ends up nameless in every roster in the app.
 			upsertUserDoc(authUser).catch(error => {
 				// Let the next token refresh have another go, ten minutes from
@@ -217,7 +217,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			// without the user having to sign out and back in.
 			const result = await current.getIdTokenResult(true).catch(error => {
 				// Same story as the observer above: a blip on this tick, not a
-				// defect — the next tick retries in TOKEN_REFRESH_MS.
+				// defect. The next tick retries in TOKEN_REFRESH_MS.
 				console.error('Failed to refresh ID token', error);
 				void captureError(error, { stage: 'tokenRefreshInterval' });
 				return null;

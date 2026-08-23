@@ -14,7 +14,7 @@ import { useId } from 'react';
  * a desktop without measuring anything. Two things fall out of that and are
  * dealt with here: the stroke would stretch with it, so it is drawn
  * `non-scaling-stroke`; and a circle would come out an ellipse, so the marker on
- * the last point is a CSS dot pinned to the right-hand edge instead — which is
+ * the last point is a CSS dot pinned to the right-hand edge instead, which is
  * exactly where the last point always is.
  */
 

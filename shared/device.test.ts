@@ -1,6 +1,6 @@
 import { describeDevice, describeUserAgent, platformLabel } from './device';
 
-/** Real strings, copied off real devices — invented ones prove nothing here. */
+/** Real strings, copied off real devices. Invented ones prove nothing here. */
 const IPHONE_SAFARI =
 	'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
 const IPHONE_CHROME =
@@ -47,7 +47,7 @@ describe('describeUserAgent', () => {
 	});
 
 	// Tokens written before the app stored a user agent, and anything that
-	// isn't a browser at all. Neither may throw — this runs over every stored
+	// isn't a browser at all. Neither may throw. This runs over every stored
 	// token to build one admin screen.
 	it('gives up quietly on a string it cannot read', () => {
 		expect(describeUserAgent('')).toEqual({ platform: 'unknown', browser: '' });

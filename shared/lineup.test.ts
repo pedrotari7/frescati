@@ -28,7 +28,7 @@ describe('withPlayerOn', () => {
 		expect(moved.map(team => team.uids)).toEqual([['anna'], ['sofia']]);
 	});
 
-	// The same write as a move, which is why it isn't its own function — and the
+	// The same write as a move, which is why it isn't its own function, and the
 	// only way back for somebody who was taken off.
 	it('adds somebody who was on no squad', () => {
 		const moved = withPlayerOn(sheet(['anna'], ['sofia']), 'pedro', 0);
@@ -87,8 +87,8 @@ describe('withTeamsSwapped', () => {
 	});
 
 	// The squad that becomes A has to *be* team A, not a team B sitting in the
-	// first position — everything else on the screen reads the index.
-	it('moves each squad’s index with its letter', () => {
+	// first position. Everything else on the screen reads the index.
+	it("moves each squad's index with its letter", () => {
 		const swapped = withTeamsSwapped(sheet(['anna'], ['sofia'], ['kalle']), 0, 2);
 
 		expect(swapped.map(team => team.index)).toEqual([0, 1, 2]);

@@ -10,7 +10,7 @@ const isResponseStatus = (value: string | null): value is ResponseStatus => valu
 /**
  * Answers on behalf of someone who tapped "I'm in" on a notification.
  *
- * The service worker can't write the response itself — it holds no auth token —
+ * The service worker can't write the response itself: it holds no auth token,
  * so it appends `?respond=in` and opens the app, and this performs the write
  * once the season has loaded and the role is known.
  *
@@ -34,7 +34,7 @@ export const useRespondIntent = ({
 	/**
 	 * Whether an In here lands as an extra still waiting on an admin's nod.
 	 *
-	 * Worked out by the caller, which holds both halves of it — the role this
+	 * Worked out by the caller, which holds both halves of it: the role this
 	 * write is recorded under and whether an admin has already waved this person
 	 * through on this game. "See you there" is the one thing the app must not
 	 * say to somebody who is not in the headcount yet, least of all seconds
@@ -66,8 +66,8 @@ export const useRespondIntent = ({
 					intent === 'out'
 						? "Thanks, you're marked as out."
 						: pendingSpot
-							? "Thanks — an admin has to confirm your spot before you're in."
-							: "You're in — see you there."
+							? "Thanks. An admin has to confirm your spot before you're in."
+							: "You're in. See you there."
 				)
 			)
 			.catch(error => {

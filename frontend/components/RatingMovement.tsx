@@ -10,7 +10,7 @@ import { classNames } from '../lib/utils/reactHelper';
  * the number beside it: a game worth 30 Elo reads as +6.
  *
  * **A change that rounds to nothing renders nothing.** That is the rule this
- * component exists to hold in one place — the team sheet and the player profile
+ * component exists to hold in one place. The team sheet and the player profile
  * each documented it in a comment and then implemented it differently, one
  * returning `null` and the other an em dash, which is a divergence rather than
  * a decision. `flat` is now what that choice is called, so a caller picks it on
@@ -23,7 +23,7 @@ import { classNames } from '../lib/utils/reactHelper';
  *
  * The season table deliberately does *not* use this. Its movement is the
  * headline number in a column that shows a rating on the other tab, so it needs
- * no colour of its own and does need to print `0` — a blank cell in a table
+ * no colour of its own and does need to print `0`. A blank cell in a table
  * column reads as missing data, not as "no change". It shares `signed` and
  * nothing else.
  */

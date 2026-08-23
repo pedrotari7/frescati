@@ -17,13 +17,13 @@ import TeamBadge, { teamName } from './TeamBadge';
  * interaction, and there is no drop target small enough to miss.
  *
  * The squad they are already on stays in the list, marked, rather than being
- * filtered out — the same reason `KitTransferSheet` keeps the current holder.
+ * filtered out, the same reason `KitTransferSheet` keeps the current holder.
  * Seeing where somebody is while choosing where they go is the context for the
  * choice, and a letter missing from A–D reads as a bug.
  *
  * "Off the team sheet" is last and separated, because it is the one option that
  * is not a move. It is here at all for the player who said In and never turned
- * up, and for the one who has to leave at half seven — both of whom are on a
+ * up, and for the one who has to leave at half seven, both of whom are on a
  * squad the rotation is about to send onto the pitch.
  */
 const PlayerTeamSheet = ({
@@ -42,8 +42,8 @@ const PlayerTeamSheet = ({
 	onClose: () => void;
 	onMove: (teamIndex: number | null) => Promise<void>;
 }) => {
-	// The last player out of a squad is refused by `setPlayerTeam` — an empty
-	// team is a fixture against nobody — so the buttons that would hit that
+	// The last player out of a squad is refused by `setPlayerTeam`: an empty
+	// team is a fixture against nobody, so the buttons that would hit that
 	// refusal say why instead of failing.
 	const isTheirLastTeammate = currentIndex >= 0 && teams[currentIndex]?.uids.length === 1;
 
@@ -57,7 +57,7 @@ const PlayerTeamSheet = ({
 
 					<p className='text-muted mt-1 text-sm'>
 						{isTheirLastTeammate
-							? 'They are the last one on their team, so this is a swap for another day — a team with nobody on it still gets a fixture.'
+							? 'They are the last one on their team, so this is a swap for another day, a team with nobody on it still gets a fixture.'
 							: 'The teams stop being re-picked once you move somebody, so from here the sheet is yours to keep straight.'}
 					</p>
 

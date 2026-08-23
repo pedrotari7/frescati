@@ -12,8 +12,8 @@ import { db } from './firebase';
  *
  * `repairRoles` also rewrites any `role` that disagrees with the season roster.
  * That flag exists because `role` is snapshotted onto the response at write
- * time — the rules check it against real membership then, so it can't be
- * spoofed — but nothing revisits it afterwards. Change the roster and every
+ * time. The rules check it against real membership then, so it can't be
+ * spoofed, but nothing revisits it afterwards. Change the roster and every
  * existing answer keeps the role it was written with. Leave it off for the
  * common case, where membership hasn't moved and the extra writes would be
  * pure noise.
@@ -23,7 +23,7 @@ import { db } from './firebase';
  * could have written anything into.
  *
  * `teamsGeneration` is bumped in the same write. Anything that moves the
- * counters moves who is playing, and therefore invalidates the teams — doing it
+ * counters moves who is playing, and therefore invalidates the teams. Doing it
  * here rather than in a second transaction keeps the counters and the staleness
  * marker from ever disagreeing, which is what lets a queued rebuild trust the
  * generation it carries.
@@ -40,7 +40,7 @@ export const recountGame = async (
 
 		const responsesSnap = await transaction.get(gameRef.collection('responses'));
 
-		// Every read is done by this point, so the writes below are legal — a
+		// Every read is done by this point, so the writes below are legal. A
 		// transaction refuses any read issued after its first write.
 		const responses = responsesSnap.docs.map(doc => {
 			const response = doc.data() as GameResponse;

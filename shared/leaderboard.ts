@@ -4,7 +4,7 @@
  * The all-time one is just the profiles sorted, because a rating is already
  * global and carried across every season. The season one is aggregated from the
  * rating ledger, which is the only record of who actually played and where they
- * finished — a response says who *meant* to play, and on the day those differ.
+ * finished. A response says who *meant* to play, and on the day those differ.
  */
 
 import type { AppUser, RatingLedgerEntry } from './types';
@@ -27,10 +27,10 @@ export interface LadderRow {
  * average players beneath a wall of people who have never played.
  *
  * Which is why this asks `hasPlayed` rather than whether a rating is stored.
- * Somebody an admin gave a starting point to has a real rating — the balancer
- * uses it from their first game — but they have played nothing, and putting an
- * estimate on the ladder above people who earned their place is the same
- * mistake in a more flattering shape.
+ * Somebody an admin gave a starting point to has a real rating, since the
+ * balancer uses it from their first game, but they have played nothing, and
+ * putting an estimate on the ladder above people who earned their place is
+ * the same mistake in a more flattering shape.
  */
 export const getRatingLadder = (users: AppUser[]): LadderRow[] => {
 	const rated = users
@@ -56,8 +56,8 @@ export const getRatingLadder = (users: AppUser[]): LadderRow[] => {
 /**
  * Games in a form guide. Enough to show a run, short enough to scan on a phone.
  *
- * Shared with the career screen, which draws the same idea in a bigger box —
- * two screens disagreeing about how long "recent" is would make one of them
+ * Shared with the career screen, which draws the same idea in a bigger box.
+ * Two screens disagreeing about how long "recent" is would make one of them
  * wrong about a run the other showed.
  */
 export const FORM_LENGTH = 5;
@@ -68,7 +68,7 @@ export interface SeasonResult {
 	kickoff: string;
 	/** Their team's 0-indexed finishing place. Shared on a tie. */
 	position: number;
-	/** Their team finished top — the same test `wins` counts. */
+	/** Their team finished top, the same test `wins` counts. */
 	won: boolean;
 }
 
@@ -88,7 +88,7 @@ export interface SeasonRow {
 /**
  * The season table, from that season's ledger entries.
  *
- * Ordered on games won, then rating movement — deliberately not on rating
+ * Ordered on games won, then rating movement, deliberately not on rating
  * itself. The all-time ladder already answers "who is best"; this one answers
  * "who had a good season", and somebody who turned up every week and kept
  * winning belongs at the top of it even if they started strong.
@@ -103,7 +103,7 @@ export const getSeasonTable = (entries: RatingLedgerEntry[], seasonId: string): 
 
 	// Kickoff order, and the game id after it so two games kicking off at once
 	// draw the same way on every device. The totals below would come out the
-	// same in any order — the form guide is what needs this, and the query that
+	// same in any order. The form guide is what needs this, and the query that
 	// fetches these entries doesn't sort them.
 	const played = entries
 		.filter(entry => entry.seasonId === seasonId)
@@ -124,7 +124,7 @@ export const getSeasonTable = (entries: RatingLedgerEntry[], seasonId: string): 
 			if (row.form.length > FORM_LENGTH) row.form.shift();
 
 			// Somebody who arrived unrated moved from the seed the game rated
-			// them off, which `seedElo` records — so a first appearance counts
+			// them off, which `seedElo` records, so a first appearance counts
 			// exactly what the team sheet showed them, rather than leaving a
 			// player on nothing while their teammates show the same result as a
 			// loss. Falls back to no movement on an entry written before the
@@ -143,7 +143,7 @@ export const getSeasonTable = (entries: RatingLedgerEntry[], seasonId: string): 
 
 	return ordered.map((row, index) => {
 		const previous = ordered[index - 1];
-		// Both sort keys, not just wins — two players level on wins but apart on
+		// Both sort keys, not just wins. Two players level on wins but apart on
 		// movement are in a real, meaningful order, not a tie.
 		if (index > 0 && (previous.wins !== row.wins || previous.movement !== row.movement)) position = index;
 

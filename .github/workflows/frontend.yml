@@ -29,12 +29,12 @@ jobs:
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID }}
           NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
-          # A site key, not a secret — but absent, CI builds a bundle that sends
+          # A site key, not a secret, but absent, CI builds a bundle that sends
           # no App Check token, and this workflow only builds to prove the app
           # compiles. Vercel is where the deployed bundle gets its copy.
           NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY }}
           # Same story: public, and here so CI compiles the same shape of bundle
-          # Vercel ships — with the DSN set, Sentry adds the `/monitoring` tunnel
+          # Vercel ships, with the DSN set, Sentry adds the `/monitoring` tunnel
           # rewrite, and a build that never sees one can't catch it breaking.
           # No `SENTRY_AUTH_TOKEN` on purpose, so CI uploads no source maps: this
           # build is thrown away, and releases would be attributed to it.

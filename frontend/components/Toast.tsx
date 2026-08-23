@@ -15,7 +15,7 @@ interface Toast {
 }
 
 interface ToastValue {
-	/** Confirm something worked. Use sparingly — silence is fine when the screen already shows the result. */
+	/** Confirm something worked. Use sparingly, silence is fine when the screen already shows the result. */
 	notify: (text: string) => void;
 	/** Say that something didn't. Always worth showing. */
 	warn: (text: string) => void;
@@ -42,7 +42,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
 	const nextId = useRef(0);
 
 	// Kept so they can be cancelled: on unmount, and when somebody taps a toast
-	// away before its own timer has run. Neither was happening — the tap removed
+	// away before its own timer has run. Neither was happening, the tap removed
 	// the toast and left the timeout to fire into an empty list afterwards.
 	const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 

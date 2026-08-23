@@ -7,9 +7,9 @@ const CSP_REPORT_PATH = '/api/csp-report';
 /*
  * Content Security Policy, shipped in report-only mode.
  *
- * The app talks to a lot of Google hosts — Firestore over gRPC-web, the
+ * The app talks to a lot of Google hosts: Firestore over gRPC-web, the
  * identity toolkit, FCM registration, reCAPTCHA for App Check, avatars on
- * googleusercontent — and Next inlines both its hydration script and its
+ * googleusercontent, and Next inlines both its hydration script and its
  * critical CSS. A policy written blind and enforced immediately breaks sign-in
  * or the live listeners in production, which is the one place it can't be
  * debugged safely.
@@ -21,21 +21,21 @@ const CSP_REPORT_PATH = '/api/csp-report';
  * could only ever be made blind.
  *
  * What this is worth here is worth being honest about. There is no
- * `dangerouslySetInnerHTML` anywhere in the app — every user-supplied string
- * goes through a React text node — so the injected-script surface is close to
+ * `dangerouslySetInnerHTML` anywhere in the app, every user-supplied string
+ * goes through a React text node, so the injected-script surface is close to
  * zero, and the real authorization boundary is Firestore rules. This is
  * defence in depth against a compromised dependency, and `script-src
  * 'unsafe-inline'` blunts most of that, since an injected inline script would
  * still run. Removing it needs a nonce, which needs middleware, which would
  * deopt every statically rendered page. That trade hasn't been taken.
  *
- * `frame-ancestors` is the exception — it is ignored in report-only mode, so it
+ * `frame-ancestors` is the exception, it is ignored in report-only mode, so it
  * ships enforcing in its own header below, alongside X-Frame-Options. That is
  * the clickjacking protection, and it can't break a same-origin app.
  */
 /**
- * Whether this is `next dev`. `headers()` is evaluated once — at build time for
- * a deploy, at server start for a dev run — so this decides which policy gets
+ * Whether this is `next dev`. `headers()` is evaluated once: at build time for
+ * a deploy, at server start for a dev run, so this decides which policy gets
  * baked in, and the dev additions below can never reach a deployed one.
  */
 const isDev = process.env.NODE_ENV !== 'production';
@@ -47,14 +47,14 @@ const isDev = process.env.NODE_ENV !== 'production';
  * hands every module to `eval` and React Refresh evals its patches, Vercel
  * Analytics loads a debug build from `va.vercel-scripts.com` instead of the
  * same-origin `/_vercel/insights/script.js` a deploy serves, and the Firestore,
- * auth and functions emulators each listen on a port of their own — which
+ * auth and functions emulators each listen on a port of their own, which
  * `'self'` does not cover, since a port is part of an origin.
  *
  * Report-only means none of that broke anything. What it broke was the reports:
  * a single local page load buried the console under ~1000 `unsafe-eval`
  * violations, and a policy whose output nobody reads is one nobody will ever
- * dare enforce. The alternative — widening the shipped policy until dev is
- * quiet — pays for that silence in the one place the policy is worth anything.
+ * dare enforce. The alternative, widening the shipped policy until dev is
+ * quiet, pays for that silence in the one place the policy is worth anything.
  */
 const devScriptSrc = ["'unsafe-eval'", 'https://va.vercel-scripts.com'];
 const devConnectSrc = ['http://127.0.0.1:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'ws://localhost:*'];
@@ -72,7 +72,7 @@ const scriptSrc = [
 
 const connectSrc = [
 	"'self'",
-	// Firestore listeners, auth, FCM registration and App Check attestation —
+	// Firestore listeners, auth, FCM registration and App Check attestation,
 	// the last of those on firebaseappcheck.googleapis.com.
 	'https://*.googleapis.com',
 	'https://*.google.com',
@@ -122,7 +122,7 @@ const securityHeaders = [
 	{ key: 'X-Content-Type-Options', value: 'nosniff' },
 	{ key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
 	{ key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
-	// Two years, subdomains included. No `preload` — that is a one-way door onto
+	// Two years, subdomains included. No `preload`, that is a one-way door onto
 	// a browser-baked list and isn't ours to commit to from a config file.
 	{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
 ];
@@ -135,7 +135,7 @@ const nextConfig = {
 	 *
 	 * Vercel sets `VERCEL_GIT_COMMIT_SHA` on every build. It also exposes a
 	 * `NEXT_PUBLIC_`-prefixed copy, but only when the project has "automatically
-	 * expose System Environment Variables" switched on — a dashboard setting
+	 * expose System Environment Variables" switched on, a dashboard setting
 	 * nothing in this repo records or can check. Mapping it here means the
 	 * feature works from a fresh clone and a fresh Vercel project, and it is
 	 * `''` anywhere else, which is exactly what a local build should say.
@@ -179,7 +179,7 @@ const nextConfig = {
  * anybody will read a stack trace from.
  *
  * Without the `VERCEL` check, a token sitting in `frontend/.env.local` would
- * have every local build uploading — and the pre-commit hook runs one on every
+ * have every local build uploading, and the pre-commit hook runs one on every
  * frontend commit. Each would create a release named after the last commit,
  * from a working tree that may not match it, for a bundle that is deleted
  * seconds later. CI is covered by the same reasoning and simply has no token.
@@ -199,14 +199,14 @@ module.exports = withSentryConfig(nextConfig, {
 	 *
 	 * Not premature: content blockers block Sentry's ingest hosts by name, and a
 	 * good share of this group is on an iPhone. Without the tunnel those people
-	 * report nothing and the inbox looks healthy — which is the exact failure
+	 * report nothing and the inbox looks healthy, which is the exact failure
 	 * this whole change exists to stop. It also means the CSP needs no new host:
 	 * `connect-src 'self'` already covers a same-origin post.
 	 *
 	 * **The path is deliberately not `/monitoring`**, which is Sentry's
 	 * documented default and therefore the one every filter list already knows.
 	 * Pointing the tunnel at it was blocked with `ERR_BLOCKED_BY_CLIENT` on the
-	 * first real test — a same-origin request, refused for looking like
+	 * first real test: a same-origin request, refused for looking like
 	 * telemetry rather than for where it was going. Blockers match the path and
 	 * the `?o=…&p=…` envelope signature, so the only part left to change is the
 	 * path, and it has to be something no list would ever carry.
@@ -239,7 +239,7 @@ module.exports = withSentryConfig(nextConfig, {
 			removeDebugLogging: true,
 			// Drops the entire performance-monitoring half of the SDK. It is dead
 			// code given `tracesSampleRate: 0` in `lib/sentry.ts`, and leaving it
-			// in costs 28 kB gzipped on the shared bundle — worth having on a
+			// in costs 28 kB gzipped on the shared bundle, worth having on a
 			// phone-first app. Turning tracing back on means deleting this line.
 			removeTracing: true,
 		},

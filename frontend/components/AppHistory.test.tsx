@@ -48,7 +48,7 @@ const journey = (start: string) => {
 		replace: (path: string) => move(path, () => window.history.replaceState({}, '', path)),
 
 		/**
-		 * The browser's own back — or forward. Both land on an entry that is
+		 * The browser's own back, or forward. Both land on an entry that is
 		 * already there, so the length doesn't move and a `popstate` fires.
 		 */
 		pop: (path: string) =>

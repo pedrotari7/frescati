@@ -3,7 +3,7 @@
  * open, from the votes already stored under it.
  *
  * `onMotmVoteWrite` derives that document, so a game whose votes all arrived
- * before the trigger was deployed has none — and the panel reads a missing
+ * before the trigger was deployed has none, and the panel reads a missing
  * document as "nobody has voted yet", which is exactly the wrong answer for a
  * game the squad has already been voting on. It would fix itself the moment
  * anybody else voted, and never if they didn't. This is the one-shot repair.
@@ -12,7 +12,7 @@
  * has been counted publishes its turnout in `tournament/motm` and has this
  * document deleted with the window, so writing one there would be resurrecting
  * something the sweep deliberately removed. `recountMotmVoters` refuses to
- * anyway — the decision is what says the counting has happened — but the query
+ * anyway. The decision is what says the counting has happened, but the query
  * means it is never asked to.
  *
  * Safe to run repeatedly: a game whose stored turnout already matches its votes
@@ -60,7 +60,7 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 
 		// What the turnout *should* say, against what it does. Compared here rather
 		// than left to `recountMotmVoters` so a dry run can tell a game that needs
-		// writing from one that is already right — a preview that reports the same
+		// writing from one that is already right. A preview that reports the same
 		// line either way cannot answer the question anybody runs it to ask, which
 		// is whether this has already been done.
 		const [votes, stored] = await Promise.all([
@@ -71,25 +71,25 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 		const should = votes.docs.map(vote => vote.id).sort();
 		const has = stored.exists ? ((stored.data() as { uids?: string[] }).uids ?? []) : [];
 
-		// An absent document and an empty list are the same state — nobody has
-		// voted — so a game with no votes and no document needs nothing doing.
+		// An absent document and an empty list are the same state, nobody has
+		// voted, so a game with no votes and no document needs nothing doing.
 		if (has.length === should.length && has.every((uid, index) => uid === should[index])) {
 			skipped++;
-			console.log(`  already correct (${should.length}) — ${label}`);
+			console.log(`  already correct (${should.length}): ${label}`);
 			continue;
 		}
 
 		const change = `${has.length} -> ${counted(should.length, 'voter')}`;
 
 		if (dryRun) {
-			console.log(`  would write ${change} — ${label}`);
+			console.log(`  would write ${change}: ${label}`);
 			continue;
 		}
 
 		try {
 			const voted = await recountMotmVoters(seasonId, doc.id);
 			written++;
-			console.log(`  wrote ${has.length} -> ${counted(voted, 'voter')} — ${label}`);
+			console.log(`  wrote ${has.length} -> ${counted(voted, 'voter')}: ${label}`);
 		} catch (error) {
 			failed++;
 			console.error(`  failed ${doc.ref.path}:`, error);
@@ -105,7 +105,7 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 		`\nDone. Rebuilt the turnout for ${counted(written, 'game')}` +
 			`${skipped > 0 ? `, ${skipped} already correct` : ''}.`
 	);
-	if (failed > 0) console.error(`${failed} failed — see above.`);
+	if (failed > 0) console.error(`${failed} failed, see above.`);
 };
 
 // Only when run as a command, so a test can import `main` and drive it

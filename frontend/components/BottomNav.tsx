@@ -19,7 +19,7 @@ export interface NavItem {
  *
  * Nothing in here depends on data that arrives late, so the bar never reflows
  * under the user's thumb once it has been painted. That is also why Table is a
- * tab even before a single game has been confirmed — a tab that appeared once
+ * tab even before a single game has been confirmed, a tab that appeared once
  * results existed would move every tab beside it, and the empty state can
  * explain itself. Admin-only tools stay out for the same reason, behind the
  * gear in the top bar.
@@ -38,7 +38,7 @@ export const matchesHref = (pathname: string, href: string) => pathname === href
 /**
  * Deepest matching href wins, so /s/x/members doesn't also light up /s/x.
  *
- * `sectionHrefs` are routes that own themselves without owning a tab — the admin
+ * `sectionHrefs` are routes that own themselves without owning a tab, the admin
  * area. Being inside one leaves every tab unlit rather than falling back to the
  * season root, and the top bar highlights the gear instead.
  */

@@ -37,7 +37,7 @@ const writeWatcher = (uid: string, gameId = GAME_ID) =>
 
 /**
  * Stands in for the whole send. `sendGamePush` is the seam rather than
- * `sendPush` so these assert on the kind and the copy's inputs — which is what
+ * `sendPush` so these assert on the kind and the copy's inputs, which is what
  * decides whether the right people are told the right thing. Whether FCM then
  * accepts a token is `push.test.ts`.
  */
@@ -254,7 +254,7 @@ describe('telling watchers an answer moved', () => {
 	});
 
 	// An admin tidying the roster of a game that has already been played is
-	// housekeeping, and the bell is gone from that screen by then anyway —
+	// housekeeping, and the bell is gone from that screen by then anyway,
 	// `isWatchable` is the one predicate both sides read.
 	it('stays quiet on a game that has already been played', async () => {
 		await writeGame(SEASON_ID, GAME_ID, alreadyPlayed());
@@ -266,7 +266,7 @@ describe('telling watchers an answer moved', () => {
 		expect(sent).not.toHaveBeenCalled();
 	});
 
-	// Past the deadline only a season admin can move the roster — which is
+	// Past the deadline only a season admin can move the roster, which is
 	// exactly when somebody counting on a lift wants to hear that it moved.
 	it('still tells watchers once answers have locked', async () => {
 		await writeGame(SEASON_ID, GAME_ID, gameAt(Date.now() + HOUR));
@@ -294,7 +294,7 @@ describe('telling watchers an answer moved', () => {
 	});
 
 	// A profile can legitimately be missing a name mid-write, and the copy
-	// builder is what decides how that reads — this only has to not crash.
+	// builder is what decides how that reads. This only has to not crash.
 	it('still sends when the profile has no name on it', async () => {
 		await getDb().doc(`users/${MEMBER}`).delete();
 		await writeWatcher(WATCHER);

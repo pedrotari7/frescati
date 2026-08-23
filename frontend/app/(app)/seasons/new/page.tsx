@@ -29,7 +29,7 @@ const NewSeasonPage = () => {
 		time: '15:00',
 		// Held as typed rather than as numbers. `Number('')` is `0`, so coercing
 		// on each keystroke turned backspacing the field to empty into a literal
-		// zero the next digit landed beside — and a season saved with
+		// zero the next digit landed beside, and a season saved with
 		// `minPlayers: 0` is one no game can ever be at risk in.
 		durationMinutes: '90',
 		startDate: '',
@@ -104,7 +104,7 @@ const NewSeasonPage = () => {
 		<PageShell title='New season' backHref='/seasons'>
 			<div className='space-y-4 p-4'>
 				<section className='glass space-y-4 rounded-2xl p-5'>
-					<Field label='Name' hint='Something you’ll recognise, e.g. “Autumn 2026”.'>
+					<Field label='Name' hint="Something you'll recognise, e.g. 'Autumn 2026'.">
 						<TextInput
 							value={form.name}
 							onChange={e => setForm({ ...form, name: e.target.value })}
@@ -119,7 +119,7 @@ const NewSeasonPage = () => {
 						/>
 					</Field>
 
-					<Field label='Address' hint='Optional — shown on the game screen.'>
+					<Field label='Address' hint='Optional, shown on the game screen.'>
 						<TextInput
 							value={form.venueAddress}
 							onChange={e => setForm({ ...form, venueAddress: e.target.value })}

@@ -28,14 +28,14 @@ export const formatGameDate = (iso: string, timeZone: string): string => {
 	return `${weekdayShort(weekday)} ${day} ${MONTHS_SHORT[month - 1]}`;
 };
 
-/** `Tuesday 1 September` — for headings where the short form reads too terse. */
+/** `Tuesday 1 September`, for headings where the short form reads too terse. */
 export const formatGameDateLong = (iso: string, timeZone: string): string => {
 	const { weekday, day, month } = getZonedParts(iso, timeZone);
 
 	return `${weekdayName(weekday)} ${day} ${MONTHS_SHORT[month - 1]}`;
 };
 
-/** `Tue 1 Sep` — a bare `YYYY-MM-DD` civil date, no timezone conversion involved. */
+/** `Tue 1 Sep`. A bare `YYYY-MM-DD` civil date, no timezone conversion involved. */
 export const formatCivilDate = (date: string): string => {
 	const { month, day } = parseCivilDate(date);
 	return `${weekdayShort(civilDateWeekday(date))} ${day} ${MONTHS_SHORT[month - 1]}`;
@@ -62,7 +62,7 @@ const ORDINALS = ['1st', '2nd', '3rd', '4th'];
  * A 0-indexed finishing place, as people read it.
  *
  * `shared` prefixes an `=`, because teams nothing could separate genuinely
- * finished level — promoting one of them would be inventing a result.
+ * finished level. Promoting one of them would be inventing a result.
  */
 export const placeLabel = (position: number, shared = false): string =>
 	`${shared ? '=' : ''}${ORDINALS[position] ?? `${position + 1}th`}`;
@@ -79,7 +79,7 @@ export const initials = (displayName: string): string =>
  * Sort people by the name they're shown under.
  *
  * Structurally typed rather than taking an `AppUser`, because half the callers
- * sort a row they have already built — a uid, a name and an avatar — rather
+ * sort a row they have already built, a uid, a name and an avatar, rather
  * than the profile it came from.
  *
  * The `?? ''` is not defensive padding: a profile can genuinely be missing a
@@ -91,7 +91,7 @@ export const byDisplayName = (a: { displayName?: string }, b: { displayName?: st
 	(a.displayName ?? '').localeCompare(b.displayName ?? '');
 
 /**
- * The right form of a word for a count — `plural(1, 'game')` is `game`, and
+ * The right form of a word for a count. `plural(1, 'game')` is `game`, and
  * `plural(2, 'game')` is `games`.
  *
  * The third argument is for the words that don't take an `s`: `person`/`people`,
@@ -106,12 +106,12 @@ export const byDisplayName = (a: { displayName?: string }, b: { displayName?: st
 export const plural = (count: number, singular: string, many = `${singular}s`): string =>
 	count === 1 ? singular : many;
 
-/** `3 games`, `1 game` — the count and its word, which is how most of them read. */
+/** `3 games`, `1 game`. The count and its word, which is how most of them read. */
 export const counted = (count: number, singular: string, many?: string): string =>
 	`${count} ${plural(count, singular, many)}`;
 
 /**
- * `+6`, `-6`, `0` — a number carrying its sign, the way a scoreboard writes a
+ * `+6`, `-6`, `0`. A number carrying its sign, the way a scoreboard writes a
  * change rather than a quantity.
  *
  * Negatives already have theirs and zero gets none, so this is only ever adding
@@ -121,7 +121,7 @@ export const counted = (count: number, singular: string, many?: string): string 
 export const signed = (value: number): string => (value > 0 ? `+${value}` : `${value}`);
 
 /**
- * `in 3 days`, `in 2 hours`, `5 minutes ago`. Coarse on purpose — nobody needs
+ * `in 3 days`, `in 2 hours`, `5 minutes ago`. Coarse on purpose. Nobody needs
  * seconds of precision to decide whether they're playing on Tuesday.
  */
 export const formatRelative = (iso: string, now: Date = new Date()): string => {
@@ -143,9 +143,9 @@ export const formatRelative = (iso: string, now: Date = new Date()): string => {
 /**
  * A season's status in the words the app writes it in.
  *
- * The season picker printed the stored value straight into a pill — "active",
+ * The season picker printed the stored value straight into a pill, "active",
  * lowercase, the only place in the app where a pill showed a database value
- * rather than copy — while the settings form eight lines of markup away had the
+ * rather than copy, while the settings form eight lines of markup away had the
  * same three capitalised in its own `<option>` labels. One table, so the screen
  * that shows a status and the screen that sets it can't disagree about what it
  * is called.

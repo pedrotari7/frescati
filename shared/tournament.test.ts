@@ -90,8 +90,8 @@ describe('getSideSize', () => {
 });
 
 describe('getFixtures', () => {
-	// A slot with no room at all still plays its one lap — `getFixtures` floors
-	// at a full round robin regardless of fit — so this is the shape every test
+	// A slot with no room at all still plays its one lap. `getFixtures` floors
+	// at a full round robin regardless of fit, so this is the shape every test
 	// below that isn't specifically about lapping relies on.
 	const oneLap = (teamCount: number) => getFixtures(teamCount, 90, 0);
 
@@ -103,7 +103,7 @@ describe('getFixtures', () => {
 		expect(oneLap(teamCount)).toHaveLength(expected);
 	});
 
-	it('has just the one fixture for two teams — nobody else to rotate through', () => {
+	it('has just the one fixture for two teams, nobody else to rotate through', () => {
 		expect(oneLap(2)).toEqual([{ order: 0, teamA: 0, teamB: 1 }]);
 	});
 
@@ -146,7 +146,7 @@ describe('getFixtures', () => {
 
 	// Keeping a team on for every single changeover was tried and measured:
 	// it forces some other team to sit out three matches straight, which is
-	// worse than the changeover it avoids — see the doc comment above
+	// worse than the changeover it avoids. See the doc comment above
 	// `ROTATIONS`. So four teams take the changeover on the chin most of the
 	// time; only two of the five keep somebody on.
 	it('keeps a team on for exactly two of the four-team changeovers', () => {
@@ -204,8 +204,8 @@ describe('getFixtures', () => {
 		}
 	});
 
-	// A lap of one fixture has nothing to repeat — replaying it is the same
-	// match again, not another round — so two teams never lap, whatever the
+	// A lap of one fixture has nothing to repeat. Replaying it is the same
+	// match again, not another round, so two teams never lap, whatever the
 	// slot and match length say.
 	it('never laps two teams, however much room the slot has', () => {
 		expect(getFixtures(2, 5, 90)).toHaveLength(1);
@@ -348,7 +348,7 @@ describe('describeSquads', () => {
 });
 
 describe('selectPlayedMatches', () => {
-	// One lap, the same fallback `getFixtures` itself uses — everything in this
+	// One lap, the same fallback `getFixtures` itself uses. Everything in this
 	// block except the two cases about lapping is about the filtering, not
 	// about how many fixtures there are.
 	const select = (teamCount: number, matches: ReturnType<typeof aMatch>[]) =>
@@ -423,7 +423,7 @@ describe('selectPlayedMatches', () => {
 		expect(selectPlayedMatches(4, 90, 0, [aMatch(6, 0, 1)])).toEqual([]);
 	});
 
-	// Two teams never lap, however large the slot — see `getFixtures` — so a
+	// Two teams never lap, however large the slot, see `getFixtures`, so a
 	// document at any order past zero is never legitimate for them.
 	it('drops any order past zero for two teams, however long the slot', () => {
 		expect(selectPlayedMatches(2, 1, 1_000, [aMatch(0, 0, 1), aMatch(1, 0, 1)])).toEqual([aMatch(0, 0, 1)]);

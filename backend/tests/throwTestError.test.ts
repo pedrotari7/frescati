@@ -6,7 +6,7 @@ const PLAYER = 'anna';
 
 /**
  * The debug button that fails on purpose. Worth testing precisely because it is
- * the thing everything else about error reporting gets checked with — a broken
+ * the thing everything else about error reporting gets checked with. A broken
  * one would be diagnosed as broken *reporting*, which is a long way to go for
  * the wrong answer.
  *
@@ -50,8 +50,8 @@ describe('throwTestError', () => {
 	});
 
 	it('succeeds for a swallowed failure, exactly as a sweep does', async () => {
-		// The call looking completely healthy is the behaviour being checked —
-		// that is what makes this class of failure invisible without reporting.
+		// The call looking completely healthy is the behaviour being checked.
+		// That is what makes this class of failure invisible without reporting.
 		await expect(
 			throwTestError.run(callRequest({ kind: 'swallowed' }, { uid: ADMIN, admin: true }))
 		).resolves.toEqual({ reported: true });

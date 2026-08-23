@@ -61,7 +61,7 @@ const Stepper = ({
  * One fixture on the scoreboard.
  *
  * A match with no document has never been played, so both sides read `–`
- * rather than `0`. Tapping either stepper is what brings it into existence —
+ * rather than `0`. Tapping either stepper is what brings it into existence,
  * which is why the first tap on the away side still has to send a `0` for the
  * home side, not leave it null.
  */

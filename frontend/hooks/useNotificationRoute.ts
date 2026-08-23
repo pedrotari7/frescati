@@ -8,14 +8,14 @@ import { useRouter } from 'next/navigation';
  *
  * The worker used to point the surviving window at the URL itself with
  * `client.navigate()`. That is a full page load, and on iOS it was being
- * started before the app had been brought to the front — so the page was laid
+ * started before the app had been brought to the front, so the page was laid
  * out against the viewport the web view had while it was backgrounded, and
  * nothing remeasures afterwards. What that looked like was a top bar and a tab
  * bar pinned to a rectangle that scrolls away with the content.
  *
  * Changing route in the page that is already running avoids the load entirely.
  * The worker still falls back to `navigate()` when nothing answers, so a window
- * on an older bundle — or one whose JS has died — is no worse off than before.
+ * on an older bundle, or one whose JS has died, is no worse off than before.
  */
 export const useNotificationRoute = () => {
 	const router = useRouter();
@@ -40,7 +40,7 @@ export const useNotificationRoute = () => {
 			if (target.href === window.location.href) return;
 
 			// `router.push` to the path we are already on re-renders without
-			// remounting, and `?respond=in` is read once on mount — so tapping
+			// remounting, and `?respond=in` is read once on mount, so tapping
 			// "I'm in" while already looking at that game would quietly do
 			// nothing. A load is the right answer here in a way it is not from
 			// the worker: this window is focused, on screen and measured.

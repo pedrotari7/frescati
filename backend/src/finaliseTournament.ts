@@ -14,8 +14,8 @@ import { HOURLY, instrument, instrumentSchedule, reportError } from './lib/sentr
  * Confirm a game on demand.
  *
  * A callable rather than a flag on the game, because applying ratings is
- * privileged work with a real failure mode — a game applied twice would rate
- * the same result against the ratings the first pass produced — and the person
+ * privileged work with a real failure mode. A game applied twice would rate
+ * the same result against the ratings the first pass produced, and the person
  * tapping the button deserves to be told which of those happened. The app has
  * no API layer and doesn't want one, but `setAppAdmin` already establishes that
  * privileged actions arrive this way.
@@ -24,7 +24,7 @@ export const finaliseTournament = onCall<{ seasonId?: string; gameId?: string }>
 	// `EMAIL_SECRETS` because confirming a game opens the man-of-the-match vote
 	// and asks everybody who played to have their say. Without the secret
 	// declared here that notification's email fallback would silently mail
-	// nobody — see `sendPush`.
+	// nobody. See `sendPush`.
 	{ region: REGION, timeoutSeconds: 300, secrets: EMAIL_SECRETS },
 	instrument('finaliseTournament', async request => {
 		const { seasonId, gameId } = request.data ?? {};
@@ -42,10 +42,10 @@ export const finaliseTournament = onCall<{ seasonId?: string; gameId?: string }>
 			throw new HttpsError('failed-precondition', 'Enter at least one score before confirming.');
 		}
 		// Somebody else's correction is being worked through the ladder. Nothing is
-		// wrong and nothing was applied — worth saying so plainly rather than
+		// wrong and nothing was applied. Worth saying so plainly rather than
 		// leaving the button looking broken, because tapping again shortly works.
 		if (outcome === 'busy') {
-			throw new HttpsError('aborted', 'Ratings are being recalculated right now — try again in a moment.');
+			throw new HttpsError('aborted', 'Ratings are being recalculated right now. Try again in a moment.');
 		}
 
 		return { ok: true };
@@ -56,13 +56,13 @@ export const finaliseTournament = onCall<{ seasonId?: string; gameId?: string }>
  * Confirms whatever nobody got round to confirming.
  *
  * Hourly, like the reminders. Without this an unconfirmed game silently never
- * counts and somebody notices three weeks later that the ladder has not moved —
+ * counts and somebody notices three weeks later that the ladder has not moved,
  * which is precisely the failure an explicit-confirm-only design invites.
  *
  * A game with no scores at all is left alone rather than confirmed empty: it
  * has nothing to say about anybody, and confirming it would only close the
  * scoreboard on a game somebody might still be about to fill in. It keeps being
- * offered here for as long as that stays true, however late the scores arrive —
+ * offered here for as long as that stays true, however late the scores arrive,
  * which is the point of this having no lower bound.
  *
  * Also the app's answer to a replay whose holder died mid-flight. The lease
@@ -75,7 +75,7 @@ export const finaliseDueTournaments = onSchedule(
 	// vote on.
 	{ schedule: 'every 1 hours', region: REGION, timeoutSeconds: 300, secrets: EMAIL_SECRETS },
 	// Two consecutive misses before raising, unlike the reminders: nothing here
-	// has a deadline — a game confirmed an hour late rates identically — so one
+	// has a deadline. A game confirmed an hour late rates identically, so one
 	// skipped run costs nothing and isn't worth waking anybody for.
 	instrumentSchedule(
 		'finaliseDueTournaments',
@@ -86,7 +86,7 @@ export const finaliseDueTournaments = onSchedule(
 			// Every unrated game that has had its window, with no lower bound.
 			//
 			// There used to be one, seven days back, to keep this off the whole back
-			// catalogue every hour — necessary while a rated game stayed `scheduled`
+			// catalogue every hour, necessary while a rated game stayed `scheduled`
 			// forever and so matched this query for the rest of time. It also meant a
 			// game whose scores were entered a week late fell out of the window and
 			// was never rated at all, silently, while the screen went on promising it
@@ -116,9 +116,9 @@ export const finaliseDueTournaments = onSchedule(
 				// answering this query. Retire it and move on; the back catalogue
 				// heals itself over the first run or two rather than needing a script.
 				if (game.resultFinalisedAt) {
-					// Swallowed deliberately — a doc stuck on `scheduled` just keeps
+					// Swallowed deliberately. A doc stuck on `scheduled` just keeps
 					// matching this query next hour rather than blocking the rest of
-					// the sweep — but silently, so a persistent failure here would
+					// the sweep, but silently, so a persistent failure here would
 					// never surface anywhere. reportError is what makes it visible.
 					await doc.ref
 						.update({ status: 'played' })
@@ -152,7 +152,7 @@ export const finaliseDueTournaments = onSchedule(
 
 			// `lingering` is the number this sweep looked at and could not rate,
 			// which is almost always games nobody scored. It is the one figure here
-			// that should stay small — a number that climbs week on week means games
+			// that should stay small. A number that climbs week on week means games
 			// are going unrated and nobody has noticed.
 			logger.info('Auto-confirmed games past their window', {
 				checked: games.size,
@@ -169,7 +169,7 @@ export const finaliseDueTournaments = onSchedule(
 /**
  * Replays the ladder when a confirmed score is corrected.
  *
- * Only fires for games that are already confirmed — before that, scores move
+ * Only fires for games that are already confirmed. Before that, scores move
  * constantly and nothing has been applied yet, so there is nothing to replay.
  *
  * Fires **per match document**, so an admin fixing three scorelines raises

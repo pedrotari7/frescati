@@ -86,7 +86,7 @@ describe('readCounts', () => {
 	});
 
 	// `Number('')` is 0, which is how an emptied box used to become a season
-	// with `minPlayers: 0` — one in which no game can ever be short.
+	// with `minPlayers: 0`, one in which no game can ever be short.
 	it('refuses an empty box rather than reading it as zero', () => {
 		const { counts, invalid } = readCounts({ ...EMPTY_FORM, minPlayers: '' });
 

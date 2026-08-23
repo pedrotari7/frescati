@@ -21,7 +21,7 @@ import { RangeInput, TextInput } from '../../../../components/Field';
 import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Section';
 
 /**
- * Starting ratings — what an admin knows about a player before the ladder does.
+ * Starting ratings: what an admin knows about a player before the ladder does.
  *
  * Its own screen rather than a column on the app-admin list, which is about a
  * role, or on a season's squad, which a rating outlives: a rating is global and
@@ -29,7 +29,7 @@ import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Sect
  *
  * The split down the middle is the whole screen. Above the line are people
  * whose rating is still an estimate and still editable; below it are people the
- * ladder has had its say about, shown but not touchable — see
+ * ladder has had its say about, shown but not touchable: see
  * `setStartingRating` on the backend for why that isn't merely a house rule.
  */
 
@@ -39,7 +39,7 @@ const DEFAULT_DISPLAY = 50;
 /**
  * The rough shape of the scale, so an admin nudging a slider has something to
  * aim at rather than guessing what 70 is supposed to mean. Deliberately coarse,
- * and highest first so the first match wins — the number is an opening bid that
+ * and highest first so the first match wins, the number is an opening bid that
  * the first few games will correct anyway.
  */
 const SCALE_HINT = [
@@ -55,7 +55,7 @@ const describeRating = (display: number): string => SCALE_HINT.find(step => disp
  * The slider, mounted only while a row is open.
  *
  * Its own component so the draft is born from `current` each time it opens
- * rather than surviving in a row that never unmounts — otherwise clearing
+ * rather than surviving in a row that never unmounts, otherwise clearing
  * somebody's rating and opening them again shows the number that was just
  * thrown away.
  */
@@ -120,7 +120,7 @@ const StartingRatingEditor = ({
  * One editable player: the row, and the editor it opens into.
  *
  * Inline and one-at-a-time rather than a dialog, because setting these is a
- * pass down a list — open, drag, save, next — and a modal per person turns that
+ * pass down a list: open, drag, save, next, and a modal per person turns that
  * into a lot of tapping.
  */
 const StartingRatingRow = ({
@@ -239,7 +239,7 @@ const RatingsAdminPage = () => {
 					</ListCard>
 
 					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
-						Left alone, a new player is worth the average of the season&apos;s rated members — which is the
+						Left alone, a new player is worth the average of the season&apos;s rated members, which is the
 						right guess for somebody you know nothing about, and the wrong one for somebody you do. A
 						starting rating counts from their first game: the balancer uses it, and their first few results
 						move them fast either way. It stays off the ladder until they have actually played.
@@ -282,7 +282,7 @@ const RatingsAdminPage = () => {
 
 					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
 						These are earned, so they are not editable here. Every rated game records what each player
-						carried into it, and a correction to any result rewinds and replays from there — an edit dropped
+						carried into it, and a correction to any result rewinds and replays from there, an edit dropped
 						on top would be undone by the next one. Fix a wrong rating by fixing the scores behind it.
 					</p>
 				</section>

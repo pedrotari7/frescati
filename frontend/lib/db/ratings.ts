@@ -2,7 +2,7 @@ import { callFunction } from './call';
 
 /**
  * A rating is function-owned and frozen against client writes, so the one edit
- * an admin gets — a starting point, before the player's first rated game — has
+ * an admin gets, a starting point, before the player's first rated game, has
  * to go through a callable rather than a rule with an exception in it.
  *
  * `rating` is on the displayed 0–100 scale, the one every screen already shows;

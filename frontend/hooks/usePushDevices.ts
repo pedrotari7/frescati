@@ -6,7 +6,7 @@ import type { NotificationReach } from '../lib/db/pushDevices';
 import { captureError } from '../lib/sentry';
 
 /**
- * Nothing registered, nothing addressable, nothing configured — what every row
+ * Nothing registered, nothing addressable, nothing configured, what every row
  * reads as before the call comes back, and what it falls back to if the call
  * fails. Erring towards "can't reach them" is the safe direction for a screen
  * whose whole job is to find the people nothing arrives for.
@@ -19,7 +19,7 @@ const NOTHING: NotificationReach = { devices: {}, addressed: new Set(), emailCon
  * The only thing in the app that isn't realtime, because it is the only thing
  * that can't be: push tokens and email addresses are both unreadable from the
  * client by design, so this comes back from a callable rather than an
- * `onSnapshot`. `reload` is what the screen offers instead — an admin watching
+ * `onSnapshot`. `reload` is what the screen offers instead, an admin watching
  * somebody turn notifications on over the phone needs a way to ask again, and a
  * refresh button is more honest than a poll that hides how stale the answer is.
  *

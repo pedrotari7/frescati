@@ -33,7 +33,7 @@ import { classNames } from '../../../../lib/utils/reactHelper';
  * point of the screen is seeing a run that spans them. `/admin/ratings` sits
  * outside a season for the same reason.
  *
- * Everything below the name is aggregated from the rating ledger — see
+ * Everything below the name is aggregated from the rating ledger. See
  * `shared/player.ts`. Nothing new is stored, and nothing here can disagree with
  * the table, because a correction that replays the ladder rewrites the same
  * entries this reads.
@@ -49,7 +49,7 @@ const INITIAL_LINKS = 6;
  * Games with somebody before their record together is called a pattern.
  *
  * One game together is a hundred per cent partnership. The list below shows
- * everybody regardless — a single game is a fact — but the two lines that name
+ * everybody regardless, a single game is a fact, but the two lines that name
  * a name out loud need enough behind them to still be true next month.
  */
 const MIN_LINK_GAMES = 4;
@@ -77,7 +77,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 	const seasonsById = useMemo(() => new Map(seasons.map(season => [season.id, season])), [seasons]);
 
 	// Everybody they have ever shared a game with, and the two of those worth
-	// saying out loud. Off the same entries as the record above — but only the
+	// saying out loud. Off the same entries as the record above, but only the
 	// ones carrying a team map, since a shared finishing place cannot say which
 	// side of it two players were on.
 	const links = useMemo(() => getPlayerLinks(entries, uid), [entries, uid]);
@@ -99,7 +99,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 	//
 	// The season is the fallback way out rather than the way out: a profile is
 	// opened from a game's roster, a team sheet, the table and other profiles,
-	// and the chevron goes back the way it came whenever there is a way — see
+	// and the chevron goes back the way it came whenever there is a way. See
 	// `AppHistory`. This is what is left for somebody who arrived by link.
 	const shell = {
 		navItems: seasonId ? seasonNavItems(seasonId) : undefined,
@@ -222,7 +222,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 
 								<p className='text-faint mt-4 text-xs leading-relaxed'>
 									A rating moves on how your team did against how it was expected to, so a win over
-									a stronger field is worth more than one over a weaker — and a comfortable win
+									a stronger field is worth more than one over a weaker, and a comfortable win
 									more than a squeak.
 								</p>
 							</section>
@@ -274,7 +274,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 												<span className='text-ink font-semibold'>
 													{nameByUid(usersById, chemistry.bestWith.uid)}
 												</span>{' '}
-												— {chemistry.bestWith.wonTogether} of {chemistry.bestWith.together}{' '}
+												, {chemistry.bestWith.wonTogether} of {chemistry.bestWith.together}{' '}
 												together.
 											</p>
 										)}
@@ -284,7 +284,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 												<span className='text-ink font-semibold'>
 													{nameByUid(usersById, chemistry.nemesis.uid)}
 												</span>{' '}
-												— {chemistry.nemesis.beat}–{chemistry.nemesis.drewWith}–
+												, {chemistry.nemesis.beat}–{chemistry.nemesis.drewWith}–
 												{chemistry.nemesis.lostTo} in {chemistry.nemesis.against} games.
 											</p>
 										)}
@@ -310,7 +310,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 									Games their team won out of games on the same team, then games they finished above
 									out of games on opposite teams. A level finish counts for neither.
 									{linkedGames < record.appearances &&
-										` Worked out from ${linkedGames} of ${record.appearances} games — the rest were rated before the app recorded who was on which team.`}
+										` Worked out from ${linkedGames} of ${record.appearances} games. The rest were rated before the app recorded who was on which team.`}
 								</p>
 
 								{links.length > INITIAL_LINKS && (

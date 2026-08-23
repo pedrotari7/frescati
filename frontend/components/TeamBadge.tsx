@@ -54,7 +54,7 @@ const TEAM_STYLES = [
 
 export const teamName = (index: number): string => TEAM_STYLES[index]?.name ?? `${index + 1}`;
 
-/** Falls back to the first bib rather than to nothing — `MAX_TEAMS` is 4, so this is unreachable. */
+/** Falls back to the first bib rather than to nothing. `MAX_TEAMS` is 4, so this is unreachable. */
 export const teamStyle = (index: number) => TEAM_STYLES[index] ?? TEAM_STYLES[0];
 
 const SIZES = {
@@ -67,7 +67,7 @@ const SIZES = {
  *
  * Filled rather than tinted text on purpose. The scoreboard is filled in at
  * the side of a pitch, by whoever has a free hand, against a team sheet on a
- * different screen — a 14px coloured letter is not enough to tell two sides
+ * different screen. A 14px coloured letter is not enough to tell two sides
  * apart at a glance, and putting the goals on the wrong side is the mistake
  * that costs a rating. So the same block appears on the team sheet, on the
  * fixture and in the table, and it is the loudest thing in each of them.

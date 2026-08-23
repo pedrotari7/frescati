@@ -5,7 +5,7 @@ import { join } from 'path';
  * The index set, checked against the queries that need it.
  *
  * Nothing else can catch this. The Firestore emulator answers any query put to
- * it, whether or not production has an index that could serve one — so every
+ * it, whether or not production has an index that could serve one, so every
  * suite in this repo passes against a query that fails in the real database
  * with `FAILED_PRECONDITION`, and the first anybody hears of it is a screen
  * that never loads. `firestore.indexes.json` is deployed config with no test
@@ -18,7 +18,7 @@ import { join } from 'path';
  *
  * Only queries that need a **composite** index are listed. Firestore maintains
  * single-field indexes automatically, which is what the rest of the app's
- * queries use — including the map-subfield read behind a player's record, whose
+ * queries use, including the map-subfield read behind a player's record, whose
  * automatic index is exactly what the exemption test below protects.
  */
 
@@ -58,7 +58,7 @@ interface Query {
 
 const COMPOSITE_QUERIES: Query[] = [
 	{
-		where: 'auditCounts.ts — the nightly drift sweep, over upcoming games in one season',
+		where: 'auditCounts.ts: the nightly drift sweep, over upcoming games in one season',
 		collectionGroup: 'games',
 		queryScope: 'COLLECTION',
 		fields: [
@@ -67,7 +67,7 @@ const COMPOSITE_QUERIES: Query[] = [
 		],
 	},
 	{
-		where: 'sendReminders.ts — games inside a reminder window',
+		where: 'sendReminders.ts: games inside a reminder window',
 		collectionGroup: 'games',
 		queryScope: 'COLLECTION',
 		fields: [
@@ -76,7 +76,7 @@ const COMPOSITE_QUERIES: Query[] = [
 		],
 	},
 	{
-		where: 'finaliseTournament.ts — games due to be auto-finalised, across every season',
+		where: 'finaliseTournament.ts: games due to be auto-finalised, across every season',
 		collectionGroup: 'games',
 		queryScope: 'COLLECTION_GROUP',
 		fields: [
@@ -85,7 +85,7 @@ const COMPOSITE_QUERIES: Query[] = [
 		],
 	},
 	{
-		where: 'lib/data.ts — active seasons, newest first',
+		where: 'lib/data.ts: active seasons, newest first',
 		collectionGroup: 'seasons',
 		queryScope: 'COLLECTION',
 		fields: [
@@ -125,7 +125,7 @@ describe('the composite indexes', () => {
 	});
 });
 
-describe('the collection-group read of one player’s answers', () => {
+describe("the collection-group read of one player's answers", () => {
 	/**
 	 * `useMyResponses` opens one collection-group listener for every answer the
 	 * signed-in user has given, rather than a document listener per row of the
@@ -149,8 +149,8 @@ describe('the collection-group read of one player’s answers', () => {
 
 describe('the sweep that closes a man-of-the-match vote', () => {
 	/**
-	 * `closeMotmVoting` asks every season at once — a collection-group range over
-	 * `motmVotingUntilMillis` — which is a **single-field** query and still needs
+	 * `closeMotmVoting` asks every season at once, a collection-group range over
+	 * `motmVotingUntilMillis`, which is a **single-field** query and still needs
 	 * declaring, because automatic indexes are collection-scoped only.
 	 *
 	 * This was live in the project and missing from this file, which is the
@@ -186,7 +186,7 @@ describe('the collection-group read of the games one player follows', () => {
 	 * screen draw a bell on every row rather than a listener per row.
 	 *
 	 * The same declaration the answers above need, and it fails the same silent
-	 * way without it — the emulator serves the query, production refuses it, and
+	 * way without it. The emulator serves the query, production refuses it, and
 	 * every bell on the calendar goes dark at once.
 	 */
 	const override = () =>
@@ -196,8 +196,8 @@ describe('the collection-group read of the games one player follows', () => {
 		expect(override()?.indexes).toContainEqual({ order: 'ASCENDING', queryScope: 'COLLECTION_GROUP' });
 	});
 
-	// Nothing queries one game's watchers by field — `getWatcherUids` reads the
-	// document ids — but an override listing only the group scope would *take
+	// Nothing queries one game's watchers by field, `getWatcherUids` reads the
+	// document ids, but an override listing only the group scope would *take
 	// away* the automatic index rather than leave it alone, which is a thing to
 	// do on purpose or not at all.
 	it('leaves the automatic index within one game where it was', () => {
@@ -205,11 +205,11 @@ describe('the collection-group read of the games one player follows', () => {
 	});
 });
 
-describe('a player’s record', () => {
+describe("a player's record", () => {
 	/**
 	 * `/u/[uid]` is aggregated from the rating ledger by querying
-	 * `positions.{uid}`, which rides Firestore's automatic map-subfield indexes
-	 * — no composite index, no mirrored `uids` array.
+	 * `positions.{uid}`, which rides Firestore's automatic map-subfield indexes:
+	 * no composite index, no mirrored `uids` array.
 	 *
 	 * The cost of that is a landmine: `positions` holds one subfield per player
 	 * who has ever played, so it is exactly the shape somebody reaches for a

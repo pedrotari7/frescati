@@ -2,7 +2,7 @@
  * Where client-side crashes go.
  *
  * The app talks to Firestore straight from the browser, so almost everything
- * that can go wrong goes wrong on somebody's phone — a rule that says no, an
+ * that can go wrong goes wrong on somebody's phone: a rule that says no, an
  * expired session, a bundle half-updated by a stale service worker. None of
  * that reaches a server log, which meant the only way it ever surfaced was
  * somebody mentioning at the pitch that the app "wasn't working".
@@ -22,7 +22,7 @@ import type * as SentryModule from '@sentry/nextjs';
 /**
  * Public, like every other `NEXT_PUBLIC_` value and like the Firebase config
  * beside it. A DSN authorizes *writing* an event to one project and nothing
- * else — it reads nothing back, which is why shipping it in the bundle is the
+ * else. It reads nothing back, which is why shipping it in the bundle is the
  * documented way to use it rather than a leak.
  */
 const DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
@@ -34,7 +34,7 @@ const DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
  */
 const ENVIRONMENT = process.env.NEXT_PUBLIC_VERCEL_ENV ?? 'development';
 
-/** Matches `firebaseClient.ts` — a seeded local stack is not worth reporting. */
+/** Matches `firebaseClient.ts`, a seeded local stack is not worth reporting. */
 const useEmulators = process.env.NEXT_PUBLIC_USE_EMULATORS === '1';
 
 /**
@@ -44,18 +44,18 @@ const useEmulators = process.env.NEXT_PUBLIC_USE_EMULATORS === '1';
  * The emulator check alone was not the "nothing from a local run" rule it read
  * as: `dev:live` is a local dev server that sets `NEXT_PUBLIC_USE_EMULATORS=0`,
  * so it passed the check and reported. What it reported was mostly `next dev`
- * itself — webpack hands every module through HMR, and a chunk swapped under a
+ * itself: webpack hands every module through HMR, and a chunk swapped under a
  * page that is still running throws `undefined is not a function` from the
  * webpack runtime on every hot update. That arrived 112 times in a day, into
  * the same inbox as production, tagged `development` on `localhost:3000`.
  *
  * Filtering the message instead would have been wrong: the same throw from a
- * real build is a real bug — see the chunk that failed to load on somebody's
- * phone — and an `ignoreErrors` entry could not tell the two apart. Where it
+ * real build is a real bug, see the chunk that failed to load on somebody's
+ * phone, and an `ignoreErrors` entry could not tell the two apart. Where it
  * came from can.
  *
  * To report from a local run on purpose, set `NEXT_PUBLIC_VERCEL_ENV` for that
- * one run — the same shape of escape hatch as `VERCEL=1` for source maps in
+ * one run, the same shape of escape hatch as `VERCEL=1` for source maps in
  * `next.config.js`.
  */
 const isDeployed = Boolean(process.env.NEXT_PUBLIC_VERCEL_ENV);
@@ -68,8 +68,8 @@ const isDeployed = Boolean(process.env.NEXT_PUBLIC_VERCEL_ENV);
 const ignoreErrors = [
 	// Fires on layout thrash in every browser and means nothing.
 	/ResizeObserver loop/,
-	// A phone on pitch-side signal. Firestore recovers on its own — that is what
-	// the offline cache is for — so this describes the walk to the ground, not a
+	// A phone on pitch-side signal. Firestore recovers on its own. That is what
+	// the offline cache is for, so this describes the walk to the ground, not a
 	// defect. `permission-denied` is deliberately *not* here: a rule refusing a
 	// write the UI offered is a genuine disagreement worth seeing.
 	/client is offline/,
@@ -86,7 +86,7 @@ const ignoreErrors = [
 	/Load failed/,
 	// Firefox for iOS injects `window.__firefox__` for its own reader mode and
 	// video-quality controls. When that injection lands slightly out of sync
-	// with the page, referencing it throws — a Mozilla-authored global no app
+	// with the page, referencing it throws, a Mozilla-authored global no app
 	// code ever touches, so this never correlates with anything of ours.
 	/__firefox__/,
 	// Brave injects `window.ethereum` for its built-in wallet, into a page that
@@ -104,7 +104,7 @@ export const sentryOptions = {
 	 * Off, on purpose, and worth saying why rather than leaving at a default.
 	 *
 	 * Tracing and Session Replay are the two things people switch on next, and
-	 * Replay records the DOM — which here is a roster of real names, who is
+	 * Replay records the DOM, which here is a roster of real names, who is
 	 * playing where and when. That is a materially bigger collection than "a
 	 * stack trace when something breaks", and it is not something to turn on
 	 * before there is a privacy notice saying so.
@@ -115,8 +115,8 @@ export const sentryOptions = {
 	/*
 	 * Nothing here sets `release`, and that is on purpose rather than an
 	 * oversight. The build plugin already derives one from
-	 * `VERCEL_GIT_COMMIT_SHA` and injects it — grep a built chunk for
-	 * `SENTRY_RELEASE` — so every issue is already stamped with the commit that
+	 * `VERCEL_GIT_COMMIT_SHA` and injects it, grep a built chunk for
+	 * `SENTRY_RELEASE`, so every issue is already stamped with the commit that
 	 * `lib/build.ts` puts on screen. Setting it again here could only agree
 	 * (pointless) or disagree, and disagreeing would detach the uploaded source
 	 * maps and leave every stack trace minified.
@@ -124,7 +124,7 @@ export const sentryOptions = {
 	ignoreErrors,
 	/**
 	 * A DSN left blank already disables the SDK; this additionally keeps every
-	 * local run quiet for anybody who *has* configured one — `dev:seeded` and
+	 * local run quiet for anybody who *has* configured one, `dev:seeded` and
 	 * `dev:live` alike.
 	 */
 	enabled: isDeployed && !useEmulators,
@@ -134,7 +134,7 @@ export const sentryOptions = {
  * Load the SDK and do something with it, swallowing anything that goes wrong.
  *
  * Every caller below is invoked from a place that has already handled the real
- * failure — a toast is on screen, a fallback is rendered. A rejection here
+ * failure: a toast is on screen, a fallback is rendered. A rejection here
  * would surface as an unhandled rejection *about the reporter*, on top of the
  * problem being reported, and the import genuinely can fail: it is a lazily
  * fetched chunk, and this app is used at a pitch on one bar of signal.
@@ -156,7 +156,7 @@ const withSentry = async (run: (sentry: typeof SentryModule) => unknown) => {
 };
 
 /**
- * Attach — or clear — who is signed in.
+ * Attach, or clear, who is signed in.
  *
  * The uid and nothing else. It is enough to tell "this breaks for one person"
  * from "this breaks for everybody", which is the only question an error report
@@ -174,8 +174,8 @@ export const setSentryUser = async (uid: string | null) => {
  * Report something we caught and handled.
  *
  * The unhandled ones arrive on their own. This is for the failures the app
- * deliberately absorbs — a rejected write that only became a toast, a profile
- * sync that was allowed to fail quietly — which are exactly the ones nobody
+ * deliberately absorbs: a rejected write that only became a toast, a profile
+ * sync that was allowed to fail quietly, which are exactly the ones nobody
  * would otherwise ever hear about.
  */
 export const captureError = async (error: unknown, context: Record<string, unknown> = {}) => {
@@ -187,7 +187,7 @@ export const captureError = async (error: unknown, context: Record<string, unkno
 /**
  * Report something, and wait for it to actually leave the device.
  *
- * `captureError` only *queues* — the SDK batches events and sends them on its
+ * `captureError` only *queues*: the SDK batches events and sends them on its
  * own schedule, which is fine everywhere the page carries on afterwards. It is
  * not fine for the one caller that reports and then reloads: the queue lives in
  * the page, so the reload takes it, and the report explaining why the reload
@@ -195,7 +195,7 @@ export const captureError = async (error: unknown, context: Record<string, unkno
  *
  * Resolves either way. A flush that times out still hands control back, because
  * the caller's next move is recovering the app, and telemetry does not get a
- * veto over that — the same reason `instrument()` rethrows on the backend.
+ * veto over that: the same reason `instrument()` rethrows on the backend.
  */
 export const captureErrorAndFlush = async (error: unknown, context: Record<string, unknown> = {}, timeoutMs = 2000) => {
 	if (!DSN) return;

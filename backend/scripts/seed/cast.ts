@@ -5,7 +5,7 @@
  * player's *true* ability, used only to decide how the seeded matches go. The
  * ratings the app then shows are worked out from those results by the same code
  * the Cloud Functions run, so a seeded ladder is one the app could actually have
- * produced — not a column of made-up numbers that no result explains.
+ * produced, not a column of made-up numbers that no result explains.
  *
  * Keep the list long. Scenarios pick from it, and a group of thirty gives the
  * four-team games, the fringe members and the hopeful extras that the screens
@@ -31,7 +31,7 @@ const person = (key: string, displayName: string, strength: number, photo = true
 
 /**
  * Ordered roughly strongest first, purely so a scenario slicing the first N
- * people gets a plausible spread rather than an accidentally elite squad —
+ * people gets a plausible spread rather than an accidentally elite squad,
  * seasons deliberately interleave when they pick.
  */
 export const CAST: CastMember[] = [
@@ -85,7 +85,7 @@ export const emailFor = (key: string): string => `${key}@frescati.dev`;
 /**
  * The `sub` the emulator's Google provider link is keyed on. Signing in from
  * the browser sends this, the emulator matches it against the imported link and
- * hands back the same uid — which is the whole reason seeded data and a seeded
+ * hands back the same uid, which is the whole reason seeded data and a seeded
  * sign-in refer to the same person.
  */
 export const googleSubFor = (key: string): string => `google-${uidFor(key)}`;
@@ -96,7 +96,7 @@ const AVATAR_HUES = [152, 199, 262, 21, 340, 96, 43, 288];
  * The avatar's source, written into `frontend/public` by the seeder.
  *
  * Served from the app's own origin rather than fetched from an avatar service,
- * because the emulator is what you reach for on a train with no wifi — and
+ * because the emulator is what you reach for on a train with no wifi, and
  * `Avatar` shows a broken image, not initials, when a remote URL fails to load.
  * A `data:` URI would have been better still, but Firebase Auth rejects one as
  * a `photoURL`, and the auth record is what the app copies onto the profile

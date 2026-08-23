@@ -18,7 +18,7 @@ import { TextInput } from '../../../components/Field';
 import { ListCard, ListEmpty, SectionHeading } from '../../../components/Section';
 
 /**
- * App admins — the global role, distinct from the per-season one.
+ * App admins. The global role, distinct from the per-season one.
  *
  * Kept on its own route rather than folded into a season screen because the two
  * roles are genuinely different: a season admin runs one season, an app admin
@@ -64,7 +64,7 @@ const AppAdminPage = () => {
 		const ok = await confirm({
 			title: isAdmin ? `Make ${displayName} an app admin?` : `Remove ${displayName}'s admin rights?`,
 			message: isAdmin
-				? 'They will be able to create and delete seasons, and promote or demote anybody — including you.'
+				? 'They will be able to create and delete seasons, and promote or demote anybody, including you.'
 				: 'They keep any season-admin roles they hold; only the global rights go.',
 			confirmLabel: isAdmin ? 'Promote' : 'Demote',
 			tone: isAdmin ? 'primary' : 'danger',

@@ -207,13 +207,13 @@ describe('getMatchScore', () => {
 
 	// The whole reason this exists. The group plays both a single match into the
 	// teens and a card of ten-minute matches, and a goal of margin means opposite
-	// things in the two — which is what a share reads correctly and a margin
+	// things in the two, which is what a share reads correctly and a margin
 	// cannot. A 14-13 is a coin flip; a 1-0 in ten minutes is not.
 	it('reads a one-goal win as a coin flip in a long game and a win in a short one', () => {
 		expect(getMatchScore(14, 13)).toBeCloseTo(0.5 + 0.5 * (15 / 29), 9);
 		expect(getMatchScore(1, 0)).toBeCloseTo(0.5 + 0.5 * (2 / 3), 9);
 
-		// Any win scores at least 0.75 — half for the result, and half of a share
+		// Any win scores at least 0.75, half for the result, and half of a share
 		// a winner cannot get below 0.5. What each spends of the quarter above
 		// that is the whole difference between the two: the 14-13 barely a fifth
 		// of what the 1-0 does, off the same one goal.
@@ -248,7 +248,7 @@ describe('getTeamRecords', () => {
 		expect(records[2]).toEqual({ played: 1, score: getMatchScore(0, 1), opponents: [0] });
 	});
 
-	// Left over from a lineup rebuilt after it was scored — the same case
+	// Left over from a lineup rebuilt after it was scored, the same case
 	// `getStandings` ignores rather than throws on.
 	it('ignores a match naming a team the lineup no longer has', () => {
 		const records = getTeamRecords(2, beat([0, 1], [0, 5]));
@@ -287,7 +287,7 @@ describe('getRatingChanges', () => {
 	const ladder = beat([0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]);
 
 	// 0.8 x (rate - 0.5) + 0.2 x place, at K = 20. A sweep of 1-0s scores 5/6
-	// rather than a perfect 1 — winning every match is most of a perfect evening
+	// rather than a perfect 1. Winning every match is most of a perfect evening
 	// and winning them all by one goal is not the rest of it.
 	it('pays a clean sweep of one-goal wins, and the team that lost everything the same the other way', () => {
 		const changes = getRatingChanges(four, ladder, [0, 1, 2, 3], BASE_ELO);
@@ -299,7 +299,7 @@ describe('getRatingChanges', () => {
 	});
 
 	// Half a K is still there to be had, and now it takes the scoreline as well
-	// as the sweep — which is what stops the maximum drifting when the football
+	// as the sweep, which is what stops the maximum drifting when the football
 	// changes underneath it, and why nothing about K or the MOTM point moved.
 	it('still tops out at half a K for a sweep with nothing left to add', () => {
 		const rout = beat([0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]).map(fixture => ({
@@ -338,7 +338,7 @@ describe('getRatingChanges', () => {
 		expect(deltaOf(changes, 'c-0')).toBeCloseTo(-22 / 3, 6);
 	});
 
-	// What the ordinal fifth is for. A pure rate cannot tell these two apart —
+	// What the ordinal fifth is for. A pure rate cannot tell these two apart.
 	// same wins, same draws, and only goal difference between them.
 	it('always pays the team that won the table more than the one it edged out', () => {
 		const players = [...squad(0, BASE_ELO, 5, 'a'), ...squad(1, BASE_ELO, 5, 'b'), ...squad(2, BASE_ELO, 5, 'c')];
@@ -446,7 +446,7 @@ describe('getRatingChanges', () => {
 	});
 
 	// An evening that stopped after one scoreline said nothing about the team
-	// that never got on — so they get no change rather than a zero one, and the
+	// that never got on, so they get no change rather than a zero one, and the
 	// two who did play are rated as the two-team game it turned out to be.
 	it('leaves out a team that never got on the pitch', () => {
 		const players = [...squad(0, BASE_ELO, 4, 'a'), ...squad(1, BASE_ELO, 4, 'b'), ...squad(2, BASE_ELO, 4, 'c')];
@@ -540,7 +540,7 @@ describe('applyMotmBonus', () => {
 	// display points, so a pot under 5 Elo leaves the winner reading the same
 	// `+4` as the four teammates they were voted ahead of. Every test above
 	// passed throughout, because each is written relative to `MOTM_BONUS_ELO`
-	// and the bonus was applied correctly — it just could not be seen.
+	// and the bonus was applied correctly. It just could not be seen.
 	//
 	// Pinned against the display rather than against a number, so the next
 	// retune of K fails here rather than in front of the group. The gap is

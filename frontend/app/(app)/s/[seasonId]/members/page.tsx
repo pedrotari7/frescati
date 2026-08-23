@@ -52,7 +52,7 @@ const MembersPage = () => {
 	}
 
 	// Kit lives behind the Squad tab rather than a fifth one of its own: it is a
-	// property of the squad — who is holding what — and the tab bar deliberately
+	// property of the squad, who is holding what, and the tab bar deliberately
 	// never grows or reflows, so a new tab would move every tab beside it on
 	// every screen in the app. Shown to everyone, because anybody in the squad
 	// can hand a bag on.
@@ -64,7 +64,7 @@ const MembersPage = () => {
 			<ShoppingBagIcon className='text-brand size-5 shrink-0' aria-hidden='true' />
 			<div className='min-w-0 flex-1'>
 				<p className='text-ink text-sm font-semibold'>Kit</p>
-				{/* Which kinds, not how many of each — "1 vests" is the sort of
+				{/* Which kinds, not how many of each, "1 vests" is the sort of
 				    thing a count can't say. The screen itself has the detail. */}
 				<p className='text-faint text-xs'>
 					{kit.length === 0
@@ -128,7 +128,7 @@ const MembersPage = () => {
 					</div>
 
 					<p className='text-faint mt-4 px-1 text-xs leading-relaxed'>
-						Anyone signed in who isn&apos;t on this list can still put their hand up for a game — they show
+						Anyone signed in who isn&apos;t on this list can still put their hand up for a game, they show
 						up as an extra.
 					</p>
 				</div>

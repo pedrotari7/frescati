@@ -13,7 +13,7 @@ import { getGame, getProfiles, getResponses, getSeason } from './data';
  * Re-picking the teams for one game.
  *
  * Separated from the task handler that normally calls it so it can also be run
- * directly — which is what the emulator does, Cloud Tasks having none. Nothing
+ * directly, which is what the emulator does, Cloud Tasks having none. Nothing
  * in here is incremental: the lineup is derived from the pool, the ratings and
  * a seed, so running it twice writes the same document twice and a retry is
  * always safe.
@@ -27,7 +27,7 @@ export interface TeamRebuildTask {
 	/**
 	 * Re-pick even a lineup an admin has edited by hand.
 	 *
-	 * Set only by the one thing that means "re-pick these teams" outright —
+	 * Set only by the one thing that means "re-pick these teams" outright,
 	 * Reshuffle, and moving the balance levers, both of which `onGameWrite`
 	 * sees. Every other rebuild is a side effect of somebody answering, and
 	 * those must not quietly undo a hand-picked sheet.
@@ -43,7 +43,7 @@ const resolveSettings = (season: Season, game: Game): BalanceSettings => ({
 });
 
 /**
- * The squads from the previous few games, most recent first — what the repeat
+ * The squads from the previous few games, most recent first, what the repeat
  * penalty is weighed against.
  *
  * Read from the games before this one by kickoff rather than by creation, so
@@ -61,7 +61,7 @@ const getRecentSquads = async (seasonId: string, kickoff: string, lookback: numb
 		.get();
 
 	// `getAll` throws when handed nothing, which is exactly what the very first
-	// game of a season produces — so without this the one game that has no
+	// game of a season produces, so without this the one game that has no
 	// history to avoid repeating is the one game that never gets a lineup.
 	if (games.empty) return [];
 
@@ -77,7 +77,7 @@ export const runTeamRebuild = async ({ seasonId, gameId, generation, force }: Te
 
 	const game = await getGame(seasonId, gameId);
 
-	// The game went away between queueing and running — the cascade delete will
+	// The game went away between queueing and running. The cascade delete will
 	// have taken the lineup with it.
 	if (!game) return;
 
@@ -86,7 +86,7 @@ export const runTeamRebuild = async ({ seasonId, gameId, generation, force }: Te
 	// back to recompute a correction. Re-picking it here would silently rewrite
 	// what a past game meant, so a confirmed game's teams are frozen.
 	if (game.resultFinalisedAt) {
-		logger.debug('Left a confirmed game’s lineup alone', { seasonId, gameId });
+		logger.debug("Left a confirmed game's lineup alone", { seasonId, gameId });
 		return;
 	}
 
@@ -101,7 +101,7 @@ export const runTeamRebuild = async ({ seasonId, gameId, generation, force }: Te
 	// An admin has moved people about by hand. From then on this sheet is a
 	// decision rather than a suggestion, and re-picking it because somebody
 	// three streets away changed their mind would undo the evening's planning
-	// with nothing on screen to say why — the same reasoning that freezes a
+	// with nothing on screen to say why, the same reasoning that freezes a
 	// confirmed game's lineup, one step earlier.
 	//
 	// Read rather than assumed, so the pin costs one document read on a path
@@ -128,7 +128,7 @@ export const runTeamRebuild = async ({ seasonId, gameId, generation, force }: Te
 	const teamCount = getTeamCount(pool.length);
 
 	// Not enough for a tournament. Clear any lineup rather than leaving a stale
-	// one up — people dropping out is exactly when a team sheet from an hour ago
+	// one up. People dropping out is exactly when a team sheet from an hour ago
 	// becomes actively misleading.
 	if (teamCount === 0) {
 		await teamsRef.delete();

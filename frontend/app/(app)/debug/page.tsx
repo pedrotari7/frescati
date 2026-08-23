@@ -30,7 +30,7 @@ import ErrorTriggers from '../../../components/ErrorTriggers';
  * Exists because push is the one thing in here that can't be exercised locally:
  * Firebase has no Cloud Messaging emulator, so a notification only becomes real
  * once the backend asks FCM for it. Staging the events by hand is worse than it
- * sounds — `atRisk` fires on an edge only somebody *else's* response can cross,
+ * sounds. `atRisk` fires on an edge only somebody *else's* response can cross,
  * and reminders are an hourly sweep that records each window as sent forever.
  *
  * The copy comes back from the function rather than being composed here, so
@@ -39,7 +39,7 @@ import ErrorTriggers from '../../../components/ErrorTriggers';
 
 /**
  * The title alone, for the row that hasn't been sent yet. Read off the real
- * builder rather than retyped — none of the titles interpolate, so an empty
+ * builder rather than retyped. None of the titles interpolate, so an empty
  * context gives the exact string, and one that starts to will still render
  * something rather than quietly drifting from what gets sent.
  */
@@ -105,14 +105,14 @@ const DebugPage = () => {
 	}, [byKickoff]);
 
 	// Derived, not stored, so switching season can't leave a game id from the
-	// previous one selected — which would send a notification deep-linking
+	// previous one selected, which would send a notification deep-linking
 	// somewhere the picker isn't pointing.
 	const gameId = chosenGame && byKickoff.some(game => game.id === chosenGame) ? chosenGame : defaultGameId;
 
 	const season = seasons.find(candidate => candidate.id === seasonId) ?? null;
 	const { responses } = useResponses(seasonId, gameId);
 
-	// Who a real reminder would actually nudge for this game — the quick way
+	// Who a real reminder would actually nudge for this game, the quick way
 	// into "email exactly the people who haven't answered" without hand-picking
 	// them from the full roster.
 	const silentUids = useMemo(() => (season ? getSilentMembers(season, responses) : []), [season, responses]);
@@ -152,7 +152,7 @@ const DebugPage = () => {
 			setSentPayloads(previous => ({ ...previous, [kind]: result.payload }));
 
 			// Every one of these is invisible from the phone, and they look
-			// identical from here — nothing arrives. Saying which it was is the
+			// identical from here, nothing arrives. Saying which it was is the
 			// entire point of the screen.
 			if (result.sent > 0) {
 				notify(`Sent to ${counted(result.sent, 'device')}.`);
@@ -161,7 +161,7 @@ const DebugPage = () => {
 				// fallback caught it neither of them is what happened.
 				notify('No device could be reached, so it went to your email instead.');
 			} else if (!result.prefEnabled) {
-				// Ahead of the device count, unlike `getPushReach` — that
+				// Ahead of the device count, unlike `getPushReach`. That
 				// summarises whether somebody is reachable at all, where the
 				// missing device is the root cause. This reports one send, and
 				// the preference is what short-circuited it, before either
@@ -170,7 +170,7 @@ const DebugPage = () => {
 			} else if (result.devices === 0) {
 				warn('No registered devices, and no email went out either. Check the email fallback is configured.');
 			} else {
-				warn('FCM accepted none of your tokens — they are stale. Turn notifications off and on again.');
+				warn('FCM accepted none of your tokens. They are stale, turn notifications off and on again.');
 			}
 		} catch (error) {
 			console.error('Could not send the test notification', error);
@@ -191,10 +191,10 @@ const DebugPage = () => {
 		if (uids.length === 0) return;
 
 		// The one send on this screen that reaches somebody other than the
-		// person tapping it — worth a second tap before it actually goes.
+		// person tapping it, worth a second tap before it actually goes.
 		const ok = await confirm({
 			title: `Email ${counted(uids.length, 'person', 'people')}?`,
-			message: 'This sends a real email right now, to their real inbox — not a preview.',
+			message: 'This sends a real email right now, to their real inbox, not a preview.',
 			confirmLabel: 'Send',
 		});
 		if (!ok) return;
@@ -207,7 +207,7 @@ const DebugPage = () => {
 			if (result.sent > 0) {
 				notify(`Emailed ${result.sent} of ${uids.length}.`);
 			} else {
-				warn('Nobody selected could be emailed — see the reasons below.');
+				warn('Nobody selected could be emailed, see the reasons below.');
 			}
 		} catch (error) {
 			console.error('Could not send the test email', error);
@@ -238,7 +238,7 @@ const DebugPage = () => {
 
 					{support === 'supported' && enabled === false && (
 						<p className='text-muted mt-3 text-sm leading-relaxed'>
-							Turn notifications on from the You screen, then come back — sends will report zero devices
+							Turn notifications on from the You screen, then come back. Sends will report zero devices
 							until this browser holds a token.
 						</p>
 					)}
@@ -310,7 +310,7 @@ const DebugPage = () => {
 										</p>
 
 										{/* What actually went out, straight from the
-										    function — not a preview built here. */}
+										    function, not a preview built here. */}
 										{payload && (
 											<p className='text-muted mt-2 border-l-2 border-white/10 pl-2 text-xs leading-relaxed'>
 												{payload.body}
@@ -334,7 +334,7 @@ const DebugPage = () => {
 					</div>
 
 					<p className='text-muted text-sm leading-relaxed'>
-						Unlike everything above, this reaches real accounts other than your own — through the same
+						Unlike everything above, this reaches real accounts other than your own, through the same
 						fallback transport a genuine send would use, so it proves delivery and rendering, not just the
 						copy.
 					</p>
@@ -397,7 +397,7 @@ const DebugPage = () => {
 					</div>
 
 					<Button variant='primary' fullWidth disabled={selectedUids.size === 0} onClick={sendEmailTest}>
-						{/* The count is hidden at zero rather than rendered as "0 people" —
+						{/* The count is hidden at zero rather than rendered as "0 people".
 						    the button is disabled there, and "Email people" is the label
 						    for a control you haven't picked anybody for yet. */}
 						Email {selectedUids.size > 0 && selectedUids.size}{' '}

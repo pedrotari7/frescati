@@ -18,7 +18,7 @@ const SEASON_ID = 'season-1';
 
 const asAdmin = (data: unknown) => callRequest(data, { uid: CALLER, admin: true });
 
-/** Somewhere in the past — every helper game kicks off in September 2026. */
+/** Somewhere in the past, every helper game kicks off in September 2026. */
 const PLAYED = '2020-09-01T17:00:00.000Z';
 
 beforeEach(async () => {
@@ -97,7 +97,7 @@ describe('setStartingRating', () => {
 		expect(toDisplayRating((await readUser(TARGET))!.rating!.elo)).toBe(40);
 	});
 
-	// Back to no rating at all, not to a stored 50 — the seed is the group
+	// Back to no rating at all, not to a stored 50, the seed is the group
 	// average, and a placeholder would read as a settled estimate of average.
 	it('clears the rating outright rather than resetting it to the middle', async () => {
 		await writeUser(TARGET, { rating: { elo: 1150, games: 0, updatedAt: PLAYED } });
@@ -110,7 +110,7 @@ describe('setStartingRating', () => {
 	/**
 	 * The rule the whole design rests on. Every ledger entry records what each
 	 * player carried into that game, and a replay restores those on the way
-	 * past — so an edit dropped on top of an earned rating would be undone by
+	 * past, so an edit dropped on top of an earned rating would be undone by
 	 * the next correction anybody made, silently and much later.
 	 */
 	it('refuses a player who has already been rated', async () => {

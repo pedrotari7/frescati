@@ -5,13 +5,13 @@
  *   1. Offline caching, so opening the app on a patchy connection at the pitch
  *      still shows something.
  *   2. Web push. The backend sends DATA-ONLY FCM messages so the Firebase SDK
- *      doesn't auto-display them — that lets a single hand-written worker own
+ *      doesn't auto-display them, that lets a single hand-written worker own
  *      both jobs instead of also shipping firebase-messaging-sw.js.
  *
  * Bump CACHE_VERSION whenever the caching strategy changes, or whenever what is
  * already in somebody's cache should stop being trusted; `activate` drops every
  * cache whose name no longer matches. That second reason is the one that
- * matters — a strategy fix ships to nobody if the entries it was meant to
+ * matters: a strategy fix ships to nobody if the entries it was meant to
  * correct are still being served.
  *
  * v2: the catch-all below used to be cache-first, which pinned Next's RSC
@@ -21,7 +21,7 @@
  *
  * A new worker **waits** rather than taking over on its own. `install` used to
  * end in `skipWaiting()`, which meant a deploy landing mid-session activated
- * underneath whoever was using the app — and `activate` immediately deletes
+ * underneath whoever was using the app, and `activate` immediately deletes
  * every cache from the previous version. The page carried on running the old
  * build with the old build's chunks no longer cached and, once Vercel had aged
  * them out, no longer fetchable either: the missing-module crash the error
@@ -47,7 +47,7 @@ self.addEventListener('install', event => {
 			// A missing asset must not wedge the whole worker.
 			.catch(() => undefined)
 	);
-	// Note the absence of `skipWaiting()` — see the header. A first install has
+	// Note the absence of `skipWaiting()`, see the header. A first install has
 	// nothing to wait behind and activates immediately anyway, so this only
 	// changes what happens to somebody already using the app.
 });
@@ -84,7 +84,7 @@ self.addEventListener('activate', event => {
  * fixed path is the same bytes forever in any way that matters. Those are safe
  * to serve from cache without asking.
  *
- * Everything else same-origin — Next's RSC payloads above all — is a URL whose
+ * Everything else same-origin, Next's RSC payloads above all, is a URL whose
  * *content* a deploy replaces while the address stays put, and cache-first on
  * those is how a phone ends up permanently inside an old build.
  */
@@ -111,7 +111,7 @@ self.addEventListener('fetch', event => {
 
 	const url = new URL(request.url);
 
-	// Never touch cross-origin traffic — Firestore and Google auth in particular
+	// Never touch cross-origin traffic, Firestore and Google auth in particular
 	// must go straight to the network.
 	if (url.origin !== self.location.origin) return;
 
@@ -145,7 +145,7 @@ self.addEventListener('fetch', event => {
 
 	// Everything else: network-first, with whatever we have as the fallback.
 	//
-	// This is where Next's RSC payloads land — the request every in-app
+	// This is where Next's RSC payloads land, the request every in-app
 	// navigation makes. Cache-first here meant a returning phone kept being
 	// answered out of the build it first loaded: not visibly broken, just never
 	// updating, and eventually dead-ending on a chunk the deploy had aged out.
@@ -190,7 +190,7 @@ self.addEventListener('push', event => {
 			renotify: Boolean(payload.renotify),
 			data: { url: payload.url || '/' },
 			// Only a game has something to say yes to. FCM data values are
-			// strings, hence the comparison rather than a truthiness check —
+			// strings, hence the comparison rather than a truthiness check,
 			// and an older payload without the field gets no shortcut rather
 			// than a broken one.
 			actions:
@@ -208,7 +208,7 @@ self.addEventListener('push', event => {
  * How long to give a page to say it took the route change itself.
  *
  * Short, because guessing wrong costs only the full navigation this was trying
- * to avoid — whereas not waiting at all would mean a tap that opens the app and
+ * to avoid, whereas not waiting at all would mean a tap that opens the app and
  * then sits on whatever screen it was left on.
  */
 const ROUTE_ACK_MS = 500;
@@ -239,8 +239,8 @@ self.addEventListener('notificationclick', event => {
 	const base = event.notification.data?.url || '/';
 
 	// A worker has no Firebase auth token, so it can't write the response
-	// itself. Carry the intent in the URL instead and let the app — which is
-	// signed in — perform the write as it opens. The button was previously
+	// itself. Carry the intent in the URL instead and let the app, which is
+	// signed in, perform the write as it opens. The button was previously
 	// advertised on every notification and did nothing but open the app.
 	const target = event.action === 'in' ? `${base}${base.includes('?') ? '&' : '?'}respond=in` : base;
 
@@ -263,7 +263,7 @@ self.addEventListener('notificationclick', event => {
 			// that meant loading a page into a web view the system had not yet
 			// brought to the front, and the layout it settled on was measured
 			// against the viewport that view had while it was off screen. Nothing
-			// remeasures once the app is presented — no resize is reported — so
+			// remeasures once the app is presented, no resize is reported, so
 			// `position: fixed` carried on resolving against a rectangle that was
 			// no longer the viewport, and the top bar and tab bar scrolled away
 			// with the content instead of staying put.
@@ -271,13 +271,13 @@ self.addEventListener('notificationclick', event => {
 			// It needed a window to have survived in the background to reuse,
 			// which is why it happened on some notification taps and not others.
 			//
-			// A browser that refuses to focus — no user activation it recognises —
+			// A browser that refuses to focus, no user activation it recognises,
 			// leaves the window unfocused rather than leaving the tap unanswered.
 			const focused = (await existing.focus().catch(() => null)) || existing;
 
 			// Better still, don't load a page at all. A route change inside the
 			// running app cannot be laid out against the wrong viewport because it
-			// is not laid out again — and it skips a network-first navigation on a
+			// is not laid out again, and it skips a network-first navigation on a
 			// phone that, given where this app gets opened, may have no signal.
 			if (await routeInPage(focused, target)) return;
 

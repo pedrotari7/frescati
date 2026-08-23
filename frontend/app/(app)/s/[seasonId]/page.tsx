@@ -28,7 +28,7 @@ const SeasonHomePage = () => {
 	// hero and reach every game still to come. The rows below are deliberately fed
 	// by the denormalised `counts` rather than a subscription each, and a hook per
 	// row would put back exactly the listener-per-row that arrangement exists to
-	// avoid — so this asks once, for every game followed anywhere.
+	// avoid, so this asks once, for every game followed anywhere.
 	const { isWatching, canWatch, toggleWatch } = useWatchGames(seasonId);
 	const [showPast, setShowPast] = useState(false);
 	const [subscribeOpen, setSubscribeOpen] = useState(false);
@@ -36,7 +36,7 @@ const SeasonHomePage = () => {
 
 	// This is the screen the app lands on, so it's where somebody arriving during
 	// a game they're playing in gets taken to it. Above the early returns, so a
-	// slow first snapshot doesn't skip it — it waits for `ready` instead.
+	// slow first snapshot doesn't skip it. It waits for `ready` instead.
 	useLiveGameRedirect({
 		seasonId,
 		season,
@@ -108,7 +108,7 @@ const SeasonHomePage = () => {
 					</Button>
 
 					{/* Above the games still to come, because it is the only thing on
-					    this screen with a deadline on it — and straight to the team
+					    this screen with a deadline on it, and straight to the team
 					    sheet, where the vote is, the same place the notification
 					    lands. The game page is a headcount for a game already
 					    played. */}
@@ -135,7 +135,7 @@ const SeasonHomePage = () => {
 					{/* Above the games still to come, and collapsed by default so it
 					    costs them one row rather than a scroll. Closed it is a
 					    heading and a count, which is what the last result is worth
-					    to somebody who came to answer the next one — and it sits
+					    to somebody who came to answer the next one, and it sits
 					    beside the vote that may still be running on the game at the
 					    top of it. */}
 					{played.length > 0 && (
@@ -169,8 +169,8 @@ const SeasonHomePage = () => {
 						<section>
 							<SectionHeading className='mb-3 px-1'>Coming up</SectionHeading>
 							{/* The only list here handed a bell. `voting` and `played` are
-							    finished by construction — the same fact `isWatchable` reads to
-							    refuse one — so a game already behind us would draw nothing with
+							    finished by construction, the same fact `isWatchable` reads to
+							    refuse one, so a game already behind us would draw nothing with
 							    the props anyway. */}
 							<div className='space-y-2'>
 								{upcoming.map(game => (

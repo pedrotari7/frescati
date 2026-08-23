@@ -6,7 +6,7 @@ import { callRequest, clearAuth, clearFirestore, createAuthUser, writeGame, writ
 /**
  * The one debug tool that can notify somebody other than the caller. Same
  * spare-mocking approach as `email.test.ts`: `fetch` is stubbed, everything
- * else — prefs, addresses, the game context — runs for real against the
+ * else, prefs, addresses, the game context, runs for real against the
  * emulators, because those are the parts that would silently mail the wrong
  * person or the wrong words.
  */
@@ -95,7 +95,7 @@ describe('sendTestEmail', () => {
 		);
 	});
 
-	// No game behind it, so it stands the caller in as the newcomer — same as
+	// No game behind it, so it stands the caller in as the newcomer, same as
 	// `sendTestPush`.
 	it('sends the new-player notice as if the caller had just joined', async () => {
 		configure();
@@ -129,7 +129,7 @@ describe('sendTestEmail', () => {
 		expect(result.results).toEqual([{ uid: ANNA, displayName: 'Test Player', status: 'noAddress' }]);
 	});
 
-	// Sign-in is Google-only today, so this filters nothing in practice — see
+	// Sign-in is Google-only today, so this filters nothing in practice. See
 	// `email.test.ts` for why it's checked anyway.
 	it('reports no address for an unverified email', async () => {
 		configure();
@@ -205,7 +205,7 @@ describe('sendTestEmail', () => {
 
 		const result = await sendTestEmail.run(callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true }));
 
-		// Eligibility is still reported honestly — only the transport is inert.
+		// Eligibility is still reported honestly. Only the transport is inert.
 		expect(result.results[0].status).toBe('sent');
 		expect(result.sent).toBe(0);
 		expect(fetch).not.toHaveBeenCalled();

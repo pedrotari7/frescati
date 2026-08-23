@@ -44,7 +44,7 @@ describe('buildIcsFeed', () => {
 		expect(ics).toContain('NAME:Frescati - Autumn 2026');
 	});
 
-	it('leaves an event’s own title as just the season name, not the app-prefixed calendar name', () => {
+	it("leaves an event's own title as just the season name, not the app-prefixed calendar name", () => {
 		const ics = buildIcsFeed(season, [game()], { appUrl: APP_URL });
 
 		expect(ics).toContain('SUMMARY:Autumn 2026');

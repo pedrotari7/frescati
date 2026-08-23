@@ -16,13 +16,13 @@ import { instrument } from './lib/sentry';
  * admin is standing on the touchline at five past seven, where two of the
  * eleven who said In are still on a bus and somebody's brother has turned up in
  * boots. Everything else here is built so that no human has to hold the lineup
- * together — this is the one door out of that, for the evenings where it has
+ * together. This is the one door out of that, for the evenings where it has
  * gone wrong anyway.
  *
  * A callable rather than a rule loosened for season admins, for the reason the
  * rules file already gives: `tournament/teams` is writable by nobody at all,
  * and that is what guarantees a player cannot quietly move themselves onto the
- * side they fancy. Loosening it would mean the rule can no longer say "never" —
+ * side they fancy. Loosening it would mean the rule can no longer say "never",
  * and the checks below, a squad that cannot be emptied and a player who has to
  * be in the pool, are ones CEL cannot express against a list of maps anyway.
  *
@@ -35,8 +35,8 @@ import { instrument } from './lib/sentry';
 /**
  * What a newly added player is worth to the team-average badge.
  *
- * `elos` on the lineup is a snapshot for display — the ratings a result is
- * computed from are read live at confirmation — but a *missing* entry reads as
+ * `elos` on the lineup is a snapshot for display. The ratings a result is
+ * computed from are read live at confirmation, but a *missing* entry reads as
  * a real zero on the card and drags the squad average down with it, which is a
  * worse lie than a rating twenty minutes out of date. So somebody arriving on a
  * sheet gets the number the optimizer would have given them: their own rating,
@@ -65,7 +65,7 @@ export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: 
 		if (!seasonId || !gameId || !uid) throw new HttpsError('invalid-argument', 'Which player, on which game?');
 
 		// Spelled out rather than defaulted, because the default would be "take
-		// them off the sheet" — the one outcome a caller that forgot the field
+		// them off the sheet", the one outcome a caller that forgot the field
 		// least wants.
 		if (teamIndex !== null && !Number.isInteger(teamIndex)) {
 			throw new HttpsError('invalid-argument', 'A team index, or null to take them off the sheet.');
@@ -112,7 +112,7 @@ export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: 
 		// cannot drift into disagreeing about who is playing. Somebody already on
 		// the sheet is exempt: a pinned lineup stops being re-picked, so a player
 		// who has since tapped Out is still standing there in boots and still has
-		// to be movable — which is exactly the mess this exists to sort out.
+		// to be movable, which is exactly the mess this exists to sort out.
 		if (to !== null && from < 0) {
 			const responses = await getResponses(seasonId, gameId);
 			const response = responses.find(candidate => candidate.uid === uid);
@@ -123,7 +123,7 @@ export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: 
 		}
 
 		// `set` with a merge rather than an `update`, so the one new `elos` key is
-		// merged into the map instead of replacing it — and without a dotted field
+		// merged into the map instead of replacing it, and without a dotted field
 		// path, which a uid is not always legal inside.
 		await teamsRef.set(
 			{
@@ -145,7 +145,7 @@ export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: 
 /**
  * Swap which squad is team A.
  *
- * Team A is not a name, it is the first index — and `getFixtures` pairs teams
+ * Team A is not a name, it is the first index, and `getFixtures` pairs teams
  * by index, so the rotation always opens with A against B. Which makes "team A
  * is still tying their laces, start with the other two" a question about
  * letters rather than about the fixture list: say the squad that is ready is A
@@ -154,7 +154,7 @@ export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: 
  *
  * **Refused once anything has been scored.** A match document stores the two
  * team indices it was played between, so swapping letters underneath one would
- * silently reattribute a scoreline to a squad that never played it — and unlike
+ * silently reattribute a scoreline to a squad that never played it, and unlike
  * a lineup rebuild, which `selectPlayedMatches` cleans up after by dropping
  * fixtures that no longer exist, this leaves a match that still looks entirely
  * valid and is now about the wrong people. Which is no real constraint: the
@@ -172,7 +172,7 @@ export const setTeamLetter = onCall<{ seasonId?: string; gameId?: string; from?:
 		if (!seasonId || !gameId) throw new HttpsError('invalid-argument', 'Which game?');
 
 		// `typeof` as well as `Number.isInteger`, which answers the question but
-		// tells TypeScript nothing — and every use below would otherwise need an
+		// tells TypeScript nothing, and every use below would otherwise need an
 		// assertion re-stating what this line has already proved.
 		if (typeof from !== 'number' || typeof to !== 'number' || !Number.isInteger(from) || !Number.isInteger(to)) {
 			throw new HttpsError('invalid-argument', 'Two team indices are required.');
@@ -211,7 +211,7 @@ export const setTeamLetter = onCall<{ seasonId?: string; gameId?: string; from?:
 		if (!scored.empty) {
 			throw new HttpsError(
 				'failed-precondition',
-				'Scores are already in — clear them before changing which team is which.'
+				'Scores are already in. Clear them before changing which team is which.'
 			);
 		}
 
@@ -220,7 +220,7 @@ export const setTeamLetter = onCall<{ seasonId?: string; gameId?: string; from?:
 			edited: { by: callerUid, at: new Date().toISOString() },
 		});
 
-		logger.info('Swapped two teams’ letters', { seasonId, gameId, from, to, by: callerUid });
+		logger.info("Swapped two teams' letters", { seasonId, gameId, from, to, by: callerUid });
 
 		return { ok: true };
 	})

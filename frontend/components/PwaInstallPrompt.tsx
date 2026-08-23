@@ -15,7 +15,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 /**
  * Nudges people to install, because the installed app is where push actually
- * works — on iOS, notifications are only available once it's on the home
+ * works, on iOS, notifications are only available once it's on the home
  * screen, so this isn't cosmetic.
  *
  * Two paths: Chrome/Android gets the real `beforeinstallprompt` flow, iOS gets
@@ -36,7 +36,7 @@ const PwaInstallPrompt = () => {
 
 		window.addEventListener('beforeinstallprompt', onBeforeInstall);
 
-		// Safari never fires that event, so show the manual hint instead — but
+		// Safari never fires that event, so show the manual hint instead, but
 		// not instantly, since a banner on first paint just gets swatted away.
 		const timer = isIos()
 			? setTimeout(() => {
@@ -87,7 +87,7 @@ const PwaInstallPrompt = () => {
 						</p>
 					) : (
 						<p className='text-muted mt-0.5 text-xs'>
-							Open this page in <span className='text-ink font-medium'>Safari</span> first — iPhone only
+							Open this page in <span className='text-ink font-medium'>Safari</span> first, iPhone only
 							installs home screen apps from Safari, not this browser.
 						</p>
 					)}

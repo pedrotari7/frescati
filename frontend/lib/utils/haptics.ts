@@ -1,6 +1,6 @@
 /**
  * Tiny vibrations to confirm a tap landed. Silently a no-op on iOS Safari,
- * which doesn't implement the Vibration API — treat it as a bonus, never as
+ * which doesn't implement the Vibration API, treat it as a bonus, never as
  * the only feedback for an action.
  */
 

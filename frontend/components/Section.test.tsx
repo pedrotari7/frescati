@@ -9,7 +9,7 @@ describe('SectionHeading', () => {
 	});
 
 	/**
-	 * The spacing is the caller's because it genuinely differs — mb-3 on the
+	 * The spacing is the caller's because it genuinely differs: mb-3 on the
 	 * season home page, mb-2 elsewhere, none at all where the heading shares a
 	 * flex row with a button. `classNames` concatenates rather than merges, so a
 	 * baked-in margin would leave two competing and let CSS order decide.
@@ -23,7 +23,7 @@ describe('SectionHeading', () => {
 		expect(heading.className).not.toMatch(/\bmb-/);
 	});
 
-	it('appends the caller’s spacing', () => {
+	it("appends the caller's spacing", () => {
 		render(<SectionHeading className='mb-3 px-1'>Coming up</SectionHeading>);
 
 		expect(screen.getByRole('heading', { name: 'Coming up' })).toHaveClass('mb-3', 'px-1', 'text-xs');

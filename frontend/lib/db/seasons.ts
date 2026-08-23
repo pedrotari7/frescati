@@ -36,7 +36,7 @@ export const updateSeason = (seasonId: string, changes: Partial<Omit<Season, 'id
 export const addSeasonMember = (seasonId: string, uid: string) =>
 	updateDoc(seasonDoc(seasonId), { memberUids: arrayUnion(uid) });
 
-/** Removing a member also strips their admin rights — you can't run a season you're not in. */
+/** Removing a member also strips their admin rights. You can't run a season you're not in. */
 export const removeSeasonMember = (seasonId: string, uid: string) =>
 	updateDoc(seasonDoc(seasonId), { memberUids: arrayRemove(uid), adminUids: arrayRemove(uid) });
 

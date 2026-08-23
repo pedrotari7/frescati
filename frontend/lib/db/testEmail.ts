@@ -20,7 +20,7 @@ export interface TestEmailResult {
 
 /**
  * Asks the backend to email one of the real notifications to a chosen set of
- * real accounts — not just the caller's own, which is all `sendTestPush` can
+ * real accounts, not just the caller's own, which is all `sendTestPush` can
  * reach. See `backend/src/sendTestEmail.ts` for why that's the one exception.
  */
 export const sendTestEmail = async (

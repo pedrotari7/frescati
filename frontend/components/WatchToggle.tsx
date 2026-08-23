@@ -8,13 +8,13 @@ import { hapticLight } from '../lib/utils/haptics';
  * Follow one game, and hear about it whenever somebody's answer moves.
  *
  * Off by default and per game, which is what lets the notification behind it be
- * as chatty as it is — see `notifyWatchers`. There is no profile-level switch to
+ * as chatty as it is, see `notifyWatchers`. There is no profile-level switch to
  * match it: this button is the switch, and it sits on the screen the
  * notification deep-links to, so turning it off is one tap from the thing that
  * prompted you to.
  *
  * A button rather than a `Toggle` because it belongs in the corner of a game
- * card beside the status pills, not in a list of labelled settings rows — but
+ * card beside the status pills, not in a list of labelled settings rows, but
  * it still reports itself as a switch, so a screen reader gets the state and
  * not just "button".
  */

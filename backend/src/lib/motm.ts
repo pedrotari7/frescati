@@ -13,10 +13,10 @@ import { reportError } from './sentry';
  *
  * Two moments, and everything between them is people tapping a name:
  *
- *  * **Opening** — the confirmation that publishes the table also asks the
+ *  * **Opening.** The confirmation that publishes the table also asks the
  *    question, because that is the first point at which there is a table to
  *    argue about and a squad who all know how it went.
- *  * **Closing** — a sweep counts what came in, writes the decision down, and
+ *  * **Closing.** A sweep counts what came in, writes the decision down, and
  *    asks for a replay of the ladder. The bonus lands through
  *    `computeGameRatings` like everything else a game does to a rating, which is
  *    what keeps it survivable: a correction to a scoreline months later rewinds
@@ -26,8 +26,8 @@ import { reportError } from './sentry';
  * what they answered. That is the whole of what a vote in progress may say about
  * itself.
  *
- * The decision document is the record, not the votes. They stay where they are
- * — a replay is not a recount — but nothing reads them again.
+ * The decision document is the record, not the votes. They stay where they are.
+ * A replay is not a recount, but nothing reads them again.
  */
 
 const gameRef = (seasonId: string, gameId: string) => db.doc(`seasons/${seasonId}/games/${gameId}`);
@@ -38,7 +38,7 @@ const votersRef = (seasonId: string, gameId: string) =>
 	gameRef(seasonId, gameId).collection('tournament').doc('motmVoters');
 
 /**
- * The counted vote for a game, or `null` while it is still open — or was never
+ * The counted vote for a game, or `null` while it is still open, or was never
  * opened at all.
  *
  * Read by `computeGameRatings` on every pass over a game, which is why this is
@@ -56,14 +56,14 @@ export const getMotmDecision = async (seasonId: string, gameId: string): Promise
  * game, and return how many there are.
  *
  * The votes are private to their owners, so nobody's client can work out that
- * eight people have answered — this is the same situation `counts` on the game
+ * eight people have answered. This is the same situation `counts` on the game
  * document is in, and it gets the same answer: a function writes down what a
  * client is not allowed to read. What it writes down is uids and nothing else.
  * The picks stay where they are.
  *
  * Recomputed from scratch rather than added to, like every other counter here:
  * a delta applied twice, and triggers do retry, silently corrupts the list.
- * Transactional for the same reason `recountGame` is — two votes landing
+ * Transactional for the same reason `recountGame` is. Two votes landing
  * together would otherwise each write the total they read before the other.
  *
  * Read off the document ids rather than the `uid` field, the way `closeMotmVote`
@@ -71,7 +71,7 @@ export const getMotmDecision = async (seasonId: string, gameId: string): Promise
  *
  * A counted vote is left with no list at all. The turnout is the sum of the
  * published totals by then, so keeping this would be a second copy of a number
- * already on screen — and the decision, not the clock, is what says the counting
+ * already on screen. The decision, not the clock, is what says the counting
  * has happened, which is what makes a vote landing in the same moment as the
  * sweep unable to resurrect it.
  */
@@ -104,7 +104,7 @@ export const recountMotmVoters = async (seasonId: string, gameId: string): Promi
  * Open the vote and tell the people who played that it is open.
  *
  * Called after a confirmation applies, and only after one that actually did
- * something — a replay re-confirms every game in its window and must not send a
+ * something. A replay re-confirms every game in its window and must not send a
  * fresh round of notifications for a Tuesday six weeks ago.
  *
  * Silent about a game with no lineup: below `MIN_TOURNAMENT_PLAYERS` there are
@@ -135,8 +135,8 @@ export const openMotmVoting = async (seasonId: string, gameId: string, season: S
 	// window is running is what makes chasing a turnout possible before it shuts
 	// rather than after. Deduplicated because an admin who played is in both.
 	//
-	// The one thing to know about this: only the lineup can actually vote — the
-	// rules check the team sheet at both ends — so an admin who sat this one out
+	// The one thing to know about this: only the lineup can actually vote. The
+	// rules check the team sheet at both ends, so an admin who sat this one out
 	// is being told, not asked, and the team sheet will show them the turnout
 	// with no ballot on it.
 	const uids = [...new Set([...lineup, ...admins])];
@@ -150,7 +150,7 @@ export const openMotmVoting = async (seasonId: string, gameId: string, season: S
 
 	const sent = await sendGamePush(uids, 'motm', {
 		when: formatGameWhen(kickoff, season.slot.timezone),
-		// Straight to the team sheet, where the vote is — the game page is a
+		// Straight to the team sheet, where the vote is. The game page is a
 		// headcount for a game that has already been played.
 		url: `/s/${seasonId}/g/${gameId}/tournament`,
 		gameId,
@@ -166,7 +166,7 @@ export const openMotmVoting = async (seasonId: string, gameId: string, season: S
  *
  * The half that was missing. Everybody in this lineup was interrupted two days
  * ago to be asked a question, and until now the answer only ever reached the
- * ones who happened to open the app again — a group asked something and never
+ * ones who happened to open the app again. A group asked something and never
  * told the outcome is a group that stops answering.
  *
  * The audience is the lineup rather than the voters. Somebody who didn't get
@@ -175,14 +175,14 @@ export const openMotmVoting = async (seasonId: string, gameId: string, season: S
  * reward for having answered.
  *
  * **App admins are told whether or not they played.** They are the only people
- * here who have something to do about a wrong answer — the vote feeds a rating
- * bonus, and a correction means a replay — so they are the one audience for
+ * here who have something to do about a wrong answer. The vote feeds a rating
+ * bonus, and a correction means a replay, so they are the one audience for
  * which this is closer to an alert than to news. It is the same standing that
  * puts `newPlayer` in front of them, and it stays behind the `motm` switch, so
  * an admin who doesn't want any of this still says so in one place.
  *
- * Silent when nobody voted. There is a decision document either way — that is
- * what says the counting happened — but "nobody voted" is not news anybody
+ * Silent when nobody voted. There is a decision document either way, that is
+ * what says the counting happened, but "nobody voted" is not news anybody
  * needs a phone to buzz for.
  */
 const announceMotmResult = async (seasonId: string, gameId: string, { winners, counts }: TournamentMotm) => {
@@ -196,21 +196,21 @@ const announceMotmResult = async (seasonId: string, gameId: string, { winners, c
 	]);
 
 	// No lineup is nobody to tell, and a missing game or season means the whole
-	// subtree is on its way out — `onSeasonDeleted` cascades. None of the three
+	// subtree is on its way out. `onSeasonDeleted` cascades. None of the three
 	// is worth reporting: a vote can only ever have been opened on a game that
 	// had teams, so this is the shape of a deletion, not of a fault.
 	if (!teamsSnap.exists || !game || !season) return;
 
 	const lineup = (teamsSnap.data() as TournamentTeams).teams.flatMap(team => team.uids);
 	// Deduplicated, because an admin who played is in both lists and `sendPush`
-	// resolves one recipient per uid — twice would be two lookups and, for
+	// resolves one recipient per uid. Twice would be two lookups and, for
 	// anybody it has to fall back to email for, two identical mails.
 	const uids = [...new Set([...lineup, ...admins])];
 	const names = await Promise.all(winners.map(getDisplayName));
 
 	const sent = await sendGamePush(uids, 'motmResult', {
 		when: formatGameWhen(game.kickoff, season.slot.timezone),
-		// The team sheet, where the totals are — the same place the question
+		// The team sheet, where the totals are, the same place the question
 		// landed, so tapping the answer lands where tapping the ask did.
 		url: `/s/${seasonId}/g/${gameId}/tournament`,
 		gameId,
@@ -236,8 +236,8 @@ const announceMotmResult = async (seasonId: string, gameId: string, { winners, c
  *
  * The two writes are what matter and they are ordered: the decision goes down
  * first, then the window is deleted. The other order would leave a moment where
- * the vote is neither open nor decided — during which a replay would rate the
- * game as though nobody had voted — and a crash in that gap would leave it that
+ * the vote is neither open nor decided, during which a replay would rate the
+ * game as though nobody had voted, and a crash in that gap would leave it that
  * way for good.
  *
  * Returns whether the result is worth replaying the ladder for. A game nobody
@@ -266,7 +266,7 @@ export const closeMotmVote = async (seasonId: string, gameId: string): Promise<b
 
 	// Reported and swallowed, unlike everything above it. By this point the
 	// decision is written and the window is gone, so the sweep will never bring
-	// this game back round — and the caller reads what this function returns to
+	// this game back round. The caller reads what this function returns to
 	// decide whether to replay the ladder. A throw here would cost the winner
 	// their bonus over a notification that didn't send, which is the wrong way
 	// round. It is also exactly the failure nothing else would ever show: the

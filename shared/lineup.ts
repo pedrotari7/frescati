@@ -26,7 +26,7 @@ export const findTeamIndex = (teams: TournamentTeam[], uid: string): number =>
 	teams.findIndex(team => team.uids.includes(uid));
 
 /**
- * The sheet with one player somewhere else — on `teamIndex`, or off it
+ * The sheet with one player somewhere else, on `teamIndex`, or off it
  * entirely with `null`.
  *
  * Adding rather than only moving falls out of this for free, which is the
@@ -35,9 +35,9 @@ export const findTeamIndex = (teams: TournamentTeam[], uid: string): number =>
  * between two. It is also the only way back for somebody taken off the sheet,
  * and an operation with no inverse is one nobody dares use.
  *
- * They land at the **end** of the squad they join. There is nothing to sort by
- * — a team sheet is a set, and the rotation is what decides who is on the pitch
- * — and appending means the row that moved is the row that moved, rather than
+ * They land at the **end** of the squad they join. There is nothing to sort by,
+ * since a team sheet is a set, and the rotation is what decides who is on the
+ * pitch, and appending means the row that moved is the row that moved, rather than
  * quietly reordering four other people around it.
  *
  * Returns the sheet untouched when the target squad doesn't exist, so a stale
@@ -63,8 +63,8 @@ export const withPlayerOn = (teams: TournamentTeam[], uid: string, teamIndex: nu
  * A team with nobody on it is not a smaller team, it is a fixture against
  * nobody: `getFixtures` still pairs it up, the scoreboard still offers the
  * match, and the table still ranks it. So the last player out of a squad is
- * refused, and the way to play with fewer teams is to have fewer people say In
- * — which is the same thing that decided the count in the first place.
+ * refused, and the way to play with fewer teams is to have fewer people say In,
+ * which is the same thing that decided the count in the first place.
  */
 export const wouldEmptyASquad = (teams: TournamentTeam[], uid: string): boolean => {
 	const from = findTeamIndex(teams, uid);
@@ -78,7 +78,7 @@ export const wouldEmptyASquad = (teams: TournamentTeam[], uid: string): boolean 
  * Which squad is A decides the running order, because `getFixtures` pairs teams
  * by index and the rotation always opens with A against B. So the answer to
  * "team A is still tying their laces, start with the other two" is not to
- * rewrite the fixture list — it is to say that the team that is ready is A.
+ * rewrite the fixture list. It is to say that the team that is ready is A.
  * One idea instead of two, and the scoreboard, the bibs and the table all keep
  * agreeing with each other because they all read the same index.
  *
@@ -109,8 +109,8 @@ export const withTeamsSwapped = (teams: TournamentTeam[], a: number, b: number):
  * them.
  *
  * Ordinarily empty: the lineup is built from the pool, so the two agree. They
- * come apart the moment an admin takes somebody off the sheet, and — more
- * quietly — when a pinned lineup stops being re-picked and somebody new says
+ * come apart the moment an admin takes somebody off the sheet, and, more
+ * quietly, when a pinned lineup stops being re-picked and somebody new says
  * In. That second case is the one worth a screen: the app has stopped putting
  * people on teams and nothing else would say so.
  */

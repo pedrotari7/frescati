@@ -18,7 +18,7 @@ export type PushSupport = 'supported' | 'needs-install' | 'unsupported';
 
 /**
  * iOS only allows push for apps added to the home screen, and silently fails
- * otherwise — worth telling people rather than showing a toggle that can't work.
+ * otherwise, worth telling people rather than showing a toggle that can't work.
  */
 export const checkPushSupport = async (): Promise<PushSupport> => {
 	if (typeof window === 'undefined') return 'unsupported';
@@ -38,7 +38,7 @@ export const getPermission = (): NotificationPermission =>
  * Whether *this device* will actually receive anything.
  *
  * Not the same question as `Notification.permission`. Turning notifications off
- * deletes the registration token but leaves browser permission granted — a
+ * deletes the registration token but leaves browser permission granted, a
  * screen keyed on permission alone therefore still reads "on" immediately after
  * you turn it off, which looks exactly like the button having failed. The
  * registered token is the thing the backend sends to, so it is the thing to ask
@@ -60,7 +60,7 @@ export const isPushEnabled = async (uid: string): Promise<boolean> => {
 };
 
 /**
- * Ask for permission and register this device. Call it from a user gesture —
+ * Ask for permission and register this device. Call it from a user gesture,
  * browsers reject `requestPermission` otherwise, and asking on page load is the
  * fastest way to get permanently blocked.
  */
@@ -103,7 +103,7 @@ export const disablePush = async (uid: string): Promise<void> => {
 	const messaging = getMessaging(getFirebaseApp());
 	const registration = await navigator.serviceWorker.ready;
 
-	// Read the token before deleting it — afterwards there's nothing to look up.
+	// Read the token before deleting it. Afterwards there's nothing to look up.
 	const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration }).catch(
 		() => null
 	);

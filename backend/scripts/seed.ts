@@ -4,8 +4,8 @@
  * The app reads and writes Firestore directly, so "mocking the backend" here
  * means running the real one locally and giving it a past: thirty players, a
  * few seasons, a season's worth of confirmed results and a fixture list that
- * covers every state a game screen can be in. Nothing is stubbed — the rules
- * are the deployed rules and the triggers are the deployed triggers — so a
+ * covers every state a game screen can be in. Nothing is stubbed. The rules
+ * are the deployed rules and the triggers are the deployed triggers, so a
  * screen that works against a seed works against production.
  *
  * Usage:
@@ -33,7 +33,7 @@ const PUBLIC = join(ROOT, 'frontend', 'public');
 /** Where the switcher in the app looks for the seeded accounts. */
 const DEV_USERS_FILE = join(PUBLIC, 'dev-users.json');
 
-/** Both are gitignored — a seed is a local fixture, not a checked-in one. */
+/** Both are gitignored. A seed is a local fixture, not a checked-in one. */
 const AVATAR_DIR = join(PUBLIC, 'dev-avatars');
 
 /**
@@ -67,7 +67,7 @@ const readConfig = (): { projectId: string; ports: EmulatorPorts } => {
 
 	return {
 		// Has to match `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, or the app connects to
-		// a different — and empty — database inside the same emulator.
+		// a different, and empty, database inside the same emulator.
 		projectId,
 		ports: {
 			firestore: firebaseJson?.emulators?.firestore?.port ?? 8080,
@@ -135,13 +135,13 @@ const main = async () => {
 
 	initializeApp({ projectId });
 
-	console.log(`Seeding "${name}" into the ${projectId} emulators — ${scenario.summary}.`);
+	console.log(`Seeding "${name}" into the ${projectId} emulators: ${scenario.summary}.`);
 
-	// Whether anything will be writing back while we work — which is what the
+	// Whether anything will be writing back while we work, which is what the
 	// run id and the settle step at the end both exist to cope with.
 	const withFunctions = await reachable(`127.0.0.1:${ports.functions}`);
 
-	if (withFunctions) console.log('  Functions emulator is up — pacing around its triggers.');
+	if (withFunctions) console.log('  Functions emulator is up, pacing around its triggers.');
 
 	if (!process.argv.includes('--keep')) await wipeEmulators(projectId);
 

@@ -1,5 +1,5 @@
 /**
- * Prints a user's Firebase Auth record and custom claims — the quickest way to
+ * Prints a user's Firebase Auth record and custom claims. It is the quickest way to
  * confirm an admin grant landed, since claims aren't visible in the console UI.
  *
  * Usage: pnpm --filter backend whoami you@example.com

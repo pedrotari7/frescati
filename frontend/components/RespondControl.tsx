@@ -48,7 +48,7 @@ const RespondControl = ({
 		} catch (error) {
 			// This is the one control the app exists for. A rejected write used
 			// to leave the button snapping back to its old state with the reason
-			// only in the console — indistinguishable from a missed tap, and
+			// only in the console, indistinguishable from a missed tap, and
 			// unreported: `onRespond`/`onClear` are raw writes, not routed through
 			// `useWrite`, so this catch is the only place that can tell us.
 			console.error('Could not save your response', error);
@@ -66,7 +66,7 @@ const RespondControl = ({
 	 * it invisibly: both halves stayed live and looked exactly as they do when
 	 * they are waiting for you, so answering Out and then changing your mind
 	 * quickly enough lost the second tap with nothing on screen to suggest it
-	 * had not landed. And the window is longer than it looks — `aria-pressed`
+	 * had not landed. And the window is longer than it looks. `aria-pressed`
 	 * moves off Firestore's local cache, which reflects a write before the
 	 * server has acknowledged it, so the control finishes *looking* settled a
 	 * whole round trip before it is.

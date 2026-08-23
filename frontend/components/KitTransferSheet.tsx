@@ -13,7 +13,7 @@ import { CONTROL } from './Field';
 /**
  * Handing a piece of kit to somebody else.
  *
- * The squad and only the squad — the security rules refuse a holder who isn't
+ * The squad and only the squad. The security rules refuse a holder who isn't
  * on `memberUids`, so offering an extra here would be offering a tap that
  * fails. Search is here rather than a plain list because a season can run to
  * twenty-odd people and this is a two-tap job at the side of a pitch.
@@ -78,7 +78,7 @@ const KitTransferSheet = ({
 					</div>
 
 					{/* Scrolls inside the sheet rather than growing it past the
-					    viewport — a squad of twenty-six on a small phone. */}
+					    viewport, a squad of twenty-six on a small phone. */}
 					<ul className='-mx-1 mt-3 min-h-0 flex-1 overflow-y-auto px-1'>
 						{matches.length === 0 && (
 							<li className='text-faint py-4 text-sm'>Nobody matches that search.</li>

@@ -4,7 +4,7 @@ import { callFunction } from './call';
 /**
  * Asks the backend to fail on purpose, to prove error reporting works.
  *
- * Two of the three kinds reject rather than resolve, which is the point — the
+ * Two of the three kinds reject rather than resolve, which is the point. The
  * caller is expected to catch. See `backend/src/throwTestError.ts`.
  */
 export const throwTestError = async (kind: BackendErrorKind): Promise<void> => {

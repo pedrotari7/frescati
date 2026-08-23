@@ -7,8 +7,8 @@ const onChange = jest.fn();
 // Rendered inside the real provider rather than a stub: the whole point of this
 // component is that a tap does nothing until a second, separate one says it
 // meant it, and a mocked-out dialog would let that unravel without a test
-// noticing. `ConfirmContext` defaults to "yes" outside a provider — see
-// `ConfirmDialog` — so the unasked case has to be the one that is set up.
+// noticing. `ConfirmContext` defaults to "yes" outside a provider, see
+// `ConfirmDialog`, so the unasked case has to be the one that is set up.
 const draw = async (correcting = false) => {
 	const view = render(
 		<ConfirmProvider>

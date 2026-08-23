@@ -1,7 +1,7 @@
 /**
  * Who is bringing what, and what nobody is bringing.
  *
- * Everything here is **derived** — from the season's kit register and the
+ * Everything here is **derived**, from the season's kit register and the
  * answers to one game, both of which the client already holds. There is no
  * stored `hasBall` counter and no trigger behind one, deliberately: `counts` on
  * the game document needs a function because a client cannot read everybody
@@ -19,7 +19,7 @@ export const KIT_KINDS: KitKind[] = ['ball', 'vests', 'other'];
  * The kinds whose absence is worth interrupting somebody about.
  *
  * A gap is only ever reported against kit the group **owns**. A season with no
- * vests in the register is not short of vests — it is a group that plays skins
+ * vests in the register is not short of vests. It is a group that plays skins
  * versus shirts, and nagging them weekly about a thing they have never had
  * would train everybody to ignore the one week the ball is genuinely stuck in a
  * hallway. You can only be missing something you have.
@@ -45,9 +45,9 @@ export const KIT_KIND_NOUNS: Record<KitKind, string> = {
  *
  * `unknown` is the third state, and it exists for the same reason a missing
  * response document does: somebody who has not answered has not said no. The
- * two are worth telling apart because they need different things — `missing` is
+ * two are worth telling apart because they need different things: `missing` is
  * a handover somebody has to arrange today, `unknown` is a person to chase for
- * an answer — and because a register that shouted "NO BALL" every week until
+ * an answer. And a register that shouted "NO BALL" every week until
  * the holder happened to tap In would be wrong far more often than it was
  * right.
  */
@@ -63,7 +63,7 @@ export interface KitKindStatus {
 }
 
 /**
- * Kind first, then name, then id so the order is total — two phones looking at
+ * Kind first, then name, then id so the order is total. Two phones looking at
  * the same season have to list the same kit in the same order, and a Firestore
  * query promises nothing about the order documents arrive in.
  *
@@ -83,7 +83,7 @@ export const sortKitItems = (items: KitItem[]): KitItem[] =>
  * The register in the order every screen draws it, one entry per kind the
  * season actually owns something of.
  *
- * Kinds with nothing in them are left out rather than returned empty — a season
+ * Kinds with nothing in them are left out rather than returned empty. A season
  * that has never had vests should not be rendering a Vests heading with nothing
  * under it, and should not be warned about them either. Same rule, one place.
  */
@@ -100,7 +100,7 @@ export const groupKitByKind = (items: KitItem[]): { kind: KitKind; items: KitIte
 /**
  * What each kind of kit the season owns is doing about one game.
  *
- * The test is `status === 'in'` and nothing else — pointedly **not**
+ * The test is `status === 'in'` and nothing else, pointedly **not**
  * `isConfirmed`. Confirmation decides whether an extra counts towards the
  * headcount, which is a question about whether there are enough players; it
  * says nothing at all about whether the bag in somebody's hallway is going to
@@ -135,7 +135,7 @@ export const getKitGaps = (statuses: KitKindStatus[]): KitKindStatus[] =>
  * Reported rather than repaired, the same bargain `findCountsDrift` strikes: the
  * app has no idea who actually has the ball now, and quietly reassigning it to
  * the nearest admin would replace a visible problem with an invisible lie.
- * Removing a member is also not the moment to guess — the person who left may
+ * Removing a member is also not the moment to guess. The person who left may
  * well be dropping it back next week.
  *
  * The security rules only check the holder on the way **in**, so this is the

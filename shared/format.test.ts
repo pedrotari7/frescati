@@ -75,7 +75,7 @@ describe('byDisplayName', () => {
 	});
 
 	// A profile mid-write has no name yet. It has to sort somewhere rather than
-	// throw — that is the whole reason `subscribeToUsers` sorts in the client.
+	// throw. That is the whole reason `subscribeToUsers` sorts in the client.
 	it('keeps a nameless profile in the list', () => {
 		const sorted = [{ displayName: 'Anna' }, {}].sort(byDisplayName);
 

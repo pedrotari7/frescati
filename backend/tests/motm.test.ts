@@ -28,7 +28,7 @@ import {
  * The vote, end to end: confirming a game opens it, the sweep counts it, and
  * the bonus reaches the ladder through a replay rather than a poke.
  *
- * FCM has no emulator, so the notification is spied on rather than sent — what
+ * FCM has no emulator, so the notification is spied on rather than sent, what
  * matters here is who it went to and that it went once.
  */
 
@@ -96,7 +96,7 @@ describe('opening the vote', () => {
 	});
 
 	// `sendPush` resolves one recipient per uid, so twice would be two lookups
-	// and — for anybody it falls back to email for — two identical mails.
+	// and, for anybody it falls back to email for, two identical mails.
 	it('names an app admin who played once rather than twice', async () => {
 		await setUpGame();
 		await writeUser('p1', { isAppAdmin: true });
@@ -142,7 +142,7 @@ describe('opening the vote', () => {
 		await closeMotmVoting.run({} as never);
 
 		// Back to unrated, exactly the way a replay leaves a game whose scores
-		// have all been cleared — then confirmed again.
+		// have all been cleared, then confirmed again.
 		await getDb()
 			.doc(`seasons/${SEASON_ID}/games/${GAME_ID}`)
 			.update({ resultFinalisedAt: FieldValue.delete(), status: 'scheduled' });
@@ -422,7 +422,7 @@ describe('announcing the result', () => {
 
 	// By display name rather than uid: this is the one payload whose subject is
 	// not the person reading it.
-	it('carries the winner’s name and how close it was', async () => {
+	it("carries the winner's name and how close it was", async () => {
 		await writeUser('p5', { displayName: 'Anders' });
 		await voteAndExpire([
 			['p1', 'p5'],
@@ -453,7 +453,7 @@ describe('announcing the result', () => {
 	});
 
 	// The same place the question landed, so tapping the answer goes where
-	// tapping the ask did — and where the totals now are.
+	// tapping the ask did, and where the totals now are.
 	it('points at the team sheet, where the totals are', async () => {
 		await voteAndExpire([['p1', 'p5']]);
 		const sendSpy = jest.spyOn(push, 'sendGamePush');
@@ -463,8 +463,8 @@ describe('announcing the result', () => {
 		expect(sendSpy.mock.calls[0][2].url).toBe(`/s/${SEASON_ID}/g/${GAME_ID}/tournament`);
 	});
 
-	// There is a decision document either way — that is what says the counting
-	// happened — but "nobody voted" is not news anybody needs a phone to buzz for.
+	// There is a decision document either way, that is what says the counting
+	// happened, but "nobody voted" is not news anybody needs a phone to buzz for.
 	it('says nothing when nobody voted', async () => {
 		await voteAndExpire([]);
 		const sendSpy = jest.spyOn(push, 'sendGamePush');
@@ -476,7 +476,7 @@ describe('announcing the result', () => {
 	});
 
 	// The decision is written and the window is gone by the time this sends, so a
-	// throw would cost the winner their bonus over a notification that failed —
+	// throw would cost the winner their bonus over a notification that failed,
 	// and the sweep would log a misleading "could not count" for a vote it
 	// counted correctly.
 	it('still pays the winner when the notification fails', async () => {

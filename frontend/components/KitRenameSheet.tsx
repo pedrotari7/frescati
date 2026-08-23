@@ -16,7 +16,7 @@ import { TextInput } from './Field';
  * vests become `other`. Who has it is a handover with its own sheet.
  *
  * Seeded on open rather than cleared on close, so the field doesn't visibly
- * reset underneath the closing animation — the same reason `KitTransferSheet`
+ * reset underneath the closing animation, the same reason `KitTransferSheet`
  * clears its search there.
  */
 const KitRenameSheet = ({
@@ -60,7 +60,7 @@ const KitRenameSheet = ({
 						Only what it&apos;s called. What kind of kit it is, and who has it, stay as they are.
 					</p>
 
-					{/* A form so the phone keyboard's Go key saves — this is a
+					{/* A form so the phone keyboard's Go key saves, this is a
 					    one-field sheet and reaching for a button is the long way
 					    round. Save submits it rather than carrying its own
 					    handler, so a tap and the Go key go down one path. */}

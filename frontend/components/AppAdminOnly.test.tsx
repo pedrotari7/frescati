@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 const mockPush = jest.fn();
 
 // Rendered whole rather than shallow, because the way back this asserts on
-// lives in `PageShell`'s `TopBar` rather than in the component under test —
+// lives in `PageShell`'s `TopBar` rather than in the component under test,
 // and it is a button calling `router.push`, not a link.
 jest.mock('next/navigation', () => ({
 	usePathname: () => '/admin',

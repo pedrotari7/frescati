@@ -67,8 +67,8 @@ describe('setAppAdmin', () => {
 	});
 
 	/**
-	 * `scripts/setAdmin.ts` had this exact bug — a bare `{ isAppAdmin }` merge
-	 * onto a document that doesn't exist yet drops `displayName` and `uid` — and
+	 * `scripts/setAdmin.ts` had this exact bug, a bare `{ isAppAdmin }` merge
+	 * onto a document that doesn't exist yet drops `displayName` and `uid`, and
 	 * there was no test to catch it here too. This is that test.
 	 */
 	it('preserves an existing profile instead of stomping it with a bare badge merge', async () => {

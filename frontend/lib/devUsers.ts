@@ -6,7 +6,7 @@ import { getFirebaseAuth } from './firebaseClient';
 /**
  * Signing in as a seeded player, without a Google account.
  *
- * The app only knows one way in — a Google popup — which is the right answer in
+ * The app only knows one way in, a Google popup, which is the right answer in
  * production and useless against a local database, where the whole point is to
  * be five different people in a minute and see what each of them sees.
  *
@@ -29,7 +29,7 @@ export interface DevUser {
 	photoURL: string | null;
 	/** What the emulator matches the imported Google link on. */
 	sub: string;
-	/** Who this person is in the seeded world — admin, member, stranger. */
+	/** Who this person is in the seeded world: admin, member, stranger. */
 	hint: string;
 }
 
@@ -42,7 +42,7 @@ export interface DevUserFile {
 /**
  * Written by `pnpm seed` into `frontend/public`, rather than read out of
  * Firestore: the switcher's whole job is to be useful *before* anyone is signed
- * in, and security rules — correctly — refuse to show the roster to a stranger.
+ * in, and security rules, correctly, refuse to show the roster to a stranger.
  */
 export const loadDevUsers = async (): Promise<DevUserFile | null> => {
 	if (!DEV_MODE) return null;

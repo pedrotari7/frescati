@@ -38,8 +38,8 @@ describe('callFunction', () => {
 
 	/**
 	 * Deliberately not caught. A callable rejects with an HttpsError carrying the
-	 * message the function chose, and `useWrite` is what turns that into a toast
-	 * — swallowing it here would take the wording away from the function that
+	 * message the function chose, and `useWrite` is what turns that into a toast,
+	 * swallowing it here would take the wording away from the function that
 	 * wrote it.
 	 */
 	it('lets the rejection through with its message intact', async () => {

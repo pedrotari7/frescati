@@ -1,6 +1,7 @@
 /**
  * Shared domain types. Compiled into both the frontend and the Cloud Functions,
- * so nothing here may reference a Firebase SDK type — the two SDKs disagree.
+ * so nothing here may reference a Firebase SDK type, because the two SDKs
+ * disagree.
  *
  * All instants are ISO 8601 UTC strings (`2026-09-01T17:00:00.000Z`). Firestore
  * sorts and range-filters those lexicographically, which for ISO 8601 UTC is the
@@ -15,7 +16,7 @@ export type SeasonStatus = 'draft' | 'active' | 'archived';
  * `played` is set by the finalise functions once a game has been rated, and is
  * read by exactly one thing: the hourly sweep that looks for games still owed
  * a rating. It is a marker that the game is *done with*, not a description of
- * whether it happened — `getGameLifecycle` answers that from `endsAt`, so a
+ * whether it happened. `getGameLifecycle` answers that from `endsAt`, so a
  * game reads as finished on the screen whether or not anybody scored it.
  *
  * Which is why a replay that finds every score cleared puts the status back to
@@ -28,7 +29,7 @@ export type PlayerRole = 'member' | 'extra';
 /**
  * What one write did to somebody's availability for a game.
  *
- * `withdrawn` is the response document going away — the third state spelled
+ * `withdrawn` is the response document going away, the third state spelled
  * out, because "no answer" is something a watcher wants told about in the same
  * breath as the other two, and `undefined` is not something copy can be written
  * against.
@@ -60,7 +61,7 @@ export interface SeasonSlot {
  * person getting notifications? On iPhone the answer is usually "they never
  * added it to the home screen", and nothing else in the database records that.
  *
- * Coarse on purpose — a platform and a timestamp, no user agent string and no
+ * Coarse on purpose: a platform and a timestamp, no user agent string and no
  * device identifier. Every signed-in user can read this document, and a profile
  * here is a name, an avatar and a badge; this is as far towards a device
  * fingerprint as it goes.
@@ -75,7 +76,7 @@ export interface ClientInfo {
 	 *
 	 * Absent means we have never seen them run it installed. There is no way to
 	 * observe an uninstall, which is why this is a "last seen" rather than a
-	 * flag — a date going stale is visible, a stuck `true` is not.
+	 * flag. A date going stale is visible, a stuck `true` is not.
 	 */
 	lastStandaloneAt?: string;
 }
@@ -85,7 +86,7 @@ export interface NotificationPrefs {
 	gameChanges: boolean;
 	/**
 	 * Somebody signing into the app for the first time. Only app admins are ever
-	 * sent one, so this preference is only worth showing to them — but it lives
+	 * sent one, so this preference is only worth showing to them. But it lives
 	 * on every profile like the others, because the badge can be granted and
 	 * revoked and a preference that vanished with it would forget its setting.
 	 */
@@ -98,7 +99,7 @@ export interface NotificationPrefs {
 	 * nudge to say whether you're playing: somebody who has muted being chased
 	 * for an answer has said nothing about whether they want to be asked who was
 	 * best on the pitch. It needs *a* switch because the audience is everybody
-	 * who played, which nobody signed up for — the same test `availability`
+	 * who played, which nobody signed up for. That is the same test `availability`
 	 * fails, and why that one has none.
 	 *
 	 * One switch for both halves because they are one exchange: being asked and
@@ -109,7 +110,7 @@ export interface NotificationPrefs {
 	/**
 	 * Whether to fall back to email when a push can't be delivered.
 	 *
-	 * Not a kind, unlike the three above — it picks the *channel* for kinds
+	 * Not a kind, unlike the three above. It picks the *channel* for kinds
 	 * already switched on. Nothing is ever sent by email that wouldn't have been
 	 * sent as a push, so turning `reminders` off silences the reminder on both.
 	 *
@@ -127,7 +128,7 @@ export interface NotificationPrefs {
  * only ever see as strings.
  *
  * Deliberately holds no contact details. Email lives in Firebase Auth, which is
- * not readable from the client at all — see `frontend/lib/auth.tsx`. The email
+ * not readable from the client at all. See `frontend/lib/auth.tsx`. The email
  * fallback reads it there with the Admin SDK rather than mirroring it here; a
  * copy on this document would be a group-wide address book.
  */
@@ -139,15 +140,15 @@ export interface AppUser {
 	/**
 	 * The last time they opened the app and could actually see it.
 	 *
-	 * Moved on arrival only — a foreground load, and every return from the
-	 * background afterwards — never on a timer, so a suspended installed app or
+	 * Moved on arrival only, on a foreground load and on every return from the
+	 * background afterwards, never on a timer, so a suspended installed app or
 	 * a tab left open behind forty others cannot keep somebody looking active
 	 * long after they stopped turning up. `shared/visit.ts` holds the rule.
 	 */
 	lastSeenAt: string;
 	/**
-	 * Display mirror of the `admin` custom claim. NOT the source of truth —
-	 * security rules read `request.auth.token.admin`.
+	 * Display mirror of the `admin` custom claim. NOT the source of truth.
+	 * Security rules read `request.auth.token.admin`.
 	 */
 	isAppAdmin: boolean;
 	notificationPrefs: NotificationPrefs;
@@ -156,7 +157,7 @@ export interface AppUser {
 	/**
 	 * Absent until they've played a rated game, or an app admin set them a
 	 * starting point. A player with neither is seeded from the group average at
-	 * selection time rather than carrying a stored placeholder — same reasoning
+	 * selection time rather than carrying a stored placeholder, the same reasoning
 	 * as a missing response document.
 	 */
 	rating?: PlayerRating;
@@ -173,7 +174,7 @@ export interface PushToken {
  *
  * Pointedly **not** a `PushToken`. The token itself is a capability to push to
  * that device, which is why security rules keep the collection private to its
- * owner; this is what `getPushDevices` hands an admin instead — enough to tell
+ * owner; this is what `getPushDevices` hands an admin instead, enough to tell
  * a phone from a laptop and to see whether a registration is recent, with
  * nothing in it that could be used to send anything.
  */
@@ -199,7 +200,7 @@ export interface PushDevice {
 export interface PlayerRating {
 	elo: number;
 	/**
-	 * Rated games played. Drives the provisional K-factor — and, at zero, marks
+	 * Rated games played. Drives the provisional K-factor and, at zero, marks
 	 * this as a starting point an admin set rather than a rating anybody
 	 * earned. See `hasPlayed` in `rating.ts`.
 	 */
@@ -221,7 +222,7 @@ export interface BalanceSettings {
 	randomness: number;
 	/**
 	 * How hard to avoid putting recent teammates together, 0–1. Weighed against
-	 * balance rather than absolute — at 0 history is ignored entirely.
+	 * balance rather than absolute. At 0 history is ignored entirely.
 	 */
 	repeatPenalty: number;
 	/** How many previous games the repeat penalty looks back over. */
@@ -267,10 +268,10 @@ export interface Season {
  * A small closed set rather than a free-text label, because the whole point of
  * a kind is that it *groups*: a game needs **a** ball, not every ball, so two
  * items have to be interchangeable before either can count as cover. A typed
- * label would never group — "Ball", "ball" and "Match ball" are three kinds.
+ * label would never group: "Ball", "ball" and "Match ball" are three kinds.
  *
  * `other` is the escape hatch for things worth keeping track of but never worth
- * warning about — a pump, the gate key, the first-aid bag. It is deliberately
+ * warning about: a pump, the gate key, the first-aid bag. It is deliberately
  * outside `REQUIRED_KIT_KINDS`: a register that cried wolf about the pump is one
  * people stop reading in the week it matters.
  */
@@ -283,7 +284,7 @@ export type KitKind = 'ball' | 'vests' | 'other';
  * A register rather than an inventory: the only question it answers is *who has
  * it*, which is why `holderUid` is required and there is no "in the cupboard"
  * state. Kit in a cupboard is still somebody's to fetch, and an item nobody
- * holds is precisely the situation the register exists to prevent — making it a
+ * holds is precisely the situation the register exists to prevent. Making it a
  * state you could save would legitimise it, and would give every screen a
  * second empty case to render for nothing.
  *
@@ -291,13 +292,13 @@ export type KitKind = 'ball' | 'vests' | 'other';
  * every handover. Extras come and go by definition; the squad is the list of
  * people who will still be around next week to hand it on.
  *
- * There is no id field on the document — `id` here is the document id, the way
+ * There is no id field on the document. `id` here is the document id, the way
  * a response's is the uid. Nothing needs to query kit by anything but its
  * season.
  */
 export interface KitItem {
 	id: string;
-	/** What it gets called out loud — "Match ball", "Blue vests". */
+	/** What it gets called out loud: "Match ball", "Blue vests". */
 	name: string;
 	kind: KitKind;
 	/** Who has it right now. Always somebody on the season's roster. */
@@ -317,7 +318,7 @@ export interface GameCounts {
 	extrasOut: number;
 	/** Extras with `status: 'in'` that hold a confirmed spot. */
 	extrasConfirmed: number;
-	/** `membersIn + extrasConfirmed` — the headcount that actually matters. */
+	/** `membersIn + extrasConfirmed`, the headcount that actually matters. */
 	playing: number;
 }
 
@@ -353,7 +354,7 @@ export interface Game {
 	teamsGeneration?: number;
 	/**
 	 * When the game's results were confirmed and the ratings applied. Set, the
-	 * scoreboard is closed to everyone but a season admin — whose correction
+	 * scoreboard is closed to everyone but a season admin, whose correction
 	 * replays every rated game from here forward.
 	 *
 	 * Written only by the functions; client writes are rejected.
@@ -368,7 +369,7 @@ export interface Game {
 	 * security rule cannot parse an instant, and the deadline is what the rule
 	 * enforces. Nothing sorts on it, so the string half would be dead weight.
 	 *
-	 * Absent means the vote is shut — a game not yet confirmed and a game
+	 * Absent means the vote is shut. A game not yet confirmed and a game
 	 * already decided are both closed, and the decision document says which.
 	 *
 	 * Written only by the functions; client writes are rejected.
@@ -376,7 +377,7 @@ export interface Game {
 	motmVotingUntilMillis?: number;
 	/**
 	 * Bumped by an admin tapping Reshuffle. Feeds the optimizer's seed, so the
-	 * same pool re-rolls into a different — equally balanced — split. Admin
+	 * same pool re-rolls into a different, equally balanced, split. Admin
 	 * writable, unlike `teamsGeneration`.
 	 */
 	reshuffleCount?: number;
@@ -399,7 +400,7 @@ export interface Game {
 
 /**
  * One player's answer for one game. The **absence** of this document is the
- * third state, "no response" — never write a placeholder.
+ * third state, "no response". Never write a placeholder.
  */
 export interface GameResponse {
 	uid: string;
@@ -408,7 +409,7 @@ export interface GameResponse {
 	role: PlayerRole;
 	/**
 	 * A season admin's decision on whether this extra holds a spot. Absent means
-	 * undecided, which counts as *not* holding one — see `isConfirmed`.
+	 * undecided, which counts as *not* holding one. See `isConfirmed`.
 	 * Confirmation stays derived rather than stored so no trigger has to write
 	 * back to the document it fires on. Writable only by season admins.
 	 */
@@ -416,7 +417,7 @@ export interface GameResponse {
 	/**
 	 * A season admin's report that they said they were coming and didn't turn
 	 * up. Absent means nothing of the sort has been said, which is the ordinary
-	 * case — this is never written `false`, it is deleted.
+	 * case. This is never written `false`, it is deleted.
 	 *
 	 * Deliberately a mark *beside* the answer rather than a change to it. The
 	 * whole point is that both facts stay legible at once: `status` still says
@@ -424,7 +425,7 @@ export interface GameResponse {
 	 * them to `out` would file a no-show under the same heading as somebody who
 	 * had the courtesy to say so.
 	 *
-	 * Only meaningful with `status: 'in'`, and only knowable from kick-off — see
+	 * Only meaningful with `status: 'in'`, and only knowable from kick-off. See
 	 * `canReportAbsence`. It moves nothing else: `counts` describes what people
 	 * answered, the lineup is what the admin decides it is, and neither is a
 	 * question anybody is still asking by the time this can be written.
@@ -443,7 +444,7 @@ export interface GameResponse {
 /**
  * Somebody following one game, at `seasons/{id}/games/{id}/watchers/{uid}`.
  *
- * The document id is the uid and its **presence** is the whole subscription —
+ * The document id is the uid and its **presence** is the whole subscription,
  * the same third state responses and match scores use. Nothing writes a
  * `watching: false`; unfollowing deletes the document.
  *
@@ -462,7 +463,7 @@ export interface GameWatcher {
  *
  * The document id is the voter, so nobody holds two votes for one game and
  * changing your mind overwrites rather than stuffs the ballot. Absence is "has
- * not voted" — the same third state a response uses — and withdrawing a vote
+ * not voted", the same third state a response uses, and withdrawing a vote
  * deletes the document.
  *
  * **Private to its owner**, like a watcher and for a firmer version of the same
@@ -486,14 +487,14 @@ export interface MotmVote {
  *
  * Turnout, and deliberately nothing more: it says Anders has answered, never
  * who he answered with. That is what makes it publishable while the vote is
- * still running — the reason the votes themselves are sealed is that a visible
+ * still running. The reason the votes themselves are sealed is that a visible
  * lead is a lead people fall in behind, and a list of names with no picks
  * attached offers nothing to fall in behind.
  *
  * Function-owned, like `counts` on the game and for the same reason: a client
  * cannot read anybody else's vote, so it cannot work this out for itself. The
  * absence of the document means nobody has voted yet, and `closeMotmVote`
- * deletes it as it publishes the totals — after which the turnout is the sum of
+ * deletes it as it publishes the totals, after which the turnout is the sum of
  * `TournamentMotm.counts` and this would be a second copy to keep in step.
  */
 export interface TournamentMotmVoters {
@@ -506,7 +507,7 @@ export interface TournamentMotmVoters {
  * The counted vote, at `seasons/{id}/games/{id}/tournament/motm`.
  *
  * Written only by the sweep that closes the vote, and its **existence** is what
- * says the counting has happened — which is why one is written even when nobody
+ * says the counting has happened, which is why one is written even when nobody
  * voted, with no winners in it. "Nobody voted" is a decision; "not counted yet"
  * is not, and the two would otherwise look identical.
  *
@@ -524,7 +525,7 @@ export interface TournamentMotm {
 
 /**
  * One squad for one game. `uids` is the whole squad; how many of them are on
- * the pitch at once depends on who they're playing — see `getSideSize`.
+ * the pitch at once depends on who they're playing. See `getSideSize`.
  */
 export interface TournamentTeam {
 	/** 0 = A, 1 = B … Stable for the life of the document. */
@@ -538,8 +539,8 @@ export interface TournamentTeam {
  * Its **presence is the pin**: past this point the debounced rebuild leaves the
  * sheet alone, because an admin standing at the pitch moving people about knows
  * something the optimizer does not, and having the next person to tap Out undo
- * it is the whole failure this prevents. Reshuffle is the way back — that button
- * already means "re-pick these teams", so it is allowed to.
+ * it is the whole failure this prevents. Reshuffle is the way back, since that
+ * button already means "re-pick these teams", so it is allowed to.
  *
  * Signed for the same reason a scoreline and a kit handover are: a lineup
  * nobody recognises needs a face on it.
@@ -553,7 +554,7 @@ export interface LineupEdit {
  * The generated lineup, at `seasons/{id}/games/{id}/tournament/teams`.
  *
  * Written only by the `rebuildTeams` function and the callables that edit it by
- * hand — never by a client. It lives in a subcollection rather than on the game
+ * hand, never by a client. It lives in a subcollection rather than on the game
  * document because it is rewritten on every response and the game document is
  * what the whole calendar subscribes to.
  */
@@ -582,7 +583,7 @@ export interface TournamentTeams {
  * is nothing to generate and two people scoring the same match cannot create
  * two documents for it.
  *
- * **No match document at all means "not played yet"** — the same third state
+ * **No match document at all means "not played yet"**, the same third state
  * responses use, and for the same reason: an unplayed match and a 0–0 draw are
  * different things, and a placeholder would make the standings claim a game
  * had been played before anybody kicked off.
@@ -612,12 +613,12 @@ export interface RatingDelta {
 	 * What the movement was actually read off: how much of its matches this
 	 * player's team took, and how much it was expected to take.
 	 *
-	 * A match is scored half on the result and half on the share of the goals —
-	 * see `getMatchScore` — so this is not a count of wins and a 1-0 and a 5-0
+	 * A match is scored half on the result and half on the share of the goals, as
+	 * `getMatchScore` does it, so this is not a count of wins, and a 1-0 and a 5-0
 	 * are different numbers.
 	 *
 	 * Here so a delta stays explicable after the fact without re-deriving the
-	 * whole evening from the match list — "your team took 70% and was expected to
+	 * whole evening from the match list. "Your team took 70% and was expected to
 	 * take 50%" is the entire answer to why two teams level on points moved
 	 * together.
 	 *
@@ -649,7 +650,7 @@ export interface TournamentResult {
  *
  * Top-level rather than under the season, because ratings are global and a
  * replay has to walk every rated game in kickoff order regardless of which
- * season it belonged to — there is nothing season-scoped to iterate.
+ * season it belonged to, because there is nothing season-scoped to iterate.
  *
  * `before` holds the exact rating each player carried into the game, `null`
  * where they had none at all. That is what makes a rewind exact: restoring a
@@ -664,7 +665,7 @@ export interface RatingLedgerEntry {
 	before: Record<string, PlayerRating | null>;
 	after: Record<string, PlayerRating>;
 	/**
-	 * The Elo an unrated player was seeded at for this game — the live average of
+	 * The Elo an unrated player was seeded at for this game: the live average of
 	 * the season's rated members, as it stood when the game was rated.
 	 *
 	 * Stored because `before: null` answers a different question. That field
@@ -674,7 +675,7 @@ export interface RatingLedgerEntry {
 	 * result document's `changes` records the movement that produced. Without the
 	 * seed here, every screen aggregating the ledger has to score a first
 	 * appearance as no movement at all, and disagrees with the team sheet beside
-	 * it — a player and their teammates showing different numbers for the same
+	 * it, with a player and their teammates showing different numbers for the same
 	 * ninety minutes.
 	 *
 	 * One number per entry rather than one per player, because it is one number:
@@ -682,7 +683,7 @@ export interface RatingLedgerEntry {
 	 * would be a second thing to keep in step for no extra fidelity.
 	 *
 	 * Absent on every entry written before it existed, and left off entirely when
-	 * nobody in the game was unrated — there is no seed to record when it was
+	 * nobody in the game was unrated, since there is no seed to record when it was
 	 * never reached for. `backfill-ledger-seed` fills in the historic entries that
 	 * need one, from the result document the game was rated into.
 	 */
@@ -692,7 +693,7 @@ export interface RatingLedgerEntry {
 	 *
 	 * Here as well as in the result document so a season table is one query
 	 * against this collection rather than two reads per game across the whole
-	 * calendar — and it is genuinely part of what the game did to a player,
+	 * calendar, and it is genuinely part of what the game did to a player,
 	 * which is what this entry records.
 	 */
 	positions: Record<string, number>;
@@ -701,7 +702,7 @@ export interface RatingLedgerEntry {
 	 *
 	 * Not derivable from `positions`, which is the whole reason it is here: that
 	 * records where a team *finished*, shared on a tie, so two players level on 0
-	 * may have been on the same team or on two teams that drew — and in a
+	 * may have been on the same team or on two teams that drew, and in a
 	 * two-team game that ends level, everybody looks like a teammate. Anything
 	 * asking who somebody actually played *with* needs this.
 	 *
@@ -713,8 +714,8 @@ export interface RatingLedgerEntry {
 	/**
 	 * What each player's team took and was expected to take, per match played.
 	 *
-	 * A match is scored half on the result and half on the share of the goals —
-	 * see `getMatchScore` — so a team that won everything 1-0 and one that won
+	 * A match is scored half on the result and half on the share of the goals, as
+	 * `getMatchScore` does it, so a team that won everything 1-0 and one that won
 	 * everything 5-0 are not the same number.
 	 *
 	 * Per player rather than per team for the same reason `positions` is: a
@@ -733,7 +734,7 @@ export interface RatingLedgerEntry {
 	 * Who the group voted man of the match, if the vote had closed by the time
 	 * this entry was written. Shared on a tie, like `positions`.
 	 *
-	 * Recorded here for the same reason positions are — it is part of what the
+	 * Recorded here for the same reason positions are. It is part of what the
 	 * game did to these players, and a career screen reads this collection and
 	 * nothing else. The ratings do not come from it: they come from the decision
 	 * document, which a replay re-reads. Absent on every entry written before a

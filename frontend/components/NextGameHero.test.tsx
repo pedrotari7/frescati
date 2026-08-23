@@ -5,7 +5,7 @@ import NextGameHero from './NextGameHero';
 
 /**
  * The bell's wiring is `useWatchGames`' job; what this file cares about is the
- * card deciding whether to draw one at all — which it now does off the handler
+ * card deciding whether to draw one at all, which it now does off the handler
  * it is given rather than off a hook it calls, because the screen holds one
  * listener for the hero and every row under it.
  */
@@ -97,8 +97,8 @@ describe('NextGameHero', () => {
 	});
 
 	/**
-	 * An extra's In moves nothing on this card — the headcount above it is
-	 * `membersIn + extrasConfirmed` — so the note under the buttons is the only
+	 * An extra's In moves nothing on this card: the headcount above it is
+	 * `membersIn + extrasConfirmed`, so the note under the buttons is the only
 	 * receipt for the tap, and the only place the admin's nod shows up.
 	 */
 	it('tells an extra their spot is waiting on an admin', () => {
@@ -312,7 +312,7 @@ describe('NextGameHero', () => {
 		expect(bell()).toBeInTheDocument();
 	});
 
-	it('drops the bell on a game that is off — there is nothing left to hear about', () => {
+	it('drops the bell on a game that is off, there is nothing left to hear about', () => {
 		render(
 			<NextGameHero
 				game={game({ status: 'cancelled' })}

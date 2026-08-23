@@ -2,8 +2,8 @@ import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { classNames } from '../lib/utils/reactHelper';
 
-// Exported so other controls that don't fit `<input>`/`<select>` — DatePicker's
-// trigger button, for instance — still look like they belong on this form.
+// Exported so other controls that don't fit `<input>`/`<select>`, DatePicker's
+// trigger button, for instance, still look like they belong on this form.
 export const CONTROL =
 	'w-full rounded-xl bg-white/5 px-3 h-12 text-ink ring-1 ring-inset ring-white/10 ' +
 	'placeholder:text-faint focus:ring-brand/50 focus:outline-none transition-shadow';
@@ -24,7 +24,7 @@ export const TextInput = ({ className = '', ...rest }: InputHTMLAttributes<HTMLI
  * A dropdown that looks like one.
  *
  * `appearance-none` is what lets a `select` take the same `CONTROL` styling as
- * every text input on the form — and it strips the platform's own arrow with
+ * every text input on the form, and it strips the platform's own arrow with
  * it, so the chevron has to be put back. Without it these were eight controls
  * pixel-identical to a `TextInput`, with a stripe of reserved padding on the
  * right where the only thing saying "this opens a list" used to be.
@@ -48,7 +48,7 @@ export const Select = ({ className = '', children, ...rest }: SelectHTMLAttribut
 /**
  * A slider for the settings that are a feel rather than a figure.
  *
- * Shows its own value, because a range control with no readout is guesswork —
+ * Shows its own value, because a range control with no readout is guesswork,
  * and these are the ones an admin nudges and re-reads a week later to work out
  * what they did.
  */

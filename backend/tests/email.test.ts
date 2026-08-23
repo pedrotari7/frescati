@@ -7,9 +7,9 @@ import { clearAuth, clearFirestore, createAuthUser, getDb, writeUser } from './h
  * The email fallback's transport, against the Auth emulator and a stubbed
  * Resend.
  *
- * `fetch` is the only thing mocked. Everything the fallback decides — whose
+ * `fetch` is the only thing mocked. Everything the fallback decides: whose
  * preference is on, who has a usable address, how the addresses are grouped
- * into requests — runs for real, because those are the parts that would quietly
+ * into requests, runs for real, because those are the parts that would quietly
  * mail the wrong person.
  *
  * The parameters are set through `process.env` because that is where
@@ -38,7 +38,7 @@ const sentBatches = (): { to: string[]; subject: string; html: string; text: str
 
 /**
  * Spied rather than assigned, so `restoreAllMocks` puts the real one back. The
- * helpers that wipe the emulators go through `fetch` too — left stubbed, they
+ * helpers that wipe the emulators go through `fetch` too, left stubbed, they
  * quietly succeed at clearing nothing and every test after the first inherits
  * the last one's accounts.
  */
@@ -46,7 +46,7 @@ const resendReturns = (response: { ok: boolean; status: number; text: string }) 
 	jest.spyOn(global, 'fetch').mockResolvedValue({ ...response, text: async () => response.text } as never);
 
 beforeEach(async () => {
-	// Before the spy goes on — these are real requests to the emulators.
+	// Before the spy goes on, these are real requests to the emulators.
 	await clearFirestore();
 	await clearAuth();
 
@@ -96,7 +96,7 @@ describe('sendEmail', () => {
 		expect(fetch).not.toHaveBeenCalled();
 	});
 
-	// Matches how every other preference here is read — a profile written before
+	// Matches how every other preference here is read, a profile written before
 	// this existed is opted in, not silently switched off.
 	it('treats a profile with no preferences at all as opted in', async () => {
 		configure();

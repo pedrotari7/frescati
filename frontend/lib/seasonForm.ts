@@ -7,16 +7,16 @@ import { parseCount } from '@shared/game';
  * about itself.
  *
  * In `lib/` rather than in the route file, where all of this started: `app/` is
- * deliberately left out of the jest suite — a route is a subscription, a layout
+ * deliberately left out of the jest suite, a route is a subscription, a layout
  * and a permission check assembled together, and what is worth asserting about
  * one is that it renders the real thing against real rules, which is an
  * end-to-end test. That reasoning does not extend to a pure function that turns
  * a season into a form and back, which is exactly the sort of thing that breaks
  * quietly and cheaply.
  *
- * Everything is held as the control speaks it — the sliders in whole
+ * Everything is held as the control speaks it: the sliders in whole
  * percentages, the reminder windows as the comma-separated string somebody
- * typed, every number box as typed — and converted back on save.
+ * typed, every number box as typed, and converted back on save.
  */
 export interface SeasonForm {
 	name: string;
@@ -33,8 +33,8 @@ export interface SeasonForm {
 	repeatPenalty: number;
 	/*
 	 * Everything typed into a number box, held as typed. `Number('')` is `0`, so
-	 * coercing on each keystroke made backspacing a field to empty — the
-	 * ordinary way anybody replaces 90 with 120 — write a literal zero the next
+	 * coercing on each keystroke made backspacing a field to empty, the
+	 * ordinary way anybody replaces 90 with 120, write a literal zero the next
 	 * digit landed beside. `readCounts` turns them back.
 	 */
 	durationMinutes: string;
@@ -102,7 +102,7 @@ export const sameForm = (a: SeasonForm, b: SeasonForm): boolean =>
 
 /**
  * What is wrong with a count box, in the words of the setting rather than of
- * the parser — "at least one minute long" says what to type, where "invalid
+ * the parser, "at least one minute long" says what to type, where "invalid
  * number" only says to try again.
  */
 export const INVALID_COUNT = {
@@ -126,7 +126,7 @@ export interface SeasonCounts {
  *
  * The floor is per field, because they are not the same question: a slot, a
  * match and a lookback all need at least one of something, and the response
- * deadline needs zero to be allowed — answers staying open right up to
+ * deadline needs zero to be allowed, answers staying open right up to
  * kick-off is a real setting, not an empty box.
  */
 export const readCounts = (form: SeasonForm): SeasonCounts => {

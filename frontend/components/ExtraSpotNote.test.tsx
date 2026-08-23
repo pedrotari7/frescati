@@ -26,7 +26,7 @@ describe('ExtraSpotNote', () => {
 	});
 
 	// The answer to "did that work?" is worth more once it is too late to change
-	// it, not less — the buttons are dead by then, so the note is all there is.
+	// it, not less. The buttons are dead by then, so the note is all there is.
 	it('keeps saying where they stand after answers have closed', () => {
 		render(<ExtraSpotNote isExtra myResponse={response({})} lifecycle='locked' />);
 
@@ -54,7 +54,7 @@ describe('ExtraSpotNote', () => {
 		expect(container).toBeEmptyDOMElement();
 	});
 
-	// Nothing is pending for somebody who said no — but the In button beside
+	// Nothing is pending for somebody who said no, but the In button beside
 	// this is still live, so what it would do is still worth saying.
 	it('is back to explaining the queue for an extra who answered out', () => {
 		render(<ExtraSpotNote isExtra myResponse={response({ status: 'out' })} lifecycle='open' />);

@@ -21,7 +21,7 @@ export interface EmailTestOutcome {
  * Sends one of the app's real notifications, by email, to a hand-picked set of
  * real accounts.
  *
- * The one debug tool that can notify somebody else — everything else in here,
+ * The one debug tool that can notify somebody else. Everything else in here,
  * `sendTestPush` included, is pinned to `request.auth.uid` on purpose. Worth
  * the exception because it is the only way to see what the fallback actually
  * delivers and how it renders: `sendTestPush` only ever proves the *caller's*
@@ -37,7 +37,7 @@ export interface EmailTestOutcome {
  *     genuinely works, not that a preview rendered.
  *
  * Does **not** gate on the per-kind preference (`reminders`, `gameChanges`,
- * …) the way the real fallback does — an admin picking a person and a kind
+ * …) the way the real fallback does. An admin picking a person and a kind
  * here is a one-off, deliberate decision, not the automated send those
  * preferences exist to silence. It still honours `emailFallback` and requires
  * a verified address, because neither of those is an editorial choice about
@@ -82,7 +82,7 @@ export const sendTestEmail = onCall<{
 		const sendable = outcomes.filter(outcome => outcome.status === 'sent').map(outcome => outcome.uid);
 
 		// The actual send, through the same transport and gating every real
-		// fallback email goes through — `describeReach` above only explains why,
+		// fallback email goes through. `describeReach` above only explains why,
 		// it isn't what decides whether mail goes out.
 		const sent = await sendEmail(sendable, payload);
 
@@ -95,7 +95,7 @@ export const sendTestEmail = onCall<{
 /**
  * Why each target is or isn't reachable by email, for the admin screen to show
  * next to their name. Reads the same two sources `sendEmail` itself resolves
- * from — the profile for the preference, Auth for the address — because
+ * from, the profile for the preference, Auth for the address, because
  * that's the only way this can't disagree with what actually happens next.
  */
 const describeReach = async (uids: string[]): Promise<EmailTestOutcome[]> => {

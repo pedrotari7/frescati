@@ -200,7 +200,7 @@ describe('getExtraSpot', () => {
 		expect(getExtraSpot({ status: 'in', role: 'extra', confirmOverride: true })).toBe('confirmed');
 	});
 
-	// An extra an admin dropped is back where they started, not out — they are
+	// An extra an admin dropped is back where they started, not out. They are
 	// still down as coming, and still waiting to hear.
 	it('is pending again for an extra an admin dropped', () => {
 		expect(getExtraSpot({ status: 'in', role: 'extra', confirmOverride: false })).toBe('pending');
@@ -350,7 +350,7 @@ describe('groupGames', () => {
 		expect(groups.played).toEqual([]);
 	});
 
-	// It waits its turn rather than taking the top card — the next game is still
+	// It waits its turn rather than taking the top card. The next game is still
 	// the thing the screen is for.
 	it('does not let a game awaiting its vote displace the next one', () => {
 		const voting = [
@@ -445,13 +445,13 @@ describe('getAvailabilityChange', () => {
 	});
 
 	// The document going away is the "no response" state, not a gap to paper
-	// over — and it is worth telling a watcher about in its own words.
+	// over, and it is worth telling a watcher about in its own words.
 	it('reads a deleted response as a withdrawal', () => {
 		expect(getAvailabilityChange(response({ status: 'in' }), undefined)).toBe('withdrawn');
 	});
 
 	// `setResponse` rewrites the whole document every time, so a note edit or an
-	// admin confirming an extra lands here looking exactly like an answer — and
+	// admin confirming an extra lands here looking exactly like an answer, and
 	// a notification saying somebody's answer moved when it hasn't is the one
 	// that gets muted.
 	it('ignores a rewrite that left the answer where it was', () => {
@@ -466,7 +466,7 @@ describe('getAvailabilityChange', () => {
 		).toBe(null);
 	});
 
-	// Neither side present is a trigger that has nothing to say — the tests for
+	// Neither side present is a trigger that has nothing to say. The tests for
 	// `onResponseWrite` build events without document data for exactly this.
 	it('reads nothing on either side as nothing having happened', () => {
 		expect(getAvailabilityChange(undefined, undefined)).toBe(null);
@@ -554,7 +554,7 @@ describe('findCountsDrift', () => {
 		expect(findCountsDrift(game, playing(10), 10)).toEqual([{ field: 'atRisk', stored: true, actual: false }]);
 	});
 
-	// A half-written document has to be compared, not skipped — it is exactly
+	// A half-written document has to be compared, not skipped. It is exactly
 	// the shape a failed trigger leaves behind.
 	it('compares a counter the document is missing entirely', () => {
 		expect(findCountsDrift({}, playing(2), 10)).toEqual([
@@ -667,7 +667,7 @@ describe('splitOnWhistle', () => {
 		expect(splitOnWhistle(games, new Date('2026-01-01T00:00:00.000Z'))).toEqual({ scheduled: games, played: [] });
 	});
 
-	it('leaves the caller’s array alone', () => {
+	it("leaves the caller's array alone", () => {
 		const original = [...games];
 		splitOnWhistle(games, now);
 

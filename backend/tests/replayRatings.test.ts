@@ -17,7 +17,7 @@ import {
  *
  * Worth its own suite for a reason none of the other scripts have: this one is
  * run once, against the real ladder, after the formula it replays under has
- * already changed. There is no second run to notice a mistake with — a wrong
+ * already changed. There is no second run to notice a mistake with, a wrong
  * window or a rewind that didn't happen leaves every rating in the group wrong
  * and nothing to compare against, because the code that produced the old
  * numbers is gone by then.
@@ -25,7 +25,7 @@ import {
  * So these check the two things a caller has to be able to trust: that it hands
  * the work to `requestRatingReplay` and the ratings actually move, and that
  * `--dry-run` genuinely reads. The replay itself is covered in
- * `finaliseTournament.test.ts` — what is new here is who starts it and from when.
+ * `finaliseTournament.test.ts`. What is new here is who starts it and from when.
  */
 
 const SEASON_ID = 'season-1';
@@ -45,7 +45,7 @@ const output = (): string => (console.log as jest.Mock).mock.calls.map(call => c
 const rating = (elo: number) => ({ elo, games: 10, updatedAt: '2026-08-01T00:00:00.000Z' });
 
 /**
- * A confirmed game, and the ledger entry it left behind — with an `after` that
+ * A confirmed game, and the ledger entry it left behind, with an `after` that
  * the current formula disagrees with, which is exactly the situation a retune
  * creates. Everyone starts the game level, so a replay owes team A the same
  * movement either way and only the size of it is in question.
@@ -81,7 +81,7 @@ const ratedGame = async (gameId: string, kickoff: string, paid: number) => {
 };
 
 /**
- * What the current formula pays a settled winner of a level two-team game — the
+ * What the current formula pays a settled winner of a level two-team game, the
  * 2-1 above, so a scoreline the rate reads as four fifths rather than a whole
  * win. `0.8 x (0.8 - 0.5) + 0.2 x 0.5`, at K = 20.
  */
@@ -120,7 +120,7 @@ describe('replay-ratings', () => {
 
 		await replayRatings(context());
 
-		expect(output()).toContain('2 rated games to replay — the whole ledger');
+		expect(output()).toContain('2 rated games to replay: the whole ledger');
 		expect(output()).toContain('2026-09-01 to 2026-09-08');
 		expect(output()).toContain('8 players');
 	});
@@ -135,7 +135,7 @@ describe('replay-ratings', () => {
 		expect(output()).toContain('Dry run, nothing written');
 	});
 
-	// The narrower call the script also has to support — a formula change wants
+	// The narrower call the script also has to support, a formula change wants
 	// the whole ledger, but a scoreline corrected by hand in the database wants
 	// everything from that game onwards and nothing before it.
 	it('replays from a date, leaving the games before it alone', async () => {
@@ -145,7 +145,7 @@ describe('replay-ratings', () => {
 		await replayRatings(context({ args: ['2026-09-05'] }));
 
 		// The window it was asked for, then the games actually in it.
-		expect(output()).toContain('1 rated game to replay — from 2026-09-05');
+		expect(output()).toContain('1 rated game to replay: from 2026-09-05');
 		expect(output()).toContain('2026-09-08 to 2026-09-08');
 		expect((await readRatingLedger('game-1'))?.after['p1'].elo).toBe(1000 + USED_TO_PAY);
 		expect((await readRatingLedger('game-2'))?.after['p1'].elo).toBe(1000 + NOW_PAYS);

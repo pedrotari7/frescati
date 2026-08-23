@@ -15,8 +15,8 @@ export interface ConfirmOptions {
 
 type Ask = (options: ConfirmOptions) => Promise<boolean>;
 
-// Defaults to "yes" so a component rendered outside the provider — only ever a
-// test — doesn't hang forever waiting on a dialog nobody is showing.
+// Defaults to "yes" so a component rendered outside the provider, only ever a
+// test, doesn't hang forever waiting on a dialog nobody is showing.
 const ConfirmContext = createContext<Ask>(async () => true);
 
 /**

@@ -6,12 +6,12 @@ import { byDisplayName } from '@shared/format';
 import { userDoc, usersCol } from './paths';
 import { subscribeToCollection, subscribeToDoc } from './subscribe';
 
-/** The document id *is* the uid — trust it over a field that could be missing. */
+/** The document id *is* the uid. Trust it over a field that could be missing. */
 const toUser = (id: string, data: DocumentData): AppUser => ({ ...(data as AppUser), uid: id });
 
 /**
- * Everyone who has ever signed in. Small by design — this is one football
- * group — and needed in full by the admin member picker and every roster,
+ * Everyone who has ever signed in. Small by design, this is one football
+ * group, and needed in full by the admin member picker and every roster,
  * which renders names for uids stored on seasons and responses.
  *
  * Sorted here rather than with `orderBy('displayName')`: Firestore drops
@@ -46,7 +46,7 @@ export const setNotificationPrefs = (uid: string, notificationPrefs: Notificatio
 
 /**
  * Move somebody's last-visit stamp forward. Self-written, like the rest of the
- * profile — `shared/visit.ts` says what counts as a visit and `useLastSeen`
+ * profile, `shared/visit.ts` says what counts as a visit and `useLastSeen`
  * decides when one has happened.
  *
  * An `updateDoc` rather than a merge, deliberately: this must never be the

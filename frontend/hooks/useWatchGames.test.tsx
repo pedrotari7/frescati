@@ -67,7 +67,7 @@ describe('useWatchGames', () => {
 		expect(result.current.isWatching('game-1')).toBe(false);
 	});
 
-	// The caller's cue to draw no bell rather than a dead one — and the write
+	// The caller's cue to draw no bell rather than a dead one, and the write
 	// has to refuse too, in case one is drawn anyway.
 	it('cannot watch, or write, with nobody signed in', () => {
 		mockAuth.user = null;

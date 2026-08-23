@@ -63,7 +63,7 @@ describe('getMotmTurnout', () => {
 	});
 
 	// The rules check the team sheet at both ends of a vote, so this cannot
-	// happen — but the two halves on screen have to sum to the lineup regardless
+	// happen, but the two halves on screen have to sum to the lineup regardless
 	// of what is in the collection, or the count reads wrong.
 	it('ignores a voter who is not in the lineup', () => {
 		expect(getMotmTurnout(lineup, ['a', 'stranger'])).toEqual({ voted: ['a'], pending: ['b', 'c', 'd'] });

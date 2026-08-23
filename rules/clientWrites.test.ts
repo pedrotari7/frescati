@@ -11,13 +11,13 @@ import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebas
  * There are four independent copies of this database's shape in the repo:
  * `frontend/lib/db/paths.ts`, `firestore.rules`, the path helpers in
  * firestore.test.ts, and the ones in backend/tests/helpers.ts. Every suite
- * builds its own strings, so nothing notices when two of them stop agreeing —
+ * builds its own strings, so nothing notices when two of them stop agreeing,
  * firestore.test.ts can prove `motmVotes/{uid}` is locked down perfectly while
  * the client writes somewhere else entirely, and both stay green.
  *
  * These close that gap from the other end. Rather than asserting a hand-written
  * path is refused, they call the function the app actually calls and check the
- * rules accept it — so the path, the document shape and the rule that guards it
+ * rules accept it, so the path, the document shape and the rule that guards it
  * are asserted together, by the code that ships.
  *
  * `getDb` is the only seam needed: every module under `lib/db` reaches Firestore
@@ -141,7 +141,7 @@ describe('answering a game', () => {
 
 	it('keeps the original signup time when somebody changes their mind', async () => {
 		// Frozen by the rules once written, so an extra cannot backdate their way
-		// up the queue — which is what `setResponse` reading the document back is
+		// up the queue, which is what `setResponse` reading the document back is
 		// for when the caller has not got it yet.
 		as(EXTRA);
 		await setResponse(SEASON, GAME, EXTRA, 'in', 'extra');
@@ -316,7 +316,7 @@ describe('the man-of-the-match vote', () => {
 		await assertSucceeds(clearMotmVote(SEASON, GAME, MEMBER));
 	});
 
-	it('refuses deleting somebody else’s vote', async () => {
+	it("refuses deleting somebody else's vote", async () => {
 		as(MEMBER);
 		await setMotmVote(SEASON, GAME, MEMBER, OTHER_MEMBER);
 

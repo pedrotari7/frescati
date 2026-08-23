@@ -33,8 +33,8 @@ const REPAIR_CONCURRENCY = 10;
  * repaired. Reading the responses asks the question directly.
  *
  * A collection-group query, so it comes back across every season and is filtered
- * to this one here. `responses.uid` is already indexed for exactly this shape —
- * it is what the app's own "my answers across every game" listener runs on.
+ * to this one here. `responses.uid` is already indexed for exactly this shape,
+ * the same field the app's own "my answers across every game" listener runs on.
  */
 const gamesHoldingAnswersFrom = async (seasonId: string, uids: string[]): Promise<Set<string>> => {
 	const affected = new Set<string>();
@@ -43,7 +43,7 @@ const gamesHoldingAnswersFrom = async (seasonId: string, uids: string[]): Promis
 		const snapshot = await db.collectionGroup('responses').where('uid', 'in', chunk).get();
 
 		for (const doc of snapshot.docs) {
-			// `.../games/{gameId}/responses/{uid}` — up to the game, then up
+			// `.../games/{gameId}/responses/{uid}`, up to the game, then up
 			// again to the season it belongs to.
 			const gameRef = doc.ref.parent.parent;
 
@@ -71,7 +71,7 @@ const gamesHoldingAnswersFrom = async (seasonId: string, uids: string[]): Promis
  *
  * And only games one of the moved players has actually answered. This used to
  * recount every future game unconditionally, which made the ordinary first-run
- * sequence — generate a calendar, then add the squad one tap at a time —
+ * sequence, generate a calendar, then add the squad one tap at a time,
  * quadratic: twenty members against forty games was eight hundred transactions
  * and eight hundred queued rebuilds, to discover that nobody had answered
  * anything yet. The work now follows the diff rather than the calendar, so that
@@ -119,7 +119,7 @@ export const onSeasonWrite = onDocumentWritten(
 				repaired++;
 
 				// A roster change moves who is a member and who is an extra, which
-				// moves who is eligible for a team — so the lineups need re-picking
+				// moves who is eligible for a team, so the lineups need re-picking
 				// too, not just the counters.
 				if (result) {
 					await enqueueTeamRebuild({ seasonId, gameId: gameDoc.id, generation: result.teamsGeneration });

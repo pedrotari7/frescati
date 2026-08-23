@@ -10,7 +10,7 @@ import { classNames } from '../lib/utils/reactHelper';
  * An extra's In is the one answer in the app that does nothing on its own: the
  * headcount is `membersIn + extrasConfirmed`, so tapping it moves no number on
  * any screen until a season admin says so. Every other answer is its own
- * receipt — the button fills in, the count goes up — and this one used to be
+ * receipt, the button fills in, the count goes up, and this one used to be
  * explained by a permanent grey line that said the same thing before and after
  * they answered, with the actual state hidden in a pill beside their name on a
  * roster they had to go and find.
@@ -25,7 +25,7 @@ import { classNames } from '../lib/utils/reactHelper';
  * so somebody added to the squad after answering is genuinely still queued as
  * an extra on this game, and hiding the note would leave them waiting on
  * nothing with no way of knowing. `isExtra` is only for the case where there is
- * no document to read a role from — the explanation of what tapping In will do.
+ * no document to read a role from, the explanation of what tapping In will do.
  */
 const ExtraSpotNote = ({
 	isExtra,
@@ -62,7 +62,7 @@ const ExtraSpotNote = ({
 					<span className='text-ink font-semibold'>{pending ? 'Waiting on a spot.' : "You're in."}</span>
 					<span className='text-faint'>
 						{pending
-							? " You're down as an extra — an admin confirms your spot before you count towards the headcount."
+							? " You're down as an extra, an admin confirms your spot before you count towards the headcount."
 							: ' An admin confirmed your spot, so you count towards the headcount.'}
 					</span>
 				</p>
@@ -77,7 +77,7 @@ const ExtraSpotNote = ({
 
 	return (
 		<p className='text-extra mt-3 text-center text-xs'>
-			You&apos;re not in the squad for this season, so you&apos;ll be listed as an extra — an admin confirms your
+			You&apos;re not in the squad for this season, so you&apos;ll be listed as an extra, an admin confirms your
 			spot before you count towards the headcount.
 		</p>
 	);

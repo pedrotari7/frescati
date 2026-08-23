@@ -43,7 +43,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const write = useWrite();
 	const now = useNow();
 
-	// The global role, not `isAdmin` from the season — that one is true for a
+	// The global role, not `isAdmin` from the season, that one is true for a
 	// season admin too, and a season admin is still one of the players whose own
 	// following is private from the person sitting next to them.
 	const isAppAdmin = user?.isAppAdmin === true;
@@ -53,7 +53,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	// `counts` on the game doc is written by a Cloud Function trigger, so it
 	// lags a response write by a round trip (and a cold start, worst case).
 	// `responses` here is the same subcollection, subscribed directly, so it
-	// carries the local write the instant Firestore echoes it from cache —
+	// carries the local write the instant Firestore echoes it from cache,
 	// tallying it ourselves shows the same number `onResponseWrite` will settle
 	// on, without waiting for it. Held back until responses have loaded once,
 	// so this doesn't flash 0 before the subscription delivers its first snapshot.
@@ -63,7 +63,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	);
 
 	// Both hooks below run before the early returns, so the lifecycle they need
-	// is resolved up here — `null` until the game has loaded, which each of them
+	// is resolved up here: `null` until the game has loaded, which each of them
 	// reads as "nothing to do yet".
 	const currentLifecycle = season && game ? getGameLifecycle(game, season, now) : null;
 
@@ -74,7 +74,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 		isOpen: currentLifecycle === 'open',
 		// What an In from that button will actually land as. Both halves are
 		// here and nowhere else: the role it is recorded under, and whether an
-		// admin has already waved this person through on this game — an extra
+		// admin has already waved this person through on this game, an extra
 		// who was confirmed, said Out and is now changing their mind back keeps
 		// the spot they were given, because `setResponse` preserves it.
 		pendingSpot:
@@ -127,10 +127,10 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 				<section className='glass rounded-3xl p-5'>
 					{/* The pills wrap on a narrow phone; the bell stays pinned to the
 					    top-right of the card rather than wrapping with them. It sits
-					    here, on the game itself, because that is what it follows —
+					    here, on the game itself, because that is what it follows,
 					    every answer on this game, not the roster it happens to be
 					    listed in. `isWatchable` is shared with the trigger, so it can
-					    never be drawn on a game nothing would arrive about — nor
+					    never be drawn on a game nothing would arrive about, nor
 					    hidden on one that is still sending. */}
 					<div className='mb-4 flex items-center justify-between gap-2'>
 						<div className='flex flex-wrap items-center gap-2'>
@@ -184,7 +184,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 
 				{/* Directly under the headcount, because it is the same question:
 				    whether this game can actually go ahead. Hidden once it is off
-				    or over — spelled out rather than borrowing `isWatchable`,
+				    or over. Spelled out rather than borrowing `isWatchable`,
 				    which answers a question about notifications and only happens
 				    to agree. There is nobody left to hand a ball to on a game
 				    that has finished. */}
@@ -230,8 +230,8 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 				</div>
 
 				{/* Below the roster, not above it: this is the answer to a question
-				    an admin brings to the screen, and everybody else — the whole
-				    group, deciding about this game — is who the screen is for. */}
+				    an admin brings to the screen, and everybody else, the whole
+				    group, deciding about this game, is who the screen is for. */}
 				{isAppAdmin && isWatchable(lifecycle) && (
 					<GameWatchers
 						uids={watchers.uids}

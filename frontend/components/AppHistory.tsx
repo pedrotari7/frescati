@@ -14,8 +14,8 @@ const AppHistoryContext = createContext<AppHistoryValue>({ canGoBack: false });
 /**
  * Whether the back chevron has a real *back* to go to, or only an *up*.
  *
- * Every screen declares its way out as a `backHref` — the parent in the
- * hierarchy — and that is the only answer available to a screen somebody opened
+ * Every screen declares its way out as a `backHref`, the parent in the
+ * hierarchy, and that is the only answer available to a screen somebody opened
  * from a notification or a pasted link. It is the wrong answer for every other
  * arrival, and increasingly so the further a screen sits from a single parent:
  * a player's profile is reached from a game's roster, a team sheet, the table
@@ -28,14 +28,14 @@ const AppHistoryContext = createContext<AppHistoryValue>({ canGoBack: false });
  * knows which.
  *
  * A trail of paths rather than a counter, because a step backwards can cross
- * more than one entry — a desktop back menu, an Android long-press — and
+ * more than one entry, a desktop back menu, an Android long-press, and
  * landing on a screen already on the trail says exactly how many. Anything a
  * `popstate` lands on that isn't on it is a step *forward*, back through entries
  * this document had been rewound past, and counts like the push it is.
  *
  * The push/replace half is biased on purpose. A push is only counted when
- * `history.length` actually grew, so a `router.replace` — the live-game
- * redirect, the season picker resolving to a sole season — leaves the depth
+ * `history.length` actually grew, so a `router.replace`, the live-game
+ * redirect, the season picker resolving to a sole season, leaves the depth
  * where it was, because it left the history where it was. The price is a push
  * made after going back: it truncates the entries in front of it, so the length
  * doesn't grow, it reads as a replace and the chevron falls back to `backHref`.

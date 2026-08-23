@@ -12,7 +12,7 @@ import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
 	title: 'Frescati',
-	description: 'Who’s playing on Saturday?',
+	description: "Who's playing on Saturday?",
 	manifest: '/manifest.json',
 	applicationName: 'Frescati',
 	appleWebApp: {
@@ -39,8 +39,8 @@ export const viewport: Viewport = {
 /**
  * The origins a cold start cannot draw anything without: the token endpoint,
  * the App Check exchange, the reCAPTCHA script that feeds it, and Firestore
- * itself. Not one of them is discoverable from the HTML — every one is reached
- * for by a Firebase SDK after hydration — so the DNS lookup, TCP handshake and
+ * itself. Not one of them is discoverable from the HTML, every one is reached
+ * for by a Firebase SDK after hydration, so the DNS lookup, TCP handshake and
  * TLS negotiation for all four begin only once the app is already waiting on
  * them, on the launch where the radio is coldest.
  *

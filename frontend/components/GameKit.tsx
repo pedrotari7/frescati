@@ -13,7 +13,7 @@ import StatusPill from './StatusPill';
  * Whether the ball and the vests are coming to this game.
  *
  * Worked out here from the register and the answers, both of which the caller
- * already holds — there is no counter on the game document and no trigger
+ * already holds, there is no counter on the game document and no trigger
  * behind one. See `shared/kit.ts` for why.
  *
  * Two shapes from one component so there is one wording rather than two that
@@ -43,14 +43,14 @@ const holders = (items: KitItem[], usersByUid: Map<string, AppUser>): string =>
 /**
  * The pill beside a row that has already said which kind it is, so this only
  * has to say what is happening to it. Tense-consistent across all three, and
- * across a required kind and a pump alike — "Missing" reads as *lost* rather
+ * across a required kind and a pump alike: "Missing" reads as *lost* rather
  * than *not coming tonight*, which is a different problem.
  */
 const pillLabel = (coverage: KitCoverage): string =>
 	coverage === 'covered' ? 'Coming' : coverage === 'unknown' ? 'Unconfirmed' : 'Not coming';
 
 /**
- * The headline on the strip, where **nothing else names the kind** — so this
+ * The headline on the strip, where **nothing else names the kind**, so this
  * has to, in both states. It read "Nobody confirmed" once, which told somebody
  * glancing at the card that a thing was wrong without ever saying which thing.
  *
@@ -94,7 +94,7 @@ const GameKit = ({
 
 	if (compact) {
 		// Red when something genuinely isn't coming, amber when it is only
-		// unconfirmed. One strip covers both at once — a missing ball alongside
+		// unconfirmed. One strip covers both at once, a missing ball alongside
 		// unconfirmed vests is a red situation, so the worse of the two wins.
 		const severe = gaps.some(status => status.coverage === 'missing');
 
@@ -113,7 +113,7 @@ const GameKit = ({
 					aria-hidden='true'
 				/>
 
-				{/* One line per gap rather than two joined lists — there are at
+				{/* One line per gap rather than two joined lists, there are at
 				    most two, and "No ball · Vests unconfirmed" over "Anna has it
 				    and isn't playing · Pedro has them and hasn't answered" makes
 				    the reader pair them up by position. */}
@@ -121,7 +121,7 @@ const GameKit = ({
 					{gaps.map(status => (
 						<li key={status.kind} className='truncate text-xs'>
 							<span className='text-ink font-semibold'>{gapLabel(status)}</span>
-							<span className='text-faint'> — {detail(status, usersByUid)}</span>
+							<span className='text-faint'> · {detail(status, usersByUid)}</span>
 						</li>
 					))}
 				</ul>

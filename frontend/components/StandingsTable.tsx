@@ -7,7 +7,7 @@ import TeamBadge from './TeamBadge';
 /**
  * The table.
  *
- * Positions can repeat — teams nothing separates share a place — so the
+ * Positions can repeat, teams nothing separates share a place, so the
  * ordinal is read from `position` rather than the row index, and a shared
  * place shows on both rows rather than silently promoting one of them.
  */

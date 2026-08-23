@@ -23,7 +23,7 @@ describe('GameWatchers', () => {
 		expect(screen.getByText('(2)')).toBeInTheDocument();
 	});
 
-	// Scoped to the list, because the footer carries a link too — and read off
+	// Scoped to the list, because the footer carries a link too, and read off
 	// the hrefs, because an avatar's initials sit inside the same anchor as the
 	// name and land in its accessible name.
 	it('sorts by name rather than by who tapped the bell first', () => {
@@ -44,7 +44,7 @@ describe('GameWatchers', () => {
 	});
 
 	// The admin's question is "who hears about this", and nobody is a real
-	// answer to it — distinct from the list having failed to load.
+	// answer to it, distinct from the list having failed to load.
 	it('says nobody is following rather than showing an empty list', () => {
 		renderWatchers();
 
@@ -70,8 +70,8 @@ describe('GameWatchers', () => {
 		expect(screen.getByText('(0)')).toBeInTheDocument();
 	});
 
-	// The one thing this card can't do is update itself — the rule that keeps
-	// watchers private is what rules out a listener — so the refresh has to work.
+	// The one thing this card can't do is update itself: the rule that keeps
+	// watchers private is what rules out a listener, so the refresh has to work.
 	it('reloads on request, and not while it already is', async () => {
 		const onReload = jest.fn();
 		const { rerender } = renderWatchers({ onReload });

@@ -59,7 +59,7 @@ describe('onSeasonWrite', () => {
 
 		await onSeasonWrite.run(writtenEvent({ seasonId: SEASON_ID }, before, after));
 
-		// Same members in a different order — `role` is left exactly as stale as
+		// Same members in a different order, `role` is left exactly as stale as
 		// it was, because nothing about who is on the roster actually moved.
 		const response = await readResponse(SEASON_ID, GAME_ID, MEMBER);
 		expect(response?.role).toBe('extra');
@@ -95,8 +95,8 @@ describe('onSeasonWrite', () => {
  * Only a response written by somebody whose membership moved can hold a stale
  * role, so the work should follow the diff rather than the calendar. This used
  * to recount every future game unconditionally, which made the ordinary
- * first-run sequence — generate a calendar, then add the squad one tap at a
- * time — quadratic.
+ * first-run sequence quadratic: generate a calendar, then add the squad one tap at a
+ * time.
  */
 describe('onSeasonWrite, only touching what the change could have affected', () => {
 	const addMember = (uid: string) =>

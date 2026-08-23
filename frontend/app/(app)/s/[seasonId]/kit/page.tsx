@@ -38,7 +38,7 @@ import { ListCard, SectionHeading } from '../../../../../components/Section';
  *
  * Open to everybody, and the handover control with it. A ball changes hands at
  * the side of a pitch between two people, neither of whom is necessarily an
- * admin — routing that through one means it never gets recorded and the whole
+ * admin. Routing that through one means it never gets recorded and the whole
  * thing goes stale in a fortnight. Adding, naming and removing items stays with
  * the admins, because that is a decision about the season rather than about a
  * bag.
@@ -71,7 +71,7 @@ const KitPage = () => {
 		return season.memberUids.map(uid => personRow(usersByUid, uid)).sort(byDisplayName);
 	}, [season, usersByUid]);
 
-	// The soonest game that hasn't been played, cancelled or not — the same one
+	// The soonest game that hasn't been played, cancelled or not, the same one
 	// the season home page calls "next", so the two screens can't disagree about
 	// which game the warning is about.
 	const nextGame = useMemo(
@@ -80,8 +80,8 @@ const KitPage = () => {
 	);
 
 	// Whether that game is actually on. `nextGame` deliberately includes a
-	// cancelled one — the home screen's "next" does too, because a cancellation
-	// is exactly what people open the app to find out — but a game that is off
+	// cancelled one, the home screen's "next" does too, because a cancellation
+	// is exactly what people open the app to find out, but a game that is off
 	// has nothing to bring to it, which is the one thing the panel below says.
 	const nextLifecycle = useMemo(
 		() => (season && nextGame ? getGameLifecycle(nextGame, season, now) : null),
@@ -147,7 +147,7 @@ const KitPage = () => {
 	};
 
 	// Members only, matching the rule. An extra sees the register and can't move
-	// anything in it — offering them a button that always fails would be worse
+	// anything in it. Offering them a button that always fails would be worse
 	// than not offering one.
 	const canTransfer = isMember || isAdmin;
 
@@ -180,7 +180,7 @@ const KitPage = () => {
 
 				<Field
 					label='Who has it'
-					hint='Everything on this list is with somebody. Pick whoever has it now — it can be handed on from this screen.'
+					hint='Everything on this list is with somebody. Pick whoever has it now, it can be handed on from this screen.'
 				>
 					<Select value={form.holderUid} onChange={e => setForm({ ...form, holderUid: e.target.value })}>
 						<option value=''>Pick somebody</option>
@@ -225,7 +225,7 @@ const KitPage = () => {
 							message={
 								isAdmin
 									? 'Add the ball and the vests and the app will tell you when nobody is bringing them.'
-									: 'An admin hasn’t listed the group’s balls or vests yet.'
+									: "An admin hasn't listed the group's balls or vests yet."
 							}
 							action={addPanel}
 						/>
@@ -233,7 +233,7 @@ const KitPage = () => {
 						<>
 							{/* What the register is for. Above the list, because
 							    nobody opens this screen out of curiosity about a
-							    bag — they open it before a game. */}
+							    bag. They open it before a game. */}
 							{nextGame && (
 								<section>
 									<div className='mb-2 flex items-center gap-2 px-1'>
@@ -247,8 +247,8 @@ const KitPage = () => {
 									    would happily report that nobody is bringing a
 									    ball to a game called off on Sunday. Both the
 									    next-game card and the game screen already
-									    suppress it for the same reason; this screen —
-									    the one whose whole job is the ball — was the
+									    suppress it for the same reason. This screen,
+									    the one whose whole job is the ball, was the
 									    one that didn't. */}
 									{nextLifecycle === 'cancelled' ? (
 										<p className='text-faint px-1 text-sm'>
@@ -277,7 +277,7 @@ const KitPage = () => {
 										</h2>
 									</div>
 									<p className='text-muted mt-2 text-xs leading-relaxed'>
-										{stranded.map(item => item.name).join(', ')} — the person holding{' '}
+										{stranded.map(item => item.name).join(', ')}, the person holding{' '}
 										{stranded.length > 1 ? 'these' : 'this'} is no longer in the squad. Nothing has
 										been guessed on your behalf; hand {stranded.length > 1 ? 'them' : 'it'} on below
 										once you know who has {stranded.length > 1 ? 'them' : 'it'}.
@@ -369,7 +369,7 @@ const KitPage = () => {
 							{addPanel}
 
 							<p className='text-faint px-1 text-xs leading-relaxed'>
-								Anyone in the squad can hand a piece of kit on — no need to find an admin. A game is
+								Anyone in the squad can hand a piece of kit on, no need to find an admin. A game is
 								flagged when nobody bringing a ball or the vests has said they&apos;re playing.
 							</p>
 						</>

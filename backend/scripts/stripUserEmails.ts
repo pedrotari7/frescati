@@ -1,8 +1,8 @@
 /**
  * Removes `email` from profiles written before it moved out of Firestore.
  *
- * `users/{uid}` is readable by every signed-in user — that is what makes
- * rosters and the member picker work — so it holds a name, an avatar and a
+ * `users/{uid}` is readable by every signed-in user. That is what makes
+ * rosters and the member picker work, so it holds a name, an avatar and a
  * badge and nothing else. Firebase Auth keeps the address, where no client can
  * read it.
  *

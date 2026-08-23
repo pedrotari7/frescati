@@ -15,7 +15,7 @@ const customJestConfig: Config = {
 	/**
 	 * Set just under where `shared/` actually sits, not at some aspirational
 	 * floor. At 70/60 the gap to the real numbers was thirty points, which meant
-	 * a third of these tests could be deleted with CI still green — a threshold
+	 * a third of these tests could be deleted with CI still green, a threshold
 	 * that cannot fail is documentation, not a check. Raise it when the real
 	 * figure rises; the point is that it only ever moves deliberately.
 	 */

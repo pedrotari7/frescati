@@ -10,14 +10,14 @@ import { instrument, reportError } from './lib/sentry';
  *
  * Everything about a reporting pipeline is invisible when it works and equally
  * invisible when it doesn't. A DSN with a typo, a function whose deploy dropped
- * the `SENTRY_DSN` param, a flush that gets frozen before it lands — each of
+ * the `SENTRY_DSN` param, a flush that gets frozen before it lands, each of
  * those looks exactly like a healthy week. The only honest test is to break
  * something deliberately and go and look.
  *
  * Same shape as `sendTestPush`: app admins only, and it goes down the real path
  * rather than calling `Sentry.captureException` directly. A debug button that
  * reported through its own private route would test that route and nothing
- * else — it would still pass with `instrument` removed from every function in
+ * else. It would still pass with `instrument` removed from every function in
  * the backend.
  *
  * Safe to fire in production, which is where it is worth firing: it reads

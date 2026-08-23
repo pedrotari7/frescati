@@ -10,7 +10,7 @@ import { instrument } from './lib/sentry';
 /**
  * Grants or revokes the global `admin` custom claim.
  *
- * The claim is the source of truth — security rules read
+ * The claim is the source of truth. Security rules read
  * `request.auth.token.admin`, which needs no extra document read. The
  * `isAppAdmin` field on the user document is only a display mirror so the UI
  * can show a badge, and rules forbid the client from writing it.
@@ -43,7 +43,7 @@ export const setAppAdmin = onCall<{ uid: string; isAdmin: boolean }>(
 		if (!user) throw new HttpsError('not-found', 'That account no longer exists.');
 
 		// Merge into whatever claims are already there. Writing a bare `{ admin }`
-		// silently drops every other claim on the account — there are none today,
+		// silently drops every other claim on the account. There are none today,
 		// which is exactly why it would go unnoticed the day there are.
 		const claims = { ...(user.customClaims ?? {}) };
 		if (isAdmin) claims.admin = true;
@@ -54,7 +54,7 @@ export const setAppAdmin = onCall<{ uid: string; isAdmin: boolean }>(
 		// Write a whole profile, not just the badge. A bare `{ isAppAdmin }` merge
 		// onto a document that doesn't exist yet creates one with no `displayName`,
 		// so its owner renders as "Unknown player" in every roster, and no `uid`,
-		// which the update rule requires — leaving the app unable to repair it
+		// which the update rule requires, leaving the app unable to repair it
 		// either. `scripts/setAdmin.ts` was fixed for exactly this; this had the
 		// same bug and no test to notice.
 		const ref = db.doc(`users/${uid}`);
@@ -79,7 +79,7 @@ export const setAppAdmin = onCall<{ uid: string; isAdmin: boolean }>(
 
 		logger.info('Changed app admin rights', { uid, isAdmin, by: callerUid });
 
-		// The claim only reaches the client on their next token refresh — the app
+		// The claim only reaches the client on their next token refresh. The app
 		// forces one every 10 minutes.
 		return { ok: true };
 	})

@@ -3,7 +3,7 @@
  * cascade triggers existed.
  *
  * Firestore doesn't delete subcollections with their parent, so every game
- * deleted from the admin screen left its answers in place — unreachable through
+ * deleted from the admin screen left its answers in place, unreachable through
  * the app, but still returned by the collection-group query behind "my answers
  * across every game", and still readable by anyone signed in.
  *
@@ -39,7 +39,7 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 	const deadSeasons = await missingAmong(seasonRefs);
 	const orphanGames = gamesSnap.docs.filter(doc => deadSeasons.has(doc.ref.parent.parent!.path));
 
-	// Responses whose game is gone — including the ones about to be, above.
+	// Responses whose game is gone, including the ones about to be, above.
 	const responsesSnap = await db.collectionGroup('responses').get();
 	const gameRefs = [...new Set(responsesSnap.docs.map(doc => doc.ref.parent.parent!.path))].map(path => db.doc(path));
 	const deadGames = await missingAmong(gameRefs);

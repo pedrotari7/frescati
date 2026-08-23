@@ -22,7 +22,7 @@ const TopBar = ({
 	/**
 	 * Draws the back chevron. Omit on a tab root, which is nobody's child.
 	 *
-	 * Where the chevron goes when there is nothing behind it — a screen opened
+	 * Where the chevron goes when there is nothing behind it: a screen opened
 	 * from a notification, a pasted link, the first load of the installed app.
 	 * Every other arrival goes back the way it came; see `AppHistory`.
 	 */
@@ -44,11 +44,11 @@ const TopBar = ({
 			<div className='mx-auto flex h-16 max-w-4xl items-center gap-3 px-3'>
 				{/* Drawn on both, because the tabs are not the way back. Desktop
 				    used to hide this on any screen carrying them, on the grounds
-				    that they were up here instead — and they are, but they lead
+				    that they were up here instead, and they are, but they lead
 				    to four places, none of which is the screen you came from. A
 				    team sheet, a player, the kit register and every admin screen
 				    sit below a tab rather than on one, so hiding it left them
-				    with no way out at all bar the browser's own Back — which an
+				    with no way out at all bar the browser's own Back, which an
 				    installed desktop window does not have. */}
 				{backHref ? (
 					<button
@@ -78,7 +78,7 @@ const TopBar = ({
 				{/* On desktop the bottom nav is hidden, so the tabs live up here.
 				    They start at a fixed offset and absorb the leftover width
 				    themselves, which is what pins them: anything that comes and goes
-				    on the right — the admin gear, a page action — eats into that
+				    on the right, the admin gear, a page action, eats into that
 				    slack instead of shoving the tabs sideways. */}
 				{navItems.length > 0 && (
 					<nav className='hidden items-center gap-1 lg:flex lg:flex-1'>
@@ -106,7 +106,7 @@ const TopBar = ({
 
 				{/* Admin lives here rather than in the tab bar. It resolves once,
 				    with the rest of the season, and then holds the same slot on
-				    every screen below it — so moving around never moves it. */}
+				    every screen below it, so moving around never moves it. */}
 				{adminHref && (
 					<Link
 						href={adminHref}

@@ -5,7 +5,7 @@ import { describeUserAgent } from '@shared/device';
  * The browser-side half of `shared/device.ts`.
  *
  * Everything here reads `window` or `navigator`, which is why it can't live in
- * `shared/` — the same parsing runs on the backend over stored user agents,
+ * `shared/`, the same parsing runs on the backend over stored user agents,
  * where neither exists. What it adds is the two things only a live browser
  * knows: whether the app is running installed, and whether an iPad is an iPad.
  */
@@ -15,7 +15,7 @@ import { describeUserAgent } from '@shared/device';
  *
  * Two checks because Safari never implemented the standard one: `display-mode`
  * is the spec, `navigator.standalone` is the non-standard property iOS has had
- * since 2008 — and iOS is the platform where this actually decides whether push
+ * since 2008, and iOS is the platform where this actually decides whether push
  * works at all.
  */
 export const isStandalone = (): boolean =>
@@ -39,7 +39,7 @@ export const isVisible = (): boolean => typeof document !== 'undefined' && docum
  * iPad: real Macs report zero touch points, including the ones with a Touch Bar.
  *
  * Worth the extra check rather than leaving it to the shared parser, because
- * this decides whether push is offered at all — an iPad in a Safari tab cannot
+ * this decides whether push is offered at all, an iPad in a Safari tab cannot
  * receive a notification, and a toggle that silently does nothing is worse than
  * being told to add the app to the home screen.
  */

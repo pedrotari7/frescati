@@ -59,8 +59,8 @@ describe('onUserCreated', () => {
 		expect(sendSpy.mock.calls[0][1]).toMatchObject({ url: '/s/season-active/admin/members' });
 	});
 
-	// Seasons can genuinely overlap — a Tuesday season and a Sunday offshoot
-	// both active at once — so there is no single "the" season by construction.
+	// Seasons can genuinely overlap, a Tuesday season and a Sunday offshoot
+	// both active at once, so there is no single "the" season by construction.
 	// Most recently created stands in for "the one an admin reached for last".
 	it('picks the most recently created season when several are active', async () => {
 		await writeUser(ADMIN, { isAppAdmin: true });
@@ -75,7 +75,7 @@ describe('onUserCreated', () => {
 	});
 
 	// Nothing to add them to yet, so back to the screen that lists everybody
-	// who has ever signed in — the notice must not send an admin to a season
+	// who has ever signed in. The notice must not send an admin to a season
 	// that has wound down.
 	it('falls back to /admin when no season is active', async () => {
 		await writeUser(ADMIN, { isAppAdmin: true });
@@ -88,7 +88,7 @@ describe('onUserCreated', () => {
 	});
 
 	// `setAppAdmin` and the bootstrap script both write a whole profile, so
-	// promoting a uid that had none creates one. Nobody joined — and whoever
+	// promoting a uid that had none creates one. Nobody joined, and whoever
 	// did it is the person who would be told.
 	it('ignores a profile created already carrying the admin badge', async () => {
 		await writeUser(ADMIN, { isAppAdmin: true });

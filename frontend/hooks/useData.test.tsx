@@ -6,14 +6,14 @@ import { renderHook } from '@testing-library/react';
  * Fifteen of these hooks are the same four lines with different nouns, and each
  * one decides whether to subscribe at all from a `seasonId && gameId ? … : null`
  * written out by hand. That repetition is the whole risk: the realistic bug here
- * is not a broken subscription but a copy-paste that checks the wrong id — a
+ * is not a broken subscription but a copy-paste that checks the wrong id: a
  * `useMyMotmVote` guarded on `seasonId && gameId` while it also needs a `uid`
  * would build the path `…/motmVotes/null` and read a document that cannot exist,
  * quietly, for every signed-out visitor.
  *
  * Nothing else would catch it. A page renders these with real ids, so the null
  * branch is only reached before sign-in or on a route whose params haven't
- * resolved — which is exactly where nobody is looking. So this is one table
+ * resolved, which is exactly where nobody is looking. So this is one table
  * rather than fifteen near-identical test files: each hook is asserted to
  * subscribe when it has everything it needs and to stay silent when any single
  * one of its inputs is missing.
@@ -63,7 +63,7 @@ const UID = 'anna';
 
 /**
  * Each row: the hook, the subscribe call it should reach, and the arguments it
- * needs. `subscribeWith` is what the db layer should be handed — the ids only,
+ * needs. `subscribeWith` is what the db layer should be handed: the ids only,
  * since the two callbacks are supplied by the shared subscription hook.
  */
 const HOOKS: {
@@ -220,7 +220,7 @@ describe('the two subscriptions that need nothing', () => {
 
 	it('useUsers subscribes immediately', () => {
 		// The roster is readable by anybody signed in, so there is no id to wait
-		// for — which is what makes `useUsersByUid` safe to call anywhere.
+		// for, which is what makes `useUsersByUid` safe to call anywhere.
 		renderHook(() => data.useUsers());
 
 		expect(users.subscribeToUsers).toHaveBeenCalledTimes(1);

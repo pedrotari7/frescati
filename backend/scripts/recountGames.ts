@@ -3,8 +3,8 @@
  * `role` has drifted from its season's roster.
  *
  * `counts` is function-owned and only recomputed when somebody writes a
- * response, so any change to how the tally works — or any roster edit made
- * before the season trigger existed — leaves stored totals reading whatever
+ * response, so any change to how the tally works, or any roster edit made
+ * before the season trigger existed, leaves stored totals reading whatever
  * they read at the time. This is the one-shot repair for that.
  *
  * Worth running after:
@@ -60,7 +60,7 @@ export const main = async ({ db }: ScriptContext) => {
 	}
 
 	console.log(`\nRecounted ${games} games across ${seasonsSnap.size} seasons.`);
-	if (failed > 0) console.error(`${failed} failed — see above.`);
+	if (failed > 0) console.error(`${failed} failed. See above.`);
 };
 
 // Only when run as a command, so a test can import `main` and drive it

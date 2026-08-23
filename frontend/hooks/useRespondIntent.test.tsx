@@ -55,11 +55,11 @@ describe('useRespondIntent', () => {
 
 		expect(window.location.search).toBe('');
 		await waitFor(() => expect(onRespond).toHaveBeenCalledWith('in'));
-		await waitFor(() => expect(notify).toHaveBeenCalledWith("You're in — see you there."));
+		await waitFor(() => expect(notify).toHaveBeenCalledWith("You're in. See you there."));
 	});
 
 	// The one thing the app must not tell somebody who is not in the headcount
-	// yet — least of all seconds before the screen behind the toast says they
+	// yet, least of all seconds before the screen behind the toast says they
 	// are waiting on an admin.
 	it('does not promise an extra a game they have not been given a spot in', async () => {
 		setUrl('?respond=in');
@@ -69,7 +69,7 @@ describe('useRespondIntent', () => {
 
 		await waitFor(() => expect(onRespond).toHaveBeenCalledWith('in'));
 		await waitFor(() =>
-			expect(notify).toHaveBeenCalledWith("Thanks — an admin has to confirm your spot before you're in.")
+			expect(notify).toHaveBeenCalledWith("Thanks. An admin has to confirm your spot before you're in.")
 		);
 	});
 

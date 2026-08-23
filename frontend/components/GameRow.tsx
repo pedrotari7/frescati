@@ -21,7 +21,7 @@ import WatchToggle from './WatchToggle';
  * not honoured yet, on the screen somebody checks precisely to find out whether
  * it has.
  *
- * Once the game is behind us the wait is not pending, it is over — nobody
+ * Once the game is behind us the wait is not pending, it is over. Nobody
  * confirms a spot for a game that has been played, and a cancelled one has no
  * spots left to give. So it settles to the plain fact that they never got on,
  * rather than an amber pill on a dead question.
@@ -61,7 +61,7 @@ const GameRow = ({
 	onRespond: (status: ResponseStatus) => Promise<void>;
 	onClear: () => Promise<void>;
 	/**
-	 * Left off when nobody is signed in — no handler, no bell, rather than a
+	 * Left off when nobody is signed in, no handler, no bell, rather than a
 	 * dead one. The state comes from the screen rather than from here: a row
 	 * that fetched its own would be a listener per row, which is the whole
 	 * reason these are drawn off the denormalised `counts` in the first place.
@@ -80,14 +80,14 @@ const GameRow = ({
 			className={classNames(
 				'glass-card rounded-2xl p-4',
 				lifecycle === 'cancelled' && 'opacity-55',
-				// Faded because it is behind us — but not while the vote is out, or
+				// Faded because it is behind us, but not while the vote is out, or
 				// the one row on the screen still asking for something would be the
 				// quietest thing on it.
 				isPast && !voting && 'opacity-70'
 			)}
 		>
 			{/* The bell is the row's second action, so it sits beside the link
-			    rather than inside it — nesting a button in an anchor swallows it,
+			    rather than inside it, nesting a button in an anchor swallows it,
 			    the same reason the hero keeps its own outside the panel it draws.
 			    The chevron stays at the end of the link, because it is what says
 			    the row leads somewhere and the bell is not. */}

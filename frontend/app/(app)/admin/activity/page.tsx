@@ -21,7 +21,7 @@ import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Sect
  * Who is still around.
  *
  * The question this answers is the one that decides whether a season is worth
- * running again: not who is playing — the squad screens say that — but who has
+ * running again: not who is playing, the squad screens say that, but who has
  * quietly stopped opening the app at all. Somebody who has not been by in six
  * weeks is not going to answer a reminder, and until now nothing in the app
  * could tell that person apart from one who simply hasn't replied yet.
@@ -32,7 +32,7 @@ import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Sect
  * conversation to have in person.
  *
  * Sections run freshest first. The counts in each heading are what an admin
- * actually reads — the interesting number is how long the last two lists are.
+ * actually reads. The interesting number is how long the last two lists are.
  */
 
 /**
@@ -41,7 +41,7 @@ import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Sect
  * heading that vanished when the news was good would leave an admin unsure
  * whether it had been checked.
  *
- * `never` is the exception — it holds people no path through the app can
+ * `never` is the exception: it holds people no path through the app can
  * produce, since signing in writes the stamp and `set-admin` carries one
  * forward. Shown only when somebody is actually in it, so an impossible state
  * doesn't take up room on every visit.
@@ -76,8 +76,8 @@ const ActivityAdminPage = () => {
 
 		return grouped;
 		// `now` is a fresh object every render and would defeat the memo, but it
-		// only ever moves the boundary between two buckets by a few milliseconds
-		// — recomputing on it would be work to change nothing.
+		// only ever moves the boundary between two buckets by a few milliseconds,
+		// recomputing on it would be work to change nothing.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [users]);
 
@@ -100,7 +100,7 @@ const ActivityAdminPage = () => {
 
 	// The headline counts everybody; the lists below only what was searched for.
 	// A total that moved as you typed would stop being the answer to "how many
-	// of us are still around" — the same reason the notification screen splits
+	// of us are still around", the same reason the notification screen splits
 	// the two.
 	const active = buckets.thisWeek.length;
 	const missing = buckets.dormant.length + buckets.never.length;
@@ -155,7 +155,7 @@ const ActivityAdminPage = () => {
 				)}
 
 				<p className='text-faint px-1 text-xs leading-relaxed'>
-					Counted on arrival — the app being opened, and every time it comes back to the foreground
+					Counted on arrival, the app being opened, and every time it comes back to the foreground
 					afterwards. Never on a timer, so a phone with it installed and forgotten in a pocket does not keep
 					somebody looking active. A long session shows the time it started rather than the time it ended.
 				</p>
@@ -193,7 +193,7 @@ const Section = ({
 );
 
 /**
- * A link, like every other name in the app — an admin asking why somebody has
+ * A link, like every other name in the app, an admin asking why somebody has
  * gone quiet usually wants their record next, and this saves a trip through a
  * roster to reach it.
  */
@@ -208,7 +208,7 @@ const PlayerRow = ({ player, now }: { player: AppUser; now: Date }) => (
 			</div>
 
 			{/* How long they have had an account is what separates a newcomer who
-			    signed in once from a regular who has drifted off — the same
+			    signed in once from a regular who has drifted off, the same
 			    "never opened it" means opposite things for the two. */}
 			{player.createdAt && (
 				<p className='text-faint mt-0.5 text-xs'>Joined {formatRelative(player.createdAt, now)}</p>

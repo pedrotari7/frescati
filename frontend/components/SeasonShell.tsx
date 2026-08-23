@@ -9,7 +9,7 @@ import { useSeasonContext } from './SeasonProvider';
  * `PageShell` for every screen under /s/[seasonId].
  *
  * The tabs and the admin gear are built here rather than page by page, so the
- * chrome can't drift between screens — and because it hangs off the season
+ * chrome can't drift between screens, and because it hangs off the season
  * layout's subscription, moving between those screens never rebuilds it.
  */
 const SeasonShell = ({

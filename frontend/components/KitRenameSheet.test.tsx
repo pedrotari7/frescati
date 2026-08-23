@@ -106,7 +106,7 @@ describe('KitRenameSheet', () => {
 	});
 
 	// Re-seeded on open, so the second item's name is never edited over the
-	// first one's — the register is a list and this sheet is reused down it.
+	// first one's. The register is a list and this sheet is reused down it.
 	it('re-seeds when a different item is opened', async () => {
 		const { rerender } = await draw();
 

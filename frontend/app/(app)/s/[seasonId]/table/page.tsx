@@ -26,7 +26,7 @@ type Tab = 'season' | 'all-time';
  *
  * Won or nothing, with no shade in between: a finishing place only means
  * something against the number of teams that played, and the ledger cannot say
- * how many there were — a tie for last is indistinguishable from a smaller
+ * how many there were, a tie for last is indistinguishable from a smaller
  * field. So the dot claims exactly what the win column beside it claims, and
  * the place goes in the title for anybody who wants it.
  *
@@ -46,7 +46,7 @@ const FormDots = ({ form, timezone }: { form: SeasonResult[]; timezone: string }
 		{form.map(game => (
 			<span
 				key={game.gameId}
-				title={`${placeLabel(game.position)} — ${formatGameDate(game.kickoff, timezone)}`}
+				title={`${placeLabel(game.position)} · ${formatGameDate(game.kickoff, timezone)}`}
 				className={classNames('size-1.5 rounded-full', game.won ? 'bg-brand' : 'bg-white/20')}
 			/>
 		))}
@@ -189,8 +189,8 @@ const LeaderboardPage = () => {
 
 				<p className='text-faint px-1 text-xs'>
 					{tab === 'season'
-						? 'Ordered on games won, then on how much rating you gained — who had a good season, rather than who is best. The dots are the last five games, oldest first, and a filled one is a win.'
-						: 'Your rating follows you across every season. It moves on how your team did against how it was expected to, so beating a stronger side is worth more — and beating them comfortably more again.'}
+						? 'Ordered on games won, then on how much rating you gained, who had a good season, rather than who is best. The dots are the last five games, oldest first, and a filled one is a win.'
+						: 'Your rating follows you across every season. It moves on how your team did against how it was expected to, so beating a stronger side is worth more, and beating them comfortably more again.'}
 				</p>
 			</div>
 		</SeasonShell>

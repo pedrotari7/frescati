@@ -4,7 +4,7 @@ import type { AppUser } from '@shared/types';
  * Turning a uid into somebody to put on screen.
  *
  * Almost nothing in this app stores a name. A season holds `memberUids`, a
- * response holds a uid, a lineup holds uids, a ledger entry holds uids — so
+ * response holds a uid, a lineup holds uids, a ledger entry holds uids, so
  * every list of people is a join against the profiles, done in the client
  * because the profiles are one football group and already subscribed.
  *
@@ -27,7 +27,7 @@ export const UNKNOWN_PLAYER = 'Unknown player';
 export const displayNameOf = (user: Pick<AppUser, 'displayName'> | undefined | null): string =>
 	user?.displayName ?? UNKNOWN_PLAYER;
 
-/** The same, looked up by uid — the shape most callers have. */
+/** The same, looked up by uid, the shape most callers have. */
 export const nameByUid = (usersByUid: Map<string, AppUser>, uid: string): string => displayNameOf(usersByUid.get(uid));
 
 /** Enough of a person to draw a row: an avatar and a name. */
@@ -42,7 +42,7 @@ export interface PersonRow {
  *
  * `photoURL` falls to `null` rather than staying `undefined` because `Avatar`
  * takes `string | null` and draws initials from the name when there is no
- * picture — which is the same answer for "no photo" and "no profile at all".
+ * picture, which is the same answer for "no photo" and "no profile at all".
  */
 export const personRow = (usersByUid: Map<string, AppUser>, uid: string): PersonRow => {
 	const user = usersByUid.get(uid);

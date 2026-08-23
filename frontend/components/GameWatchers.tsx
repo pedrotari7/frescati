@@ -13,15 +13,15 @@ import { SkeletonBlock } from './Skeleton';
  * Who has the bell on for this game, for an app admin.
  *
  * `availability` is the one notification whose audience isn't already on the
- * screen. Every other kind goes somewhere an admin can see — the roster, the
- * people who answered, the other admins — so the only one they have to be told
+ * screen. Every other kind goes somewhere an admin can see, the roster, the
+ * people who answered, the other admins, so the only one they have to be told
  * about is the one nobody signed up for in public. This is the answer to "who
  * hears about it if I move kick-off", asked a moment before doing exactly that.
  *
  * Drawn alongside the bell rather than on `/admin/notifications`, which is a
  * per-person screen about the app as a whole: this is per game, and the game is
  * where the question is asked. It appears and disappears with the bell for the
- * same reason the bell has an `isWatchable` behind it — on a cancelled or a
+ * same reason the bell has an `isWatchable` behind it, on a cancelled or a
  * finished game nothing will be sent, so a list of who'd hear it would be
  * describing notifications that aren't coming.
  */
@@ -54,7 +54,7 @@ const GameWatchers = ({
 				</div>
 
 				{/* Realtime everywhere else, so the one card that isn't says so
-				    rather than quietly going stale — same bargain as the admin
+				    rather than quietly going stale, same bargain as the admin
 				    notifications screen, and for the same reason: the rule that
 				    keeps this private is what rules out a listener. */}
 				<Button size='sm' variant='secondary' onClick={onReload} disabled={loading}>
@@ -85,13 +85,13 @@ const GameWatchers = ({
 				</ul>
 			)}
 
-			{/* Following is necessary, not sufficient — the availability push
+			{/* Following is necessary, not sufficient: the availability push
 			    still needs a registered device or an address to fall back to, and
 			    that is a different screen's question. Only worth saying when
 			    there is somebody it could be true of. */}
 			{!loading && !error && watchers.length > 0 && (
 				<p className='text-faint mt-3 text-xs leading-relaxed'>
-					They hear whenever somebody&apos;s answer moves — if the app can reach them at all. Check{' '}
+					They hear whenever somebody&apos;s answer moves, if the app can reach them at all. Check{' '}
 					<Link href='/admin/notifications' className='text-muted underline underline-offset-2'>
 						Notifications
 					</Link>{' '}

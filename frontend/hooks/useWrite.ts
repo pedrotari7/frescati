@@ -8,8 +8,8 @@ import { captureError } from '../lib/sentry';
  * Runs a Firestore write and says so when it fails.
  *
  * Almost every mutation in this app is a row action firing straight at
- * Firestore with nothing awaiting it, so a rejected write — an expired session,
- * a rule that says no, a flaky connection — produced an unhandled rejection in
+ * Firestore with nothing awaiting it, so a rejected write: an expired session,
+ * a rule that says no, a flaky connection, produced an unhandled rejection in
  * the console and absolutely nothing on screen. The button just didn't work.
  *
  * Returns whether it succeeded, so callers that show their own confirmation

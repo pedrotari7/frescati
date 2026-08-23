@@ -25,7 +25,7 @@ const Avatar = ({
 	 * The photo that didn't load, if one didn't.
 	 *
 	 * Google's avatar URLs rotate and expire, and a broken one used to leave an
-	 * empty ring — on every roster, team sheet and ladder that person appeared
+	 * empty ring, on every roster, team sheet and ladder that person appeared
 	 * in, for good. The initials are already computed for everybody without a
 	 * photo, so there is a fallback here; it just wasn't reachable.
 	 *

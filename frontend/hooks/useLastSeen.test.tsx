@@ -70,7 +70,7 @@ describe('useLastSeen', () => {
 	});
 
 	// A page that loaded hidden was never stamped by the sign-in write, so
-	// reaching the screen at all is the arrival — no gap to sit out.
+	// reaching the screen at all is the arrival, no gap to sit out.
 	it('records the first sight of a page that loaded in a background tab', () => {
 		setVisibility('hidden');
 		renderHook(() => useLastSeen('anna'));

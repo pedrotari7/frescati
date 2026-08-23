@@ -5,7 +5,7 @@ import { onBudgetAlert } from '../src/onBudgetAlert';
  *
  * Everything else in this backend fails by not sending a push or by leaving a
  * counter stale. This one fails by disabling billing on a Tuesday evening, so
- * what these tests are mostly about is the cases where it must do *nothing* —
+ * what these tests are mostly about is the cases where it must do *nothing*:
  * the money not being spent yet, the alert being about a projection, the whole
  * thing running on somebody's laptop. The one test that lets it fire is the
  * short one at the bottom.
@@ -37,7 +37,7 @@ const anAlert = (overrides: Record<string, unknown> = {}) =>
  * `SENTRY_DSN` is blanked alongside the emulator variables on purpose. The
  * emulator check is what keeps the test suite's deliberately-provoked failures
  * out of the live Sentry project, so a test that removes it would start
- * reporting for real on any machine with a DSN exported into the shell — which
+ * reporting for real on any machine with a DSN exported into the shell, which
  * is precisely the leak `lib/sentry.ts` chose `FIRESTORE_EMULATOR_HOST` to
  * close.
  */
@@ -120,7 +120,7 @@ describe('onBudgetAlert', () => {
 
 		await onBudgetAlert.run(anAlert({ costAmount: 49 }));
 
-		// Not merely "no PUT" — it should not even ask for a token. A 50%
+		// Not merely "no PUT", it should not even ask for a token. A 50%
 		// threshold crossing is a notification, and notifications are free.
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
@@ -204,7 +204,7 @@ describe('onBudgetAlert', () => {
 	it('treats a message carrying no payload at all as unreadable', async () => {
 		const fetchMock = mockBilling();
 
-		// `json` is absent rather than malformed — a Pub/Sub message that isn't
+		// `json` is absent rather than malformed, a Pub/Sub message that isn't
 		// a budget alert. It must not fall through the `?? {}` and read as a
 		// month that stayed under, which is the same silence the malformed case
 		// above refuses.
@@ -221,7 +221,7 @@ describe('onBudgetAlert', () => {
  * This is the half that decides whether the budget cap works at all. Every one
  * of these throws, and throwing is the whole point: an unhandled rejection here
  * is reported by `instrument` and left unacknowledged, so Pub/Sub redelivers the
- * alert — and the budget republishes it every twenty minutes regardless. Swallow
+ * alert, and the budget republishes it every twenty minutes regardless. Swallow
  * any of them and the cap becomes decorative, in the one direction nobody would
  * ever notice, because a cap that never fires looks exactly like a month that
  * stayed under budget.

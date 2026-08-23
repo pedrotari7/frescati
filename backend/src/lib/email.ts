@@ -10,14 +10,14 @@ import { reportError } from './sentry';
 /**
  * The email fallback: what somebody gets when a push couldn't reach them.
  *
- * Deliberately not a second channel. Nothing is composed here — `buildEmail`
- * takes the payload the trigger already built — and nothing is *sent* here that
+ * Deliberately not a second channel. Nothing is composed here. `buildEmail`
+ * takes the payload the trigger already built, and nothing is *sent* here that
  * a push wouldn't have carried. `sendPush` decides who ends up in this file, so
  * the rule stays in one place: a person is emailed only when their preference
  * for that kind is on and FCM delivered nothing.
  *
  * Addresses come from Firebase Auth rather than Firestore, which is where the
- * app has always kept them — `users/{uid}` is readable by every signed-in
+ * app has always kept them. `users/{uid}` is readable by every signed-in
  * player, and a mirrored address there would be a group-wide address book. See
  * `scripts/stripUserEmails.ts`.
  */
@@ -70,7 +70,7 @@ const isEmulated = (): boolean => process.env.FUNCTIONS_EMULATOR === 'true';
  *
  * Reads the profile for the preference and Auth for the address, because
  * neither knows about the other, and a uid with no profile document is still
- * treated as opted in — the same way `sendPush` reads a missing preference, and
+ * treated as opted in, the same way `sendPush` reads a missing preference, and
  * the same way it would still push to that uid's tokens.
  */
 const resolveRecipients = async (uids: string[]): Promise<Recipient[]> => {
@@ -81,7 +81,7 @@ const resolveRecipients = async (uids: string[]): Promise<Recipient[]> => {
 
 	// Filtered through the shared `canEmail` rather than by reading the
 	// preference here, so the backend and the admin screen can't disagree about
-	// who is reachable — the same reason `getPushReach` exists.
+	// who is reachable. Same reason `getPushReach` exists.
 	return profiles.flatMap(snapshot => {
 		const email = addresses.get(snapshot.id);
 		const prefs = snapshot.data()?.notificationPrefs as NotificationPrefs | undefined;
@@ -96,8 +96,8 @@ const resolveRecipients = async (uids: string[]): Promise<Recipient[]> => {
  * unverified address is one an attacker typed, and mailing it would hand them
  * another player's game notifications.
  *
- * Exported for `sendTestEmail`, which needs to know *why* somebody was skipped
- * — no address, versus opted out — rather than just a bare count.
+ * Exported for `sendTestEmail`, which needs to know *why* somebody was skipped,
+ * no address versus opted out, rather than just a bare count.
  */
 export const lookUpVerifiedEmails = async (uids: string[]): Promise<Map<string, string>> => {
 	const found = new Map<string, string>();
@@ -117,7 +117,7 @@ export const lookUpVerifiedEmails = async (uids: string[]): Promise<Map<string, 
 /**
  * Send one notification by email to everybody named.
  *
- * The caller has already decided these people should be emailed — this checks
+ * The caller has already decided these people should be emailed. This checks
  * only that they still want email at all and that there is an address to use.
  * Returns how many were accepted, so a caller can log the two channels apart.
  *
@@ -192,7 +192,7 @@ export const sendEmail = async (uids: string[], payload: PushPayload): Promise<n
  *
  * Reported to the admin notification screen, which would otherwise show a whole
  * column of people as reachable by email on a project where nobody has set up a
- * sender yet — the exact kind of confident wrong answer that screen exists to
+ * sender yet. The exact kind of confident wrong answer that screen exists to
  * stop.
  */
 export const isEmailConfigured = (): boolean => Boolean(EMAIL_FROM.value() && APP_URL.value());

@@ -1,7 +1,7 @@
 /**
  * Where the browser posts Content-Security-Policy violations.
  *
- * The app has no API layer and doesn't want one — everything else talks to
+ * The app has no API layer and doesn't want one, everything else talks to
  * Firestore directly, with security rules as the authorization layer. This is
  * a deliberate exception, and a narrow one: it accepts a report, writes it to
  * the platform log and answers 204. It reads nothing, writes nothing and
@@ -14,7 +14,7 @@
  * decision to enforce could only ever have been made blind.
  *
  * Unauthenticated by necessity. A browser posts these without credentials, and
- * there is no session to check — which is also why nothing here is trusted:
+ * there is no session to check, which is also why nothing here is trusted:
  * the body is logged, never parsed into anything that decides something.
  */
 

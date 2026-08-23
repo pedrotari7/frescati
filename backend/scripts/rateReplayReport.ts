@@ -4,22 +4,22 @@
  * A measurement rather than a feature. `getRatingChanges` stopped reading a
  * finishing place and started reading how much of its evening a team actually
  * won, and equalising a three-team game with a two-team one had to move one of
- * them — there is no K that leaves both where they were. So the question this
+ * them. There is no K that leaves both where they were. So the question this
  * answers is the only one worth answering before deploying it: across the real
  * ledger, how far does an ordinary evening move somebody, and is it still a
  * distance a group can catch each other up over.
  *
- * Worth keeping after that decision for the two occasions it comes back — after
+ * Worth keeping after that decision for the two occasions it comes back: after
  * the replay, to check the ladder actually landed where this said it would, and
  * whenever K is retuned again.
  *
  * **It writes nothing.** Every rating here is computed in memory and thrown
  * away; the replay that actually applies this is `replayRatingsFrom`, run once
- * after deploying. Safe to point at the live project, which is the point — a
+ * after deploying. Safe to point at the live project, which is the point. A
  * seeded scenario cannot tell you what a real Tuesday looks like.
  *
  * Each game is recomputed against the state the ledger says it was *originally*
- * rated from — `before` per player, `seedElo` for whoever arrived unrated —
+ * rated from: `before` per player, `seedElo` for whoever arrived unrated,
  * rather than against today's profiles. That is deliberately not what a replay
  * does: a replay carries each game's output into the next, so the second game's
  * inputs would already have moved. Rating every game off its recorded inputs
@@ -27,7 +27,7 @@
  * thing being decided here. The consequence to accept is that the numbers below
  * are one game's movement each, never a season's drift.
  *
- * K is swept rather than fixed because the whole delta is linear in it —
+ * K is swept rather than fixed because the whole delta is linear in it:
  * `PROVISIONAL_K_FACTOR` is 2K and `MOTM_BONUS_ELO` is K/4, so scaling one
  * scales all three together and a single pass can price every candidate.
  *
@@ -35,11 +35,11 @@
  * gap that let a retune ship a man-of-the-match bonus too small to render. K/4
  * is a floor as much as a ratio: below 5 Elo the bonus is under one display
  * point and rounds away whatever the football did. A candidate K under 20 needs
- * that checked separately — `shared/rating.test.ts` is where it is pinned.
+ * that checked separately. `shared/rating.test.ts` is where it is pinned.
  *
  * Read "as rated" as the old formula only while that is still true: once
  * `replayRatingsFrom` has been, the ledger holds the new numbers and that column
- * becomes a comparison with itself — which is the check that the replay landed.
+ * becomes a comparison with itself, which is the check that the replay landed.
  *
  * Usage:
  *   pnpm --filter backend rate-replay-report
@@ -64,7 +64,7 @@ import type { ScriptContext } from './lib/script';
 
 /**
  * The K the code currently ships, which is what `getRatingChanges` will use
- * below. Every other candidate is that pass scaled — see the header.
+ * below. Every other candidate is that pass scaled, see the header.
  */
 const SHIPPED_K = 20;
 
@@ -89,7 +89,7 @@ interface GameRow {
 	matches: number;
 	/**
 	 * The biggest movement among players who were already settled, in Elo, and
-	 * `null` for a game where nobody was — the opening weeks of a season, where
+	 * `null` for a game where nobody was, the opening weeks of a season, where
 	 * everybody on the pitch is still provisional.
 	 *
 	 * `null` rather than 0, because those games have nothing to say about the K a
@@ -102,7 +102,7 @@ interface GameRow {
 	anybody: number;
 	/** What the game actually paid at the time, biggest settled movement. */
 	asRated: number | null;
-	/** The same, over everybody — the only old-versus-new a young ledger has. */
+	/** The same, over everybody: the only old-versus-new a young ledger has. */
 	asRatedAnybody: number;
 }
 
@@ -131,8 +131,8 @@ const num = (value: number, width: number) => value.toFixed(1).padStart(width);
 /**
  * The biggest movement in one game, in Elo, over whichever players the caller
  * cares about. The biggest rather than the average because the question is what
- * an evening can do to somebody, not what it does on average to everybody —
- * half a squad is always on the other side of the same number.
+ * an evening can do to somebody, not what it does on average to everybody.
+ * Half a squad is always on the other side of the same number.
  *
  * `null` for nobody at all, which is a game this measurement cannot speak for
  * rather than a game that moved nothing.
@@ -178,7 +178,7 @@ export const main = async ({ db, args }: ScriptContext) => {
 		// squad to average, and without the slot there is no way to know which
 		// orders the rotation ever reached.
 		if (!season || !teamsSnap.exists) {
-			skipped.push(`${label} — ${season ? 'no team sheet' : 'season is gone'}`);
+			skipped.push(`${label}: ${season ? 'no team sheet' : 'season is gone'}`);
 			continue;
 		}
 
@@ -191,14 +191,14 @@ export const main = async ({ db, args }: ScriptContext) => {
 		);
 
 		if (matches.length === 0) {
-			skipped.push(`${label} — no scores survive the fixture check`);
+			skipped.push(`${label}: no scores survive the fixture check`);
 			continue;
 		}
 
 		const unrated = Object.values(entry.before).some(rating => rating === null);
 
 		if (unrated && entry.seedElo === undefined) {
-			skipped.push(`${label} — rated somebody unrated with no seed recorded, run backfill-ledger-seed`);
+			skipped.push(`${label}: rated somebody unrated with no seed recorded, run backfill-ledger-seed`);
 			continue;
 		}
 
@@ -218,7 +218,7 @@ export const main = async ({ db, args }: ScriptContext) => {
 		const anybody = biggest(changes.map(change => change.delta));
 
 		if (anybody === null) {
-			skipped.push(`${label} — scores but nobody on the team sheet`);
+			skipped.push(`${label}: scores but nobody on the team sheet`);
 			continue;
 		}
 
@@ -226,7 +226,7 @@ export const main = async ({ db, args }: ScriptContext) => {
 			changes.map(change => change.uid).filter(uid => !isProvisional(entry.before[uid] ?? undefined))
 		);
 
-		/** What the game paid at the time — read off the entry, never recomputed. */
+		/** What the game paid at the time, read off the entry, never recomputed. */
 		const paid = (uids: string[]) =>
 			biggest(
 				uids.map(uid => {
@@ -303,12 +303,12 @@ const report = (rows: GameRow[], candidates: number[]) => {
 	} else {
 		// A young ladder rather than a broken read: everybody in the whole
 		// history is still inside their provisional games. There is no settled
-		// median to print off nobody, but the sweep still answers the question —
+		// median to print off nobody, but the sweep still answers the question:
 		// a provisional swing is exactly twice a settled one at the same K, so
 		// halve any row below to see what the same evening pays once it counts.
 		console.log(
 			`Nobody in any of these games was past their provisional games, so there is no settled\n` +
-				`movement to price. Every row below is a provisional swing — twice what the same\n` +
+				`movement to price. Every row below is a provisional swing: twice what the same\n` +
 				`evening will pay once the group has settled:\n`
 		);
 	}
@@ -331,7 +331,7 @@ const report = (rows: GameRow[], candidates: number[]) => {
 	const asPaid = (row: GameRow) => (rated.length > 0 ? (row.asRated ?? 0) : row.asRatedAnybody);
 
 	console.log(
-		`\nBy team count — median biggest ${rated.length > 0 ? 'settled' : 'provisional'} movement, in display points:\n`
+		`\nBy team count: median biggest ${rated.length > 0 ? 'settled' : 'provisional'} movement, in display points:\n`
 	);
 	console.log(
 		`  ${pad('teams', 8)}${'games'.padStart(7)}${'as rated'.padStart(10)}${candidates.map(k => `K=${k}`.padStart(8)).join('')}`

@@ -1,5 +1,5 @@
 /**
- * Bootstraps an app admin — the one thing that can't be done from inside the
+ * Bootstraps an app admin. It is the one thing that can't be done from inside the
  * app, since granting admin requires already being one.
  *
  * Usage:
@@ -10,7 +10,7 @@
  *   1. `gcloud auth application-default login` (no key file on disk)
  *   2. GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
  *
- * The target must have signed into the app at least once — this looks them up
+ * The target must have signed into the app at least once. This looks them up
  * in Firebase Auth by email, it doesn't create accounts.
  */
 
@@ -33,7 +33,7 @@ const main = async ({ db, projectId, args }: ScriptContext) => {
 	// The claim is the real grant; the Firestore field is only a display mirror.
 	// It has to be merged into a *whole* profile though: a bare `{ isAppAdmin }`
 	// doc has no `displayName`, so its owner renders as "Unknown player" in every
-	// roster, and no `uid`, which the update rule requires — so the app could
+	// roster, and no `uid`, which the update rule requires, so the app could
 	// never repair it either. Someone can reach here without a profile doc by
 	// signing in before the rules were deployed, or by having their first-visit
 	// write fail for any other reason.
@@ -58,7 +58,7 @@ const main = async ({ db, projectId, args }: ScriptContext) => {
 	);
 
 	console.log(`${revoke ? 'Revoked' : 'Granted'} app admin for ${email} (${user.uid}) on ${projectId}.`);
-	console.log('Takes effect on their next token refresh — the app forces one every 10 minutes.');
+	console.log('Takes effect on their next token refresh. The app forces one every 10 minutes.');
 };
 
 runScript(main);

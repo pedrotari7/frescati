@@ -13,7 +13,7 @@ const SENT_KEY = 'frescati:live-game';
  * if so.
  *
  * The mark is the game id rather than a flag, so next week's game gets its own
- * offer — an installed app can sit in one document for weeks, and a
+ * offer, an installed app can sit in one document for weeks, and a
  * once-per-session flag would spend itself on the first game and never fire
  * again.
  *
@@ -41,7 +41,7 @@ const claimRedirect = (gameId: string): boolean => {
  * Making them tap through the season list to reach it is a tap too many with a
  * ball at their feet.
  *
- * **Only on arrival**, which is the load *or* a return to the foreground — the
+ * **Only on arrival**, which is the load *or* a return to the foreground, the
  * same exhaustive pair `useLastSeen` splits a visit into, and for the same
  * reason: an installed app is resumed far more often than it is launched, so
  * mount alone would miss the person opening it at half time. Deliberately not
@@ -51,7 +51,7 @@ const claimRedirect = (gameId: string): boolean => {
  *
  * Once per game, so the back button out of the game page works. Without the
  * mark, returning to the season page would re-enter this and bounce straight
- * back — and `/seasons` replacing itself with a sole active season means the
+ * back, and `/seasons` replacing itself with a sole active season means the
  * loop has two ways to close.
  */
 export const useLiveGameRedirect = ({
@@ -94,7 +94,7 @@ export const useLiveGameRedirect = ({
 	// The load: the first render where the answer is knowable, and only that one.
 	//
 	// Latched on a ref rather than left to the dependency array, which would make
-	// "arrived" mean "nothing in this list changed" — and `router` is in that
+	// "arrived" mean "nothing in this list changed", and `router` is in that
 	// list. A `useRouter` that handed back a fresh object per render would turn
 	// every re-render into another arrival, which is precisely the tick-driven
 	// jump this hook exists to avoid.

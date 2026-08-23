@@ -146,7 +146,7 @@ describe('TeamCard', () => {
 		});
 
 		// `setPlayerTeam` refuses to leave a team with nobody on it, and that
-		// covers taking them off the sheet — so the move sheet would open with
+		// covers taking them off the sheet, so the move sheet would open with
 		// every control greyed and only Cancel live.
 		it('refuses to offer a move for the only player on a squad', () => {
 			const onMovePlayer = jest.fn();
@@ -173,7 +173,7 @@ describe('TeamCard', () => {
 		});
 	});
 
-	// Only reachable on a hand-picked lineup, which stops being re-picked — so
+	// Only reachable on a hand-picked lineup, which stops being re-picked, so
 	// the sheet outlives somebody's answer and a squad is quietly a man short.
 	it('marks somebody on the sheet who has since dropped out', () => {
 		render(

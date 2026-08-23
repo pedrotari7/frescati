@@ -24,7 +24,7 @@ import {
  * into a permanent record, and a replay years later preserves the guess rather
  * than correcting it.
  *
- * So the interesting half of each is not the filling in. It is the refusing —
+ * So the interesting half of each is not the filling in. It is the refusing:
  * every one of them skips and reports rather than inventing an answer when the
  * source it reads back is gone, incomplete, or no longer describes the same
  * game. Those branches are what these mostly cover, because they are the ones
@@ -42,7 +42,7 @@ const context = ({ dryRun = false, args = [] as string[] } = {}): ScriptContext 
 });
 
 /**
- * What the script printed, both streams — every skip goes to `console.error`,
+ * What the script printed, both streams: every skip goes to `console.error`,
  * which setup.ts deliberately leaves unmocked, so this file spies on it for the
  * length of each test rather than globally.
  */
@@ -307,7 +307,7 @@ describe('backfill-motm-voters', () => {
 
 	it('ignores a game whose vote has been counted and closed', async () => {
 		// The window is deleted with the count, and the turnout lives in the
-		// published totals from then on — writing one here would resurrect
+		// published totals from then on. Writing one here would resurrect
 		// something the sweep deliberately removed.
 		await writeGame(SEASON_ID, GAME_ID);
 		await writeTeams(SEASON_ID, GAME_ID, [['anna'], ['bosse']]);

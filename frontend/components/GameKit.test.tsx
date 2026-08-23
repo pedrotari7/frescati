@@ -96,7 +96,7 @@ describe('GameKit', () => {
 			expect(screen.getByRole('link')).toHaveAttribute('href', '/s/season-1/kit');
 		});
 
-		// Nothing else on this strip names the kind, so the headline has to —
+		// Nothing else on this strip names the kind, so the headline has to.
 		// "Nobody confirmed" said a thing was wrong without saying which thing.
 		it('names the kind when it is only unconfirmed, not just when it is missing', () => {
 			draw([item('ball-1', 'ball', 'anna', 'Match ball')], [], { compact: true });

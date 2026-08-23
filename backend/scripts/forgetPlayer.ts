@@ -2,23 +2,23 @@
  * Removes a person from Frescati, as far as they can be removed.
  *
  * There is no self-serve deletion and `users/{uid}` is `allow delete: if false`,
- * deliberately — a profile is what every roster renders names and avatars from,
+ * deliberately. A profile is what every roster renders names and avatars from,
  * so a missing one turns a squad list into a wall of "Unknown player". This is
  * what happens instead when somebody asks to be taken off.
  *
  * The split it draws is between data that is *about* a person and data that is a
  * *shared record*:
  *
- *   Erased — the Firebase Auth account and the address in it, the display name,
+ *   Erased: the Firebase Auth account and the address in it, the display name,
  *   the avatar, the device notes, every registered push token, and the free-text
  *   note on every response they ever wrote.
  *
- *   Kept — the uid itself, wherever it appears in something more than one person
+ *   Kept: the uid itself, wherever it appears in something more than one person
  *   took part in: `ratingLedger`, the generated lineups, the scoreboard's
  *   `updatedBy`, and the in/out of each response. Those are not theirs alone. The
  *   ledger especially: it is the undo history for the *whole* ladder, and
  *   `replayRatingsFrom` rebuilds each game from the state the one before it
- *   left, so deleting one player's entries would not lose only their history —
+ *   left, so deleting one player's entries would not lose only their history,
  *   it would corrupt every replay for everybody who ever played alongside them.
  *
  * What survives is therefore an opaque id with nothing attached to it, which is
@@ -28,7 +28,7 @@
  * a number the ledger can reproduce, so clearing it here would only put the
  * profile out of step with the entries that explain it.
  *
- * Safe to run repeatedly — every step is idempotent, and a second run reports
+ * Safe to run repeatedly. Every step is idempotent, and a second run reports
  * that there is nothing left to do.
  *
  * Usage:
@@ -81,7 +81,7 @@ interface Plan {
 	notes: QueryDocumentSnapshot[];
 	memberOf: QueryDocumentSnapshot[];
 	adminOf: QueryDocumentSnapshot[];
-	/** Kit still recorded as theirs. Reported, never cleared — see `describe`. */
+	/** Kit still recorded as theirs. Reported, never cleared, see `describe`. */
 	holds: QueryDocumentSnapshot[];
 }
 
@@ -89,12 +89,12 @@ const buildPlan = async (db: Firestore, uid: string): Promise<Plan> => {
 	const [profileSnap, tokensSnap, responsesSnap, seasonsSnap, kitSnap] = await Promise.all([
 		db.doc(`users/${uid}`).get(),
 		db.collection(`users/${uid}/pushTokens`).get(),
-		// Every answer they ever gave, across every season, in one query — the
+		// Every answer they ever gave, across every season, in one query, the
 		// same collection-group index the app's own "my answers" listener uses.
 		db.collectionGroup('responses').where('uid', '==', uid).get(),
 		db.collection('seasons').get(),
 		// Same shape of query, and it rides the same automatic single-field
-		// index — nothing has to be declared for either.
+		// index, nothing has to be declared for either.
 		db.collectionGroup('kit').where('holderUid', '==', uid).get(),
 	]);
 
@@ -141,15 +141,15 @@ const describe = (plan: Plan, email: string | undefined, hasAccount: boolean): v
 	// Left exactly where it is, and said out loud because it is the one thing
 	// here that somebody has to act on in the real world. Coming off the roster
 	// strands whatever they were holding, which the season's kit screen then
-	// flags — reassigning it here would guess who has the ball, and quietly
+	// flags. Reassigning it here would guess who has the ball, and quietly
 	// guessing wrong is worse than a register that says it doesn't know.
 	if (plan.holds.length > 0) {
 		console.log(
-			row('kit', `${plan.holds.map(doc => doc.get('name')).join(', ')} — still recorded as theirs, chase it`)
+			row('kit', `${plan.holds.map(doc => doc.get('name')).join(', ')}: still recorded as theirs, chase it`)
 		);
 	}
 
-	console.log('\n  Kept: rating, and the uid wherever it appears in shared history —');
+	console.log('\n  Kept: rating, and the uid wherever it appears in shared history:');
 	console.log('  ratingLedger, lineups, scores and the in/out of each response.');
 };
 
@@ -185,7 +185,7 @@ const apply = async (db: Firestore, plan: Plan, uid: string, hasAccount: boolean
 	for (const note of plan.notes) await enqueue(() => batch.update(note.ref, { note: FieldValue.delete() }));
 
 	// A season admin who is also being forgotten has to come off `adminUids`
-	// too, and the rules refuse to leave a season with none — which is a real
+	// too, and the rules refuse to leave a season with none, which is a real
 	// stop, not something to work around, so it is reported rather than forced.
 	for (const season of plan.memberOf) {
 		await enqueue(() => batch.update(season.ref, { memberUids: FieldValue.arrayRemove(uid) }));
@@ -252,7 +252,7 @@ export const main = async ({ db, projectId, dryRun, args }: ScriptContext) => {
 	// work around. Leaving it unsaid would mean somebody reads "Done" while a
 	// season still lists them by name in its admin list.
 	console.log(
-		`\nAlmost. Still an admin of ${stranded.join(', ')} — appointing somebody else there and re-running is what finishes it.`
+		`\nAlmost. Still an admin of ${stranded.join(', ')}. Appointing somebody else there and re-running is what finishes it.`
 	);
 };
 

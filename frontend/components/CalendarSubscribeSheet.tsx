@@ -15,7 +15,7 @@ import { CONTROL } from './Field';
 /**
  * Lets somebody subscribe to a season's games from their own calendar app.
  *
- * One link per season, shared by everyone who asks for it — see
+ * One link per season, shared by everyone who asks for it: see
  * `frontend/lib/db/calendar.ts`. Fetched fresh every time this opens rather
  * than cached anywhere on the client, since a season admin rotating it from
  * another tab should never leave somebody copying a dead link.
@@ -54,7 +54,7 @@ const CalendarSubscribeSheet = ({
 	const copy = async () => {
 		if (!url) return;
 
-		// `write` isn't just for Firestore — it's the one place in the app that
+		// `write` isn't just for Firestore: it's the one place in the app that
 		// already catches a failed async action, toasts it, and reports it, which
 		// a rejected `clipboard.writeText` (permission denied, insecure context,
 		// an older WebView) needs exactly as much as a rejected write does. Copy
@@ -68,7 +68,7 @@ const CalendarSubscribeSheet = ({
 		const ok = await confirm({
 			title: 'Rotate this link?',
 			message:
-				"Everyone who's already subscribed stops getting updates — they'd need the new link to resubscribe.",
+				"Everyone who's already subscribed stops getting updates, they'd need the new link to resubscribe.",
 			confirmLabel: 'Rotate link',
 			tone: 'danger',
 		});
@@ -79,7 +79,7 @@ const CalendarSubscribeSheet = ({
 
 	// iOS and macOS open Calendar directly on a `webcal://` link and offer to
 	// subscribe; everything else just treats it as a slightly unusual URL, which
-	// is why "Copy link" — for pasting into "Add calendar by URL" — is the
+	// is why "Copy link", for pasting into "Add calendar by URL", is the
 	// primary action rather than this.
 	const webcalUrl = url?.replace(/^https?:\/\//, 'webcal://');
 
@@ -92,7 +92,7 @@ const CalendarSubscribeSheet = ({
 					<DialogTitle className='text-ink text-lg font-semibold'>Subscribe to this season</DialogTitle>
 
 					<p className='text-muted mt-2 text-sm leading-relaxed'>
-						Add this to your phone or laptop&apos;s calendar and it keeps itself up to date — kickoff times,
+						Add this to your phone or laptop&apos;s calendar and it keeps itself up to date: kickoff times,
 						venue changes and cancellations all show up without reopening the app. Most calendar apps only
 						re-check a subscribed link every several hours, so a change here won&apos;t appear instantly.
 					</p>
@@ -122,7 +122,7 @@ const CalendarSubscribeSheet = ({
 								<Button variant='primary' fullWidth onClick={copy}>
 									Copy link
 								</Button>
-								{/* A plain `<a>`, not a `Button` — `webcal://` needs real
+								{/* A plain `<a>`, not a `Button`, `webcal://` needs real
 								    navigation, and an anchor nested inside a `<button>`
 								    is invalid HTML that browsers handle inconsistently. */}
 								<a
@@ -140,7 +140,7 @@ const CalendarSubscribeSheet = ({
 									className='text-faint hover:text-ink mt-4 flex items-center gap-1.5 text-xs'
 								>
 									<ArrowPathIcon className='size-3.5' aria-hidden='true' />
-									Rotate link — invalidates every copy already out there
+									Rotate link, invalidates every copy already out there
 								</button>
 							)}
 						</>

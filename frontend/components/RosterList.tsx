@@ -20,13 +20,13 @@ export interface RosterEntry {
  * Build the full picture for a game: everyone on the season roster (answered or
  * not) plus any extras who put their hand up.
  *
- * Members with no response are included deliberately — "who hasn't answered" is
+ * Members with no response are included deliberately: "who hasn't answered" is
  * half the reason to open this screen.
  *
  * A no-show comes out of the group they answered into and into one of its own,
  * members before extras like every other list here. Leaving them among the
  * people who turned up, marked, was the first thing tried and it reads as a
- * footnote — the whole point of recording this is that it is not one.
+ * footnote, the whole point of recording this is that it is not one.
  */
 export const buildRoster = (
 	memberUids: string[],
@@ -140,7 +140,7 @@ const RosterList = ({
 	usersByUid: Map<string, AppUser>;
 	canManageExtras?: boolean;
 	/**
-	 * Whether a no-show is something anybody could yet know about — from
+	 * Whether a no-show is something anybody could yet know about: from
 	 * kick-off onwards, and a season admin's call. `canReportAbsence` in
 	 * `shared/game.ts` is the half of that about the clock.
 	 */
@@ -175,7 +175,7 @@ const RosterList = ({
 					const confirmed = response ? isConfirmed(response) : true;
 
 					// Past kick-off the row offers one question rather than two
-					// buttons in the width of a phone — but which one depends on
+					// buttons in the width of a phone, but which one depends on
 					// whether they hold a spot, and that is also what tells the two
 					// kinds of extra apart on a screen an admin is counting heads
 					// from. Somebody who never held a spot cannot have failed to
@@ -202,10 +202,10 @@ const RosterList = ({
 			/>
 
 			{/* Straight after the people who did turn up, because that is the list
-			    it is the exception to — and above "Yet to answer", which is a
+			    it is the exception to, and above "Yet to answer", which is a
 			    different failure and a much smaller one. */}
 			<Section
-				title='Didn’t show'
+				title="Didn't show"
 				tone='out'
 				entries={absent}
 				struck

@@ -15,11 +15,11 @@ import { instrument } from './lib/sentry';
  * answer any game, but only an admin can put them on a season's roster. Nothing
  * announced their arrival, so that only happened when an admin happened to
  * scroll the user list and notice a name they didn't recognise. The notice
- * deep-links straight to a season's manage-squad screen — see
- * `getMostRecentActiveSeasonId` — so acting on it is one tap.
+ * deep-links straight to a season's manage-squad screen, see
+ * `getMostRecentActiveSeasonId`, so acting on it is one tap.
  *
  * Fires on the profile document rather than on the Auth account, because the
- * profile is what the rest of the app treats as existing — an account with no
+ * profile is what the rest of the app treats as existing. An account with no
  * `users/{uid}` document renders nowhere and can't be added to anything. It is
  * written by the client on first sign-in, in one merge, so exactly one creation
  * event marks the moment somebody joins.
@@ -33,7 +33,7 @@ export const onUserCreated = onDocumentCreated(
 		const { uid } = event.params;
 
 		// A profile that arrives already carrying the badge wasn't written by
-		// somebody signing in — the create rule forbids a client from granting
+		// somebody signing in. The create rule forbids a client from granting
 		// itself `isAppAdmin`, so this is `setAppAdmin` or the bootstrap script
 		// promoting a uid that had no profile yet. Whoever did it already knows.
 		if (user.isAppAdmin) return;

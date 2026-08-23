@@ -9,14 +9,14 @@
 
 import type { TournamentMatch } from './types';
 
-/** Fewer than this and there is no tournament — the same floor a game has. */
+/** Fewer than this and there is no tournament, the same floor a game has. */
 export const MIN_TOURNAMENT_PLAYERS = 8;
 
 /**
  * Hours after kickoff at which an unconfirmed game confirms itself.
  *
  * Lives here rather than in the function that acts on it because the screen has
- * to promise it — "nothing counts until this is confirmed" is only reassuring
+ * to promise it. "Nothing counts until this is confirmed" is only reassuring
  * if the app can say when that happens, and a number that drifted between the
  * promise and the sweep would be worse than not mentioning it.
  */
@@ -33,8 +33,8 @@ export const MAX_TEAMS = 4;
  * However long the slot, a rotation does not repeat forever. Past this many
  * matches the scoreboard is more grinding than the football, so this is the
  * ceiling regardless of how much room `getScheduleFit` finds. Firestore rules
- * mirror it on `matches/{order}.order` the same way they mirror `MAX_TEAMS` —
- * a rule cannot read the season and the lineup to recompute it, so it bounds
+ * mirror it on `matches/{order}.order` the same way they mirror `MAX_TEAMS`.
+ * A rule cannot read the season and the lineup to recompute it, so it bounds
  * the worst case and `selectPlayedMatches` does the exact check on the way
  * back out.
  */
@@ -45,8 +45,8 @@ export const MAX_MATCHES = 30;
  *
  * The pitch does not grow with the turnout: a twelfth player does not make the
  * game 6v6, it makes it two squads of six playing five a side with a sub each.
- * Below twelve this never bites — no band produces a squad of more than five —
- * so it reads as a cap only from the headcount that first needs one.
+ * Below twelve this never bites, because no band produces a squad of more than
+ * five, so it reads as a cap only from the headcount that first needs one.
  */
 export const MAX_SIDE = 5;
 
@@ -57,7 +57,7 @@ export const MAX_SIDE = 5;
  *
  * Twelve is two teams rather than three. Three squads of four is a smaller
  * game than the pitch holds, and the twelfth player arriving should deepen the
- * bench rather than shrink the football — so twelve is the last headcount that
+ * bench rather than shrink the football, so twelve is the last headcount that
  * plays the slot out as one match, six a squad with a sub rotating through
  * each. Thirteen is where a third team starts paying for itself.
  */
@@ -73,7 +73,7 @@ export const getTeamCount = (playing: number): number => {
  * Squad sizes, largest first, never differing by more than one.
  *
  * Uneven totals put the spare body in the earlier squads rather than leaving
- * anyone unattached — a player outside a squad has no team to be rated with.
+ * anyone unattached. A player outside a squad has no team to be rated with.
  * The imbalance is absorbed on the pitch instead, by `getSideSize`.
  */
 export const getSquadSizes = (playing: number, teamCount: number): number[] => {
@@ -108,25 +108,25 @@ export interface Fixture {
 
 /**
  * One lap: who plays whom, in the order they play it, before the rotation
- * repeats — for the team counts where it repeats at all.
+ * repeats, for the team counts where it repeats at all.
  *
  * Two teams have nobody else to rotate in, so there is only the one game
  * between them, ever: replaying that same fixture a second time would not be
  * a round robin recurring, only that one result counted twice over, so
  * `getFixtures` never laps it however long the slot runs. Three teams play a
- * double round robin per lap; four play a single one — both land on six
+ * double round robin per lap; four play a single one. Both land on six
  * matches, so a lap is the same length whichever of the two it is.
  *
  * The orders within a lap are hand-picked so that nobody plays, or waits,
- * more than two matches running. Three teams get this for free — only one
- * team ever sits out a match, so the two playing can never both be new, and
- * whoever just sat out never sits out twice running either. Four teams
- * cannot have both: forcing a team to stay on for *every* changeover — so
- * neither side is ever a full swap — proves out to strand some other team
- * on the sideline for three matches straight, which is worse than the
+ * more than two matches running. Three teams get this for free, since only
+ * one team ever sits out a match, so the two playing can never both be new,
+ * and whoever just sat out never sits out twice running either. Four teams
+ * cannot have both. Forcing a team to stay on for *every* changeover, so
+ * that neither side is ever a full swap, proves out to strand some other
+ * team on the sideline for three matches straight, which is worse than the
  * changeover it was avoiding. So this order takes the changeover on the chin
  * instead: `[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]` swaps both teams three
- * times out of five, but nobody — playing or waiting — ever goes three deep.
+ * times out of five, but nobody, playing or waiting, ever goes three deep.
  */
 const ROTATIONS: Record<number, [number, number][]> = {
 	2: [[0, 1]],
@@ -155,15 +155,15 @@ const ROTATIONS: Record<number, [number, number][]> = {
  * not two different rotations.
  *
  * Two teams are the one shape this doesn't apply to. A lap of one fixture has
- * no pattern to repeat — replaying it is just the same match again, not
- * another round of anything — so it never does: two teams always play the
- * single game `ROTATIONS` gives them, whatever `matchMinutes` and
+ * no pattern to repeat, since replaying it is just the same match again
+ * rather than another round of anything, so it never does. Two teams always
+ * play the single game `ROTATIONS` gives them, whatever `matchMinutes` and
  * `slotMinutes` say.
  *
- * For everyone else, floored at one full lap — a slot too short for even one
- * is an overrun `getScheduleFit` surfaces, not a reason to serve half a round
- * robin — and capped at `MAX_MATCHES` so a long slot with short matches
- * doesn't turn the scoreboard into a chore.
+ * For everyone else, floored at one full lap and capped at `MAX_MATCHES` so a
+ * long slot with short matches doesn't turn the scoreboard into a chore. A
+ * slot too short for even one lap is an overrun `getScheduleFit` reports, not
+ * a reason to serve half a round robin.
  */
 export const getFixtures = (teamCount: number, matchMinutes: number, slotMinutes: number): Fixture[] => {
 	const lap = ROTATIONS[teamCount];
@@ -186,15 +186,15 @@ export const getFixtures = (teamCount: number, matchMinutes: number, slotMinutes
  *
  * Pointedly **not** the lap length, which is what a screen grouping by "where
  * the rotation repeats" would use. The two coincide for four teams and come
- * apart for three, whose lap is a *double* round robin — so grouping by the lap
+ * apart for three, whose lap is a *double* round robin, so grouping by the lap
  * drew a single "Round 1" of six matches, the entire evening under one heading,
  * when a round is the three fixtures that get each side one game. Two teams
  * divide into rounds of one, which is why the caller decides whether a divider
  * is worth drawing at all rather than this returning something clever: their
  * one fixture is a round, it is just not one worth announcing.
  *
- * Derived rather than tabulated, because a round robin's length is arithmetic —
- * every pair of `teamCount` — and a second hand-kept table is a second thing to
+ * Derived rather than tabulated, because a round robin's length is arithmetic,
+ * every pair of `teamCount`, and a second hand-kept table is a second thing to
  * get out of step with `ROTATIONS`. What the table *does* have to promise is
  * that its laps divide into whole rounds, which the suite pins.
  */
@@ -207,7 +207,7 @@ export const getRoundLength = (teamCount: number): number =>
  * The scoreboard is the one thing in the app anybody at the pitch may write, so
  * what comes back from it is not automatically part of the game. A document at
  * an `order` no rotation reaches, or between two teams that fixture never puts
- * together, describes a match that was never on the card — and because the
+ * together, describes a match that was never on the card. And because the
  * screen only ever draws `getFixtures`, such a document counted towards the
  * table and towards everyone's rating without appearing anywhere that could
  * explain why.
@@ -221,7 +221,7 @@ export const getRoundLength = (teamCount: number): number =>
  *
  * It also drops what a reshuffle stranded. Re-picking the teams rewrites the
  * rotation under any score already entered, and a match against a pairing that
- * no longer exists is a record of a lineup that doesn't either — the same
+ * no longer exists is a record of a lineup that doesn't either. It is the same
  * reasoning that already made `getStandings` ignore a match naming a team that
  * has gone, carried to the subtler case where both teams still exist but never
  * met.
@@ -263,7 +263,7 @@ export const selectPlayedMatches = (
  * all.
  *
  * Three states rather than the boolean this used to be, because a confirmed
- * game is not simply closed to an admin — it is closed to a *tap*. An
+ * game is not simply closed to an admin. It is closed to a *tap*. An
  * unconfirmed game is one tap for anybody holding a response and that is the
  * whole point of it: whoever has a free hand enters the score, and a wrong one
  * is one tap back. Confirming applies the ratings, so from then on the same tap
@@ -273,9 +273,9 @@ export const selectPlayedMatches = (
  * score keep every bit of that power and have to reach for it, instead of
  * finding it under a thumb resting on a `+` while scrolling.
  *
- * `none` covers both of its reasons — somebody signed in who never answered
- * the game, and everybody who cannot correct a confirmed one — because the
- * screen says something different about each and neither can score.
+ * `none` covers both of its reasons, somebody signed in who never answered the
+ * game and everybody who cannot correct a confirmed one, because the screen
+ * says something different about each and neither can score.
  */
 export type ScoreAccess = 'open' | 'locked' | 'none';
 
@@ -310,7 +310,7 @@ export interface ScheduleFit {
  *
  * `matchCount` already accounts for the slot for three or four teams, since
  * `getFixtures` laps the rotation to use the time available there. Two teams
- * never lap — `matchCount` is always 1 — and a single fixture is not five
+ * never lap, since `matchCount` is always 1, and a single fixture is not five
  * minutes of football followed by an empty hour: the two sides play the slot
  * out. So the match runs for `slotMinutes` there, which is what the badge
  * shows and what keeps `totalMinutes` describing the evening rather than the
@@ -318,7 +318,7 @@ export interface ScheduleFit {
  *
  * Otherwise reported rather than enforced, and the fixture list is generated
  * at the requested match length either way. Changeovers are deliberately not
- * modelled — `matchMinutes` is the admin's number and they know whether
+ * modelled. `matchMinutes` is the admin's number and they know whether
  * theirs includes picking the bibs back up.
  */
 export const getScheduleFit = (teamCount: number, matchMinutes: number, slotMinutes: number): ScheduleFit => {

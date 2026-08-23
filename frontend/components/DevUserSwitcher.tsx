@@ -13,7 +13,7 @@ import Button from './Button';
 /**
  * Become any seeded player, in two taps.
  *
- * Only exists when the app is pointed at the emulators — production has one way
+ * Only exists when the app is pointed at the emulators. Production has one way
  * in and this is not it. It sits above everything else because it has to work
  * on the login screen too, which is where you spend most of your time when the
  * thing you are testing is "what does an admin see that a member doesn't".
@@ -69,8 +69,8 @@ const DevUserSwitcher = () => {
 
 						<p className='text-muted mt-1 text-xs leading-relaxed'>
 							{file
-								? `Scenario “${file.scenario}” · ${file.users.length} seeded accounts`
-								: 'No seeded accounts found — run pnpm seed.'}
+								? `Scenario "${file.scenario}" · ${file.users.length} seeded accounts`
+								: 'No seeded accounts found. Run pnpm seed.'}
 						</p>
 
 						{user && (
@@ -113,7 +113,7 @@ const DevUserSwitcher = () => {
 							))}
 
 							{file && matches.length === 0 && (
-								<p className='text-faint py-6 text-center text-sm'>Nobody matches “{query}”.</p>
+								<p className='text-faint py-6 text-center text-sm'>Nobody matches &quot;{query}&quot;.</p>
 							)}
 						</div>
 

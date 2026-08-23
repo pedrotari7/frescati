@@ -4,7 +4,7 @@
  * The question this answers is the one that has no answer today: somebody says
  * the app is broken on their phone, and there is no way to find out whether
  * they are running what was deployed an hour ago or what they cached in March.
- * On a PWA that is not a hypothetical — the service worker decides when a phone
+ * On a PWA that is not a hypothetical, the service worker decides when a phone
  * takes a new bundle, and a chunk missing from a build nobody realised was
  * still in use is a real crash this app has already had.
  *
@@ -24,7 +24,7 @@ const SHA = process.env.NEXT_PUBLIC_BUILD_SHA ?? '';
  * `git show` finds it. Seven characters is what git itself abbreviates to.
  *
  * Nothing exports the full sha, because nothing needs it: Sentry stamps every
- * issue with its own copy — see the `release` note in `lib/sentry.ts` — so this
+ * issue with its own copy, see the `release` note in `lib/sentry.ts`, so this
  * is only ever read by a person.
  */
 export const buildLabel = (): string => (SHA === '' ? 'dev' : SHA.slice(0, 7));

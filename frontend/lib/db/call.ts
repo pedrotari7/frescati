@@ -10,14 +10,14 @@ import { getFunctionsClient } from '../firebaseClient';
  * what differs.
  *
  * Everything privileged arrives this way rather than through an API layer,
- * because there isn't one and doesn't want to be — see the architecture note in
+ * because there isn't one and doesn't want to be, see the architecture note in
  * CLAUDE.md. What lands here is the short list of things security rules cannot
  * express: a custom claim, a rating the client is frozen out of, a collection
  * closed to every reader, an FCM send.
  *
  * Errors are deliberately not caught. A callable rejects with an `HttpsError`
  * carrying the message the function chose, and `useWrite` is what turns that
- * into a toast — swallowing it here would take the wording away from the
+ * into a toast, swallowing it here would take the wording away from the
  * function that wrote it.
  */
 export const callFunction = async <Req, Res>(name: string, data: Req): Promise<Res> => {

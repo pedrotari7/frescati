@@ -19,8 +19,8 @@ export const subscribeToResponses = (
  * self-contained, and a full write keeps `updatedAt` honest.
  *
  * `existing` is an optimisation, not a requirement. When the caller doesn't
- * have it — someone taps In before the collection-group listener has caught up
- * — it is read back rather than assumed absent. Guessing wrong would resend a
+ * have it, someone taps In before the collection-group listener has caught up
+ * it is read back rather than assumed absent. Guessing wrong would resend a
  * fresh `respondedAt` over a document that already has one, which the rules
  * reject outright to stop extras backdating their way up the queue.
  */
@@ -46,14 +46,14 @@ export const setResponse = async (
 		updatedAt: now,
 		// Only a season admin may write these, so preserve rather than resend
 		// them. The rules freeze both against a self write, so dropping one on
-		// the way past is not a quiet loss — it is a denial, and the answer this
+		// the way past is not a quiet loss: it is a denial, and the answer this
 		// was sent to record never lands.
 		...(current?.confirmOverride === undefined ? {} : { confirmOverride: current.confirmOverride }),
 		...(current?.absent === undefined ? {} : { absent: current.absent }),
 	});
 };
 
-/** Back to "no response" — the third state is the absence of a document. */
+/** Back to "no response": the third state is the absence of a document. */
 export const clearResponse = (seasonId: string, gameId: string, uid: string) =>
 	deleteDoc(responseDoc(seasonId, gameId, uid));
 
@@ -62,9 +62,9 @@ export const clearResponse = (seasonId: string, gameId: string, uid: string) =>
  * up, or take that back.
  *
  * Deleted rather than written `false`, so undoing leaves the document exactly as
- * it was. There is no third state to hold here — a game where nobody has said
+ * it was. There is no third state to hold here: a game where nobody has said
  * anything and one where the admin looked and everybody turned up are the same
- * fact — so a stored `false` would only be a second way of spelling the absence
+ * fact, so a stored `false` would only be a second way of spelling the absence
  * of the field.
  *
  * Nothing else moves. `counts` describes what people answered and the lineup is

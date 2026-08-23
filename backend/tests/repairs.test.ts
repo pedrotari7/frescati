@@ -19,7 +19,7 @@ import {
  * The three repairs that write against live data rather than reconstructing a
  * missing field.
  *
- * `prune-orphans` is the one with teeth — it deletes, recursively, on the basis
+ * `prune-orphans` is the one with teeth: it deletes, recursively, on the basis
  * of a parent document being absent. Getting "absent" wrong there does not fail
  * loudly; it deletes a season's worth of answers that were fine. So most of its
  * tests are about what it must leave alone.
@@ -143,7 +143,7 @@ describe('recount-games', () => {
 describe('strip-user-emails', () => {
 	it('removes an address from a profile every signed-in player can read', async () => {
 		// `users/{uid}` is readable by everybody, which is what makes rosters and
-		// the member picker work — so a mirrored address is a group-wide address
+		// the member picker work, so a mirrored address is a group-wide address
 		// book. Firebase Auth is the only place one belongs.
 		await writeUser('anna', { email: 'anna@example.test' } as Partial<Parameters<typeof writeUser>[1]>);
 

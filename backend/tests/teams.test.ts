@@ -9,7 +9,7 @@ import { REGION } from '../src/lib/firebase';
 import { clearAuth, clearFirestore, getDb, writeGame, writeSeason } from './helpers';
 
 /**
- * How a rebuild gets queued — the half of the tournament wiring that no other
+ * How a rebuild gets queued, the half of the tournament wiring that no other
  * test reaches.
  *
  * `runTeamRebuild` is covered thoroughly in rebuildTeams.test.ts, and all three
@@ -20,7 +20,7 @@ import { clearAuth, clearFirestore, getDb, writeGame, writeSeason } from './help
  *
  * So `runTeamRebuild` is mocked here too, deliberately. What is under test is
  * the scheduling around it, and composing that with the rebuild's own tests is
- * both the honest split and the robust one — a real rebuild would drag real
+ * both the honest split and the robust one. A real rebuild would drag real
  * Firestore I/O through fake timers to prove something already proven.
  *
  * The local branch is the one that had no coverage at all, and it is the one
@@ -179,7 +179,7 @@ describe('queueing a rebuild as deployed', () => {
 	});
 
 	it('reports a refused queue instead of throwing, so the headcount survives', async () => {
-		// A misconfigured queue — wrong region, IAM, quota — would otherwise fail
+		// A misconfigured queue, wrong region, IAM, quota, would otherwise fail
 		// the response trigger that queued it and take `counts` down with it. A
 		// lineup that rebuilds late is a nuisance; a headcount that stops
 		// updating is the app not working.

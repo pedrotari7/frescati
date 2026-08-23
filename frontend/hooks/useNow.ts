@@ -11,8 +11,8 @@ const DEFAULT_INTERVAL_MS = 30_000;
  * Anything derived from `new Date()` during render is frozen at the moment the
  * component mounted, and nothing in this app re-renders on its own. A game left
  * open on screen therefore kept its In/Out buttons live long after the deadline
- * passed — the write would be rejected by the rules, but the UI happily invited
- * it — and "Playing now" never arrived for anyone already looking at the page.
+ * passed: the write would be rejected by the rules, but the UI happily invited
+ * it, and "Playing now" never arrived for anyone already looking at the page.
  *
  * Also ticks when the tab comes back to the foreground: an installed PWA is
  * usually resumed rather than reopened, and timers don't fire while it's

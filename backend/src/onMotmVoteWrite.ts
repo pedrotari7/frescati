@@ -8,7 +8,7 @@ import { instrument } from './lib/sentry';
  * Keeps the public turnout list in step with the votes underneath it.
  *
  * The votes are readable by nobody but the people who cast them, so this is the
- * only way the group can be told how many of them there are — the same bind
+ * only way the group can be told how many of them there are. The same bind
  * `counts` on the game document is in, and the same answer: a function writes
  * down the one thing about a private collection everybody is allowed to know.
  *
@@ -18,7 +18,7 @@ import { instrument } from './lib/sentry';
  * no picks attached gives nobody anything to fall in behind. It gives the squad
  * the one useful thing instead, which is who still needs asking.
  *
- * Fires on every vote written, changed or withdrawn — a mind changed twice is
+ * Fires on every vote written, changed or withdrawn. A mind changed twice is
  * still one voter, and the recount arrives at that without having to know which
  * of the three just happened.
  */

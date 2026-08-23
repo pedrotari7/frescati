@@ -25,7 +25,7 @@ const TEAM_B = ['p5', 'p6', 'p7', 'p8'];
 
 const hoursFromNow = (hours: number): string => new Date(Date.now() + hours * 3_600_000).toISOString();
 
-/** The one match two teams play in a game — nobody else to rotate through. */
+/** The one match two teams play in a game, nobody else to rotate through. */
 const writeGameMatches = async (scores: [number, number][]): Promise<void> => {
 	for (const [order, [scoreA, scoreB]] of scores.entries()) {
 		await writeMatch(SEASON_ID, GAME_ID, { order, teamA: 0, teamB: 1, scoreA, scoreB });
@@ -42,13 +42,13 @@ const setUpGame = async (overrides: Parameters<typeof writeGame>[2] = {}) => {
  * What the ladder pays a provisional player for the one match these tests score.
  *
  * Two numbers rather than one because a rating reads the scoreline as well as
- * the result — see `getMatchScore`. `0.8 x (rate - 0.5) + 0.2 x 0.5` at the
+ * the result, see `getMatchScore`. `0.8 x (rate - 0.5) + 0.2 x 0.5` at the
  * provisional K of 40, off a rate of 0.8 for the 2-1 and 0.9 for the 3-0.
  */
 const WON_2_1 = 13.6;
 const WON_3_0 = 16.8;
 
-/** A rating, to the sixth decimal — the arithmetic above is not exact in binary. */
+/** A rating, to the sixth decimal, the arithmetic above is not exact in binary. */
 const elo = (movement: number) => expect.closeTo(1000 + movement, 6);
 
 beforeEach(async () => {
@@ -112,7 +112,7 @@ describe('finaliseTournament', () => {
 		expect(game?.resultFinalisedAt).toBeTruthy();
 
 		// Team A won its one match against an evenly-seeded field. First place, but
-		// only a 2-1 — so four fifths of the rate rather than all of it, and short
+		// only a 2-1, so four fifths of the rate rather than all of it, and short
 		// of the 20 Elo a two-team game pays at the provisional K for a rout.
 		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: elo(WON_2_1), games: 1 });
 		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: elo(-WON_2_1), games: 1 });
@@ -124,7 +124,7 @@ describe('finaliseTournament', () => {
 	it('records who was on which team, which the finishing places cannot say', async () => {
 		await setUpGame();
 		// Level, so both teams share first place and `positions` says the same
-		// thing about all eight — the case that needs the team map.
+		// thing about all eight, the case that needs the team map.
 		await writeGameMatches([[1, 1]]);
 
 		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
@@ -137,7 +137,7 @@ describe('finaliseTournament', () => {
 
 	// `before: null` says they carried nothing in, which is what a rewind needs.
 	// It cannot also say what the game rated them off, so the seed is recorded
-	// beside it — without which a first appearance reads as no movement at all
+	// beside it, without which a first appearance reads as no movement at all
 	// on every screen aggregating this collection.
 	it('records what the unrated were seeded at', async () => {
 		await setUpGame();
@@ -154,7 +154,7 @@ describe('finaliseTournament', () => {
 	});
 
 	// Nothing reached for the seed, so storing one would claim the game used a
-	// number it never saw — the same reason `motm` is left off while a vote runs.
+	// number it never saw, the same reason `motm` is left off while a vote runs.
 	it('leaves the seed off a game where everybody arrived rated', async () => {
 		await setUpGame();
 		for (const uid of [...TEAM_A, ...TEAM_B]) {
@@ -223,7 +223,7 @@ describe('finaliseDueTournaments', () => {
 	});
 
 	// Marking it retires the game from this query, which is what lets the query
-	// have no lower bound — and so what stops a late-scored game falling out
+	// have no lower bound, and so what stops a late-scored game falling out
 	// of a window and never being rated at all.
 	it('marks a game it confirms as played', async () => {
 		await setUpGame({ kickoff: hoursFromNow(-30), status: 'scheduled' });
@@ -269,7 +269,7 @@ describe('finaliseDueTournaments', () => {
 
 		const game = await readGame(SEASON_ID, GAME_ID);
 		expect(game?.status).toBe('played');
-		// Retired, not re-rated — a second application would double-count it.
+		// Retired, not re-rated. A second application would double-count it.
 		expect(game?.resultFinalisedAt).toBe('2026-01-01T00:00:00.000Z');
 		expect((await readUser('p1'))?.rating).toMatchObject({ games: 1 });
 	});
@@ -290,7 +290,7 @@ describe('onMatchWrite', () => {
 		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: elo(WON_3_0), games: 1 });
 
 		const game = await readGame(SEASON_ID, GAME_ID);
-		// A replay doesn't re-confirm the game — who confirmed it stands.
+		// A replay doesn't re-confirm the game. Who confirmed it stands.
 		const result = await readRatingLedger(GAME_ID);
 		expect(result?.positions).toMatchObject({ p1: 1, p5: 0 });
 		expect(game?.resultFinalisedAt).toBeTruthy();
@@ -298,7 +298,7 @@ describe('onMatchWrite', () => {
 
 	// Spied on `requestRatingReplay` rather than `replayRatingsFrom`: that is
 	// what the trigger calls, and the drain reaches the replay through a local
-	// binding a module spy would never see — so spying there would pass here
+	// binding a module spy would never see, so spying there would pass here
 	// whether or not the trigger had asked for anything.
 	it('does nothing for a match under a game that is not yet confirmed', async () => {
 		await setUpGame();
@@ -310,7 +310,7 @@ describe('onMatchWrite', () => {
 		expect(replaySpy).not.toHaveBeenCalled();
 	});
 
-	// A burst of `onMatchWrite` firings for the same game — however many
+	// A burst of `onMatchWrite` firings for the same game, however many
 	// documents actually changed. Before the ladder lock each ran its own
 	// rewind-and-replay, and they interleaved.
 	it('collapses a burst of corrections into a single replay', async () => {
@@ -324,8 +324,8 @@ describe('onMatchWrite', () => {
 			['0', '1', '2'].map(order => onMatchWrite.run(paramsEvent({ seasonId: SEASON_ID, gameId: GAME_ID, order })))
 		);
 
-		// Whatever order they landed in, the ladder agrees with the scoreboard
-		// — and each player moved exactly one game's worth, not three.
+		// Whatever order they landed in, the ladder agrees with the scoreboard.
+		// Each player moved exactly one game's worth, not three.
 		for (const uid of TEAM_A) expect((await readUser(uid))?.rating).toMatchObject({ elo: elo(-WON_3_0), games: 1 });
 		for (const uid of TEAM_B) expect((await readUser(uid))?.rating).toMatchObject({ elo: elo(WON_3_0), games: 1 });
 	});

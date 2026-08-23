@@ -4,8 +4,8 @@
  * A scenario is a declaration, not a script: it says which seasons exist, who
  * is in them and which games are unusual, and `write.ts` turns that into the
  * documents the app would hold if those things had actually happened. The point
- * of the split is that adding a case you want to look at — a game nobody
- * answered, a season with one member — is an entry in a list here, not a new
+ * of the split is that adding a case you want to look at, a game nobody
+ * answered, a season with one member, is an entry in a list here, not a new
  * pile of Firestore writes.
  *
  * Everything is positioned relative to *today*, so a seed is as useful in six
@@ -47,13 +47,13 @@ export interface GamePin {
 	/** Force the confirmed headcount instead of rolling one from the band. */
 	playing?: number;
 	/**
-	 * `full` — everyone has an opinion; `partial` — some members still silent;
-	 * `none` — nobody has answered at all.
+	 * `full`: everyone has an opinion; `partial`: some members still silent;
+	 * `none`: nobody has answered at all.
 	 */
 	responses?: 'full' | 'partial' | 'none';
 	/**
-	 * `confirmed` — scored and rated; `scored` — scores in but nobody has hit
-	 * Confirm; `unplayed` — no scores.
+	 * `confirmed`: scored and rated; `scored`: scores in but nobody has hit
+	 * Confirm; `unplayed`: no scores.
 	 */
 	outcome?: 'unplayed' | 'scored' | 'confirmed';
 	minPlayers?: number;
@@ -63,19 +63,19 @@ export interface GamePin {
 	balance?: Partial<BalanceSettings>;
 	/**
 	 * Cast keys who tapped the bell on this game. Nobody by default, which is
-	 * the honest starting point — following is off until somebody turns it on —
+	 * the honest starting point, following is off until somebody turns it on,
 	 * but a game with none is also a game where the admin card that lists them
 	 * has nothing to say, so at least one pin should carry a few.
 	 */
 	watcherKeys?: string[];
 	/**
 	 * Where the man-of-the-match vote has got to. Only meaningful on a
-	 * `confirmed` game — the vote opens when the scores are confirmed.
+	 * `confirmed` game. The vote opens when the scores are confirmed.
 	 *
 	 * `decided` is the default and what every past game looks like: counted,
 	 * with the winner's bonus already in the ratings. `open` is the state
-	 * somebody would actually be looking at — votes cast, nothing counted, no
-	 * bonus applied yet — and needs at least one pin carrying it or the voting
+	 * somebody would actually be looking at: votes cast, nothing counted, no
+	 * bonus applied yet, and needs at least one pin carrying it or the voting
 	 * screen can only ever be seen by confirming a game by hand.
 	 */
 	motm?: 'open' | 'decided';
@@ -102,7 +102,7 @@ export interface SeasonPlan {
 	endWeeks: number;
 	/** Confirmed headcount band for an ordinary game, inclusive. */
 	turnout: [number, number];
-	/** `empty` leaves every past game unplayed — a season with no ladder yet. */
+	/** `empty` leaves every past game unplayed, a season with no ladder yet. */
 	history: 'played' | 'empty';
 	/** What the group owns. Left out for a season that keeps no register. */
 	kit?: KitPlan[];
@@ -115,7 +115,7 @@ export interface Scenario {
 	/** Cast keys granted the global `admin` claim. */
 	appAdminKeys: string[];
 	/**
-	 * Cast keys given an account but no profile and no season — what a stranger
+	 * Cast keys given an account but no profile and no season, what a stranger
 	 * who just signed in with Google actually looks like.
 	 */
 	newcomerKeys: string[];
@@ -150,7 +150,7 @@ const tuesdayEvening: SeasonSlot = { weekday: 2, time: '19:00', durationMinutes:
  * A weekly slot placed so the next game is always a few days off.
  *
  * Everything else in here is positioned relative to *today*, which is what
- * keeps a seed as useful in six months as it is now — and a hardcoded weekday
+ * keeps a seed as useful in six months as it is now, and a hardcoded weekday
  * was the one thing that was not. It meant that whenever the seed was written
  * on the slot's own day, the next game was already inside its response
  * deadline: `getGameLifecycle` calls it `locked`, `RespondControl` draws In and
@@ -172,7 +172,7 @@ const daysAhead = (days: number, time: string, durationMinutes: number): SeasonS
 
 /**
  * The slot for a season being played right now. Archived seasons keep a real
- * weekday — nothing answers a game that finished months ago — and so does the
+ * weekday, nothing answers a game that finished months ago, and so does the
  * Sunday offshoot, which is named after the day it plays on.
  */
 const currentEvening = (): SeasonSlot => daysAhead(3, '19:00', 90);
@@ -270,12 +270,12 @@ const full: Scenario = {
 				{ name: 'Pump', kind: 'other', holder: 'silent' },
 			],
 			pins: {
-				// Played, scored, and waiting on somebody to hit Confirm — the
+				// Played, scored, and waiting on somebody to hit Confirm, the
 				// state the auto-confirm sweep exists for.
 				[-1]: { outcome: 'scored', note: 'Floodlight on pitch B was out, played the far end' },
 				// Confirmed late, so its man-of-the-match vote is still running.
 				// The one game in a seeded database where the voting screen has
-				// anything to do — everything older has been counted, and the
+				// anything to do, everything older has been counted, and the
 				// game after this one hasn't been confirmed at all.
 				[-2]: { motm: 'open' },
 				// The game everyone is actually looking at.
@@ -284,7 +284,7 @@ const full: Scenario = {
 					playing: 15,
 					reshuffleCount: 1,
 					// Three members and an extra, picked without regard to how any
-					// of them answered — following is not answering, and the admin
+					// of them answered, following is not answering, and the admin
 					// card that lists them should look like its own thing rather
 					// than a slice of the roster.
 					watcherKeys: ['anna', 'tobias', 'kwame', 'ingrid'],
@@ -357,7 +357,7 @@ const full: Scenario = {
 			startWeeks: 8,
 			endWeeks: 24,
 			turnout: [0, 0],
-			// A draft season has not generated its calendar yet — that is the
+			// A draft season has not generated its calendar yet. That is the
 			// button an admin is about to press.
 			history: 'empty',
 		},
@@ -365,7 +365,7 @@ const full: Scenario = {
 };
 
 /**
- * A big turnout every week. Four teams, deep squads and a long ladder — what
+ * A big turnout every week. Four teams, deep squads and a long ladder: what
  * the optimizer and the tournament screens look like under load.
  */
 const big: Scenario = {
@@ -416,7 +416,7 @@ const big: Scenario = {
 			endWeeks: 12,
 			turnout: [18, 24],
 			history: 'played',
-			// Nothing wrong here on purpose — a register that is doing its job
+			// Nothing wrong here on purpose. A register that is doing its job
 			// draws nothing at all on the next-game card, and that is worth
 			// being able to see too.
 			kit: [
@@ -433,7 +433,7 @@ const big: Scenario = {
 };
 
 /**
- * Day one. One season, nobody has answered anything, nobody has a rating —
+ * Day one. One season, nobody has answered anything, nobody has a rating,
  * every empty state in the app at once, which is the hardest thing to reach on
  * a database that has been used.
  */

@@ -45,7 +45,7 @@ const SeasonAdminPage = () => {
 	const live = useMemo(() => (season ? formFromSeason(season, balance) : null), [season, balance]);
 
 	/**
-	 * What the form was last filled from — on arrival, and again on a save.
+	 * What the form was last filled from, on arrival, and again on a save.
 	 *
 	 * Anything the stored season now says that differs from this is somebody
 	 * else's edit rather than one of ours, which is the only way to tell those
@@ -58,12 +58,12 @@ const SeasonAdminPage = () => {
 	 * Seeded once per season, not on every snapshot.
 	 *
 	 * This was keyed on the season itself, which meant it re-ran whenever the
-	 * document changed — and this screen is live for every admin at once. So a
+	 * document changed, and this screen is live for every admin at once. So a
 	 * second admin touching the venue overwrote all nineteen fields under
 	 * whoever was mid-sentence in the first, not just the one they had moved.
 	 * Two admins on a Sunday evening is not a hypothetical.
 	 *
-	 * `live` moving is now reported rather than applied — see `changedElsewhere`
+	 * `live` moving is now reported rather than applied. See `changedElsewhere`
 	 * below.
 	 */
 	useEffect(() => {
@@ -106,7 +106,7 @@ const SeasonAdminPage = () => {
 		);
 	}
 
-	// Save refuses on any box that doesn't hold a whole number and says which —
+	// Save refuses on any box that doesn't hold a whole number and says which,
 	// better than writing a season with `minPlayers: 0`, in which no game can
 	// ever be short.
 	const { counts, invalid } = readCounts(form);
@@ -130,7 +130,7 @@ const SeasonAdminPage = () => {
 		};
 		const venueChanged = venue.name !== season.venue.name || (venue.address ?? '') !== (season.venue.address ?? '');
 
-		// Only claim it saved if it did — this used to say "Saved" whether or not
+		// Only claim it saved if it did. This used to say "Saved" whether or not
 		// the write was accepted.
 		const ok = await write(async () => {
 			await updateSeason(seasonId, {
@@ -242,7 +242,7 @@ const SeasonAdminPage = () => {
 							/>
 						</Field>
 
-						<Field label='Address' hint='Optional — shown on the game screen.'>
+						<Field label='Address' hint='Optional, shown on the game screen.'>
 							<TextInput
 								value={form.venueAddress}
 								onChange={e => setForm({ ...form, venueAddress: e.target.value })}
@@ -319,7 +319,7 @@ const SeasonAdminPage = () => {
 
 						<Field
 							label='Remind at'
-							hint='Hours before kick-off, comma separated. Only members who haven’t answered get nudged. Leave empty for no reminders.'
+							hint="Hours before kick-off, comma separated. Only members who haven't answered get nudged. Leave empty for no reminders."
 						>
 							<TextInput
 								value={form.reminderHours}
@@ -393,7 +393,7 @@ const SeasonAdminPage = () => {
 						{/* Seeding once means this form can go stale, so it says so
 						    rather than letting an admin save an hour-old copy over
 						    somebody else's change without ever knowing. Loading
-						    theirs is the same write the seed does — it just takes
+						    theirs is the same write the seed does, it just takes
 						    a deliberate tap now instead of happening under the
 						    cursor. */}
 						{changedElsewhere && (
@@ -425,12 +425,12 @@ const SeasonAdminPage = () => {
 						</Button>
 
 						<p className='text-faint text-xs'>
-							Changing the day or time doesn&apos;t move games that already exist — regenerate them from
+							Changing the day or time doesn&apos;t move games that already exist. Regenerate them from
 							the Games screen.
 						</p>
 					</section>
 
-					{/* App-admin only, per the security rules — a season admin can run
+					{/* App-admin only, per the security rules, a season admin can run
 				    the season but not erase it. */}
 					{user?.isAppAdmin && (
 						<section className='glass space-y-3 rounded-2xl p-5'>

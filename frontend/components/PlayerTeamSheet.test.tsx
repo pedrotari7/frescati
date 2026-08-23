@@ -85,7 +85,7 @@ describe('PlayerTeamSheet', () => {
 		expect(screen.queryByRole('button', { name: /Off the team sheet/ })).not.toBeInTheDocument();
 	});
 
-	// An empty squad is a fixture against nobody, so `setPlayerTeam` refuses it —
+	// An empty squad is a fixture against nobody, so `setPlayerTeam` refuses it,
 	// and a button that would hit that refusal says why instead of failing.
 	it('says why when they are the last one on their team', async () => {
 		await draw(1, [

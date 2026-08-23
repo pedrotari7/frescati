@@ -15,7 +15,7 @@ import { instrument } from './lib/sentry';
  *
  * There is no other way to test push honestly. Firebase has no Cloud Messaging
  * emulator, so a notification only exists once something server-side asks FCM
- * for it — and the events that do are awkward to stage: `atRisk` fires on an
+ * for it, and the events that do are awkward to stage: `atRisk` fires on an
  * edge that only somebody else's response can cross, and reminders are a
  * scheduled sweep gated on a window that is recorded as sent forever after.
  *
@@ -54,7 +54,7 @@ export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; s
 
 		const prefs = userSnap.data()?.notificationPrefs as NotificationPrefs | undefined;
 		const gate = NOTIFICATION_PREF[kind];
-		// Absent prefs means opted in — the defaults are on, same as `tokensFor`.
+		// Absent prefs means opted in. The defaults are on, same as `tokensFor`.
 		// So does a kind with no switch behind it: `availability` is gated by
 		// following a game rather than by the profile, and this screen sends
 		// without one, so there is nothing here that could be off.
@@ -77,7 +77,7 @@ export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; s
 		// `sent` rather than `pushed` in the response: it is the field the screen
 		// has always read, and renaming it would only rename it back on the other
 		// side. `emailed` sits next to it because the fallback is invisible from
-		// the phone in exactly the way push is — the whole reason this exists.
+		// the phone in exactly the way push is. The whole reason this exists.
 		return { sent: pushed, emailed, devices: tokensSnap.size, prefEnabled, payload };
 	})
 );

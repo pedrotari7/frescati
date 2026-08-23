@@ -89,7 +89,7 @@ export const createOneOffGame = async (
 /**
  * Re-snapshots `venue` onto every game that hasn't kicked off yet, so an admin
  * correcting the season's venue doesn't leave the whole calendar pointing at
- * the old address. Games already played are left alone — same reasoning as
+ * the old address. Games already played are left alone, same reasoning as
  * `onSeasonWrite`'s roster repair: a finished game's venue is a record of
  * where it happened, not a mirror of the season's current settings.
  */
@@ -115,7 +115,7 @@ export const cancelGame = (seasonId: string, gameId: string, reason: string) =>
 
 /**
  * The reason is removed rather than blanked. Every reader already treats an
- * empty string as no reason — so this changes nothing today — but "no reason
+ * empty string as no reason, so this changes nothing today, but "no reason
  * given" then has two spellings, and which one a game carries depends on
  * whether it was ever cancelled. Absence is the state everywhere else here: no
  * response document means no response, no match document means not played.

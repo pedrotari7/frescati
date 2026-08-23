@@ -6,7 +6,7 @@ import { SeasonProvider, useSeasonContext } from './SeasonProvider';
  * What every screen under /s/ reads to draw itself.
  *
  * The piece worth pinning is the failure path. Nine screens branch on `error`
- * before they branch on the data, and offer `retry` as the way back — and both
+ * before they branch on the data, and offer `retry` as the way back, and both
  * of those pass through here from two separate listeners, either of which can
  * fail on its own.
  */
@@ -87,7 +87,7 @@ describe('SeasonProvider', () => {
 		});
 
 		// A screen only knows something behind it failed, not which of the two
-		// it was — and re-subscribing a healthy listener costs a snapshot it was
+		// it was, and re-subscribing a healthy listener costs a snapshot it was
 		// going to be handed anyway.
 		it('retries both listeners together', () => {
 			season.error = new Error('offline');

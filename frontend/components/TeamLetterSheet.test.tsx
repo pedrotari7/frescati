@@ -51,7 +51,7 @@ describe('TeamLetterSheet', () => {
 	beforeEach(() => jest.clearAllMocks());
 
 	// A letter on its own is not something anybody can pick between at the side
-	// of a pitch — the decision is about who team A currently is.
+	// of a pitch. The decision is about who team A currently is.
 	it('names the squad by a couple of first names rather than by its letter', async () => {
 		await draw();
 
@@ -78,7 +78,7 @@ describe('TeamLetterSheet', () => {
 	});
 
 	// The rotation always opens A against B, which is the whole reason this
-	// screen exists — so the sheet has to say so rather than leaving a letter
+	// screen exists, so the sheet has to say so rather than leaving a letter
 	// looking like a name.
 	it('explains that the first two teams kick off', async () => {
 		await draw();

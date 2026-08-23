@@ -5,7 +5,7 @@ export interface TestPushResult {
 	/** Devices FCM accepted the message for. */
 	sent: number;
 	/**
-	 * Whether the email fallback carried it instead — 1 or 0, since this only
+	 * Whether the email fallback carried it instead, 1 or 0, since this only
 	 * ever sends to the caller. Only ever nonzero when `sent` is 0.
 	 */
 	emailed: number;

@@ -74,7 +74,7 @@ describe('sendTestPush', () => {
 	});
 
 	// The admin notice has no game behind it, so it takes neither of the two
-	// arguments the others do — it stands the caller in as the newcomer.
+	// arguments the others do. It stands the caller in as the newcomer.
 	it('sends the new-player notice as if the caller had just joined', async () => {
 		await writeUser(CALLER, { displayName: 'Pedro Alvito' });
 
@@ -114,7 +114,7 @@ describe('sendTestPush', () => {
 	});
 
 	it('reports the token count separately from whether the preference is enabled', async () => {
-		// Opted out, so `sendPush` short-circuits before ever calling FCM — there
+		// Opted out, so `sendPush` short-circuits before ever calling FCM, there
 		// is no emulator for it, and this is the only way to exercise a nonzero
 		// device count without one.
 		await writeUser(CALLER, { notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS, reminders: false } });

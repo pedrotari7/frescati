@@ -18,7 +18,7 @@ export const BATCH_LIMIT = 400;
  *
  * Used for two different reasons and it is worth keeping them apart: against a
  * hard platform limit (`getAll` takes 30 refs, an `in` filter 30 values) it is
- * required, and against concurrency it is a choice — enough parallelism to be
+ * required, and against concurrency it is a choice: enough parallelism to be
  * quick, not enough to open a transaction per game at once.
  */
 export const chunksOf = <T>(items: T[], size: number): T[][] =>
@@ -31,7 +31,7 @@ export const chunksOf = <T>(items: T[], size: number): T[][] =>
  * use it too: `lib/firebase` builds its handle at module load, and a script has
  * to call `initializeApp` itself before there is an app to bind to.
  *
- * Not atomic across batches, and nothing here pretends otherwise — a failure
+ * Not atomic across batches, and nothing here pretends otherwise. A failure
  * partway leaves the earlier batches committed. Every caller is either
  * idempotent or replayed from a ledger, which is what makes that acceptable.
  */

@@ -2,7 +2,7 @@
 
 /*
  * Design tokens. The app is permanently dark, so there is one palette and no
- * `dark:` variants anywhere — components reference these names, never hex.
+ * `dark:` variants anywhere, components reference these names, never hex.
  */
 @theme {
 	/* Surfaces, darkest to lightest. */
@@ -16,7 +16,7 @@
 	--color-muted: #98a1b1;
 	--color-faint: #626b7a;
 
-	/* Brand — floodlit pitch green. */
+	/* Brand: floodlit pitch green. */
 	--color-brand: #3ddc84;
 	--color-brand-strong: #1db954;
 	--color-brand-deep: #0b3d22;
@@ -28,8 +28,8 @@
 	--color-extra: #60a5fa;
 
 	/*
-	 * Bibs. A team's identity on the pitch, deliberately none of the four above
-	 * — a squad tinted the same green as "in" reads as a status, not a side.
+	 * Bibs. A team's identity on the pitch, deliberately none of the four above,
+	 * a squad tinted the same green as "in" reads as a status, not a side.
 	 * Four is the ceiling, so there are four.
 	 */
 	--color-team-a: #22d3ee;
@@ -195,7 +195,7 @@
  * beat `.pb-safe` outright whatever the specificity, and the safe-area padding
  * on both bottom banners was dead code for as long as it had been written.
  *
- * That said — these still combine badly with another padding utility on the
+ * That said, these still combine badly with another padding utility on the
  * same property, because now it is source order in one layer deciding rather
  * than the layer itself. Two paddings on one element is the mistake; where a
  * fixed offset has to clear the home indicator *as well*, say so in one value
@@ -227,7 +227,7 @@
  * A 44px tap target around something deliberately drawn smaller.
  *
  * The scoreboard is the case this exists for: two steppers and two bibs have
- * to fit across a phone, so the buttons are 36px and cannot simply grow — but
+ * to fit across a phone, so the buttons are 36px and cannot simply grow, but
  * they are filled in at the side of a pitch, by somebody with cold hands, and
  * 36px is under every guideline there is.
  *

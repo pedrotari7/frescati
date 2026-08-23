@@ -25,7 +25,7 @@ describe('getGameWatchers', () => {
 	});
 
 	// The whole reason this is a callable. `firestore.rules` keeps a watcher
-	// document readable only by its owner — season admins included — and this
+	// document readable only by its owner, season admins included, and this
 	// function is the single hole cut in that, so it holds the same line the
 	// rule does and opens for nothing weaker than the global role.
 	it('rejects a caller who is not an app admin', async () => {
@@ -65,7 +65,7 @@ describe('getGameWatchers', () => {
 	});
 
 	// Read off the document ids, the same as `getWatcherUids` does for the
-	// notification itself — so what the screen shows and who actually gets sent
+	// notification itself, so what the screen shows and who actually gets sent
 	// to can't disagree about who is following.
 	it('reads the uid off the document id, not the field beside it', async () => {
 		await getDb().doc(`seasons/${SEASON}/games/${GAME}/watchers/${ANNA}`).set({ createdAt: '' });

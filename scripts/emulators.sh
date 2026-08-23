@@ -9,7 +9,7 @@
 #
 # The only real work here is finding a JDK the emulators will accept.
 # firebase-tools needs 21 or newer and takes whatever `java` is first on the
-# PATH, which on a Mac with an older JDK installed is not it — so every emulator
+# PATH, which on a Mac with an older JDK installed is not it, so every emulator
 # command has to be prefixed with JAVA_HOME by hand, forever, and forgetting
 # fails with a stack trace that says nothing about Java versions. Looking for
 # one here costs a dozen lines and makes `pnpm emulators` work as written.
@@ -25,7 +25,7 @@ MINIMUM_JDK=21
 # Major version of a `java` binary, or nothing if it can't be read. Handles both
 # the modern `21.0.1` and the legacy `1.8.0` forms. Done in awk rather than sed
 # because BSD sed has no `\?`, and getting nothing back here reads exactly like
-# "no JDK found" — so the failure is a silent fall-through to the wrong Java.
+# "no JDK found", so the failure is a silent fall-through to the wrong Java.
 java_major() {
 	local binary="$1"
 	[ -x "$binary" ] || return 0

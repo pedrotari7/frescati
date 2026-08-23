@@ -5,8 +5,8 @@ import { instrument } from '../src/lib/sentry';
  * `instrument` wraps every exported function in this backend, so what it must
  * not do matters more than what it does: telemetry may not change behaviour.
  *
- * Sentry itself is inert here — `isEmulated()` sees `FIRESTORE_EMULATOR_HOST`
- * and never initialises — which is the point. These assert the contract that
+ * Sentry itself is inert here. `isEmulated()` sees `FIRESTORE_EMULATOR_HOST`
+ * and never initialises, which is the point. These assert the contract that
  * holds whether or not a DSN is configured, and the pass-through path is
  * already exercised by all sixteen other suites, since every function they call
  * now goes through this.

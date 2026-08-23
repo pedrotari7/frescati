@@ -16,8 +16,8 @@ export interface NotificationReach {
  * What the app knows about reaching everybody.
  *
  * A callable rather than a read, because `users/{uid}/pushTokens` is private to
- * its owner and stays that way — a registration token is a capability to push
- * to that phone — and because an email address lives in Firebase Auth, which no
+ * its owner and stays that way: a registration token is a capability to push
+ * to that phone, and because an email address lives in Firebase Auth, which no
  * client can read at all. The function strips both and hands back only what the
  * admin screen needs; see `backend/src/getPushDevices.ts`.
  */

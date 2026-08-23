@@ -4,8 +4,8 @@ import { isMotmVotingOpen } from './motm';
 import { describeSquads, getSquadSizes, getTeamCount } from './tournament';
 
 /**
- * Where a game sits in its lifecycle. Orthogonal to headcount — a game can be
- * `open` and at risk at the same time.
+ * Where a game sits in its lifecycle. Orthogonal to headcount, since a game
+ * can be `open` and at risk at the same time.
  */
 export type GameLifecycle = 'cancelled' | 'finished' | 'live' | 'locked' | 'open';
 
@@ -42,9 +42,9 @@ export const getGameLifecycle = (
  * The bell and the trigger behind it read this same predicate, which is the
  * point of it existing rather than each checking a status they happened to
  * agree on. Two failures fall out of them disagreeing, and both are bad: a
- * button that is offered on a game where nothing would ever arrive, and — worse
- * — a button that has vanished while notifications keep coming, with no way
- * left to stop them.
+ * button that is offered on a game where nothing would ever arrive, and, worse,
+ * a button that has vanished while notifications keep coming, with no way left
+ * to stop them.
  *
  * Deliberately wider than `open`. Past the deadline a season admin can still
  * move the roster, and that is exactly when somebody counting on a lift wants
@@ -72,15 +72,15 @@ export interface GameGroups<T> {
  * first.
  *
  * The group that isn't obvious is `voting`. A game with its man-of-the-match
- * vote open has finished — there is nothing left to answer and nobody to bring
- * a ball — but there is still a question out to the people who played it, and
+ * vote open has finished. There is nothing left to answer and nobody to bring
+ * a ball. But there is still a question out to the people who played it, and
  * `played` is a collapsed list, which is where a two-day vote goes to be
  * missed. So a game stays up until the count lands and moves itself the moment
  * `closeMotmVoting` deletes the window. What it does not do is take the top
  * card: `next` is still the game people opened the app for.
  *
  * A game nobody confirmed has no window either, so it is `played` from the
- * final whistle exactly as it was before — a vote that never opened is not
+ * final whistle exactly as it was before. A vote that never opened is not
  * something to wait on.
  *
  * `next` is the soonest game that hasn't ended whether it is cancelled or not:
@@ -109,7 +109,7 @@ export const groupGames = <T extends Pick<Game, 'kickoff' | 'endsAt' | 'status' 
 /**
  * The game being played right now that somebody said they'd be at, or `null`.
  *
- * `myResponses` is one person's answers keyed by game id — this asks about the
+ * `myResponses` is one person's answers keyed by game id. This asks about the
  * player holding them, never about the group.
  *
  * Deliberately `status === 'in'` rather than `isConfirmed`: an extra waiting on
@@ -138,7 +138,7 @@ export const getNoResponseCount = (counts: GameCounts, memberCount: number): num
 	Math.max(0, memberCount - counts.membersIn - counts.membersOut);
 
 /**
- * Season members who haven't answered a game at all — the people a reminder
+ * Season members who haven't answered a game at all, which is who a reminder
  * is for. An extra with no response isn't in this list: they were never asked
  * in the first place, so there's nothing to nudge them about.
  */
@@ -174,8 +174,8 @@ export const getRole = (uid: string, season: Pick<Season, 'memberUids'>): Player
  * once a season admin has said so.
  *
  * Extras used to be confirmed by default, which meant anyone who could sign in
- * — and anyone with a Google account can — counted toward the headcount the
- * moment they tapped In. That let a stranger push a game over its minimum and
+ * counted toward the headcount the moment they tapped In. Anyone with a Google
+ * account can. That let a stranger push a game over its minimum and
  * suppress the "short of players" nudge the squad relies on. Putting them
  * behind an admin nod costs one tap per genuine guest and closes it.
  */
@@ -185,8 +185,8 @@ export const isConfirmed = (response: Pick<GameResponse, 'role' | 'confirmOverri
 /**
  * Where an extra stands on a game they said they were coming to: `pending`
  * until a season admin gives them a spot, `confirmed` once one has. `null`
- * whenever the question doesn't arise — a member, or anybody who has not said
- * they are in.
+ * whenever the question doesn't arise, meaning a member, or anybody who has not
+ * said they are in.
  *
  * This is the one thing in the app that changes underneath somebody without
  * them touching it, and it is the one the headcount deliberately says nothing
@@ -195,7 +195,7 @@ export const isConfirmed = (response: Pick<GameResponse, 'role' | 'confirmOverri
  * they had to go and find.
  *
  * Read off the response rather than off the season, so a row that knows nothing
- * about who is looking at it can still tell the two kinds of In apart — `role`
+ * about who is looking at it can still tell the two kinds of In apart. `role`
  * is snapshotted on the document when it is written. That is also the honest
  * source when the two disagree: somebody added to `memberUids` after answering
  * is still tallied as the extra their response says they are, until they answer
@@ -214,7 +214,7 @@ export const getExtraSpot = (
 /**
  * Extras who put their hand up and are waiting on an admin's nod.
  *
- * Derived from the two counters rather than stored beside them — `extrasIn`
+ * Derived from the two counters rather than stored beside them. `extrasIn`
  * counts everybody who said they were coming and `extrasConfirmed` the ones
  * holding a spot, so the difference is the queue. Clamped like
  * `getNoResponseCount`, because a game whose trigger is behind must not render
@@ -233,7 +233,7 @@ export const getAwaitingSpotCount = (counts: Pick<GameCounts, 'extrasIn' | 'extr
  * A mark beside the answer rather than a change to it, which is what makes this
  * a predicate of its own instead of a fourth `status`: the point is that both
  * facts read at once. `status` still says In, because that is what they said,
- * and this says the pitch disagreed — file it as `out` and a no-show becomes
+ * and this says the pitch disagreed. File it as `out` and a no-show becomes
  * indistinguishable from somebody who had the courtesy to say so, which is
  * exactly the distinction anybody asking wants.
  *
@@ -248,7 +248,7 @@ export const isAbsent = (response: Pick<GameResponse, 'status' | 'absent'>): boo
  * Whether a no-show is something anybody could yet know about.
  *
  * From kick-off, and not a moment before. Up to then "they haven't turned up"
- * describes everybody, including the eight people parking — and an admin handed
+ * describes everybody, including the eight people parking, and an admin handed
  * the button on a Sunday would be reporting a prediction. Past the final whistle
  * it stays available, because this is usually remembered rather than recorded on
  * the spot.
@@ -286,11 +286,11 @@ export const sortResponses = <T extends Pick<GameResponse, 'uid' | 'role' | 'con
  * `null` when it did nothing to it.
  *
  * `undefined` on either side is the absence of the document, which is the real
- * "no response" state rather than a gap — so signing up, changing your mind and
+ * "no response" state rather than a gap, so signing up, changing your mind and
  * taking an answer back all read as a change, and each has something to say.
  *
  * Editing a note or a season admin confirming an extra do not. Both rewrite the
- * whole document — `setResponse` never merges — so a trigger comparing anything
+ * whole document, since `setResponse` never merges, so a trigger comparing any
  * coarser than `status` would tell a watcher somebody's answer had moved when it
  * had sat still, which is exactly the notification that gets muted.
  */
@@ -346,7 +346,7 @@ export interface CountsDrift {
  * Where a game's function-owned counters disagree with its own responses.
  *
  * `counts` and `atRisk` are written **only** by `onResponseWrite`, which is a
- * background trigger — and a background trigger that exhausts its retries
+ * background trigger, and a background trigger that exhausts its retries
  * leaves no trace anywhere. The game keeps whatever total it last managed to
  * write, and nothing in the app ever looks again: the screens render the stored
  * number, the reminder text quotes it, and the first symptom is ten people
@@ -359,8 +359,8 @@ export interface CountsDrift {
  * that the trigger is failing while leaving it failing.
  *
  * A game with no responses is not a special case. It is created with
- * `EMPTY_COUNTS` and `atRisk: true` — values the security rules pin exactly —
- * and an empty tally reproduces both, so an untouched game reports nothing.
+ * `EMPTY_COUNTS` and `atRisk: true`, values the security rules pin exactly, and
+ * an empty tally reproduces both, so an untouched game reports nothing.
  * The one configuration where it wouldn't is a season with `minPlayers: 0`,
  * where no game can ever be at risk and the creation default therefore is
  * wrong; that season has a real problem and hearing about it is correct.
@@ -393,7 +393,7 @@ export const findCountsDrift = (
 /**
  * Parse a reminder-window list as typed, e.g. `"72, 24"` into `[72, 24]`.
  *
- * Anything that isn't a positive number is dropped rather than rejected — this
+ * Anything that isn't a positive number is dropped rather than rejected. This
  * is read from a free-text field, and a trailing comma shouldn't fail a save.
  * Sorted descending and de-duplicated so the stored value is canonical
  * regardless of what order somebody typed.
@@ -414,13 +414,13 @@ export const parseReminderHours = (input: string): number[] =>
  *
  * Every number on the two season forms is held as a string all the way to the
  * save, and this is what turns it back. `Number('')` is `0`, so coercing on
- * each keystroke made backspacing a field to empty — the ordinary way anybody
- * replaces 90 with 120 — write a literal zero that the next digit then landed
- * beside.
+ * each keystroke turned an emptied field into a literal zero that the next digit
+ * then landed beside. Emptying a field is the ordinary way anybody replaces 90
+ * with 120.
  *
  * `minimum` is a floor rather than a range because these have no sensible upper
  * end: a slot is as long as the pitch is booked for. It defaults to 1, since
- * every count on those forms is a thing there has to be at least one of — the
+ * every count on those forms is a thing there has to be at least one of. The
  * exception is the response deadline, where zero means answers stay open right
  * up to kick-off, so that one asks for 0.
  */
@@ -434,7 +434,7 @@ export const parseCount = (input: string, minimum = 1): number | null => {
  * Whether the football has actually happened.
  *
  * Asked of the clock rather than of `getGameLifecycle`, which answers
- * `cancelled` before it answers `finished` — so a game that is both never
+ * `cancelled` before it answers `finished`, so a game that is both never
  * reports as played, and anything reading the lifecycle to decide "is this
  * behind us" gets the wrong answer for exactly the game where it matters.
  *
@@ -448,8 +448,8 @@ export const hasBeenPlayed = (game: Pick<Game, 'endsAt'>, now: Date = new Date()
 /**
  * A season's games split on the final whistle, most recent first behind us.
  *
- * Not `groupGames`, which answers the season home screen's question — which
- * game is next, which are still being voted on. The admin calendar only needs
+ * Not `groupGames`, which answers the season home screen's question: which game
+ * is next, and which are still being voted on. The admin calendar only needs
  * to know whether the football has happened, and a cancelled game is still
  * ahead of us there because putting it back on is a thing an admin does from
  * that list.

@@ -1,8 +1,8 @@
 /**
  * The service worker's fetch routing.
  *
- * `public/sw.js` is a plain script rather than a module — it has to be, the
- * browser loads it by URL — so there is nothing to import. This reads the real
+ * `public/sw.js` is a plain script rather than a module. It has to be, the
+ * browser loads it by URL, so there is nothing to import. This reads the real
  * file and runs it with `self`, `caches`, `fetch` and `Response` shadowed by
  * fakes, capturing the listeners it registers. That keeps the test honest: it
  * exercises the file that actually ships, not a copy of its logic.
@@ -11,8 +11,8 @@
  * served, and a test file on a public URL is nobody's idea of a good time.
  *
  * What is worth covering is which strategy each kind of request gets. Getting
- * that wrong is invisible in development — where every deploy is a fresh cache
- * — and shows up weeks later as a phone that has quietly stopped updating.
+ * that wrong is invisible in development, where every deploy is a fresh cache
+ * and shows up weeks later as a phone that has quietly stopped updating.
  */
 
 import { readFileSync } from 'fs';
@@ -87,8 +87,8 @@ const createCaches = () => {
 
 /**
  * The channel the worker hands a page to answer on. Jest's jsdom provides no
- * `MessageChannel`, and the worker asks little enough of one — two ports and
- * delivery that isn't synchronous — that standing it up here is cheaper than
+ * `MessageChannel`, and the worker asks little enough of one, two ports and
+ * delivery that isn't synchronous, that standing it up here is cheaper than
  * bringing in Node's, whose ports hold the event loop open.
  */
 class FakePort {
@@ -165,7 +165,7 @@ const load = ({ clients = [] as FakeClient[] } = {}): Harness => {
 	};
 
 	// Shadowing the globals by parameter name is what lets the real file run
-	// unmodified — it reaches for these bare, exactly as it does in a browser.
+	// unmodified. It reaches for these bare, exactly as it does in a browser.
 	new Function('self', 'caches', 'fetch', 'Response', 'MessageChannel', source)(
 		self,
 		caches.api,
@@ -262,7 +262,7 @@ describe('the service worker', () => {
 	/**
 	 * The regression this file exists for. These are the requests every in-app
 	 * navigation makes, and their content changes with every deploy while their
-	 * URL does not — so cache-first left a returning phone answering out of the
+	 * URL does not, so cache-first left a returning phone answering out of the
 	 * build it first loaded, forever.
 	 */
 	describe('RSC payloads', () => {
@@ -338,7 +338,7 @@ describe('the service worker', () => {
 	 * resolving `position: fixed` against the viewport the web view had while it
 	 * was backgrounded, so the top bar and tab bar scrolled off with the page.
 	 * Ordering focus ahead of anything else is the fix, and a route change in
-	 * the running page avoids the load — and the layout — altogether.
+	 * the running page avoids the load, and the layout, altogether.
 	 */
 	describe('a notification tap', () => {
 		it('opens a window when there is none to reuse', async () => {

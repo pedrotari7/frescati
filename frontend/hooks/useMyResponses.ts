@@ -15,7 +15,7 @@ const NONE: MyResponses = {};
 /**
  * Every answer the signed-in user has given, keyed by game id.
  *
- * One collection-group listener rather than a document listener per game — the
+ * One collection-group listener rather than a document listener per game. The
  * games list needs to show "you haven't answered this one" on every row, and
  * that would otherwise be a listener per row.
  */

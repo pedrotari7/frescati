@@ -1,5 +1,5 @@
 /**
- * Timezone helpers built on `Intl.DateTimeFormat` — no dependencies, works
+ * Timezone helpers built on `Intl.DateTimeFormat`. No dependencies, works
  * identically in Node and the browser.
  *
  * We need these because a season slot is a *wall-clock* time ("every Tuesday at
@@ -50,7 +50,7 @@ export const getTimezoneOffsetMs = (instant: Date, timeZone: string): number => 
  * Convert a wall-clock time in `timeZone` to the UTC instant it refers to.
  *
  * Resolved iteratively: guess the offset from the naive instant, correct, then
- * re-check — a second pass is what makes DST-boundary days come out right.
+ * re-check. A second pass is what makes DST-boundary days come out right.
  */
 export const zonedTimeToUtc = (
 	year: number,

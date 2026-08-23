@@ -21,14 +21,14 @@ const toDate = (civilDate: string): Date | undefined => {
 /**
  * The `Date` react-day-picker hands back -> our `YYYY-MM-DD` string.
  *
- * Built from the local getters, never `toISOString` — that formats in UTC and
+ * Built from the local getters, never `toISOString`, that formats in UTC and
  * would land on the wrong day for anyone west of it.
  */
 const toCivilDate = (date: Date): string => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
 /**
  * Styled with Tailwind via `classNames` rather than the package's own
- * stylesheet — this app has one visual language (`globals.css`'s tokens) and
+ * stylesheet, this app has one visual language (`globals.css`'s tokens) and
  * a second, imported one would fight it.
  */
 const CALENDAR_CLASS_NAMES: Partial<ClassNames> = {
@@ -62,7 +62,7 @@ const Chevron = ({ orientation }: { orientation?: 'up' | 'down' | 'left' | 'righ
 
 /**
  * A drop-in for `<TextInput type='date'>` that opens a calendar with week
- * numbers instead of the browser's native picker — no browser exposes those
+ * numbers instead of the browser's native picker, no browser exposes those
  * through the native control, so getting them at all means not using it.
  *
  * Weeks run Monday-first with ISO week numbering throughout: the group plays

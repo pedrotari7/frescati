@@ -6,7 +6,7 @@
  * through four of its six matches still has to produce a fair order.
  *
  * The trick is to rank on **per-match rates** rather than totals. When every
- * team has played the same number — the ordinary case — dividing by a constant
+ * team has played the same number, the ordinary case, dividing by a constant
  * changes nothing, so this collapses to plain points. When they haven't, it is
  * the only ranking that doesn't reward whoever happened to get an extra game.
  */
@@ -160,8 +160,8 @@ export const getStandings = (teamCount: number, matches: TournamentMatch[]): Tea
 	return ordered.map((entry, index) => {
 		const previous = ordered[index - 1];
 
-		// Keys are only comparable inside a points group — head-to-head differs
-		// between them — so both checks are needed to call two rows level.
+		// Keys are only comparable inside a points group, since head-to-head
+		// differs between them, so both checks are needed to call two rows level.
 		if (previous && !(previous.points === entry.points && sameKeys(previous.keys, entry.keys))) {
 			position = index;
 		}

@@ -6,7 +6,7 @@ import * as email from '../src/lib/email';
 import { clearAuth, clearFirestore, getDb, writeUser } from './helpers';
 
 /**
- * Who gets a push, who gets an email instead, and — mostly — who gets neither.
+ * Who gets a push, who gets an email instead, and, mostly, who gets neither.
  *
  * FCM has no emulator, so `sendEachForMulticast` is stubbed with the shape it
  * really returns: one result per token, in the order they went in. That is the
@@ -48,7 +48,7 @@ const fcmReturns = (...outcomes: boolean[]) => {
  * Records who the fallback was asked to mail, and reports each one as sent.
  *
  * Returns a reader rather than the spy: what matters is which uids reached the
- * fallback, not whether it was called — an empty list is `sendPush` deciding
+ * fallback, not whether it was called. An empty list is `sendPush` deciding
  * nobody needs one, which is the same outcome as not asking.
  */
 const captureEmails = () => {
@@ -93,8 +93,8 @@ describe('sendPush', () => {
 		expect(emailed()).toEqual([]);
 	});
 
-	// A registered device is no guarantee of delivery — the token can be stale,
-	// or FCM can simply fail — and silence would look identical from the phone.
+	// A registered device is no guarantee of delivery, the token can be stale,
+	// or FCM can simply fail, and silence would look identical from the phone.
 	it('falls back to email when every one of their tokens fails', async () => {
 		await writeUser(ANNA);
 		await writeToken(ANNA, 'token-a');
@@ -132,7 +132,7 @@ describe('sendPush', () => {
 	});
 
 	// Absent prefs means opted in, matching `getPushReach` and `tokensFor`
-	// before it — a profile written before a preference existed must not read
+	// before it, a profile written before a preference existed must not read
 	// as switched off.
 	it('treats a profile with no preferences as opted in', async () => {
 		await getDb().doc(`users/${ANNA}`).set({ uid: ANNA, displayName: 'Anna' });
@@ -143,7 +143,7 @@ describe('sendPush', () => {
 	});
 
 	// `availability` is gated by following a game rather than by the profile, so
-	// there is no switch here to read — a `null` gate says the caller already
+	// there is no switch here to read, a `null` gate says the caller already
 	// established consent. Every kind switch being off must not silence it, or
 	// the bell would be a control that quietly does nothing for anybody who had
 	// turned the others down.
@@ -161,7 +161,7 @@ describe('sendPush', () => {
 
 	// It still goes *through* the fallback rather than around it. `emailFallback`
 	// picks a channel rather than a kind, so "never mail me" covers a game you
-	// followed as much as anything else — enforced inside `sendEmail`, which is
+	// followed as much as anything else, enforced inside `sendEmail`, which is
 	// stubbed here, so what this pins down is that the person reaches it at all.
 	// `email.test.ts` is where the preference itself is tested.
 	it('hands an unreachable follower to the email fallback like any other kind', async () => {

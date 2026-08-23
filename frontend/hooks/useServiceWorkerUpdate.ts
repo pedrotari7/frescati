@@ -6,9 +6,9 @@ import { captureError } from '../lib/sentry';
 /**
  * Registers the service worker, and notices when a newer one is ready.
  *
- * Registration and update detection are the same object — you cannot watch for
+ * Registration and update detection are the same object: you cannot watch for
  * an update without the `ServiceWorkerRegistration` that registering hands
- * back — so they live together here rather than in two places passing one
+ * back, so they live together here rather than in two places passing one
  * around.
  *
  * The worker no longer calls `skipWaiting()`, so a new build installs and then
@@ -31,7 +31,7 @@ export const useServiceWorkerUpdate = () => {
 		 * Whether this page is already under a worker's control.
 		 *
 		 * Load-bearing. `controllerchange` fires on a *first* install too, when
-		 * the brand-new worker claims a page that had none — and reloading there
+		 * the brand-new worker claims a page that had none, and reloading there
 		 * would mean every first visit to the app silently refreshed itself.
 		 * Only a page that had a controller and then got a different one has
 		 * been handed over to a new build.
@@ -66,7 +66,7 @@ export const useServiceWorkerUpdate = () => {
 
 				registration.current = current;
 
-				// Already finished waiting before this page even loaded — the
+				// Already finished waiting before this page even loaded. The
 				// common case for a phone that was closed during a deploy.
 				offer(current.waiting);
 
@@ -79,8 +79,8 @@ export const useServiceWorkerUpdate = () => {
 			})
 			.catch(error => {
 				// Nothing else observes this. A failed registration means no
-				// offline fallback and no push for this visitor, silently —
-				// worth knowing about even though there's nothing to say on
+				// offline fallback and no push for this visitor, silently.
+				// Worth knowing about even though there's nothing to say on
 				// screen.
 				console.error('Service worker registration failed', error);
 				void captureError(error, { stage: 'serviceWorkerRegister' });
@@ -96,7 +96,7 @@ export const useServiceWorkerUpdate = () => {
 	 * Ask the browser whether a new worker exists, every time the app comes back
 	 * to the foreground.
 	 *
-	 * Browsers check on navigation, and an installed PWA barely navigates — it
+	 * Browsers check on navigation, and an installed PWA barely navigates, it
 	 * is opened, used and backgrounded, sometimes for weeks, inside one document
 	 * that never asks for `/sw.js` again. Without this the update prompt would
 	 * mostly reach the people who least need it.
@@ -118,7 +118,7 @@ export const useServiceWorkerUpdate = () => {
 
 	/**
 	 * Take the update. The worker answers by activating, which fires
-	 * `controllerchange` above and reloads the page onto the new build — so
+	 * `controllerchange` above and reloads the page onto the new build, so
 	 * there is deliberately no `location.reload()` here. Reloading before the
 	 * handover completed would just load the old bundle again.
 	 */

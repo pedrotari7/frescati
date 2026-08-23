@@ -118,7 +118,7 @@ describe('sendReminders', () => {
 	});
 
 	it('records the window even when the whole squad has already answered', async () => {
-		// Nothing to send, but the window still has to be marked — otherwise this
+		// Nothing to send, but the window still has to be marked. Otherwise this
 		// game is re-examined every hour for three days.
 		await writeSeason(SEASON_ID, { status: 'active', memberUids: [MEMBER], reminderHours: [72, 24] });
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(48) });
@@ -146,8 +146,8 @@ describe('sendReminders', () => {
 
 /**
  * The two `catch` blocks, which are the reason this sweep is written the way it
- * is. Nothing retries a schedule — the schedule *is* the retry, and the next run
- * is an hour of silence away — so one bad document must never cost everybody
+ * is. Nothing retries a schedule. The schedule *is* the retry, and the next run
+ * is an hour of silence away, so one bad document must never cost everybody
  * else their nudge. Both go through `reportError`, because a swallowed failure
  * that repeats weekly is exactly what GCP cannot see.
  */

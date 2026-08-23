@@ -11,8 +11,8 @@ import { HOURLY, instrumentSchedule, reportError } from './lib/sentry';
  * Counts the man-of-the-match votes that have run out of time.
  *
  * The query is the whole design. `motmVotingUntilMillis` is on the game only
- * while its vote is open — set by the confirmation that opened it, deleted by
- * the count below — so this asks for the handful of games currently voting and
+ * while its vote is open, set by the confirmation that opened it, deleted by
+ * the count below, so this asks for the handful of games currently voting and
  * nothing else, however long the back catalogue gets. No composite index, no
  * lower bound to age out of, and no state to reconcile: a game either has a
  * window or it doesn't.
@@ -22,14 +22,14 @@ import { HOURLY, instrumentSchedule, reportError } from './lib/sentry';
  * rated after this one was rated against the ratings this one produced, so
  * there is no arithmetic that inserts ten Elo into the middle of that chain.
  * `computeGameRatings` reads the decision back on the way past and the bonus
- * falls out of the ordinary rating pass — which is also what makes it survive
+ * falls out of the ordinary rating pass, which is also what makes it survive
  * every replay after this one, rather than being a one-off adjustment the next
  * correction quietly erases.
  */
 export const closeMotmVoting = onSchedule(
 	// `EMAIL_SECRETS` because counting a vote announces the result to everybody
 	// who played, and without the secret declared here that notification's email
-	// fallback would silently mail nobody — the same reason the two confirmation
+	// fallback would silently mail nobody, the same reason the two confirmation
 	// entry points declare it. See `sendPush`.
 	{ schedule: 'every 1 hours', region: REGION, timeoutSeconds: 300, secrets: EMAIL_SECRETS },
 	// Two consecutive misses before raising, like the confirmation sweep beside
@@ -62,7 +62,7 @@ export const closeMotmVoting = onSchedule(
 					decided++;
 				} catch (error) {
 					// One wedged game must not leave every other vote open. The
-					// window stays put, so the next hour tries again — which is
+					// window stays put, so the next hour tries again, which is
 					// exactly the failure that repeats weekly with nothing to show
 					// for it, and why this is reported rather than only logged.
 					reportError(

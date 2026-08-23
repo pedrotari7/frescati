@@ -80,8 +80,8 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const { usersByUid } = useUsersByUid();
 	const { myResponses } = useMyResponses();
 	const write = useWrite();
-	// The vote closes on a deadline, so the panel needs a clock that moves —
-	// anything off `new Date()` would keep offering the buttons for as long as
+	// The vote closes on a deadline, so the panel needs a clock that moves.
+	// Anything off `new Date()` would keep offering the buttons for as long as
 	// the page stayed open.
 	const now = useNow();
 	// Who is actually in, subscribed here rather than taken from `game.counts`:
@@ -89,7 +89,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// team sheet gets compared against.
 	const { responses } = useResponses(seasonId, gameId);
 
-	// Which player's move sheet is open. One at a time — this is a tap on a name
+	// Which player's move sheet is open. One at a time. This is a tap on a name
 	// followed by a tap on a letter, not a mode the screen sits in.
 	const [movingUid, setMovingUid] = useState<string | null>(null);
 
@@ -97,7 +97,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// the sheet is about one team and the swap is with whichever is picked.
 	const [letteringIndex, setLetteringIndex] = useState<number | null>(null);
 
-	// Whether a confirmed game's scoreboard has been deliberately opened up —
+	// Whether a confirmed game's scoreboard has been deliberately opened up:
 	// see `ScoreboardLock`, which is where the reasoning lives. On the screen
 	// rather than on the game: it is about this visit, and it means nothing to
 	// anybody else looking at the same game.
@@ -109,8 +109,8 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 
 	// `matchesLoading` is in here for the same reason as the note below about a
 	// missing lineup: a screen must not draw a real state it does not know yet.
-	// A match with no document reads as `–` and that is the third state — never
-	// played, as distinct from played nil-nil — but an outstanding subscription
+	// A match with no document reads as `–` and that is the third state, never
+	// played, as distinct from played nil-nil, but an outstanding subscription
 	// renders `–` too, so without this a 5–3 game came up as `– –` and snapped
 	// to the score a moment later. Wrong on the one screen whose whole job is
 	// the scoreline, and wrong in the specific way that makes the number
@@ -156,7 +156,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					message={
 						shortBy > 0
 							? `${game.counts.playing} playing so far. Teams appear at ${MIN_TOURNAMENT_PLAYERS}, so ${shortBy} more to go.`
-							: 'Teams are being picked — this updates on its own in a few seconds.'
+							: 'Teams are being picked. This updates on its own in a few seconds.'
 					}
 				/>
 			</SeasonShell>
@@ -171,13 +171,13 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const fixtures = getFixtures(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
 	const fit = getScheduleFit(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
 
-	// A round only means something once it bundles more than one match — two
+	// A round only means something once it bundles more than one match. Two
 	// teams meet once a round, so every "round" would just repeat the match
-	// count — and only worth flagging once the game actually plays a second one.
+	// count, and only worth flagging once the game actually plays a second one.
 	const roundLength = getRoundLength(lineup.teams.length);
 	const showRounds = roundLength > 1 && fixtures.length > roundLength;
 
-	// Not everything under `matches/` belongs to this game — see
+	// Not everything under `matches/` belongs to this game: see
 	// `selectPlayedMatches`. The screen has to agree with the function that
 	// rates the game, or the table here would explain a set of ratings it
 	// didn't produce.
@@ -197,7 +197,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const standings = result?.standings ?? getStandings(lineup.teams.length, playedMatches);
 	const deltas = result ? new Map(result.changes.map(change => [change.uid, change.delta])) : undefined;
 
-	// Anyone who answered the game can keep the score — that is the point, so
+	// Anyone who answered the game can keep the score. That is the point, so
 	// whoever has a free hand does it. Confirming the game closes it to everyone
 	// but an admin, and closes it to a *tap* even for them: a correction replays
 	// the ladder from here on, so `locked` is a scoreboard they have to open
@@ -206,7 +206,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const access = getScoreAccess({ finalised, isAdmin, hasResponded: !!myResponses[gameId] });
 	const canScore = access === 'open' || (access === 'locked' && correcting);
 
-	// A score is recorded against a fixture — "match 1, team A v team B" — so
+	// A score is recorded against a fixture: "match 1, team A v team B", so
 	// re-picking the squads underneath one would leave the scoreboard describing
 	// a game nobody played. The lineup is settled from the first score in, and
 	// frozen outright once the game is confirmed, which `runTeamRebuild` enforces
@@ -214,12 +214,12 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const lineupOpen = played === 0 && !finalised;
 
 	// Not `isAdmin`, which is either kind of admin, and not `isSeasonAdmin`,
-	// which is neither — Reshuffle is the one button here that asks for the
+	// which is neither. Reshuffle is the one button here that asks for the
 	// global claim, and the block that draws it says why.
 	const isAppAdmin = user?.isAppAdmin === true;
 
 	// The lineup is frozen once the ledger has been computed against it, which
-	// `setPlayerTeam` refuses on its side too — this is about which buttons get
+	// `setPlayerTeam` refuses on its side too. This is about which buttons get
 	// offered. Season admins rather than everyone `isAdmin` covers: an app admin
 	// passing through somebody else's season has no standing to move their
 	// players around.
@@ -235,7 +235,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 		response => response.uid
 	);
 
-	// A hand-picked lineup stops being re-picked, which is the point of it — and
+	// A hand-picked lineup stops being re-picked, which is the point of it, and
 	// the price is that the sheet and the pool can drift apart in both
 	// directions: somebody says In afterwards and lands on no team, or somebody
 	// on a squad taps Out and stays on it. Neither is wrong, both are invisible,
@@ -243,7 +243,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// lineup needs none of this said: a rebuild is already seconds away.
 	// Reported no-shows. Not filtered out of the pool above: they said In and
 	// were picked, and the sheet's job here is to say who was on which team and
-	// which of them never turned up — not to rewrite the evening as though the
+	// which of them never turned up, not to rewrite the evening as though the
 	// squads had been picked without them. Moving somebody off the sheet is a
 	// separate decision, and the button for it is right there.
 	const absentUids = new Set(getAbsentUids(responses));
@@ -258,12 +258,12 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const unequal = new Set(standings.map(row => row.played)).size > 1;
 
 	// Only the people on the team sheet get a vote, which is what the rules
-	// enforce too — being an admin is not being on the pitch.
+	// enforce too. Being an admin is not being on the pitch.
 	const playedInThis = !!user && lineup.teams.some(team => team.uids.includes(user.uid));
 
 	// Where the panel goes depends on whether it is a ballot or a record. While
 	// the vote is open it is the only thing on the screen with a deadline, and
-	// the notification that opened it lands here — so it goes first, above a
+	// the notification that opened it lands here, so it goes first, above a
 	// lineup and a scoreboard that are both already settled. Once it is decided
 	// it drops back to sitting with the table, which is the other thing the
 	// evening produced. Drawn once either way: the panel returns nothing at all
@@ -281,7 +281,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 			onVote={async uid => {
 				if (!user) return;
 
-				// Tapping your own pick again takes it back — abstaining is a
+				// Tapping your own pick again takes it back. Abstaining is a
 				// real position, and there is nowhere else to express it.
 				await write(
 					() =>
@@ -318,7 +318,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 							<span>
 								Sorted out by {displayNameOf(usersByUid.get(lineup.edited.by))}{' '}
 								{formatRelative(lineup.edited.at)}. These teams stay as they are now
-								{isAppAdmin ? ' — Reshuffle hands them back to the app.' : '.'}
+								{isAppAdmin ? '. Reshuffle hands them back to the app.' : '.'}
 							</span>
 						</p>
 					) : (
@@ -331,18 +331,18 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 						<p className='text-pending mt-3 flex items-start gap-1.5 text-sm'>
 							<ExclamationTriangleIcon className='mt-0.5 size-4 shrink-0' aria-hidden='true' />
 							<span>
-								{fit.totalMinutes} minutes of football in a {fit.slotMinutes} minute slot — about{' '}
+								{fit.totalMinutes} minutes of football in a {fit.slotMinutes} minute slot, about{' '}
 								{fit.overrunMinutes} over. Shorten the matches in season settings, or expect to run
 								late.
 							</span>
 						</p>
 					)}
 
-					{/* App admins only — narrower than every other button on this screen,
+					{/* App admins only, narrower than every other button on this screen,
 					    and narrower than it used to be. Re-picking is free, instant and
 					    leaves no mark, so a button in front of every season admin is one
 					    that gets pulled again and again until the squads come out the way
-					    somebody fancies — which is the one thing a seeded optimizer exists
+					    somebody fancies, which is the one thing a seeded optimizer exists
 					    to take out of anybody's hands. A season admin who genuinely needs a
 					    different sheet still has `setPlayerTeam`, which moves the person
 					    they mean and signs the lineup with their name.
@@ -372,7 +372,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 								<p className='text-faint mt-2 text-xs'>
 									{finalised
 										? 'The lineup is frozen now the game is confirmed.'
-										: 'Scores are in — clear them to re-pick the teams.'}
+										: 'Scores are in. Clear them to re-pick the teams.'}
 								</p>
 							)}
 						</>
@@ -411,7 +411,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 						</div>
 
 						<p className='text-faint mb-3 text-xs'>
-							In for this game, but on no team — the app stopped picking when the teams were sorted out by
+							In for this game, but on no team. The app stopped picking when the teams were sorted out by
 							hand.
 						</p>
 
@@ -502,17 +502,17 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 						<StandingsTable standings={standings} unequal={unequal} />
 
 						{/* Said on the screen the table is on, because this is where
-						    somebody works out why their rating moved the way it did —
+						    somebody works out why their rating moved the way it did,
 						    and the answer stopped being "we came second" in Aug 2026. */}
 						<p className='text-faint mt-4 text-xs'>
-							Ratings read how much of the evening each team won, not just where it finished — so two
+							Ratings read how much of the evening each team won, not just where it finished, so two
 							teams that end up level move almost together, and the team that wins the table always moves
 							further.
 						</p>
 
 						{finalised ? (
 							<p className='text-faint mt-2 text-xs'>
-								Confirmed {formatRelative(game.resultFinalisedAt!)}. Ratings have been applied — a
+								Confirmed {formatRelative(game.resultFinalisedAt!)}. Ratings have been applied. A
 								season admin correcting a score from here will work them out again.
 							</p>
 						) : (

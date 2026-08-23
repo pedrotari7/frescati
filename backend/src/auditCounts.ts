@@ -21,14 +21,14 @@ import { DAILY, instrumentSchedule, reportError } from './lib/sentry';
  *
  * `instrument` cannot see this, because nothing threw where anybody was
  * looking. Neither can the cron check-in, because the sweep that matters ran
- * fine — it was a trigger somewhere else that didn't. This is the third case:
+ * fine. It was a trigger somewhere else that didn't. This is the third case:
  * state that is quietly wrong, which only a comparison finds.
  *
  * **It reports and does not repair.** `recountGames` is the repair and has been
  * all along; running it automatically here would clear the symptom every night
  * while the trigger carried on failing, and the evidence would be gone by
- * morning. It would also bump `teamsGeneration` on every game it touched — see
- * `recountGame` — queueing a rebuild off the back of a health check.
+ * morning. It would also bump `teamsGeneration` on every game it touched, see
+ * `recountGame`, queueing a rebuild off the back of a health check.
  *
  * Scoped to games that have not kicked off yet, in seasons that are still
  * active. A drifted counter on a game already played changes nothing: the
@@ -65,7 +65,7 @@ export const auditGameCounts = onSchedule(
 		// One report for the whole sweep rather than one per game. A trigger
 		// that has stopped working takes out every game it should have written,
 		// so the per-game version would arrive as a wall of near-identical
-		// issues saying one thing — and the number of games affected is the
+		// issues saying one thing, and the number of games affected is the
 		// most useful part of that one thing.
 		reportError(
 			`Stored counters disagree with the responses on ${drifted.length} of ${checked} upcoming games`,

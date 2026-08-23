@@ -83,7 +83,7 @@ export const onGameWrite = onDocumentWritten(
 		//
 		// `force`, because this is the one rebuild that is somebody *asking* for
 		// one. Every other is a side effect of an answer moving, and those leave
-		// a hand-picked sheet alone — but an admin who has pinned a lineup and
+		// a hand-picked sheet alone, but an admin who has pinned a lineup and
 		// then taps Reshuffle is asking to start again, and this is where they
 		// say so.
 		if (

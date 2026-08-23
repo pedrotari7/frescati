@@ -9,7 +9,7 @@
 # each route the first time a test opens it, so the first visit to every screen
 # in the suite was a stall on the critical path, and every page load after it
 # carried webpack's eval'd modules. The whole run spent about as long compiling
-# and re-rendering as it did testing. It is also the more honest thing to test —
+# and re-rendering as it did testing. It is also the more honest thing to test,
 # `next.config.js` says out loud that `next dev` is a materially different app
 # from the one that ships, and this is the one suite whose job is to check that
 # the halves meet in the shape they meet in production.
@@ -18,7 +18,7 @@
 # needs nothing from Firestore and Firestore needs nothing from it, so most of
 # the twenty-odd seconds it takes hides behind the ten-odd seconds of emulators
 # coming up instead of being added to them. The marker file is how the command
-# inside `emulators:exec` — a different shell, so no job control reaches it —
+# inside `emulators:exec`, a different shell, so no job control reaches it,
 # finds out whether that build finished and whether it worked.
 #
 # It waits for the build **before** seeding rather than after, and that ordering
@@ -42,7 +42,7 @@ cd "$ROOT"
 # A fixed path rather than `mktemp`: `exec` below replaces this shell, so an
 # EXIT trap would never fire and every run would leave one behind. Truncated
 # here instead, which also means a crashed run can't hand the next one a stale
-# verdict. Two e2e runs at once on one machine would fight over it — and over
+# verdict. Two e2e runs at once on one machine would fight over it, and over
 # port 3000 and the emulators long before that.
 STATUS="${TMPDIR:-/tmp}/frescati-e2e-frontend-build"
 : > "$STATUS"

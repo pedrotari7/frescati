@@ -12,7 +12,7 @@ import { clearFirestore, getDb, writeMatch, writeSeason, writeTeams } from './he
  * these check is that it recomputes what it says it recomputes, and that every
  * game it cannot recompute is named rather than skipped in silence.
  *
- * The other half of its job — writing nothing — is checked directly, since this
+ * The other half of its job, writing nothing, is checked directly, since this
  * is the one script in the folder with no `--dry-run` to fall back on.
  */
 
@@ -85,7 +85,7 @@ describe('rate-replay-report', () => {
 	});
 
 	// The headline the whole change is being judged on. Team A won its one match
-	// against an even field — first place, but only 2-1, so four fifths of the
+	// against an even field, first place, but only 2-1, so four fifths of the
 	// rate rather than all of it and short of the two displayed points a rout
 	// would pay at the shipped 20.
 	it('reads a settled movement off the state the game was originally rated from', async () => {
@@ -95,7 +95,7 @@ describe('rate-replay-report', () => {
 
 		expect(output()).toMatch(/K=20\s+1\.4\s+1\.4\s+1\.4/);
 		// And what the entry says it paid at the time: 20 Elo, four of the same
-		// points — which is the comparison the whole report exists to draw.
+		// points, which is the comparison the whole report exists to draw.
 		expect(output()).toMatch(/as rated\s+4\.0/);
 	});
 
@@ -165,7 +165,7 @@ describe('rate-replay-report', () => {
 		});
 
 		// Guessing the seed would price a first appearance off a number the game
-		// never used — the same refusal `backfill-ledger-seed` makes.
+		// never used, the same refusal `backfill-ledger-seed` makes.
 		it('names a game that rated somebody unrated with no seed recorded', async () => {
 			await playedGame('game-1', '2026-09-01T17:00:00.000Z', {
 				before: Object.fromEntries(

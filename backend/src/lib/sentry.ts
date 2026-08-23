@@ -19,8 +19,8 @@ type MonitorConfig = NonNullable<Parameters<typeof Sentry.withMonitor>[2]>;
  * anywhere, and half this backend runs unattended on a schedule, where a
  * failure looks exactly like a quiet week.
  *
- * So this is here for two things Cloud Logging doesn't give us — a single inbox
- * shared with the frontend, and something that pages — and for one class of
+ * So this is here for two things Cloud Logging doesn't give us: a single inbox
+ * shared with the frontend, and something that pages. And for one class of
  * failure GCP genuinely cannot see: the errors this code deliberately swallows.
  * `sendReminders` catches per season so one bad document can't cost every other
  * season its reminders; that `catch` is correct, and it also means the failure
@@ -32,7 +32,7 @@ type MonitorConfig = NonNullable<Parameters<typeof Sentry.withMonitor>[2]>;
 
 /**
  * A `defineString` rather than a secret, deliberately. A DSN authorizes writing
- * an event to one project and reads nothing back — it ships in the browser
+ * an event to one project and reads nothing back. It ships in the browser
  * bundle on the frontend, so it is public by construction. Making it a secret
  * would add a Secret Manager entry that every deploy fails without, for a value
  * that isn't one.
@@ -40,7 +40,7 @@ type MonitorConfig = NonNullable<Parameters<typeof Sentry.withMonitor>[2]>;
 const SENTRY_DSN = defineString('SENTRY_DSN', { default: '' });
 
 /**
- * Anything pointed at an emulator reports nothing — a local `pnpm dev:seeded`
+ * Anything pointed at an emulator reports nothing. A local `pnpm dev:seeded`
  * run, and the backend test suite.
  *
  * Wider than `email.ts`'s check on purpose. `FUNCTIONS_EMULATOR` is only set by
@@ -68,7 +68,7 @@ let initialised = false;
 /**
  * Start the SDK once per container, and say whether it is worth talking to.
  *
- * Lazy because `defineString.value()` is only meaningful at runtime — read at
+ * Lazy because `defineString.value()` is only meaningful at runtime. Read at
  * module load it would be the literal `{{params.SENTRY_DSN}}` during the
  * deploy-time analysis pass.
  */
@@ -86,7 +86,7 @@ const ensureInitialised = (): boolean => {
 			/**
 			 * Errors only. The performance integrations are the half of the Node
 			 * SDK that patches `http`, `pg` and friends on import, which is why
-			 * the usual advice is to load Sentry before everything else — a rule
+			 * the usual advice is to load Sentry before everything else, a rule
 			 * that is awkward to hold in a file the Firebase CLI also analyses.
 			 * Dropping them removes the requirement along with the overhead.
 			 */
@@ -109,8 +109,8 @@ const ensureInitialised = (): boolean => {
  * Log a failure and report it.
  *
  * For the `catch` blocks that deliberately absorb an error to keep a sweep
- * going. Every one of those is correct — one malformed season must not cost
- * the other seasons their reminders — and every one of them is also a place a
+ * going. Every one of those is correct. One malformed season must not cost
+ * the other seasons their reminders, and every one of them is also a place a
  * failure can repeat weekly with nothing to show for it but a log line nobody
  * is reading. The `logger.error` call is kept as well as, not replaced by, the
  * report: Cloud Logging stays the complete record, Sentry is the thing that
@@ -131,8 +131,8 @@ export const reportError = (message: string, context: Record<string, unknown>, e
 export const HOURLY: MonitorConfig['schedule'] = { type: 'interval', value: 1, unit: 'hour' };
 
 /**
- * The audit sweep. Nothing it looks at has a deadline — it reports on state
- * that is already wrong and will stay wrong until somebody repairs it — so a
+ * The audit sweep. Nothing it looks at has a deadline. It reports on state
+ * that is already wrong and will stay wrong until somebody repairs it, so a
  * daily pass catches drift well before the next game without spending a
  * collection scan every hour to find nothing.
  */
@@ -142,9 +142,9 @@ export const DAILY: MonitorConfig['schedule'] = { type: 'interval', value: 1, un
  * Wrap a scheduled function so Sentry notices when it stops running.
  *
  * The failure this exists for is the one `instrument` cannot see. A sweep that
- * throws reports an error; a sweep that never runs at all — a scheduler job
- * deleted, a deploy that dropped the function, a schedule quietly not upserted
- * — produces nothing. There is no error, no log line, and no way to tell the
+ * throws reports an error; a sweep that never runs at all, a scheduler job
+ * deleted, a deploy that dropped the function, a schedule quietly not upserted,
+ * produces nothing. There is no error, no log line, and no way to tell the
  * silence apart from a week where nothing needed doing. Nobody finds out until
  * somebody says they stopped getting reminders.
  *
@@ -173,7 +173,7 @@ export const instrumentSchedule = (name: string, monitor: MonitorConfig, handler
  * Wrap a function handler so anything it throws is reported before it leaves.
  *
  * Applied at each definition site rather than to the exported `CloudFunction`,
- * which is not a plain function — it carries the `__endpoint` metadata the
+ * which is not a plain function. It carries the `__endpoint` metadata the
  * Firebase CLI reads to work out what to deploy, and wrapping it loses that.
  *
  * The error is rethrown, always. Background triggers rely on a throw to get
@@ -187,7 +187,7 @@ export const instrument =
 			return await handler(...args);
 		} catch (error) {
 			/**
-			 * An `HttpsError` is a decision this code made — not signed in, not
+			 * An `HttpsError` is a decision this code made, not signed in, not
 			 * an admin, a game that doesn't exist. Reporting those would fill the
 			 * inbox with the authorization layer working correctly, and an inbox
 			 * full of non-events is one nobody opens. Anything else is a surprise
@@ -200,7 +200,7 @@ export const instrument =
 			throw error;
 		} finally {
 			// In the `finally` so it also covers a `reportError` raised deeper in
-			// a handler that then returned perfectly normally — which is the most
+			// a handler that then returned perfectly normally, which is the most
 			// common case, since those are the ones nothing else surfaces.
 			if (ensureInitialised()) await Sentry.flush(FLUSH_MS);
 		}

@@ -203,7 +203,7 @@ describe('GameRow', () => {
 	});
 
 	// A played game is faded, but not while it is still asking the squad for
-	// something — that row is the one thing on the screen with a deadline.
+	// something, that row is the one thing on the screen with a deadline.
 	it('flags a played game whose man-of-the-match vote is open, undimmed', () => {
 		const afterwards = new Date('2026-09-01T19:00:00.000Z');
 
@@ -294,7 +294,7 @@ describe('GameRow', () => {
 		expect(bell()).toHaveAttribute('aria-checked', 'true');
 	});
 
-	// The bell is a button and the row is a link. Nested, the link swallows it —
+	// The bell is a button and the row is a link. Nested, the link swallows it.
 	// which is why it sits beside the link rather than inside it.
 	it('keeps the bell out of the link the row leads with', () => {
 		render(
@@ -312,7 +312,7 @@ describe('GameRow', () => {
 		expect(screen.getByRole('link')).not.toContainElement(bell());
 	});
 
-	it('drops the bell on a game that is off — there is nothing left to hear about', () => {
+	it('drops the bell on a game that is off, there is nothing left to hear about', () => {
 		render(
 			<GameRow
 				game={game({ status: 'cancelled' })}
@@ -329,7 +329,7 @@ describe('GameRow', () => {
 	});
 
 	// Nothing arrives about a game that has been played, so nothing offers to
-	// turn it on — the row it is drawn on is in the Played list either way.
+	// turn it on, the row it is drawn on is in the Played list either way.
 	it('drops the bell on a game already played', () => {
 		render(
 			<GameRow

@@ -32,7 +32,7 @@ jobs:
       - run: pnpm --filter backend lint
       - run: pnpm --filter backend build
       # `backend/scripts` is excluded from the build above, because none of it is
-      # deployed with the functions — so until this step the only thing checking
+      # deployed with the functions, so until this step the only thing checking
       # the seeder was `ts-node` doing it again on every single seed, in front of
       # every `dev:seeded` and every e2e run. Checked once here instead.
       - run: pnpm --filter backend typecheck:scripts

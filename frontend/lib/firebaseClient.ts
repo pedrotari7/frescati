@@ -33,8 +33,8 @@ const FUNCTIONS_REGION = 'europe-west1';
 /**
  * App Check attests that a request came from *this app* rather than from a
  * script holding the same config. That is a different question from who may
- * sign in — anyone with a Google account may, deliberately, see "Who can see
- * the group" in the README — and this does nothing about a real person using
+ * sign in, anyone with a Google account may, deliberately, see "Who can see
+ * the group" in the README, and this does nothing about a real person using
  * the real app. What it closes is the scripted case: the config above is public
  * by design, every read is a signed-in read, and without this anything holding
  * those values could sit and page the whole database, or churn responses to
@@ -57,7 +57,7 @@ let appCheckStarted = false;
 
 /**
  * Started lazily, from whichever service is reached for first, because it has
- * to run before the first request that needs a token — and eagerly at module
+ * to run before the first request that needs a token, and eagerly at module
  * scope it would run during prerendering, where `window` doesn't exist and
  * reCAPTCHA cannot load.
  *
@@ -85,7 +85,7 @@ const startAppCheck = (): void => {
 };
 
 /**
- * The app itself, for the one SDK with no accessor of its own here — Cloud
+ * The app itself, for the one SDK with no accessor of its own here, Cloud
  * Messaging, which `lib/push.ts` reaches for directly.
  *
  * Exported as a function rather than as the instance so that *every* way into
@@ -117,14 +117,14 @@ export const getFirebaseAuth = (): Auth => {
  * Firestore, cached on disk rather than in memory.
  *
  * The default cache is per-page, which meant every screen in the app had to
- * wait on the network before it could draw anything at all — and on the one
+ * wait on the network before it could draw anything at all, and on the one
  * launch this app actually gets, an installed PWA opening cold on a phone, that
  * wait is the worst it ever is. Three things have to complete before the first
  * snapshot can arrive: an ID token refresh (the cached one is always expired,
  * because the app is opened once a week), an App Check token, which means
- * fetching reCAPTCHA from `www.google.com` — a script the SDK loads with no
+ * fetching reCAPTCHA from `www.google.com`, a script the SDK loads with no
  * timeout and no error handler, so a request iOS never gets round to dispatching
- * stalls every read behind it indefinitely — and only then the Firestore stream
+ * stalls every read behind it indefinitely, and only then the Firestore stream
  * itself. Nothing renders while that plays out, so the season lands on a
  * skeleton and stays there.
  *
@@ -135,7 +135,7 @@ export const getFirebaseAuth = (): Auth => {
  * useful before the connection is.
  *
  * `persistentMultipleTabManager` because there is nothing to gain from the
- * single-tab default here — it takes an exclusive lock on the store, so a
+ * single-tab default here. It takes an exclusive lock on the store, so a
  * second tab left open on a laptop falls back to no cache at all and, worse, is
  * the tab that then has to be found and closed.
  *
@@ -157,8 +157,8 @@ export const getDb = (): Firestore => {
 };
 
 /**
- * Callable functions. Only used for the handful of things rules can't express —
- * granting the app-admin claim — not as a general API layer.
+ * Callable functions. Only used for the handful of things rules can't express:
+ * granting the app-admin claim, not as a general API layer.
  */
 export const getFunctionsClient = (): Functions => {
 	if (!functionsInstance) {

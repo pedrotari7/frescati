@@ -24,7 +24,7 @@ export const subscribeToTeams = (
  *
  * Bumps a counter on the game rather than writing a lineup: the teams document
  * is function-only, which is what guarantees nobody can hand-pick a side. The
- * counter feeds the optimiser's seed, so this re-rolls rather than re-runs — the
+ * counter feeds the optimiser's seed, so this re-rolls rather than re-runs, the
  * new teams will be just as balanced, and different.
  *
  * `increment` rather than a read-then-write so two admins tapping at once
@@ -41,7 +41,7 @@ export const reshuffleTeams = (seasonId: string, gameId: string) =>
  * the side they fancy. The season-admin check, the pool check and the refusal to
  * empty a squad all live in `setPlayerTeam` for the same reason.
  *
- * `teamIndex: null` takes them off the sheet — for the person who said In and
+ * `teamIndex: null` takes them off the sheet, for the person who said In and
  * never turned up, or the one who has to leave at half seven.
  *
  * **This pins the lineup.** From here the app stops re-picking these teams when
@@ -61,13 +61,13 @@ export const setPlayerTeam = async (
 };
 
 /**
- * Say which squad is team A — or B, or C.
+ * Say which squad is team A, or B, or C.
  *
  * Not a rename. Team A is the first index, and `getFixtures` pairs teams by
  * index, so the rotation always opens with A against B: the answer to "team A
  * is still tying their laces, start with the other two" is to say the squad
  * that is ready is A, and the running order follows. Swapping rather than
- * permuting, so the second tap is predictable — everything the admin didn't
+ * permuting, so the second tap is predictable. Everything the admin didn't
  * pick stays where it is.
  *
  * Refused once anything has been scored, because a match document stores the
@@ -95,7 +95,7 @@ export const subscribeToMatches = (
  * Record a scoreline.
  *
  * Writes the whole document rather than merging, and the id comes from the
- * fixture's place in the running order — so two people scoring the same match
+ * fixture's place in the running order, so two people scoring the same match
  * at the same moment write the same document, and the later one wins rather
  * than the two of them creating a duplicate nobody can reconcile.
  *
@@ -120,7 +120,7 @@ export const setMatchScore = (
 		updatedAt: new Date().toISOString(),
 	});
 
-/** Back to "not played" — the third state is the absence of a document. */
+/** Back to "not played". The third state is the absence of a document. */
 export const clearMatchScore = (seasonId: string, gameId: string, order: number) =>
 	deleteDoc(matchDoc(seasonId, gameId, order));
 
@@ -147,15 +147,15 @@ export const subscribeToSeasonLedger = (
  * Every rated game one player appeared in, across every season.
  *
  * Filtered on their own key inside `positions` rather than by reading the whole
- * ledger and discarding most of it — a career is a handful of a group's games,
+ * ledger and discarding most of it, a career is a handful of a group's games,
  * and this is a screen anybody can open about anybody. Firestore indexes each
  * subfield of a map on its own, so this needs no composite index and no array
  * mirrored alongside the map that already holds the answer; the trade is that
  * `positions` must stay indexed, so don't add a field exemption for it.
  *
  * `FieldPath` rather than a dotted string because a uid is not a legal field
- * path segment — the seeded ones contain a hyphen, and Google's contain digits
- * — and the string form is parsed.
+ * path segment: the seeded ones contain a hyphen, and Google's contain digits,
+ * and the string form is parsed.
  *
  * Unordered on purpose. An inequality filter forces the first sort onto the
  * field it filters, which here is a finishing place; kickoff order is put back
@@ -192,7 +192,7 @@ export const subscribeToResult = (
  * A callable because rules cannot express this: it reads every player's current
  * rating, writes them all back and leaves a ledger entry, and applying it twice
  * would rate the same result against the ratings the first pass produced. The
- * function refuses that second application — and says so, which is why this
+ * function refuses that second application, and says so, which is why this
  * returns rather than silently succeeding.
  */
 export const finaliseTournament = async (seasonId: string, gameId: string): Promise<void> => {

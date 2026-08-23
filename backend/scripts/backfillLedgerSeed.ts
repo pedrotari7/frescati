@@ -3,25 +3,25 @@
  * before the field existed, from the result document the game was rated into.
  *
  * `before: null` records that a player carried no rating in, which is what makes
- * a rewind exact — but the game did not rate them off nothing. It seeded them at
+ * a rewind exact, but the game did not rate them off nothing. It seeded them at
  * the live average of the season's rated members and moved them from there, and
  * that number went unrecorded. So every screen aggregating the ledger had to
  * score a first appearance as no movement at all, and a newcomer sat on 0 in the
  * season table while the ten people they played with showed the same result as
- * ±4 — the two screens describing one evening differently.
+ * ±4, the two screens describing one evening differently.
  *
  * The result document is safe to read back for the same reason the team sheet
  * is: **it is what the game was rated into.** `TournamentResult.changes` holds
  * the `before` each player was actually rated off, seed included, written by the
  * same call that wrote this entry. This recomputes no rating and re-reads no
- * profile — it copies across a number the game already used, so nothing here
+ * profile. It copies across a number the game already used, so nothing here
  * moves an Elo and no replay is needed.
  *
  * Entries where nobody was unrated are **left alone**: there was no seed to
  * record, and an absent field says so where a stored one would claim otherwise.
  *
  * A game whose result document is gone, or whose `changes` disagree with the
- * ledger about what the unrated were rated off, is **reported and skipped** —
+ * ledger about what the unrated were rated off, is **reported and skipped**,
  * the same bargain `backfill-ledger-teams` and `findStrandedKit` strike. A
  * plausible seed is unrecoverable once those two disagree, and writing a guess
  * would replace a visible gap with an invisible wrong answer that every later
@@ -47,7 +47,7 @@ import { applyUpdates, runScript } from './lib/script';
 import type { ScriptContext } from './lib/script';
 
 /**
- * Elo is a float, and a seed is an average — so the two copies have to agree to
+ * Elo is a float, and a seed is an average, so the two copies have to agree to
  * within rounding rather than exactly.
  */
 const TOLERANCE = 1e-6;
@@ -59,7 +59,7 @@ const unratedUids = (entry: RatingLedgerEntry): string[] =>
 		.map(([uid]) => uid);
 
 export const main = async ({ db, dryRun }: ScriptContext) => {
-	// The whole collection, which is one document per rated game — a group
+	// The whole collection, which is one document per rated game. A group
 	// playing weekly takes twenty years to make this a page worth splitting.
 	const ledger = await db.collection('ratingLedger').get();
 
@@ -89,7 +89,7 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 
 		if (!result.exists) {
 			skipped++;
-			console.error(`  no result document, skipped — ${label}`);
+			console.error(`  no result document, skipped: ${label}`);
 			continue;
 		}
 
@@ -98,7 +98,7 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 
 		if (seeds.some(seed => typeof seed !== 'number')) {
 			skipped++;
-			console.error(`  result document does not cover every unrated player, skipped — ${label}`);
+			console.error(`  result document does not cover every unrated player, skipped: ${label}`);
 			continue;
 		}
 
@@ -110,7 +110,7 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 
 		if ((seeds as number[]).some(seed => Math.abs(seed - seedElo) > TOLERANCE)) {
 			skipped++;
-			console.error(`  result document disagrees with itself about the seed, skipped — ${label}`);
+			console.error(`  result document disagrees with itself about the seed, skipped: ${label}`);
 			continue;
 		}
 
@@ -119,7 +119,7 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 
 	if (dryRun) {
 		for (const write of writes.slice(0, 10)) {
-			console.log(`  would write seedElo ${write.seedElo.toFixed(1)} — ${write.label}`);
+			console.log(`  would write seedElo ${write.seedElo.toFixed(1)}: ${write.label}`);
 		}
 		if (writes.length > 10) console.log(`  ...and ${writes.length - 10} more`);
 		console.log('\nDry run, nothing written.');
@@ -135,7 +135,7 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 		`\nDone. ${counted(writes.length, 'entry', 'entries')} now ${plural(writes.length, 'says', 'say')} what the unrated started on` +
 			`${skipped > 0 ? `, ${skipped} skipped` : ''}.`
 	);
-	if (skipped > 0) console.error(`${skipped} could not be filled in — see above.`);
+	if (skipped > 0) console.error(`${skipped} could not be filled in, see above.`);
 };
 
 // Only when run as a command, so a test can import `main` and drive it
