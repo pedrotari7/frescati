@@ -84,15 +84,17 @@ export const dialog = (page: Page): Locator => page.getByRole('dialog');
 /**
  * The In / Out pair, which appears on the hero card and the game screen.
  *
- * Both alternations carry `Saving`, because a half being written says that
- * instead of its name and a locator that lost it mid-write would resolve to
- * nothing. The cost is that the two patterns overlap while a write is out, the
- * In button reading "Saving…" matches the Out pattern as well, so `.first()`
- * is doing real work: `RespondControl` draws In first, so the earlier match is
- * In whichever of them is busy. It self-corrects either way, since the overlap
- * lasts exactly as long as the round trip and every assertion here retries.
+ * Each half answers to three names. It asks ("I'm in"), it reports once it is
+ * the answer ("You're in"), and it says `Saving` while the write is out. A
+ * locator holding one of the three resolves to nothing for as long as the
+ * button is in either of the others. The cost is that the
+ * patterns overlap mid-write, the In button reading "Saving…" matches the Out
+ * pattern as well, so `.first()` is doing real work: `RespondControl` draws In
+ * first, so the earlier match is In whichever of them is busy. It self-corrects
+ * either way, since the overlap lasts exactly as long as the round trip and
+ * every assertion here retries.
  */
 export const respondControl = (page: Page): { inButton: Locator; outButton: Locator } => ({
-	inButton: page.getByRole('button', { name: /I'm in|Saving/ }).first(),
-	outButton: page.getByRole('button', { name: /Can't make it|Saving/ }).first(),
+	inButton: page.getByRole('button', { name: /I'm in|You're in|Saving/ }).first(),
+	outButton: page.getByRole('button', { name: /Can't make it|You're out|Saving/ }).first(),
 });

@@ -63,11 +63,12 @@ const settledHeadcount = async (page: Page): Promise<number> => {
 /**
  * Put a control into the state a test needs it in, whichever one it is in now.
  *
- * Both controls this file drives are **toggles and not radio groups**, tapping
- * the answer already given withdraws it, and tapping a bell already on unfollows,
- * so a helper that tapped regardless would take somebody out of a game it had
- * been asked to put them in. It did, and that is what made every test after the
- * first one here fail for a reason none of them was about.
+ * The bell **is a toggle**: tapping one already on unfollows, so a helper that
+ * tapped regardless would unfollow the game it had been asked to follow. It
+ * did, and that is what made every test after the first one here fail for a
+ * reason none of them was about. The In/Out pair is a choice between two
+ * answers rather than a toggle, so a wasted tap there is only a wasted tap, but
+ * reading the state first is what makes this helper right for both.
  *
  * Which attribute says so depends on the control: the In/Out pair are buttons
  * with `aria-pressed`, the bell is a `switch` with `aria-checked`. Both are
@@ -128,6 +129,25 @@ test.describe('answering the next game', () => {
 
 		await expect(respondControl(page).outButton).toHaveAttribute('aria-pressed', 'true');
 		await expect(page.getByTestId('headcount-playing')).toHaveText(String(playing - 1));
+	});
+
+	test('holds the answer when the same one is tapped again', async ({ page }) => {
+		// The tap that reads as "am I in?". It used to delete the response, which
+		// takes the player out of the headcount and starts the reminders again,
+		// and nothing on screen said it would.
+		const member = aMember();
+		await openSeasonAs(page, member);
+
+		const playing = await answer(page, 'in');
+
+		await respondControl(page).inButton.click();
+
+		// Through `settledHeadcount` rather than a bare read. The count this
+		// asserts has not moved is the count it already held, so a read taken
+		// straight after the tap passes before a withdrawal would have made it
+		// back down the listener, which is the regression this is here for.
+		expect(await settledHeadcount(page)).toBe(playing);
+		await expect(respondControl(page).inButton).toHaveAttribute('aria-pressed', 'true');
 	});
 
 	test('survives a reload, because it was written rather than remembered', async ({ page }) => {

@@ -144,7 +144,7 @@ const NextGameHero = ({
 					<>
 						<div className='mt-5'>
 							<RespondControl
-								status={myResponse?.status}
+								response={myResponse}
 								onRespond={onRespond}
 								onClear={onClear}
 								disabled={lifecycle !== 'open'}

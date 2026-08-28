@@ -161,7 +161,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 					) : (
 						<div className='mt-5'>
 							<RespondControl
-								status={myResponses[gameId]?.status}
+								response={myResponses[gameId]}
 								onRespond={status => respond(gameId, status)}
 								onClear={() => clear(gameId)}
 								disabled={lifecycle !== 'open'}

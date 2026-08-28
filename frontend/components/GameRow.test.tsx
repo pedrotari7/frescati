@@ -85,7 +85,9 @@ describe('GameRow', () => {
 		expect(screen.queryByText(/playing/)).not.toBeInTheDocument();
 	});
 
-	it("shows the player's own answer when they have responded", () => {
+	// Once, in the buttons, which are the loudest thing in the row. The pill
+	// that used to say it too is what carries the answer after they are gone.
+	it("shows the player's own answer once while the game is still open", () => {
 		render(
 			<GameRow
 				game={game({})}
@@ -97,6 +99,26 @@ describe('GameRow', () => {
 			/>
 		);
 
+		expect(screen.getByRole('button', { name: /You're in/ })).toHaveAttribute('aria-pressed', 'true');
+		expect(screen.queryByText('No answer')).not.toBeInTheDocument();
+		expect(screen.getAllByText("You're in")).toHaveLength(1);
+	});
+
+	it("keeps the player's own answer on a game that can no longer be answered", () => {
+		const past = new Date('2026-09-02T12:00:00.000Z');
+
+		render(
+			<GameRow
+				game={game({})}
+				season={season}
+				myResponse={response({ status: 'in' })}
+				now={past}
+				onRespond={jest.fn()}
+				onClear={jest.fn()}
+			/>
+		);
+
+		expect(screen.queryByRole('button', { name: /in/ })).not.toBeInTheDocument();
 		expect(screen.getByText("You're in")).toBeInTheDocument();
 	});
 
@@ -118,6 +140,7 @@ describe('GameRow', () => {
 
 		expect(screen.getByText('Spot pending')).toBeInTheDocument();
 		expect(screen.queryByText("You're in")).not.toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /I'm in/ })).toHaveAttribute('aria-pressed', 'true');
 	});
 
 	it('says an extra is in once an admin has confirmed them', () => {
@@ -132,7 +155,8 @@ describe('GameRow', () => {
 			/>
 		);
 
-		expect(screen.getByText("You're in")).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /You're in/ })).toBeInTheDocument();
+		expect(screen.queryByText('Spot pending')).not.toBeInTheDocument();
 	});
 
 	// Nobody is going to confirm a spot for a game that has been played, so the

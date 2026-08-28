@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
+import type { GameLifecycle } from '@shared/game';
 import { getExtraSpot, getFormat, getGameLifecycle, getHeadcountState, isWatchable } from '@shared/game';
 import { formatGameDate, formatGameTime } from '@shared/format';
 import { isMotmVotingOpen } from '@shared/motm';
@@ -13,7 +14,8 @@ import StatusPill from './StatusPill';
 import WatchToggle from './WatchToggle';
 
 /**
- * What the row says about your own answer, or `null` when you haven't given one.
+ * What the row says about your own answer, or `null` when you haven't given one
+ * or the buttons below are already saying it.
  *
  * An extra's In is not the same fact as a member's, and this row is where that
  * shows: the headcount beside this pill is the one this answer deliberately
@@ -28,13 +30,20 @@ import WatchToggle from './WatchToggle';
  */
 const answerPill = (
 	myResponse: GameResponse | undefined,
-	settled: boolean
+	lifecycle: GameLifecycle
 ): { tone: PillTone; label: string } | null => {
 	if (!myResponse) return null;
 
 	if (getExtraSpot(myResponse) === 'pending') {
+		const settled = lifecycle === 'finished' || lifecycle === 'cancelled';
+
 		return settled ? { tone: 'neutral', label: 'No spot' } : { tone: 'pending', label: 'Spot pending' };
 	}
+
+	// While the game is still open the pair below says this in the row's biggest
+	// type, and a card that says "You're in" twice reads as two separate facts.
+	// The pill is what carries the answer once the buttons are gone.
+	if (lifecycle === 'open') return null;
 
 	return myResponse.status === 'in' ? { tone: 'in', label: "You're in" } : { tone: 'out', label: "You're out" };
 };
@@ -73,7 +82,7 @@ const GameRow = ({
 	const voting = isMotmVotingOpen(game.motmVotingUntilMillis, now.getTime());
 	const atRisk = getHeadcountState(game, season) === 'at-risk';
 	const timezone = season.slot.timezone;
-	const answer = answerPill(myResponse, isPast || lifecycle === 'cancelled');
+	const answer = answerPill(myResponse, lifecycle);
 
 	return (
 		<div
@@ -144,7 +153,7 @@ const GameRow = ({
 
 			{lifecycle === 'open' && (
 				<div className='mt-3'>
-					<RespondControl status={myResponse?.status} onRespond={onRespond} onClear={onClear} size='sm' />
+					<RespondControl response={myResponse} onRespond={onRespond} onClear={onClear} size='sm' />
 				</div>
 			)}
 		</div>
