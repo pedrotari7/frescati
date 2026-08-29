@@ -154,5 +154,19 @@ export const getSeasonTable = (entries: RatingLedgerEntry[], seasonId: string): 
 /**
  * A season's rating movement on the displayed 0–100 scale, so it agrees with
  * the numbers beside it rather than quoting Elo nobody else ever sees.
+ *
+ * **The parts do not sum to the whole, and that is left alone.** A display point
+ * is five Elo, and a season total rounds the sum while each game's badge rounds
+ * that game, so two games worth 13.2 and 8.3 read `+3` and `+2` against a season
+ * of `+4`. Every game can drift half a point, so a season of `n` games can be
+ * `n / 2` out.
+ *
+ * The fix that suggests itself is to work in display space throughout,
+ * `toDisplayRating(after) - toDisplayRating(before)`, which telescopes and
+ * always adds up. It trades a worse complaint for this one: a squad shares a
+ * single Elo delta but sits at different ratings, so teammates who moved
+ * identically would read `+2` and `+3` on the same team card. Rounding an
+ * honest number twice is the better of the two, and both screens say so in a
+ * footnote.
  */
 export const toDisplayMovement = (movement: number): number => toDisplayRating(BASE_ELO + movement) - 50;
