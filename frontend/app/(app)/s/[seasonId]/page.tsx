@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { CalendarDaysIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import { groupGames } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
-import { useMyResponses } from '../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../hooks/useRespond';
 import { useWatchGames } from '../../../../hooks/useWatchGames';
 import { useLiveGameRedirect } from '../../../../hooks/useLiveGameRedirect';
@@ -20,8 +19,7 @@ import CalendarSubscribeSheet from '../../../../components/CalendarSubscribeShee
 import { SectionHeading } from '../../../../components/Section';
 
 const SeasonHomePage = () => {
-	const { seasonId, season, games, loading, error, retry, isAdmin, role } = useSeasonContext();
-	const { myResponses, loading: responsesLoading } = useMyResponses();
+	const { seasonId, season, games, myResponses, loading, error, retry, isAdmin, role } = useSeasonContext();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
 
 	// One listener for the whole calendar, which is what lets the bell leave the
@@ -42,7 +40,7 @@ const SeasonHomePage = () => {
 		season,
 		games,
 		myResponses,
-		ready: !loading && !responsesLoading,
+		ready: !loading,
 	});
 
 	const { next, upcoming, voting, played } = useMemo(

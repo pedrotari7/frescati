@@ -10,7 +10,6 @@ import { useSeasonContext } from '../../../../../../components/SeasonProvider';
 import { useAuth } from '../../../../../../lib/auth';
 import { useKit, useResponses, useUsersByUid } from '../../../../../../hooks/useData';
 import { useGameWatchers } from '../../../../../../hooks/useGameWatchers';
-import { useMyResponses } from '../../../../../../hooks/useMyResponses';
 import { useRespond } from '../../../../../../hooks/useRespond';
 import { useRespondIntent } from '../../../../../../hooks/useRespondIntent';
 import { useWatchGames } from '../../../../../../hooks/useWatchGames';
@@ -32,11 +31,10 @@ import WatchToggle from '../../../../../../components/WatchToggle';
 
 const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { gameId } = use(params);
-	const { seasonId, season, games, loading, error, retry, isAdmin, role } = useSeasonContext();
+	const { seasonId, season, games, myResponses, loading, error, retry, isAdmin, role } = useSeasonContext();
 	const { responses, loading: responsesLoading } = useResponses(seasonId, gameId);
 	const { kit } = useKit(seasonId);
 	const { usersByUid } = useUsersByUid();
-	const { myResponses } = useMyResponses();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
 	const { isWatching, canWatch, toggleWatch } = useWatchGames(seasonId);
 	const { user } = useAuth();

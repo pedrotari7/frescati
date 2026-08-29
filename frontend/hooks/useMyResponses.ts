@@ -23,7 +23,7 @@ export const useMyResponses = () => {
 	const { user } = useAuth();
 	const uid = user?.uid ?? null;
 
-	const { data, loading, error } = useFirestoreSubscription<MyResponses>(
+	const { data, loading, error, retry } = useFirestoreSubscription<MyResponses>(
 		NONE,
 		uid
 			? (onChange, onError) =>
@@ -47,5 +47,5 @@ export const useMyResponses = () => {
 		'myResponses'
 	);
 
-	return useMemo(() => ({ myResponses: data, loading, error }), [data, loading, error]);
+	return useMemo(() => ({ myResponses: data, loading, error, retry }), [data, loading, error, retry]);
 };

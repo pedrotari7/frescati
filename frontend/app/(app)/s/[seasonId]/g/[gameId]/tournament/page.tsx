@@ -37,7 +37,6 @@ import {
 	useTournamentTeams,
 	useUsersByUid,
 } from '../../../../../../../hooks/useData';
-import { useMyResponses } from '../../../../../../../hooks/useMyResponses';
 import { useNow } from '../../../../../../../hooks/useNow';
 import { useWrite } from '../../../../../../../hooks/useWrite';
 import { useAuth } from '../../../../../../../lib/auth';
@@ -70,7 +69,7 @@ import StandingsTable from '../../../../../../../components/StandingsTable';
 const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { seasonId, gameId } = use(params);
 	const { user } = useAuth();
-	const { season, games, loading, error, retry, isAdmin, isSeasonAdmin } = useSeasonContext();
+	const { season, games, myResponses, loading, error, retry, isAdmin, isSeasonAdmin } = useSeasonContext();
 	const { teams: lineup, loading: teamsLoading } = useTournamentTeams(seasonId, gameId);
 	const { matches, loading: matchesLoading } = useMatches(seasonId, gameId);
 	const { result } = useTournamentResult(seasonId, gameId);
@@ -78,7 +77,6 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const { vote } = useMyMotmVote(seasonId, gameId, user?.uid ?? null);
 	const { voterUids } = useMotmVoters(seasonId, gameId);
 	const { usersByUid } = useUsersByUid();
-	const { myResponses } = useMyResponses();
 	const write = useWrite();
 	// The vote closes on a deadline, so the panel needs a clock that moves.
 	// Anything off `new Date()` would keep offering the buttons for as long as
