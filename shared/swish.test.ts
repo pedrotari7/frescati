@@ -1,4 +1,4 @@
-import { swishAppUrl, swishQrPayload, toAlias, toInternational, toLocal } from './swish';
+import { swishAppUrl, toAlias, toInternational, toLocal } from './swish';
 
 describe('toInternational', () => {
 	it('swaps a leading zero for the country code', () => {
@@ -49,38 +49,6 @@ describe('toAlias', () => {
 	});
 });
 
-describe('swishQrPayload', () => {
-	it('is the C-prefixed payload with everything locked', () => {
-		expect(swishQrPayload({ payee: '0701234567', amount: 70, message: 'Frescati' })).toBe(
-			'C0701234567;70;Frescati;0'
-		);
-	});
-
-	it('uses the local form even when the number was given international', () => {
-		expect(swishQrPayload({ payee: '+46701234567', amount: 70, message: '' })).toBe('C0701234567;70;;0');
-	});
-
-	it('url encodes a message with a space or a colon in it', () => {
-		expect(swishQrPayload({ payee: '0701234567', amount: 70, message: 'Autumn: Anna Berg' })).toBe(
-			'C0701234567;70;Autumn%3A%20Anna%20Berg;0'
-		);
-	});
-
-	it('rounds to whole kronor', () => {
-		expect(swishQrPayload({ payee: '0701234567', amount: 69.6, message: '' })).toBe('C0701234567;70;;0');
-	});
-
-	/**
-	 * Swish's own generator spells a space `+`, so whatever reads this decodes a
-	 * form, and a `+` left as itself would arrive as a space.
-	 */
-	it('escapes a plus, which encodeURIComponent leaves alone', () => {
-		expect(swishQrPayload({ payee: '0701234567', amount: 70, message: 'Anna +1' })).toBe(
-			'C0701234567;70;Anna%20%2B1;0'
-		);
-	});
-});
-
 describe('swishAppUrl', () => {
 	it("is the whole prefilled payment on Swish's own universal link host", () => {
 		expect(swishAppUrl({ payee: '0701234567', amount: 70, message: 'Frescati' })).toBe(
@@ -117,12 +85,31 @@ describe('swishAppUrl', () => {
 
 	/**
 	 * `searchParams` form-decodes, which is the same thing the Swish app does, so
-	 * this reads back as a plus only because the plus was escaped.
+	 * this reads back as a plus only because the plus is escaped rather than left
+	 * as the space `URLSearchParams` would have spelled it.
 	 */
 	it('escapes a plus, which a form decoder would otherwise read as a space', () => {
 		const url = swishAppUrl({ payee: '0701234567', amount: 70, message: 'Anna +1' });
 
 		expect(url).toContain('msg=Anna%20%2B1');
 		expect(new URL(url).searchParams.get('msg')).toBe('Anna +1');
+	});
+
+	/** Omitting `edit` is what locks every field. Naming one would unlock it. */
+	it('never says a field is editable', () => {
+		expect(swishAppUrl({ payee: '0701234567', amount: 70, message: 'Frescati' })).not.toContain('edit=');
+	});
+
+	/**
+	 * The reason a QR code can carry this and the `C0701234567;70;;0` payload it
+	 * replaced could not. A camera offers to open a URL and does nothing at all
+	 * with a line of text, so the payload only ever worked inside Swish's own
+	 * scanner.
+	 */
+	it('is an https url, which is what a phone camera can act on', () => {
+		const url = new URL(swishAppUrl({ payee: '0701234567', amount: 70, message: 'Frescati' }));
+
+		expect(url.protocol).toBe('https:');
+		expect(url.host).toBe('app.swish.nu');
 	});
 });

@@ -2,19 +2,19 @@
 
 import { QRCodeSVG } from 'qrcode.react';
 import { formatSek } from '@shared/format';
-import { swishAppUrl, swishQrPayload, toLocal } from '@shared/swish';
+import { swishAppUrl, toLocal } from '@shared/swish';
 import { useWrite } from '../hooks/useWrite';
 import Button from './Button';
 
 /**
  * Paying, without anybody retyping a phone number at the side of a pitch.
  *
- * Two routes to the same payment, and the split between them is about how much
- * each one can be trusted. The QR code is built from the published Swish QR
- * specification, so it is always drawn and always the way out. The link points
- * at Swish's own universal link host, but with a query string nobody publishes,
- * so it could stop working with an app update nobody tells us about and it is an
- * extra button rather than the mechanism.
+ * Two routes to the same payment, carrying the same string. The code used to
+ * hold the payload out of the Swish QR specification, `C0701234567;1736;...;0`,
+ * which is a line of text and not a URL. A phone camera reads it, finds nothing
+ * to open and offers nothing, so the only scanner it ever worked in was Swish's
+ * own. A camera can act on a URL, so the code and the button now hand over the
+ * same link.
  *
  * Both are pure string building. Nothing calls Swish, which matters twice: the
  * CSP does not let the browser reach `mpc.getswish.net`, and a payment screen
@@ -29,7 +29,6 @@ import Button from './Button';
 const SwishPay = ({ payee, amount, message }: { payee: string; amount: number; message: string }) => {
 	const write = useWrite();
 
-	const payload = swishQrPayload({ payee, amount, message });
 	const appUrl = swishAppUrl({ payee, amount, message });
 
 	return (
@@ -44,10 +43,15 @@ const SwishPay = ({ payee, amount, message }: { payee: string; amount: number; m
 
 			{/* White plate under the code on purpose. The app is permanently dark
 			    and a scanner needs the quiet zone to be lighter than the modules,
-			    so an inverted code reads on some phones and not others. */}
+			    so an inverted code reads on some phones and not others.
+
+			    200 rather than the 180 the payload was drawn at: a URL is about
+			    two and a half times the characters, which pushes the code up
+			    several versions and shrinks a module to roughly four screen
+			    pixels. Scanning it back is the entire job. */}
 			<div className='flex justify-center'>
 				<div className='rounded-xl bg-white p-3' data-testid='swish-qr'>
-					<QRCodeSVG value={payload} size={180} level='M' marginSize={0} />
+					<QRCodeSVG value={appUrl} size={200} level='M' marginSize={0} />
 				</div>
 			</div>
 

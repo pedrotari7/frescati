@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { BanknotesIcon } from '@heroicons/react/24/outline';
 import type { Season } from '@shared/types';
 import type { SwishPayment } from '@shared/swish';
-import { swishQrPayload, toInternational, toLocal } from '@shared/swish';
+import { swishAppUrl, toAlias, toInternational, toLocal } from '@shared/swish';
 import { REFERENCE_LIMIT, entryShare, feesFor, paymentReference } from '@shared/finances';
 import { formatSek } from '@shared/format';
 import { useWrite } from '../hooks/useWrite';
@@ -45,10 +45,10 @@ const readSeason = (season: Season, displayName: string) => {
  * Everything the payment code does on our side is already proved somewhere.
  * `shared/swish.ts` and `shared/finances.ts` are pure and unit tested, and
  * `e2e/finances.spec.ts` drives the sweep, the settle, and the QR at both
- * widths. What none of that reaches is the far end: whether the string in the
- * code is one the real Swish app accepts, and whether the reverse-engineered
- * `swish://` URL still opens it. Answering either needs a phone and the actual
- * app, which is the same reason push has a panel on this screen.
+ * widths. What none of that reaches is the far end: whether a camera opens the
+ * code at all, and whether the link it carries is one the real Swish app
+ * accepts. Answering either needs a phone and the actual app, which is the same
+ * reason push has a panel on this screen.
  *
  * Getting to a QR in the app proper means personally owing money, because the
  * finances screen draws `SwishPay` only when `mine.outstanding > 0`. So testing
@@ -73,11 +73,11 @@ const PaymentTriggers = ({ season, displayName }: { season: Season | null; displ
 	const payment: SwishPayment = { ...(from?.payment ?? NOTHING), ...overrides };
 	const set = (patch: Partial<SwishPayment>) => setOverrides(previous => ({ ...previous, ...patch }));
 
-	// A zero amount and an empty payee both build a payload Swish rejects, and a
-	// QR that fails to scan for that reason looks exactly like one that fails
-	// because the format is wrong, which is the thing being tested.
+	// A zero amount and an empty payee both build a link Swish rejects, and a QR
+	// that fails for that reason looks exactly like one that fails because the
+	// format is wrong, which is the thing being tested.
 	const payable = payment.payee.trim() !== '' && payment.amount > 0;
-	const payload = payable ? swishQrPayload(payment) : null;
+	const link = payable ? swishAppUrl(payment) : null;
 
 	return (
 		<section className='glass rounded-2xl p-5'>
@@ -151,27 +151,27 @@ const PaymentTriggers = ({ season, displayName }: { season: Season | null; displ
 				</Field>
 			</div>
 
-			{payload ? (
+			{link ? (
 				<>
 					<h3 className='text-faint mt-6 mb-2 text-xs font-semibold tracking-wider uppercase'>
 						What Swish is handed
 					</h3>
 
-					{/* What a player is never shown. The payload, so a code that will
-					    not scan can be read rather than guessed at. Both forms of the
-					    number, because the QR wants the local one and the app URL wants
-					    the international one, and an admin who typed +46 70 123 45 67
-					    into the season settings has to come out of both correctly. */}
+					{/* What a player is never shown. The link itself, so a code that
+					    will not scan can be read rather than guessed at, and every form
+					    of the number, because an admin who typed +46 70 123 45 67 into
+					    the season settings has to come out of all of them correctly and
+					    only the last one goes into the link. */}
 					<dl className='space-y-2 text-xs'>
 						<div>
-							<dt className='text-faint'>QR payload</dt>
-							<dd className='text-ink mt-0.5 font-mono break-all'>{payload}</dd>
+							<dt className='text-faint'>Link, in the code and behind the button</dt>
+							<dd className='text-ink mt-0.5 font-mono break-all'>{link}</dd>
 						</div>
 
 						<div className='flex justify-between gap-3'>
-							<dt className='text-faint'>Number, both forms</dt>
+							<dt className='text-faint'>Number, every form</dt>
 							<dd className='text-ink font-medium'>
-								{toLocal(payment.payee)} · {toInternational(payment.payee)}
+								{toLocal(payment.payee)} · {toInternational(payment.payee)} · {toAlias(payment.payee)}
 							</dd>
 						</div>
 					</dl>
@@ -180,11 +180,9 @@ const PaymentTriggers = ({ season, displayName }: { season: Season | null; displ
 						size='sm'
 						variant='secondary'
 						className='mt-3'
-						onClick={() =>
-							write(() => navigator.clipboard.writeText(payload), "Couldn't copy the payload.")
-						}
+						onClick={() => write(() => navigator.clipboard.writeText(link), "Couldn't copy the link.")}
 					>
-						Copy payload
+						Copy link
 					</Button>
 
 					{/* The real component, not a copy of it. A change to what a player is
@@ -197,8 +195,8 @@ const PaymentTriggers = ({ season, displayName }: { season: Season | null; displ
 				</>
 			) : (
 				<p className='text-faint mt-6 text-xs leading-relaxed'>
-					Set a number and an amount above zero and the code is drawn here. Swish refuses a payload missing
-					either, and a code that will not scan for that reason looks exactly like one whose format is wrong.
+					Set a number and an amount above zero and the code is drawn here. Swish refuses a link missing
+					either, and a code that fails for that reason looks exactly like one whose format is wrong.
 				</p>
 			)}
 		</section>

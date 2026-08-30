@@ -50,21 +50,25 @@ describe('PaymentTriggers', () => {
 		expect(field('Amount')).toHaveValue(70);
 	});
 
-	it('hands Swish the payload the real builder makes, with everything locked', () => {
+	it('hands Swish the link the real builder makes, with everything locked', () => {
 		panel();
 
-		expect(screen.getByText('C0701234567;1000;Fall%202026%3A%20Anna%20Berg;0')).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				'https://app.swish.nu/1/p/sw/?sw=46701234567&amt=1000&cur=SEK&msg=Fall%202026%3A%20Anna%20Berg&src=qr'
+			)
+		).toBeInTheDocument();
 	});
 
 	/**
-	 * The QR wants the local form and the app URL wants the international one, so
-	 * a number an admin typed with a country code has to come out of both
-	 * correctly. Neither conversion is visible anywhere a player looks.
+	 * Only the last of the three goes into the link, and a number an admin typed
+	 * with a country code has to come out of all of them correctly. None of these
+	 * conversions is visible anywhere a player looks.
 	 */
-	it('shows the number in both of the forms the two mechanisms need', () => {
+	it('shows the number in every form, including the one the link carries', () => {
 		panel(aSeason({ fees: { total: 4000, perGame: 70, swish: '+46 70 123 45 67' } }));
 
-		expect(screen.getByText('0701234567 · +46701234567')).toBeInTheDocument();
+		expect(screen.getByText(/0701234567 · \+46701234567 · 46701234567/)).toBeInTheDocument();
 	});
 
 	it('keeps a field you typed in and lets the rest follow the season', () => {
@@ -108,14 +112,16 @@ describe('PaymentTriggers', () => {
 		expect(screen.getByText(/that is a real payment to a real number/)).toBeInTheDocument();
 	});
 
-	it('copies the payload, for a code that will not scan', async () => {
+	it('copies the link, for a code that will not scan', async () => {
 		panel();
 
 		await act(async () => {
-			fireEvent.click(screen.getByRole('button', { name: 'Copy payload' }));
+			fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
 		});
 
-		expect(navigator.clipboard.writeText).toHaveBeenCalledWith('C0701234567;1000;Fall%202026%3A%20Anna%20Berg;0');
+		expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+			'https://app.swish.nu/1/p/sw/?sw=46701234567&amt=1000&cur=SEK&msg=Fall%202026%3A%20Anna%20Berg&src=qr'
+		);
 		expect(warn).not.toHaveBeenCalled();
 	});
 

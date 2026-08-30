@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import SwishPay from './SwishPay';
 
@@ -7,11 +8,33 @@ jest.mock('./Toast', () => ({
 	useToast: () => ({ notify: jest.fn(), warn }),
 }));
 
+const mockDrawn: string[] = [];
+
+/**
+ * The real code generator, wrapped only to record what it was asked to draw.
+ * `qrcode.react` puts the value nowhere in the DOM, and the value is the whole
+ * question here, so a stub would leave the one assertion that matters untestable
+ * and the paths test below asserting nothing.
+ */
+jest.mock('qrcode.react', () => {
+	const actual = jest.requireActual('qrcode.react');
+
+	return {
+		...actual,
+		QRCodeSVG: (props: { value: string }) => {
+			mockDrawn.push(props.value);
+
+			return createElement(actual.QRCodeSVG, props);
+		},
+	};
+});
+
 const pay = () => render(<SwishPay payee='0701234567' amount={1736} message='Fall 2026: Anna Berg' />);
 
 describe('SwishPay', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		mockDrawn.length = 0;
 		Object.assign(navigator, { clipboard: { writeText: jest.fn().mockResolvedValue(undefined) } });
 	});
 
@@ -41,6 +64,18 @@ describe('SwishPay', () => {
 		expect(href).toBe(
 			'https://app.swish.nu/1/p/sw/?sw=46701234567&amt=1736&cur=SEK&msg=Fall%202026%3A%20Anna%20Berg&src=qr'
 		);
+	});
+
+	/**
+	 * The code carries a URL and not the `C0701234567;1736;...;0` payload it used
+	 * to, because a phone camera offers to open a URL and does nothing whatever
+	 * with a line of text. Pinned as the same string the button uses, since a code
+	 * and a button that disagree is the bug nobody sees until somebody has paid.
+	 */
+	it('puts the same link in the code that the button holds', () => {
+		pay();
+
+		expect(mockDrawn).toEqual([screen.getByTestId('swish-open').getAttribute('href')]);
 	});
 
 	/**

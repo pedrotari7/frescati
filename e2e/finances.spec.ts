@@ -21,11 +21,12 @@ import { AT, NO_PROFILE_YET, sectionUnder } from './locators';
  * Reporting a payment is the other half. The pill flips because the stored status
  * came back down the listener, not because a button remembered being pressed.
  *
- * The Swish link is drawn under `pointer: coarse`, a media query rather than a
+ * The Swish button is drawn under `pointer: coarse`, a media query rather than a
  * sniffed user agent, and a media query is invisible to a jsdom render for the
- * same reason `nav.spec.ts` exists. The QR is the path that always works and has
- * to be there at both widths; the link must not appear on a desktop, where a
- * click on `swish://` goes nowhere and says nothing.
+ * same reason `nav.spec.ts` exists. The QR carries the same link and has to be
+ * there at both widths, since anybody can point a phone at a laptop screen. The
+ * button must not appear on a desktop, where the link only reaches Swish's
+ * download page.
  *
  * **This spec writes**, to the dues of two seasons and to nothing else, which is
  * what keeps it disjoint from the five files it runs beside.
