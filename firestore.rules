@@ -677,6 +677,21 @@ service cloud.firestore {
             return request.resource.data.keys().hasAny(['confirmOverride', 'absent']);
           }
 
+          // Owes this season nothing. Gates saying you are coming, and only
+          // that: Out, and clearing an answer, stay open below whatever anyone
+          // owes, because a debt is a reason to keep somebody off the pitch and
+          // never a reason to hold them inside a headcount the organiser is
+          // booking a pitch against.
+          //
+          // `exists()` rather than a read, see the `debtors` block for why the
+          // document is the answer. Season admins never reach this: their
+          // `allow write` at the foot of this block already lets them through,
+          // and it has to, because the season usually collects to the admin's
+          // own Swish number, which Swish refuses to pay.
+          function settledUp() {
+            return !exists(/databases/$(database)/documents/seasons/$(seasonId)/debtors/$(uid));
+          }
+
           // Anyone signed in can create one of these against any game, so this
           // is the widest-open write in the app and the one worth bounding.
           // `note` is the only free text; 280 characters is more than enough for
@@ -710,7 +725,8 @@ service cloud.firestore {
                         && roleMatchesMembership()
                         && !setsAdminFields()
                         && responseShapeOk()
-                        && responsesOpen(gameData());
+                        && responsesOpen(gameData())
+                        && (request.resource.data.status != 'in' || settledUp());
 
           // Changing your mind is allowed right up to the deadline. Past it the
           // headcount is what the organiser is acting on, so only a season admin
@@ -733,7 +749,8 @@ service cloud.firestore {
                         && request.resource.data.get('absent', null)
                            == resource.data.get('absent', null)
                         && responseShapeOk()
-                        && responsesOpen(gameData());
+                        && responsesOpen(gameData())
+                        && (request.resource.data.status != 'in' || settledUp());
 
           allow delete: if isSelf(uid) && responsesOpen(gameData());
 
@@ -885,6 +902,26 @@ service cloud.firestore {
         allow update: if isSeasonAdmin(seasonId) && dueShapeOk() && onlySettles();
 
         allow delete: if isSeasonAdmin(seasonId);
+      }
+
+      // ── debtors ────────────────────────────────────────────────────────────
+      // One document per person who still owes this season money, written by
+      // `onDueWrite` and by nothing else. Its existence is the whole test:
+      // somebody who has settled up has no document, so there is no stale zero
+      // for a rule to read and believe.
+      //
+      // It exists because a rule cannot ask the question. `get()` and `exists()`
+      // take a path, and an extra's charges are one document per game they
+      // played, so "does this person owe anything" is a query, which rules
+      // cannot run. This is the answer written down at a path a rule can spell.
+      //
+      // Per person rather than a `debtorUids` array on the season, which would
+      // have cost no extra read at all, because the season document is readable
+      // by everybody signed in and the books deliberately are not. An array
+      // would publish who hasn't paid to the whole app.
+      match /debtors/{uid} {
+        allow read: if isSelf(uid) || isSeasonSquad(seasonId);
+        allow write: if false;
       }
 
       // ── expenses ───────────────────────────────────────────────────────────
