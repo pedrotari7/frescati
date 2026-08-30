@@ -38,13 +38,9 @@ describe('SwishPay', () => {
 
 		const href = screen.getByTestId('swish-open').getAttribute('href')!;
 
-		expect(href.startsWith('swish://payment?data=')).toBe(true);
-		expect(JSON.parse(decodeURIComponent(href.slice('swish://payment?data='.length)))).toEqual({
-			version: 1,
-			payee: { value: '+46701234567' },
-			amount: { value: 1736 },
-			message: { value: 'Fall 2026: Anna Berg' },
-		});
+		expect(href).toBe(
+			'https://app.swish.nu/1/p/sw/?sw=46701234567&amt=1736&cur=SEK&msg=Fall%202026%3A%20Anna%20Berg&src=qr'
+		);
 	});
 
 	/**

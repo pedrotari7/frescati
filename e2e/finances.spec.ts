@@ -259,9 +259,12 @@ test.describe('the season books', () => {
 
 		if (testInfo.project.name === 'mobile') {
 			await expect(openSwish, 'a phone was left with nothing but the QR').toBeVisible();
-			await expect(openSwish).toHaveAttribute('href', /^swish:\/\/payment\?data=%7B/);
+
+			// The payee has to be bare digits. A `+` is the malformed link the
+			// Swish app opens on an error dialog instead of the payment sheet.
+			await expect(openSwish).toHaveAttribute('href', /^https:\/\/app\.swish\.nu\/1\/p\/sw\/\?sw=\d+&amt=\d+&/);
 		} else {
-			await expect(openSwish, 'a desktop was offered a link that goes nowhere').toBeHidden();
+			await expect(openSwish, "a desktop was offered Swish's download page").toBeHidden();
 		}
 	});
 

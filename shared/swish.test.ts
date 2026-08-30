@@ -1,4 +1,4 @@
-import { swishAppUrl, swishQrPayload, toInternational, toLocal } from './swish';
+import { swishAppUrl, swishQrPayload, toAlias, toInternational, toLocal } from './swish';
 
 describe('toInternational', () => {
 	it('swaps a leading zero for the country code', () => {
@@ -33,6 +33,22 @@ describe('toLocal', () => {
 	});
 });
 
+describe('toAlias', () => {
+	it('is the country code with no plus and no leading zero', () => {
+		expect(toAlias('0701234567')).toBe('46701234567');
+	});
+
+	it('gets there from whichever form an admin typed', () => {
+		expect(toAlias('+46701234567')).toBe('46701234567');
+		expect(toAlias('0046701234567')).toBe('46701234567');
+		expect(toAlias('070-123 45 67')).toBe('46701234567');
+	});
+
+	it('is digits and only digits, which is the whole point', () => {
+		expect(toAlias('+46 70-123 45 67')).toMatch(/^\d+$/);
+	});
+});
+
 describe('swishQrPayload', () => {
 	it('is the C-prefixed payload with everything locked', () => {
 		expect(swishQrPayload({ payee: '0701234567', amount: 70, message: 'Frescati' })).toBe(
@@ -53,34 +69,60 @@ describe('swishQrPayload', () => {
 	it('rounds to whole kronor', () => {
 		expect(swishQrPayload({ payee: '0701234567', amount: 69.6, message: '' })).toBe('C0701234567;70;;0');
 	});
+
+	/**
+	 * Swish's own generator spells a space `+`, so whatever reads this decodes a
+	 * form, and a `+` left as itself would arrive as a space.
+	 */
+	it('escapes a plus, which encodeURIComponent leaves alone', () => {
+		expect(swishQrPayload({ payee: '0701234567', amount: 70, message: 'Anna +1' })).toBe(
+			'C0701234567;70;Anna%20%2B1;0'
+		);
+	});
 });
 
 describe('swishAppUrl', () => {
-	const parse = (url: string): Record<string, unknown> =>
-		JSON.parse(decodeURIComponent(url.replace('swish://payment?data=', '')));
+	it("is the whole prefilled payment on Swish's own universal link host", () => {
+		expect(swishAppUrl({ payee: '0701234567', amount: 70, message: 'Frescati' })).toBe(
+			'https://app.swish.nu/1/p/sw/?sw=46701234567&amt=70&cur=SEK&msg=Frescati&src=qr'
+		);
+	});
 
-	it('prefills the payee in international form and the amount as a number', () => {
-		const data = parse(swishAppUrl({ payee: '0701234567', amount: 70, message: 'Frescati' }));
-
-		expect(data).toEqual({
-			version: 1,
-			payee: { value: '+46701234567' },
-			amount: { value: 70 },
-			message: { value: 'Frescati' },
-		});
+	/** A `+` here is the malformed link the Swish app opens on an error dialog. */
+	it('spells the payee as digits whichever form the season stored', () => {
+		expect(swishAppUrl({ payee: '+46701234567', amount: 70, message: '' })).toContain('sw=46701234567');
+		expect(swishAppUrl({ payee: '070-123 45 67', amount: 70, message: '' })).not.toContain('+');
 	});
 
 	it('leaves the message out entirely rather than sending it blank', () => {
-		const data = parse(swishAppUrl({ payee: '0701234567', amount: 70, message: '' }));
+		const url = swishAppUrl({ payee: '0701234567', amount: 70, message: '' });
 
-		expect(data).not.toHaveProperty('message');
+		expect(url).toBe('https://app.swish.nu/1/p/sw/?sw=46701234567&amt=70&cur=SEK&src=qr');
 	});
 
-	it('encodes the payload so the query string survives a reserved character', () => {
+	it('rounds to whole kronor, the same as the code beside it', () => {
+		expect(swishAppUrl({ payee: '0701234567', amount: 69.6, message: '' })).toContain('amt=70');
+	});
+
+	/**
+	 * A space is `%20` and not `+`, because the reference is read by eye by the
+	 * admin reconciling the payment, and the ampersand would end the parameter.
+	 */
+	it('encodes a reference with a space or an ampersand in it', () => {
 		const url = swishAppUrl({ payee: '0701234567', amount: 70, message: 'Autumn: Anna & Erik' });
 
-		expect(url.startsWith('swish://payment?data=')).toBe(true);
-		expect(url).not.toContain('&');
-		expect(parse(url).message).toEqual({ value: 'Autumn: Anna & Erik' });
+		expect(url).toContain('msg=Autumn%3A%20Anna%20%26%20Erik&src=qr');
+		expect(new URL(url).searchParams.get('msg')).toBe('Autumn: Anna & Erik');
+	});
+
+	/**
+	 * `searchParams` form-decodes, which is the same thing the Swish app does, so
+	 * this reads back as a plus only because the plus was escaped.
+	 */
+	it('escapes a plus, which a form decoder would otherwise read as a space', () => {
+		const url = swishAppUrl({ payee: '0701234567', amount: 70, message: 'Anna +1' });
+
+		expect(url).toContain('msg=Anna%20%2B1');
+		expect(new URL(url).searchParams.get('msg')).toBe('Anna +1');
 	});
 });

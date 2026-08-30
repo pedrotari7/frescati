@@ -11,9 +11,9 @@ import Button from './Button';
  *
  * Two routes to the same payment, and the split between them is about how much
  * each one can be trusted. The QR code is built from the published Swish QR
- * specification, so it is always drawn and always the way out. The `swish://`
- * link is reverse-engineered, works on every phone anybody here has tried it on
- * and could stop working with an app update nobody tells us about, so it is an
+ * specification, so it is always drawn and always the way out. The link points
+ * at Swish's own universal link host, but with a query string nobody publishes,
+ * so it could stop working with an app update nobody tells us about and it is an
  * extra button rather than the mechanism.
  *
  * Both are pure string building. Nothing calls Swish, which matters twice: the
@@ -59,12 +59,14 @@ const SwishPay = ({ payee, amount, message }: { payee: string; amount: number; m
 			</dl>
 
 			<div className='flex gap-3'>
-				{/* A plain `<a>`, not a `Button`: `swish://` needs real navigation,
-				    and an anchor nested inside a `<button>` is invalid HTML that
-				    browsers handle inconsistently. Shown only where a finger is
-				    the pointer, because a desktop click on this goes nowhere and
-				    says nothing. `pointer: coarse` rather than sniffing the user
-				    agent, which is why this needs an e2e test at both viewports. */}
+				{/* A plain `<a>`, not a `Button`: handing the link to the app needs
+				    real navigation, and an anchor nested inside a `<button>` is
+				    invalid HTML that browsers handle inconsistently. Shown only
+				    where a finger is the pointer, because a desktop click lands on
+				    Swish's download page, which is not what somebody standing in
+				    front of the QR code came for. `pointer: coarse` rather than
+				    sniffing the user agent, which is why this needs an e2e test at
+				    both viewports. */}
 				<a
 					href={appUrl}
 					data-testid='swish-open'
