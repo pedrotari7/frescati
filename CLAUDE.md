@@ -48,6 +48,7 @@ users/{uid}/pushTokens/{token}               FCM registration tokens, private to
 seasons/{seasonId}                           slot, venue, minPlayers, balance, fees, memberUids[], adminUids[]
 seasons/{seasonId}/kit/{itemId}              a ball, the vests: name, kind, holderUid
 seasons/{seasonId}/dues/{dueId}              one charge: uid, kind, amount, status. Id is derived
+seasons/{seasonId}/debtors/{uid}             owes this season money (function-owned). Existence is the test
 seasons/{seasonId}/expenses/{expenseId}      what the extras' money bought
 seasons/{seasonId}/games/{gameId}            kickoff, status, counts (function-owned), atRisk
 seasons/{seasonId}/games/{gameId}/responses/{uid}   status: 'in'|'out', role: 'member'|'extra', absent?
@@ -73,7 +74,7 @@ Each of these is deep and specific to one part of the app, deliberately kept out
 - `docs/scoring-and-motm.md` — entering a scoreline, confirming a result and what that locks, the man-of-the-match vote.
 - `docs/no-show.md` — the `absent` flag: what it means, who can set it, where it shows.
 - `docs/kit.md` — the kit register (`seasons/{id}/kit`): coverage, handovers, who can edit what.
-- `docs/finances.md` — the season's books (`seasons/{id}/dues`, `seasons/{id}/expenses`): the fees on the season, why a charge is a stored document, the sweep that raises the missing ones, and paying by Swish.
+- `docs/finances.md` — the season's books (`seasons/{id}/dues`, `seasons/{id}/expenses`): the fees on the season, why a charge is a stored document, the sweep that raises the missing ones, paying by Swish, and the lock an unpaid charge puts on signing up for another game.
 - `docs/notifications.md` — push/email: reach, per-kind preferences, routing a tap to an open window, the `/debug` send paths.
 - `docs/error-reporting.md` — the Sentry wiring: what gets reported and from where, the scheduled-sweep monitors, `/debug`'s self-tests.
 - `docs/members-vs-extras.md` — member vs extra, and what an extra's In actually does before an admin confirms it.

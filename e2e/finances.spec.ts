@@ -6,9 +6,10 @@ import { openSeasonAs, openTab } from './helpers';
 import { AT, NO_PROFILE_YET, sectionUnder } from './locators';
 
 /**
- * The season's books: raising the charges, reporting a payment, and paying.
+ * The season's books: raising the charges, reporting a payment, paying, and what
+ * an unpaid one does to the rest of the season.
  *
- * Three claims here, and none of them can be made anywhere else.
+ * Four claims here, and none of them can be made anywhere else.
  *
  * A charge is a document an admin raises rather than a sum worked out on the
  * fly, and the whole safety of that rests on the document id being derived from
@@ -28,8 +29,19 @@ import { AT, NO_PROFILE_YET, sectionUnder } from './locators';
  * button must not appear on a desktop, where the link only reaches Swish's
  * download page.
  *
+ * The fourth is what an unsettled charge does to the season it was raised in.
+ * The notice and the held In button are drawn off the dues listener, and the
+ * rule behind them reads a `debtors` marker a Cloud Function writes, so the two
+ * are a trigger's round trip apart on purpose: a screen that waited for the
+ * marker would offer a live button for that whole window and have the write
+ * refused. Only a real database with real triggers puts the charge, the trigger
+ * and the two listeners in one place.
+ *
  * **This spec writes**, to the dues of two seasons and to nothing else, which is
- * what keeps it disjoint from the five files it runs beside.
+ * what keeps it disjoint from the five files it runs beside. That is also why
+ * the locked button below is never tapped once it comes back: a response written
+ * from here moves a headcount `respond.spec.ts` is asserting a delta against,
+ * and what the rule does with the write is `rules/firestore.test.ts`'s claim.
  */
 
 /**
@@ -95,6 +107,43 @@ const namesHaveLanded = async (page: Page): Promise<void> => {
 	await expect(rowsOwing(page).first(), 'nobody in this season owes anything').toBeVisible();
 	await expect(theBook(page).getByText(NO_PROFILE_YET), 'the profiles never landed').toHaveCount(0);
 };
+
+/**
+ * Mark every charge under one person paid, one at a time.
+ *
+ * The count is read back between clicks rather than counted once and clicked
+ * that many times. Settling re-sorts the book, so a set of handles captured up
+ * front points at controls that have since been redrawn, and waiting for the
+ * count to drop is what makes each click a stored status coming back down the
+ * listener rather than a button that has been pressed.
+ */
+const settleEverything = async (page: Page, name: string): Promise<void> => {
+	await rowFor(page, name).click();
+
+	const owing = theBook(page).getByRole('button', { name: new RegExp(`^Mark ${escapeForRegExp(name)}'s .* paid$`) });
+
+	await expect(owing.first(), `nothing owing under ${name}`).toBeVisible();
+
+	for (let left = await owing.count(); left > 0; left = await owing.count()) {
+		await owing.first().click();
+		await expect(owing, `a charge of ${name}'s did not settle`).toHaveCount(left - 1);
+	}
+};
+
+/**
+ * A game still to come that this player has not answered.
+ *
+ * Not the next one, whose answer the seeder leaves to chance. An In already
+ * given is deliberately left live, because draining it would say somebody had
+ * been dropped from a game they are still playing in, so the hero is not
+ * reliably a half that a debt takes. A row carrying "No answer" is one where it
+ * is, and the same row is there before and after the charge is settled.
+ */
+const unanswered = (page: Page): Locator =>
+	sectionUnder(page, /^Coming up$/)
+		.locator('.glass-card')
+		.filter({ hasText: 'No answer' })
+		.first();
 
 /** What the sweep reports, as a sentence, either way round. */
 const SWEEP_RESULT = /^(Every charge that should exist already does\.|(\d+) charges? (?:is|are) missing\.)$/;
@@ -298,5 +347,65 @@ test.describe('the season books', () => {
 			page.getByTestId('season-shortfall'),
 			'an extra was told how much the group has collected'
 		).toHaveCount(0);
+	});
+
+	test('hold the In of somebody who owes, and hand it back when they settle', async ({ page }) => {
+		await openSeasonAs(page, aSeasonAdmin());
+		await openTheBooks(page);
+
+		await namesHaveLanded(page);
+
+		// Whoever the book says owes the most, rather than a name written here.
+		// Which of the seeded players has settled up is the scenario's business,
+		// and this test leaves one fewer of them owing than it found.
+		const name = await nameOn(rowsOwing(page).first());
+		const player = readCast().users.find(user => user.displayName === name);
+
+		expect(player, `${name} is in the book but is not a seeded account`).toBeTruthy();
+
+		const books = page.url();
+
+		await signInAs(page, player!);
+		await expect(page).toHaveURL(books);
+
+		await openTab(page, /^Games$/);
+		await expect(page).toHaveURL(AT.season);
+
+		const notice = sectionUnder(page, /^What you owe$/);
+		await expect(notice, `${name} owes money and the season said nothing about it`).toBeVisible();
+		await expect(notice.getByText(/cannot sign up for another game/)).toBeVisible();
+
+		const held = unanswered(page);
+		await expect(held, 'no game on this season is still open and unanswered').toBeVisible();
+
+		// The half that is taken and the half that is not. An Out is the answer
+		// somebody who owes is most likely to be giving and the one the organiser
+		// most needs, so a debt may never reach it.
+		await expect(held.getByRole('button', { name: /I'm in/ }), 'the In stayed live for a debtor').toBeDisabled();
+		await expect(held.getByRole('button', { name: /Can't make it/ }), 'the Out was held too').toBeEnabled();
+		await expect(
+			held.getByRole('link', { name: 'Settle up' }),
+			'the held button was left with no reason beside it'
+		).toBeVisible();
+
+		await signInAs(page, aSeasonAdmin());
+		await openTheBooks(page);
+		await namesHaveLanded(page);
+
+		await settleEverything(page, name);
+
+		await signInAs(page, player!);
+		await openTab(page, /^Games$/);
+		await expect(page).toHaveURL(AT.season);
+
+		// The lock lifts because the stored status came back down this player's own
+		// dues listener, on a screen that never reads the book the admin settled it
+		// in. A client holding its own idea of what was owed would still be locked.
+		//
+		// The live button first, and the two absences after it. This screen draws a
+		// skeleton until the season has landed, and everything is absent from that.
+		await expect(unanswered(page).getByRole('button', { name: /I'm in/ })).toBeEnabled();
+		await expect(sectionUnder(page, /^What you owe$/), 'still billed after paying up').toHaveCount(0);
+		await expect(page.getByRole('link', { name: 'Settle up' }), 'a row still explaining a lock').toHaveCount(0);
 	});
 });
