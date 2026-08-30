@@ -25,6 +25,23 @@ export const kitCol = (seasonId: string): CollectionReference => collection(getD
 export const kitItemDoc = (seasonId: string, itemId: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'kit', itemId);
 
+/**
+ * What one player owes. The id is derived from what the charge is for,
+ * `entry_{uid}` or `game_{gameId}_{uid}`, so raising the same charge twice
+ * collides instead of duplicating. `shared/finances.ts` builds it.
+ */
+export const duesCol = (seasonId: string): CollectionReference => collection(getDb(), 'seasons', seasonId, 'dues');
+
+export const dueDoc = (seasonId: string, dueId: string): DocumentReference =>
+	doc(getDb(), 'seasons', seasonId, 'dues', dueId);
+
+/** Money out of one of the two pots. One document per purchase; the id is generated. */
+export const expensesCol = (seasonId: string): CollectionReference =>
+	collection(getDb(), 'seasons', seasonId, 'expenses');
+
+export const expenseDoc = (seasonId: string, expenseId: string): DocumentReference =>
+	doc(getDb(), 'seasons', seasonId, 'expenses', expenseId);
+
 export const responsesCol = (seasonId: string, gameId: string): CollectionReference =>
 	collection(getDb(), 'seasons', seasonId, 'games', gameId, 'responses');
 

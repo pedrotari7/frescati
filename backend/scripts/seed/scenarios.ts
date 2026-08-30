@@ -39,6 +39,59 @@ export interface KitPlan {
 	holder: 'in' | 'out' | 'silent' | 'left';
 }
 
+/**
+ * The season's books.
+ *
+ * Who has paid is declared as a *count* rather than by name, the same as a kit
+ * holder is declared as a state: which member settled up first is arbitrary,
+ * and the thing worth opening the screen for, a season part-collected with a
+ * shortfall still on it and an equipment pot that has bought something, is not.
+ * The seeder takes them off the front of the roster, so two runs of the same
+ * scenario produce the same book.
+ *
+ * The charges themselves are not declared at all. They are whatever `planDues`
+ * would raise from the squad and the games this scenario already generated,
+ * which is the same rule the rest of the seeder follows: nothing is invented
+ * that the app could work out for itself.
+ */
+interface FeesPlan {
+	/** SEK the season costs to run, split equally between the members. */
+	total: number;
+	/** SEK an extra pays for each game they played. */
+	perGame: number;
+	/** The number the QR code collects to. Left out for a season collecting by hand. */
+	swish?: string;
+	/** What the extras' money has bought already. `weeksAgo` counts back from today. */
+	expenses: { description: string; amount: number; weeksAgo: number }[];
+}
+
+/**
+ * A season whose fees are set and whose books nobody has opened yet, which is the
+ * state the "raise the missing charges" button exists for and the one state that
+ * stops existing the moment an admin presses it. It carries no settlement counts,
+ * because a charge nobody has raised cannot have been paid.
+ */
+interface UnraisedCharges {
+	charges: 'unraised';
+}
+
+interface RaisedCharges {
+	/**
+	 * Which charges have been settled, counted rather than named, the way
+	 * `KitPlan` declares a holder by state rather than by person. Taken off the
+	 * front of the book: entry charges in roster order, game charges oldest game
+	 * first, so the same numbers describe the same books on every run.
+	 */
+	charges: 'raised';
+	membersPaid: number;
+	/** Members whose share has been written off. */
+	membersWaived: number;
+	/** Game charges paid, counting charges rather than extras. */
+	extrasPaid: number;
+}
+
+export type FinancePlan = FeesPlan & (UnraisedCharges | RaisedCharges);
+
 /** A game that differs from the ordinary run of the season. */
 export interface GamePin {
 	status?: GameStatus;
@@ -68,6 +121,27 @@ export interface GamePin {
 	 * has nothing to say, so at least one pin should carry a few.
 	 */
 	watcherKeys?: string[];
+	/**
+	 * How many of the confirmed spots went to extras, instead of deriving it from
+	 * how far `playing` overshoots the squad.
+	 *
+	 * Worth declaring because the derived answer is almost always zero: a season
+	 * with eighteen members and a turnout of fifteen never needs topping up, so
+	 * no extra is ever confirmed and the extras' side of the books stays empty.
+	 * Real life is the other way round, a handful of members are away and a
+	 * friend fills in, and this says that: `{ playing: 15, extrasPlaying: 3 }` is
+	 * twelve members and three guests.
+	 */
+	extrasPlaying?: number;
+	/**
+	 * Confirmed extras reported absent, off the front of the confirmed list.
+	 *
+	 * They keep their In and their confirmation, because `absent` is a separate
+	 * report about what happened rather than a change to what they said. Only
+	 * meaningful on a played game, and the books are the reason it is here: an
+	 * extra is charged for a game they played, not for one they missed.
+	 */
+	absentExtras?: number;
 	/**
 	 * Where the man-of-the-match vote has got to. Only meaningful on a
 	 * `confirmed` game. The vote opens when the scores are confirmed.
@@ -106,6 +180,8 @@ export interface SeasonPlan {
 	history: 'played' | 'empty';
 	/** What the group owns. Left out for a season that keeps no register. */
 	kit?: KitPlan[];
+	/** What it costs and who has paid. Left out for a season collecting nothing. */
+	finances?: FinancePlan;
 	/** Keyed by offset from the next upcoming game: `0` is next, `-1` is last. */
 	pins?: Record<number, GamePin>;
 }
@@ -220,8 +296,23 @@ const full: Scenario = {
 			endWeeks: -16,
 			turnout: [10, 14],
 			history: 'played',
+			// A season that finished with its bill covered, nothing left to chase,
+			// and the extras' pot in the red: the ball cost more than the two guests
+			// put in, so the group carried the difference. A screen has to read a
+			// negative balance without looking broken, and this is where to see it.
+			finances: {
+				total: 24500,
+				perGame: 60,
+				swish: '0701234567',
+				charges: 'raised',
+				membersPaid: 14,
+				membersWaived: 0,
+				extrasPaid: 2,
+				expenses: [{ description: 'Match ball', amount: 449, weeksAgo: 28 }],
+			},
 			pins: {
 				[-20]: { status: 'cancelled', cancelledReason: 'Pitch frozen solid' },
+				[-10]: { extrasPlaying: 2 },
 			},
 		},
 		{
@@ -269,7 +360,37 @@ const full: Scenario = {
 				{ name: 'Blue vests', kind: 'vests', holder: 'out' },
 				{ name: 'Pump', kind: 'other', holder: 'silent' },
 			],
+			// The real season's numbers: 31240 for the pitch, 70 a game for an
+			// extra. Eighteen members makes the share 1736, so the shares come to
+			// a little over the bill, which is the rounding the screen has to read
+			// sensibly. Part collected on purpose, with one written off, so there
+			// is a shortfall to look at and somebody to chase.
+			finances: {
+				total: 31240,
+				perGame: 70,
+				swish: '0701234567',
+				charges: 'raised',
+				membersPaid: 11,
+				membersWaived: 1,
+				extrasPaid: 14,
+				expenses: [
+					{ description: 'Ball pump and needles', amount: 185, weeksAgo: 9 },
+					{ description: 'Blue vests, set of 8', amount: 620, weeksAgo: 4 },
+				],
+			},
 			pins: {
+				// The weeks a friend or two filled in for members who were away, which
+				// is the only way the extras' side of the books has anything in it, see
+				// `extrasPlaying`. One of them never turned up and is charged for
+				// nothing.
+				[-3]: { extrasPlaying: 3 },
+				[-4]: { extrasPlaying: 2, absentExtras: 1 },
+				[-5]: { extrasPlaying: 2 },
+				[-6]: { extrasPlaying: 2 },
+				[-7]: { extrasPlaying: 2 },
+				[-9]: { extrasPlaying: 2 },
+				[-10]: { extrasPlaying: 2 },
+				[-11]: { extrasPlaying: 3 },
 				// Played, scored, and waiting on somebody to hit Confirm, the
 				// state the auto-confirm sweep exists for.
 				[-1]: { outcome: 'scored', note: 'Floodlight on pitch B was out, played the far end' },
@@ -338,7 +459,13 @@ const full: Scenario = {
 			// The amber middle state on its own, with nothing else going wrong:
 			// one ball, and the person holding it hasn't answered yet.
 			kit: [{ name: 'Ball', kind: 'ball', holder: 'silent' }],
+			// Fees set, books never opened. The only season in a seeded database
+			// where "raise the missing charges" has anything to do, because the
+			// state stops existing the first time anybody presses it.
+			finances: { total: 9600, perGame: 50, charges: 'unraised', expenses: [] },
 			pins: {
+				// So the sweep has a game charge to raise as well as ten entry ones.
+				[-2]: { extrasPlaying: 2 },
 				[0]: { responses: 'partial', playing: 9 },
 				[1]: { responses: 'none' },
 			},
@@ -423,8 +550,28 @@ const big: Scenario = {
 				{ name: 'Match ball', kind: 'ball', holder: 'in' },
 				{ name: 'Bibs', kind: 'vests', holder: 'in' },
 			],
+			finances: {
+				total: 46800,
+				perGame: 70,
+				swish: '0701234567',
+				charges: 'raised',
+				membersPaid: 19,
+				membersWaived: 0,
+				extrasPaid: 11,
+				expenses: [
+					{ description: 'Match ball', amount: 449, weeksAgo: 16 },
+					{ description: 'Ball pump and needles', amount: 185, weeksAgo: 2 },
+				],
+			},
 			pins: {
 				[-1]: { outcome: 'scored' },
+				// Guests most weeks, one of whom did not turn up.
+				[-2]: { extrasPlaying: 2 },
+				[-3]: { extrasPlaying: 3 },
+				[-4]: { extrasPlaying: 2, absentExtras: 1 },
+				[-6]: { extrasPlaying: 3 },
+				[-8]: { extrasPlaying: 2 },
+				[-10]: { extrasPlaying: 3 },
 				[0]: { responses: 'partial', playing: 21 },
 				[1]: { responses: 'none' },
 			},

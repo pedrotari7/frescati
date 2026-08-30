@@ -6,6 +6,7 @@ import {
 	formatGameTime,
 	formatGameWhen,
 	formatRelative,
+	formatSek,
 	initials,
 	placeLabel,
 	plural,
@@ -108,6 +109,28 @@ describe('signed', () => {
 		expect(signed(6)).toBe('+6');
 		expect(signed(-6)).toBe('-6');
 		expect(signed(0)).toBe('0');
+	});
+});
+
+describe('formatSek', () => {
+	it('groups thousands with a space', () => {
+		expect(formatSek(70)).toBe('70 kr');
+		expect(formatSek(450)).toBe('450 kr');
+		expect(formatSek(1400)).toBe('1 400 kr');
+		expect(formatSek(1234567)).toBe('1 234 567 kr');
+	});
+
+	it('puts the sign outside the digits so it never lands inside a group', () => {
+		expect(formatSek(-1400)).toBe('-1 400 kr');
+	});
+
+	it('has no negative zero', () => {
+		expect(formatSek(0)).toBe('0 kr');
+		expect(formatSek(-0.4)).toBe('0 kr');
+	});
+
+	it('rounds to whole kronor', () => {
+		expect(formatSek(69.6)).toBe('70 kr');
 	});
 });
 

@@ -48,6 +48,7 @@ import { addKitItem, deleteKitItem, renameKitItem, transferKitItem } from '../fr
 import { unwatchGame, watchGame } from '../frontend/lib/db/watchers';
 import { clearMotmVote, setMotmVote } from '../frontend/lib/db/motm';
 import { setMatchScore } from '../frontend/lib/db/tournament';
+import { addDue, addExpense, deleteDue, deleteExpense, raiseDues, setDueStatus } from '../frontend/lib/db/finances';
 
 /** Run the next client call as this person. */
 const as = (uid: string, claims?: Record<string, unknown>): void => {
@@ -344,5 +345,87 @@ describe('the scoreboard', () => {
 		as(EXTRA);
 
 		await assertFails(setMatchScore(SEASON, GAME, { order: 0, teamA: 0, teamB: 1 }, 9, 0, EXTRA));
+	});
+});
+
+describe('the books', () => {
+	/** What a sweep would raise for this season: one entry share, one game fee. */
+	const planned = [
+		{ id: `entry_${MEMBER}`, uid: MEMBER, kind: 'entry' as const, amount: 1736 },
+		{ id: `game_${GAME}_${EXTRA}`, uid: EXTRA, kind: 'game' as const, amount: 70, gameId: GAME },
+	];
+
+	it('lets a season admin raise the missing charges', async () => {
+		as(SEASON_ADMIN);
+
+		await expect(raiseDues(SEASON, planned)).resolves.toBe(2);
+	});
+
+	it('refuses a member raising them', async () => {
+		as(MEMBER);
+
+		await assertFails(raiseDues(SEASON, planned));
+	});
+
+	// The idempotence the derived ids buy, driven through the real sweep. A second
+	// pass writes the same documents with a fresh `createdAt`, which lands as an
+	// update that touches keys an update may not, and the batch is refused whole
+	// rather than resetting a charge somebody has already paid.
+	it('refuses a second sweep over a charge that has been paid', async () => {
+		as(SEASON_ADMIN);
+		await raiseDues(SEASON, planned);
+		await setDueStatus(SEASON, `entry_${MEMBER}`, 'paid', SEASON_ADMIN);
+
+		await assertFails(raiseDues(SEASON, planned));
+	});
+
+	it('lets a season admin report a payment and take it back', async () => {
+		as(SEASON_ADMIN);
+		await raiseDues(SEASON, planned);
+
+		await assertSucceeds(setDueStatus(SEASON, `game_${GAME}_${EXTRA}`, 'paid', SEASON_ADMIN));
+		await assertSucceeds(setDueStatus(SEASON, `game_${GAME}_${EXTRA}`, 'owing', SEASON_ADMIN));
+		await assertSucceeds(setDueStatus(SEASON, `game_${GAME}_${EXTRA}`, 'waived', SEASON_ADMIN));
+	});
+
+	// Reporting a payment is the admin's job, and the person who owes it reporting
+	// their own would be marking their own homework.
+	it('refuses a player settling their own charge', async () => {
+		as(SEASON_ADMIN);
+		await raiseDues(SEASON, planned);
+		as(EXTRA);
+
+		await assertFails(setDueStatus(SEASON, `game_${GAME}_${EXTRA}`, 'paid', EXTRA));
+		await assertFails(deleteDue(SEASON, `game_${GAME}_${EXTRA}`));
+	});
+
+	// The case the sweep deliberately misses: a no-show an admin has decided
+	// should pay anyway, with a generated id because no fact about the season
+	// derives one.
+	it('lets a season admin raise a charge by hand, with a note', async () => {
+		as(SEASON_ADMIN);
+
+		await expect(addDue(SEASON, { uid: EXTRA, amount: 70, note: 'Pulled out an hour before' })).resolves.toEqual(
+			expect.any(String)
+		);
+	});
+
+	it('lets a season admin record a purchase and delete it', async () => {
+		as(SEASON_ADMIN);
+
+		const id = await addExpense(
+			SEASON,
+			{ description: 'Match ball', amount: 450, date: '2026-09-02' },
+			SEASON_ADMIN
+		);
+
+		expect(id).toEqual(expect.any(String));
+		await assertSucceeds(deleteExpense(SEASON, id));
+	});
+
+	it('refuses a member spending the equipment money', async () => {
+		as(MEMBER);
+
+		await assertFails(addExpense(SEASON, { description: 'Match ball', amount: 450, date: '2026-09-02' }, MEMBER));
 	});
 });

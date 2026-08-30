@@ -3,6 +3,8 @@
 import { useMemo } from 'react';
 import type {
 	AppUser,
+	Due,
+	Expense,
 	Game,
 	GameResponse,
 	KitItem,
@@ -18,6 +20,7 @@ import { subscribeToSeason, subscribeToSeasons } from '../lib/db/seasons';
 import { subscribeToGame, subscribeToGames } from '../lib/db/games';
 import { subscribeToResponses } from '../lib/db/responses';
 import { subscribeToKit } from '../lib/db/kit';
+import { subscribeToDues, subscribeToExpenses, subscribeToMyDues } from '../lib/db/finances';
 import {
 	subscribeToMatches,
 	subscribeToPlayerLedger,
@@ -37,6 +40,8 @@ const NO_MATCHES: TournamentMatch[] = [];
 const NO_LEDGER: RatingLedgerEntry[] = [];
 const NO_KIT: KitItem[] = [];
 const NO_VOTERS: string[] = [];
+const NO_DUES: Due[] = [];
+const NO_EXPENSES: Expense[] = [];
 
 export const useSeasons = () => {
 	const { data, loading, error } = useFirestoreSubscription<Season[]>(
@@ -112,6 +117,45 @@ export const useKit = (seasonId: string | null) => {
 	);
 
 	return { kit: data, loading, error };
+};
+
+/**
+ * The season's charges, or just yours.
+ *
+ * Which one is not a preference, it is what the rules allow. An unconstrained
+ * list needs squad membership; anybody else has to ask for their own by uid and
+ * gets a permission error for anything wider. So the caller passes what it knows
+ * about the reader and this picks the query that will actually run, rather than
+ * letting the finances screen discover the answer as a red error card.
+ *
+ * Subscribed per screen rather than hoisted into `SeasonProvider`, same as
+ * `useKit`: one screen reads it, and a season's book is a few dozen documents.
+ */
+export const useDues = (seasonId: string | null, uid: string | null, squad: boolean) => {
+	const { data, loading, error } = useFirestoreSubscription<Due[]>(
+		NO_DUES,
+		seasonId && (squad || uid)
+			? (onChange, onError) =>
+					squad
+						? subscribeToDues(seasonId, onChange, onError)
+						: subscribeToMyDues(seasonId, uid as string, onChange, onError)
+			: null,
+		[seasonId, uid, squad],
+		'dues'
+	);
+
+	return { dues: data, loading, error };
+};
+
+export const useExpenses = (seasonId: string | null) => {
+	const { data, loading, error } = useFirestoreSubscription<Expense[]>(
+		NO_EXPENSES,
+		seasonId ? (onChange, onError) => subscribeToExpenses(seasonId, onChange, onError) : null,
+		[seasonId],
+		'expenses'
+	);
+
+	return { expenses: data, loading, error };
 };
 
 export const useUsers = () => {

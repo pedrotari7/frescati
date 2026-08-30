@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { aMember, whoIs } from './fixtures';
 import { openSeasonAs, openTab } from './helpers';
-import { AT, dialog } from './locators';
+import { AT, NO_PROFILE_YET, dialog } from './locators';
 
 /**
  * Handing the ball over, and the two rules that meet on that screen.
@@ -49,16 +49,6 @@ const openTheKitRegister = async (page: Page): Promise<void> => {
  */
 const holderName = async (row: Locator): Promise<string> =>
 	(await row.locator('[title]').first().getAttribute('title'))!;
-
-/**
- * What a squad row reads as before the profiles have arrived. `people.ts`.
- *
- * Not a defensive fallback but a real state, which is exactly why it can be
- * waited for: nothing on the register stores a name, so every list of people is
- * a join against the profiles subscription, and this is what a row says while
- * that join is still outstanding.
- */
-const NO_PROFILE_YET = 'Unknown player';
 
 /**
  * Hand the open sheet's item to somebody, and say who it went to.

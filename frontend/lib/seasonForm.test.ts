@@ -45,6 +45,28 @@ describe('formFromSeason', () => {
 		expect(form.venueAddress).toBe('');
 	});
 
+	// Every season that existed before finances did has no `fees` map at all, and
+	// the form has to open on something rather than on three empty boxes that read
+	// back as invalid.
+	it('reads a season with no fees as the defaults', () => {
+		const form = formFromSeason(season(), DEFAULT_BALANCE_SETTINGS);
+
+		expect(form.seasonCost).toBe('0');
+		expect(form.perGameFee).toBe('70');
+		expect(form.swish).toBe('');
+	});
+
+	it('reads the fees a season carries', () => {
+		const form = formFromSeason(
+			season({ fees: { total: 31240, perGame: 70, swish: '0701234567' } }),
+			DEFAULT_BALANCE_SETTINGS
+		);
+
+		expect(form.seasonCost).toBe('31240');
+		expect(form.perGameFee).toBe('70');
+		expect(form.swish).toBe('0701234567');
+	});
+
 	it('reads a season with no reminder windows as an empty box', () => {
 		const form = formFromSeason(season({ reminderHours: undefined }), DEFAULT_BALANCE_SETTINGS);
 
@@ -106,6 +128,22 @@ describe('readCounts', () => {
 
 		expect(counts.responseDeadlineHours).toBe(0);
 		expect(invalid).toBeUndefined();
+	});
+
+	// A season nobody pays for is a season, and extras playing free is a choice
+	// somebody makes, so both fees take a zero the way the response deadline does.
+	it('allows a bill of nothing and a free game for extras', () => {
+		const { counts, invalid } = readCounts({ ...EMPTY_FORM, seasonCost: '0', perGameFee: '0' });
+
+		expect(counts.seasonCost).toBe(0);
+		expect(counts.perGameFee).toBe(0);
+		expect(invalid).toBeUndefined();
+	});
+
+	it('refuses a fee that is not a whole number of kronor', () => {
+		expect(readCounts({ ...EMPTY_FORM, seasonCost: '' }).invalid).toBe('seasonCost');
+		expect(readCounts({ ...EMPTY_FORM, seasonCost: '31240.50' }).invalid).toBe('seasonCost');
+		expect(readCounts({ ...EMPTY_FORM, perGameFee: 'seventy' }).invalid).toBe('perGameFee');
 	});
 
 	it('names the first bad box rather than just saying no', () => {

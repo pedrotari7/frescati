@@ -593,6 +593,16 @@ describe('seasons', () => {
 				balance: { randomness: 0.3, junk: { nested: [1, 2, 3] } },
 			})
 		);
+		await assertFails(
+			updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), {
+				fees: { total: 31240, junk: 'x'.repeat(50_000) },
+			})
+		);
+	});
+
+	it('rejects a fee that is not a number, or a negative one', async () => {
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { fees: { total: 'thirty thousand' } }));
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { fees: { perGame: -70 } }));
 	});
 
 	it('accepts the settings screen saving every lever at once', async () => {
@@ -608,8 +618,25 @@ describe('seasons', () => {
 				responseDeadlineHours: 12,
 				reminderHours: [48, 12],
 				balance: { matchMinutes: 6, randomness: 0.5, repeatPenalty: 0.2, repeatLookback: 3 },
+				fees: { total: 31240, perGame: 70, swish: '0701234567' },
 			})
 		);
+	});
+
+	// `seasonShapeOk` is a `keys().hasOnly` allowlist and on an update
+	// `request.resource.data` is the whole merged document, so a season carrying
+	// a field the allowlist has not been told about cannot be edited at all,
+	// through any form, by anybody. Adding `fees` to the model without adding it
+	// there would have frozen every season that had a fee set, and the symptom
+	// lands on the next unrelated edit rather than on the one that caused it.
+	it('still lets an admin edit a season that already carries fees', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await updateDoc(doc(context.firestore(), seasonDoc()), {
+				fees: { total: 31240, perGame: 70, swish: '0701234567' },
+			});
+		});
+
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { name: 'Renamed' }));
 	});
 });
 
@@ -1902,6 +1929,219 @@ describe('kit', () => {
 	// An app admin runs every season whether or not they play in one.
 	it('lets an app admin who is not in the squad manage the register', async () => {
 		await assertSucceeds(setDoc(doc(authed(APP_ADMIN, { admin: true }), kitDoc('vests-1')), anItem(APP_ADMIN)));
+	});
+});
+
+describe('dues', () => {
+	const duesCol = () => `seasons/${SEASON}/dues`;
+	const dueDoc = (dueId: string) => `${duesCol()}/${dueId}`;
+
+	const aDue = (uid: string, extras: Record<string, unknown> = {}) => ({
+		uid,
+		kind: 'game',
+		amount: 70,
+		gameId: GAME,
+		status: 'owing',
+		createdAt: '2026-08-30T09:00:00.000Z',
+		...extras,
+	});
+
+	const seedDue = async (uid: string, extras: Record<string, unknown> = {}) => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), dueDoc(`game_${GAME}_${uid}`)), aDue(uid, extras));
+		});
+	};
+
+	// The one place in this file that is not readable by everybody who can sign
+	// in. The README's argument for an open group is that an extra has to be
+	// able to find a game and put their hand up, and none of it reaches "who
+	// still hasn't paid".
+	it('lets the squad read the whole book', async () => {
+		await seedDue(MEMBER);
+
+		await assertSucceeds(getDocs(collection(authed(MEMBER), duesCol())));
+		await assertSucceeds(getDocs(collection(authed(SEASON_ADMIN), duesCol())));
+		await assertSucceeds(getDocs(collection(authed(APP_ADMIN, { admin: true }), duesCol())));
+	});
+
+	it("refuses to hand an extra everybody's debts", async () => {
+		await seedDue(MEMBER);
+
+		await assertFails(getDocs(collection(authed(EXTRA), duesCol())));
+		await assertFails(getDoc(doc(authed(EXTRA), dueDoc(`game_${GAME}_${MEMBER}`))));
+	});
+
+	// An extra pays per game, so they have to be able to see what they owe. The
+	// `where` is what makes that safe: the rule cannot be proved for a list
+	// without it, exactly as on `watchers`.
+	it('lets an extra read their own, and only by asking for their own', async () => {
+		await seedDue(EXTRA);
+
+		const mine = query(collection(authed(EXTRA), duesCol()), where('uid', '==', EXTRA));
+
+		const snapshot = await assertSucceeds(getDocs(mine));
+		expect(snapshot.size).toBe(1);
+
+		await assertFails(getDocs(query(collection(authed(EXTRA), duesCol()), where('uid', '==', MEMBER))));
+	});
+
+	it('blocks the book when signed out', async () => {
+		await seedDue(MEMBER);
+
+		await assertFails(getDocs(collection(testEnv.unauthenticatedContext().firestore(), duesCol())));
+	});
+
+	it('lets a season admin raise a charge, settle it and drop it', async () => {
+		const id = `game_${GAME}_${MEMBER}`;
+
+		await assertSucceeds(setDoc(doc(authed(SEASON_ADMIN), dueDoc(id)), aDue(MEMBER)));
+
+		await assertSucceeds(
+			updateDoc(doc(authed(SEASON_ADMIN), dueDoc(id)), {
+				status: 'paid',
+				settledAt: '2026-09-02T09:00:00.000Z',
+				settledBy: SEASON_ADMIN,
+			})
+		);
+
+		await assertSucceeds(deleteDoc(doc(authed(SEASON_ADMIN), dueDoc(id))));
+	});
+
+	// Reporting a payment is the admin's job in this feature, and a player who
+	// could report their own would be marking their own homework.
+	it('refuses to let anybody but a season admin write one', async () => {
+		await assertFails(setDoc(doc(authed(MEMBER), dueDoc(`game_${GAME}_${MEMBER}`)), aDue(MEMBER)));
+
+		await seedDue(MEMBER);
+
+		await assertFails(
+			updateDoc(doc(authed(MEMBER), dueDoc(`game_${GAME}_${MEMBER}`)), {
+				status: 'paid',
+				settledAt: '2026-09-02T09:00:00.000Z',
+				settledBy: MEMBER,
+			})
+		);
+		await assertFails(deleteDoc(doc(authed(MEMBER), dueDoc(`game_${GAME}_${MEMBER}`))));
+	});
+
+	// This is what makes "raise the missing charges" safe to press twice. The
+	// ids are derived, so a second sweep lands on the charge that is already
+	// there as an update, and an update may only settle. Without it the sweep
+	// would quietly reset a charge somebody had already paid back to owing.
+	it('refuses a second sweep over a charge that has already been paid', async () => {
+		await seedDue(MEMBER, { status: 'paid', settledAt: '2026-09-02T09:00:00.000Z', settledBy: SEASON_ADMIN });
+
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), dueDoc(`game_${GAME}_${MEMBER}`)), {
+				...aDue(MEMBER),
+				createdAt: '2026-09-09T09:00:00.000Z',
+			})
+		);
+	});
+
+	// The `Due` union in shared/types.ts, from the other side. A settled charge
+	// carries who settled it; an owing one carries nobody.
+	it('refuses a settlement that does not say who took the money', async () => {
+		const id = `game_${GAME}_${MEMBER}`;
+		await seedDue(MEMBER);
+
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), dueDoc(id)), { status: 'paid' }));
+		await assertFails(
+			updateDoc(doc(authed(SEASON_ADMIN), dueDoc(id)), {
+				status: 'paid',
+				settledAt: '2026-09-02T09:00:00.000Z',
+				settledBy: MEMBER,
+			})
+		);
+	});
+
+	it('refuses an owing charge still holding the receipt from when it was paid', async () => {
+		await seedDue(MEMBER, { status: 'paid', settledAt: '2026-09-02T09:00:00.000Z', settledBy: SEASON_ADMIN });
+
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), dueDoc(`game_${GAME}_${MEMBER}`)), { status: 'owing' }));
+	});
+
+	it('lets an admin take a payment back, receipt and all', async () => {
+		await seedDue(MEMBER, { status: 'paid', settledAt: '2026-09-02T09:00:00.000Z', settledBy: SEASON_ADMIN });
+
+		await assertSucceeds(
+			updateDoc(doc(authed(SEASON_ADMIN), dueDoc(`game_${GAME}_${MEMBER}`)), {
+				status: 'owing',
+				settledAt: deleteField(),
+				settledBy: deleteField(),
+			})
+		);
+	});
+
+	it('rejects a charge the schema does not describe', async () => {
+		const id = `game_${GAME}_${MEMBER}`;
+
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), dueDoc(id)), { ...aDue(MEMBER), payload: 'y'.repeat(50_000) })
+		);
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), dueDoc(id)), aDue(MEMBER, { kind: 'subscription' })));
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), dueDoc(id)), aDue(MEMBER, { status: 'maybe' })));
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), dueDoc(id)), aDue(MEMBER, { amount: -70 })));
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), dueDoc(id)), aDue(MEMBER, { amount: '70' })));
+	});
+});
+
+describe('expenses', () => {
+	const expensesCol = () => `seasons/${SEASON}/expenses`;
+	const expenseDoc = (expenseId: string) => `${expensesCol()}/${expenseId}`;
+
+	const anExpense = (createdBy: string, extras: Record<string, unknown> = {}) => ({
+		description: 'Match ball',
+		amount: 450,
+		date: '2026-09-12',
+		createdBy,
+		createdAt: '2026-09-12T09:00:00.000Z',
+		...extras,
+	});
+
+	// Unlike the dues beside them, an expense names a ball rather than a person,
+	// so it stays as readable as the rest of the app.
+	it('lets anyone signed in read what the money went on', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), expenseDoc('ball-1')), anExpense(SEASON_ADMIN));
+		});
+
+		await assertSucceeds(getDocs(collection(authed(EXTRA), expensesCol())));
+	});
+
+	it('lets a season admin record one and remove it', async () => {
+		await assertSucceeds(setDoc(doc(authed(SEASON_ADMIN), expenseDoc('ball-1')), anExpense(SEASON_ADMIN)));
+		await assertSucceeds(deleteDoc(doc(authed(SEASON_ADMIN), expenseDoc('ball-1'))));
+	});
+
+	it('refuses to let a member spend the equipment money', async () => {
+		await assertFails(setDoc(doc(authed(MEMBER), expenseDoc('ball-1')), anExpense(MEMBER)));
+	});
+
+	// A claim about money, so a wrong one needs a face on it, the same reason a
+	// kit handover is signed.
+	it("refuses an expense signed in somebody else's name", async () => {
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), expenseDoc('ball-1')), anExpense(MEMBER)));
+	});
+
+	it('rejects an expense the schema does not describe', async () => {
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), expenseDoc('ball-1')), {
+				...anExpense(SEASON_ADMIN),
+				payload: 'y'.repeat(50_000),
+			})
+		);
+		// There is one place the money can come from, so there is no field saying
+		// which. An expense that names a pot is a client that thinks otherwise.
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), expenseDoc('ball-1')), anExpense(SEASON_ADMIN, { pot: 'entry' }))
+		);
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), expenseDoc('ball-1')), anExpense(SEASON_ADMIN, { description: '' }))
+		);
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), expenseDoc('ball-1')), anExpense(SEASON_ADMIN, { date: '2026-09' }))
+		);
 	});
 });
 

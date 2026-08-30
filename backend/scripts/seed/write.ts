@@ -19,6 +19,9 @@ import type {
 	AppUser,
 	BalanceSettings,
 	ClientInfo,
+	Due,
+	DueStatus,
+	Expense,
 	Game,
 	GameResponse,
 	KitItem,
@@ -36,7 +39,8 @@ import type {
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_NOTIFICATION_PREFS } from '../../../shared/types';
 import { addCivilDays, addHours, getZonedParts } from '../../../shared/datetime';
 import { generateGameDates } from '../../../shared/schedule';
-import { getMinPlayers, isConfirmed, tallyResponses } from '../../../shared/game';
+import { getMinPlayers, hasBeenPlayed, isConfirmed, tallyResponses } from '../../../shared/game';
+import { planDues } from '../../../shared/finances';
 import { getSeed, pickTeams } from '../../../shared/optimizer';
 import type { OptimizerPlayer } from '../../../shared/optimizer';
 import { getFixtures, getSquadSizes, getTeamCount } from '../../../shared/tournament';
@@ -338,6 +342,19 @@ const buildSeason = (plan: SeasonPlan, createdBy: string, runId: string): Season
 		responseDeadlineHours: plan.responseDeadlineHours,
 		reminderHours: plan.reminderHours,
 		balance: plan.balance ?? DEFAULT_BALANCE_SETTINGS,
+		// Left off entirely for a season that collects nothing, rather than
+		// written as zeroes. Every season made before finances existed has no
+		// `fees` map, so that is a shape the app has to read anyway, and a
+		// scenario is the only place it can be looked at.
+		...(plan.finances
+			? {
+					fees: {
+						total: plan.finances.total,
+						perGame: plan.finances.perGame,
+						...(plan.finances.swish ? { swish: plan.finances.swish } : {}),
+					},
+				}
+			: {}),
 		memberUids: plan.memberKeys.map(uidFor),
 		adminUids: plan.adminKeys.map(uidFor),
 		createdAt: addHours(`${startDate}T12:00:00.000Z`, -24 * 14),
@@ -398,6 +415,99 @@ const buildKit = (plan: SeasonPlan, season: Season, planned: PlannedGame[]): (Ki
 	}));
 };
 
+/* --------------------------------------------------------------- the books */
+
+/**
+ * The season's charges, and how far down them somebody has got.
+ *
+ * `planDues` decides which charges exist, the same function the finances screen
+ * calls to work out what an admin has left to raise, so a seeded book is one the
+ * app could have arrived at by pressing that button. The scenario says only how
+ * many have been settled: entry charges in roster order, game charges oldest
+ * game first.
+ *
+ * A season whose charges are `unraised` writes none at all, deliberately. That
+ * is the state the sweep exists for, and it stops existing the first time
+ * anybody presses the button, so a seed that settled every season would leave it
+ * reachable only by making a season by hand.
+ */
+const buildDues = (plan: SeasonPlan, season: Season, planned: PlannedGame[]): (Due & { seasonId: string })[] => {
+	const finances = plan.finances;
+
+	if (!finances || finances.charges === 'unraised') return [];
+
+	const admin = uidFor(plan.adminKeys[0] ?? plan.memberKeys[0]);
+	// The same filter the screen's own sweep applies: nobody played a cancelled
+	// game, so nobody owes for one.
+	const played = planned
+		.filter(
+			entry => entry.season.id === season.id && entry.game.status !== 'cancelled' && hasBeenPlayed(entry.game)
+		)
+		.sort((a, b) => a.game.kickoffMillis - b.game.kickoffMillis);
+
+	const kickoffs = new Map(played.map(entry => [entry.game.id, entry.game.kickoff]));
+	const charges = planDues(
+		season,
+		played.map(entry => ({ gameId: entry.game.id, responses: entry.responses }))
+	);
+
+	let entries = 0;
+	let perGame = 0;
+
+	return charges.map(due => {
+		const rank = due.kind === 'entry' ? entries++ : perGame++;
+		const status: DueStatus =
+			due.kind === 'entry'
+				? rank < finances.membersPaid
+					? 'paid'
+					: rank < finances.membersPaid + finances.membersWaived
+						? 'waived'
+						: 'owing'
+				: rank < finances.extrasPaid
+					? 'paid'
+					: 'owing';
+
+		// A member is charged when the season is set up, an extra once the game
+		// they played is over, and either is settled a couple of days later. Only
+		// ever plausible dates rather than real ones, but they have to be in that
+		// order: the book is sorted by when a charge was raised.
+		const createdAt = due.gameId ? addHours(kickoffs.get(due.gameId)!, 3) : season.createdAt;
+		const base = {
+			seasonId: season.id,
+			id: due.id,
+			uid: due.uid,
+			kind: due.kind,
+			amount: due.amount,
+			...(due.gameId ? { gameId: due.gameId } : {}),
+			createdAt,
+		};
+
+		return status === 'owing'
+			? { ...base, status }
+			: { ...base, status, settledAt: addHours(createdAt, 48), settledBy: admin };
+	});
+};
+
+/** What the extras' money has already been spent on. */
+const buildExpenses = (plan: SeasonPlan, season: Season): (Expense & { seasonId: string })[] => {
+	const today = todayIn(season.slot.timezone);
+	const admin = uidFor(plan.adminKeys[0] ?? plan.memberKeys[0]);
+
+	return (plan.finances?.expenses ?? []).map((expense, index) => {
+		const date = addCivilDays(today, -expense.weeksAgo * 7);
+
+		return {
+			id: `expense-${index}`,
+			seasonId: season.id,
+			description: expense.description,
+			amount: expense.amount,
+			date,
+			createdBy: admin,
+			createdAt: `${date}T20:00:00.000Z`,
+		};
+	});
+};
+
 /* ------------------------------------------------------------------- games */
 
 interface PlannedGame {
@@ -435,9 +545,13 @@ const buildResponses = (
 	const memberUids = shuffled(season.memberUids, rng);
 
 	// Extras top up a thin game rather than swelling a healthy one, which is
-	// what they are for, and it keeps confirmed extras worth looking at.
-	const extraTarget = Math.min(plan.extraKeys.length, Math.max(0, target - memberUids.length));
-	const membersIn = Math.min(memberUids.length, target - extraTarget);
+	// what they are for. Derived from the overshoot unless the pin says
+	// otherwise, and it usually has to: a squad of eighteen with a turnout of
+	// fifteen never overshoots, so nothing tops it up and no extra is ever
+	// confirmed. `extrasPlaying` is how a game says a few members were away and
+	// a friend filled in, which is what a real one looks like.
+	const extraTarget = Math.min(plan.extraKeys.length, pin.extrasPlaying ?? Math.max(0, target - memberUids.length));
+	const membersIn = Math.max(0, Math.min(memberUids.length, target - extraTarget));
 
 	const responses: GameResponse[] = [];
 	const respondedAt = (rank: number): string => addHours(game.kickoff, -(120 - rank * 3));
@@ -469,11 +583,18 @@ const buildResponses = (
 		// have to exist or the roster's pending styling is never exercised.
 		const confirmOverride = rank < extraTarget ? true : rng() < 0.3 ? false : undefined;
 
+		// A no-show, off the front of the confirmed extras. It keeps its In and
+		// its confirmation: this is a separate report about what happened, not a
+		// change to what they said. The books are why the pin exists, an extra is
+		// charged for a game they played and not for one they missed.
+		const absent = confirmOverride === true && rank < (pin.absentExtras ?? 0);
+
 		responses.push({
 			uid,
 			status: isIn ? 'in' : 'out',
 			role: 'extra',
 			...(confirmOverride === undefined ? {} : { confirmOverride }),
+			...(absent ? { absent: true } : {}),
 			respondedAt: respondedAt(memberUids.length + rank),
 			updatedAt: respondedAt(memberUids.length + rank),
 			...(rank === 0 && isIn ? { note: 'Friend of Anna, played a few times' } : {}),
@@ -828,6 +949,8 @@ export interface SeedSummary {
 	games: number;
 	responses: number;
 	kit: number;
+	dues: number;
+	expenses: number;
 	confirmedGames: number;
 	ratedPlayers: number;
 	devUsers: DevUser[];
@@ -947,6 +1070,11 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 	// terms of how they answered the next one.
 	const kit = scenario.seasons.flatMap((plan, index) => buildKit(plan, seasons[index], planned));
 
+	// After the games for a sharper reason: what an extra owes comes out of who
+	// actually played, which is not known until the responses exist.
+	const dues = scenario.seasons.flatMap((plan, index) => buildDues(plan, seasons[index], planned));
+	const expenses = scenario.seasons.flatMap((plan, index) => buildExpenses(plan, seasons[index]));
+
 	const documents: ((batch: WriteBatch) => void)[] = [
 		...profiles,
 		...seasons.map(season => (batch: WriteBatch) => {
@@ -958,6 +1086,16 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 		...kit.map(item => (batch: WriteBatch) => {
 			const { id, seasonId, ...data } = item;
 			batch.set(db().doc(`seasons/${seasonId}/kit/${id}`), data);
+		}),
+		// The id is derived from what the charge is for, `entry_{uid}` or
+		// `game_{gameId}_{uid}`, which is what makes raising them twice harmless.
+		...dues.map(due => (batch: WriteBatch) => {
+			const { id, seasonId, ...data } = due;
+			batch.set(db().doc(`seasons/${seasonId}/dues/${id}`), data);
+		}),
+		...expenses.map(expense => (batch: WriteBatch) => {
+			const { id, seasonId, ...data } = expense;
+			batch.set(db().doc(`seasons/${seasonId}/expenses/${id}`), data);
 		}),
 	];
 
@@ -1041,6 +1179,8 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 		games: planned.length,
 		responses: planned.reduce((total, entry) => total + entry.responses.length, 0),
 		kit: kit.length,
+		dues: dues.length,
+		expenses: expenses.length,
 		confirmedGames: [...games.values()].filter(game => game.result).length,
 		ratedPlayers: ratings.size,
 		devUsers,

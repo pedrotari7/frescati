@@ -35,14 +35,14 @@ export default defineConfig({
 	testDir: './e2e',
 	// One worker per spec file, and no more. There is a single seeded emulator
 	// database behind all of this, so what can safely overlap is decided by what
-	// the specs touch rather than by how many cores are going spare: the five
+	// the specs touch rather than by how many cores are going spare: the six
 	// files are disjoint: responses on the next game, the kit register, the
-	// scoreline and vote on a played one, and two that write nothing at all for
-	// exactly this reason, the admin calendar and the way back out of a screen,
-	// while the tests *inside* a file deliberately hand state to each other.
-	// `fullyParallel: false` is what draws that line, giving each file to one
-	// worker and keeping its tests in order.
-	workers: 5,
+	// scoreline and vote on a played one, the dues of two seasons, and two that
+	// write nothing at all for exactly this reason, the admin calendar and the way
+	// back out of a screen, while the tests *inside* a file deliberately hand
+	// state to each other. `fullyParallel: false` is what draws that line, giving
+	// each file to one worker and keeping its tests in order.
+	workers: 6,
 	fullyParallel: false,
 	forbidOnly: Boolean(process.env.CI),
 	retries: process.env.CI ? 1 : 0,

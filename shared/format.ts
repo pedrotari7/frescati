@@ -121,6 +121,22 @@ export const counted = (count: number, singular: string, many?: string): string 
 export const signed = (value: number): string => (value > 0 ? `+${value}` : `${value}`);
 
 /**
+ * `70 kr`, `1 400 kr`, `-450 kr`. Whole kronor, grouped in threes.
+ *
+ * Hand-formatted for the reason at the top of this file: `Intl.NumberFormat`
+ * groups with a non-breaking space in `sv-SE` and a comma in `en-US`, so the
+ * same amount would read differently in a push notification and on the screen
+ * that sent it, and differently again between Node and the browser. The sign
+ * goes outside the digits so it does not land in the middle of a group.
+ */
+export const formatSek = (amount: number): string => {
+	const whole = Math.round(amount);
+	const digits = String(Math.abs(whole)).replace(/\B(?=(\d{3})+$)/g, ' ');
+
+	return `${whole < 0 ? '-' : ''}${digits} kr`;
+};
+
+/**
  * `in 3 days`, `in 2 hours`, `5 minutes ago`. Coarse on purpose. Nobody needs
  * seconds of precision to decide whether they're playing on Tuesday.
  */

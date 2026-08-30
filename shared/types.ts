@@ -238,6 +238,34 @@ export const DEFAULT_BALANCE_SETTINGS: BalanceSettings = {
 	matchMinutes: 5,
 };
 
+/**
+ * What it costs to play a season, and where the money goes.
+ *
+ * `total` is the bill: the pitch for the whole season, one number an admin can
+ * read straight off the booking. A member's entry fee is that split between the
+ * squad rather than a figure typed in separately, because the two would drift
+ * apart the moment somebody joined in October, and the one that matters is the
+ * bill. `entryShare` in `finances.ts` does the division.
+ *
+ * Members and extras are charged on different clocks, which is why there are two
+ * numbers and not one: a member pays a share of the season, an extra pays for
+ * each game they turn up to. `swish` is the number that collects, held here
+ * rather than on a player so that handing the books to a new admin is one field.
+ */
+export interface SeasonFees {
+	/** SEK the season costs to run. Split between the members as their entry fee. */
+	total: number;
+	/** SEK an extra pays for each game they play. */
+	perGame: number;
+	/** The Swish number that collects, local form, e.g. '0701234567'. */
+	swish?: string;
+}
+
+export const DEFAULT_FEES: SeasonFees = {
+	total: 0,
+	perGame: 70,
+};
+
 export interface Season {
 	id: string;
 	name: string;
@@ -256,6 +284,8 @@ export interface Season {
 	reminderHours: number[];
 	/** Team-selection levers. Absent on seasons created before teams existed. */
 	balance?: BalanceSettings;
+	/** What it costs to play. Absent on seasons created before finances existed. */
+	fees?: SeasonFees;
 	memberUids: string[];
 	adminUids: string[];
 	createdAt: string;
@@ -309,6 +339,78 @@ export interface KitItem {
 	 */
 	updatedBy: string;
 	updatedAt: string;
+}
+
+/** A member's share of the season's cost, or an extra's fee for one game. */
+export type DueKind = 'entry' | 'game';
+
+export type DueStatus = 'owing' | 'paid' | 'waived';
+
+/**
+ * The part of a due that does not depend on whether it has been settled.
+ *
+ * `amount` is frozen when the due is raised rather than read off the season,
+ * which is the whole reason a due is a document instead of a calculation:
+ * changing the fee in March must not re-price February, and an extra who is
+ * later added to `memberUids` still owes for the games they played as an extra.
+ */
+interface DueBase {
+	id: string;
+	uid: string;
+	kind: DueKind;
+	/** SEK, whole. Frozen at the moment the due was raised. */
+	amount: number;
+	/** Set on a `game` due, absent on an `entry` one. */
+	gameId?: string;
+	/** Why an admin raised or waived this one by hand. */
+	note?: string;
+	createdAt: string;
+}
+
+/** Nobody has marked it yet, so there is nothing to sign. */
+interface DueOwing {
+	status: 'owing';
+}
+
+interface DueSettled {
+	status: 'paid' | 'waived';
+	/** Who marked it, and when. Present exactly when it is settled. */
+	settledAt: string;
+	settledBy: string;
+}
+
+/**
+ * A charge against one player, settled or not.
+ *
+ * A union rather than a `status` beside two optional fields, because that shape
+ * admits a due marked paid that nobody signed and an owing due carrying a
+ * settlement. `toDue` is the one place the stored document is narrowed into this.
+ */
+export type Due = DueBase & (DueOwing | DueSettled);
+
+/**
+ * Something the group bought with the extras' money.
+ *
+ * There is no field saying which pot it came out of, because there is only one
+ * pot it can come out of. The entry fees pay the season's bill and nothing else;
+ * the extras' fees are the equipment money. An expense is therefore always
+ * against the extras, and a field that can only hold one value is a field that
+ * will eventually hold the wrong one.
+ */
+export interface Expense {
+	id: string;
+	/** What it bought: "Match ball", "Vests, set of 8". */
+	description: string;
+	/** SEK, whole. */
+	amount: number;
+	/** Civil date, `YYYY-MM-DD`. When the money left, not when it was recorded. */
+	date: string;
+	/**
+	 * Who recorded it. Signed for the same reason a kit handover is: it is a
+	 * claim about money, so a wrong one needs a face on it.
+	 */
+	createdBy: string;
+	createdAt: string;
 }
 
 export interface GameCounts {

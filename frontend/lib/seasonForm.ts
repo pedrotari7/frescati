@@ -1,6 +1,7 @@
 import type { BalanceSettings, Season, SeasonStatus, Weekday } from '@shared/types';
-import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
+import { DEFAULT_BALANCE_SETTINGS, DEFAULT_FEES } from '@shared/types';
 import { parseCount } from '@shared/game';
+import { feesFor } from '@shared/finances';
 
 /**
  * The season settings screen's form, and the three questions it has to answer
@@ -42,6 +43,15 @@ export interface SeasonForm {
 	responseDeadlineHours: string;
 	matchMinutes: string;
 	repeatLookback: string;
+	/*
+	 * The money. `seasonCost` is the whole bill; what a member owes is that
+	 * divided between the squad, worked out on the finances screen rather than
+	 * typed in here.
+	 */
+	seasonCost: string;
+	perGameFee: string;
+	/** The Swish number that collects, as somebody would write it: `0701234567`. */
+	swish: string;
 }
 
 export const EMPTY_FORM: SeasonForm = {
@@ -61,6 +71,9 @@ export const EMPTY_FORM: SeasonForm = {
 	randomness: DEFAULT_BALANCE_SETTINGS.randomness * 100,
 	repeatPenalty: DEFAULT_BALANCE_SETTINGS.repeatPenalty * 100,
 	repeatLookback: String(DEFAULT_BALANCE_SETTINGS.repeatLookback),
+	seasonCost: String(DEFAULT_FEES.total),
+	perGameFee: String(DEFAULT_FEES.perGame),
+	swish: '',
 };
 
 /**
@@ -71,24 +84,34 @@ export const EMPTY_FORM: SeasonForm = {
  * stored season has moved underneath somebody rather than silently overwriting
  * a change they never saw.
  */
-export const formFromSeason = (season: Season, balance: BalanceSettings): SeasonForm => ({
-	name: season.name,
-	status: season.status,
-	venueName: season.venue.name,
-	venueAddress: season.venue.address ?? '',
-	weekday: season.slot.weekday,
-	time: season.slot.time,
-	durationMinutes: String(season.slot.durationMinutes),
-	startDate: season.startDate,
-	endDate: season.endDate,
-	minPlayers: String(season.minPlayers),
-	responseDeadlineHours: String(season.responseDeadlineHours),
-	reminderHours: (season.reminderHours ?? []).join(', '),
-	matchMinutes: String(balance.matchMinutes),
-	randomness: Math.round(balance.randomness * 100),
-	repeatPenalty: Math.round(balance.repeatPenalty * 100),
-	repeatLookback: String(balance.repeatLookback),
-});
+export const formFromSeason = (season: Season, balance: BalanceSettings): SeasonForm => {
+	// The defaults for the fees come from `feesFor` rather than from a second
+	// argument beside `balance`, because unlike the balance levers nothing else on
+	// the screen needs the merged fees.
+	const fees = feesFor(season);
+
+	return {
+		name: season.name,
+		status: season.status,
+		venueName: season.venue.name,
+		venueAddress: season.venue.address ?? '',
+		weekday: season.slot.weekday,
+		time: season.slot.time,
+		durationMinutes: String(season.slot.durationMinutes),
+		startDate: season.startDate,
+		endDate: season.endDate,
+		minPlayers: String(season.minPlayers),
+		responseDeadlineHours: String(season.responseDeadlineHours),
+		reminderHours: (season.reminderHours ?? []).join(', '),
+		matchMinutes: String(balance.matchMinutes),
+		randomness: Math.round(balance.randomness * 100),
+		repeatPenalty: Math.round(balance.repeatPenalty * 100),
+		repeatLookback: String(balance.repeatLookback),
+		seasonCost: String(fees.total),
+		perGameFee: String(fees.perGame),
+		swish: fees.swish ?? '',
+	};
+};
 
 /**
  * Whether two forms say the same thing.
@@ -111,6 +134,8 @@ export const INVALID_COUNT = {
 	responseDeadlineHours: 'Answers close a whole number of hours before kick-off.',
 	matchMinutes: 'A match needs to be at least one minute long.',
 	repeatLookback: 'Looking back has to cover at least one game.',
+	seasonCost: "The season's cost is a whole number of kronor, or zero if there is no bill.",
+	perGameFee: "An extra's fee is a whole number of kronor, or zero if extras play free.",
 } as const;
 
 export type CountField = keyof typeof INVALID_COUNT;
@@ -127,7 +152,9 @@ export interface SeasonCounts {
  * The floor is per field, because they are not the same question: a slot, a
  * match and a lookback all need at least one of something, and the response
  * deadline needs zero to be allowed, answers staying open right up to
- * kick-off is a real setting, not an empty box.
+ * kick-off is a real setting, not an empty box. The two fees take zero for the
+ * same reason: a season nobody pays for is a season, and extras playing free is
+ * a choice somebody makes.
  */
 export const readCounts = (form: SeasonForm): SeasonCounts => {
 	const counts: Record<CountField, number | null> = {
@@ -136,6 +163,8 @@ export const readCounts = (form: SeasonForm): SeasonCounts => {
 		responseDeadlineHours: parseCount(form.responseDeadlineHours, 0),
 		matchMinutes: parseCount(form.matchMinutes),
 		repeatLookback: parseCount(form.repeatLookback),
+		seasonCost: parseCount(form.seasonCost, 0),
+		perGameFee: parseCount(form.perGameFee, 0),
 	};
 
 	return { counts, invalid: (Object.keys(counts) as CountField[]).find(key => counts[key] === null) };

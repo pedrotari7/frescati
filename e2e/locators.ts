@@ -30,6 +30,7 @@ export const AT = {
 	teamSheet: /\/tournament$/,
 	squad: /\/members$/,
 	kit: /\/kit$/,
+	finances: /\/finances$/,
 	player: /\/u\/[^/]+$/,
 	seasonAdmin: /\/admin$/,
 	adminCalendar: /\/admin\/games$/,
@@ -70,6 +71,19 @@ export const gameLinks = (scope: Page | Locator): Locator => scope.locator('a[hr
  * to land on the season's home page.
  */
 export const playerLinks = (scope: Page | Locator): Locator => scope.locator('a[href^="/u/"]');
+
+/**
+ * What a row reads as before the profiles have arrived. `lib/people.ts`.
+ *
+ * Not a defensive fallback but a real state, which is exactly why it is worth
+ * waiting for: nothing in this app stores a name beside a uid, so every list of
+ * people is a join against the profiles subscription, and this is what a row says
+ * while that join is still outstanding. Two specs wait it out for the same
+ * reason, a list drawn from `memberUids` re-sorts by display name the moment the
+ * names land, so a name read off row one and a click on row one are two
+ * different people either side of it.
+ */
+export const NO_PROFILE_YET = 'Unknown player';
 
 /**
  * The sheet on top of whatever is behind it.

@@ -42,6 +42,19 @@ service cloud.firestore {
       return isAppAdmin() || (isSignedIn() && request.auth.uid in seasonData(seasonId).adminUids);
     }
 
+    // Anybody the season document names, member or admin.
+    //
+    // The one thing in the app that is *not* readable by every signed-in user is
+    // the books, so this is the only place that needs the union. Both lists come
+    // off one `seasonData()` rather than an `isSeasonMember() || isSeasonAdmin()`
+    // that reads the same document twice.
+    function isSeasonSquad(seasonId) {
+      return isAppAdmin()
+             || (isSignedIn()
+                 && (request.auth.uid in seasonData(seasonId).memberUids
+                     || request.auth.uid in seasonData(seasonId).adminUids));
+    }
+
     // ── shared shapes ────────────────────────────────────────────────────────
     // Seasons and games are both readable by every signed-in user and writable
     // by season admins, and both hang maps off themselves. An allowlist stops
@@ -79,6 +92,25 @@ service cloud.firestore {
              && balance.get('repeatPenalty', 0) is number
              && balance.get('repeatLookback', 0) is number
              && balance.get('matchMinutes', 0) is number;
+    }
+
+    // What it costs to play. Bounded like `balance` above, because an allowlist
+    // stops at the edge of a map.
+    //
+    // The fees are not what anybody is charged: a charge is a document under
+    // `dues` carrying its own frozen amount, and this is only the number the
+    // next one is raised from. `total` is the season's bill, divided between the
+    // squad when a charge is raised, so moving it is an ordinary season edit
+    // rather than something that rewrites history.
+    function feesShapeOk(fees) {
+      return fees.keys().hasOnly(['total', 'perGame', 'swish'])
+             && fees.get('total', 0) is number
+             && fees.get('total', 0) >= 0
+             && fees.get('total', 0) <= 10000000
+             && fees.get('perGame', 0) is number
+             && fees.get('perGame', 0) >= 0
+             && fees.get('swish', '') is string
+             && fees.get('swish', '').size() <= 20;
     }
 
     // Fields the client may never write. Cloud Functions own them.
@@ -252,7 +284,7 @@ service cloud.firestore {
         return request.resource.data.keys().hasOnly(
                  ['id', 'name', 'status', 'startDate', 'endDate', 'venue', 'slot',
                   'minPlayers', 'responseDeadlineHours', 'reminderHours', 'balance',
-                  'memberUids', 'adminUids', 'createdAt', 'createdBy'])
+                  'fees', 'memberUids', 'adminUids', 'createdAt', 'createdBy'])
                && request.resource.data.get('name', '') is string
                && request.resource.data.get('name', '').size() <= 100
                && request.resource.data.get('status', '') is string
@@ -273,7 +305,8 @@ service cloud.firestore {
                && request.resource.data.get('createdBy', '').size() <= 128
                && venueShapeOk(request.resource.data.get('venue', {}))
                && slotShapeOk(request.resource.data.get('slot', {}))
-               && balanceShapeOk(request.resource.data.get('balance', {}));
+               && balanceShapeOk(request.resource.data.get('balance', {}))
+             && feesShapeOk(request.resource.data.get('fees', {}));
       }
 
       // `size()` alone would not prove this is a list. It works on strings too,
@@ -777,6 +810,115 @@ service cloud.firestore {
         allow update: if kitShapeOk()
                       && (keepsItsHolder() || holderIsInTheSquad())
                       && (isSeasonAdmin(seasonId) || (isSeasonMember(seasonId) && onlyHandsItOver()));
+
+        allow delete: if isSeasonAdmin(seasonId);
+      }
+
+      // ── dues ───────────────────────────────────────────────────────────────
+      // What one player owes: a member's share of the season's bill, or an
+      // extra's fee for one game. One document per charge, and the only thing in
+      // this file that is not readable by everybody who can sign in.
+      //
+      // That exception is deliberate. The README argues the group should be open
+      // because an extra has to be able to find a game and put their hand up,
+      // and none of that reasoning reaches "who still hasn't paid". A debt is
+      // read differently from a roster, so the squad sees the books and a
+      // stranger who happened onto the URL does not.
+      //
+      // Charges are stored rather than worked out on demand because a charge
+      // gets settled, and "paid" has to be stored against something that cannot
+      // move underneath it. See the header of shared/finances.ts.
+      match /dues/{dueId} {
+
+        // `id` is not stored, the same as kit: the document id is the id, and
+        // it is derived (`entry_{uid}`, `game_{gameId}_{uid}`) so that raising
+        // the same charge twice collides instead of duplicating.
+        function dueShapeOk() {
+          return request.resource.data.keys().hasOnly(
+                   ['uid', 'kind', 'amount', 'gameId', 'note',
+                    'status', 'createdAt', 'settledAt', 'settledBy'])
+                 && request.resource.data.uid is string
+                 && request.resource.data.uid.size() <= 128
+                 && request.resource.data.kind in ['entry', 'game']
+                 && request.resource.data.amount is number
+                 && request.resource.data.amount >= 0
+                 && request.resource.data.amount <= 100000
+                 && request.resource.data.status in ['owing', 'paid', 'waived']
+                 && request.resource.data.get('gameId', '') is string
+                 && request.resource.data.get('gameId', '').size() <= 128
+                 && request.resource.data.get('note', '') is string
+                 && request.resource.data.get('note', '').size() <= 200
+                 && request.resource.data.createdAt is string
+                 && request.resource.data.createdAt.size() <= 40
+                 && settlementIsCoherent();
+        }
+
+        // The `Due` union in shared/types.ts, enforced. A charge is either owing
+        // and unsigned, or settled and signed by whoever settled it. Without
+        // this the document admits a payment nobody recorded taking, and an
+        // owing charge still carrying the receipt from the time it was paid.
+        function settlementIsCoherent() {
+          return request.resource.data.status == 'owing'
+                   ? !request.resource.data.keys().hasAny(['settledAt', 'settledBy'])
+                   : (request.resource.data.settledAt is string
+                      && request.resource.data.settledAt.size() <= 40
+                      && request.resource.data.settledBy == request.auth.uid);
+        }
+
+        // Settling a charge, not re-raising it.
+        //
+        // This is what makes "raise the missing charges" safe to press twice.
+        // A second sweep writes the same derived id with a fresh `createdAt`,
+        // which lands here as an update, touches a key it may not, and is
+        // refused. Without it the sweep would quietly reset a charge somebody
+        // had already paid back to owing.
+        function onlySettles() {
+          return request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['status', 'settledAt', 'settledBy', 'note', 'amount']);
+        }
+
+        allow read: if isSeasonSquad(seasonId)
+                    || (isSignedIn() && resource.data.uid == request.auth.uid);
+
+        allow create: if isSeasonAdmin(seasonId) && dueShapeOk();
+
+        allow update: if isSeasonAdmin(seasonId) && dueShapeOk() && onlySettles();
+
+        allow delete: if isSeasonAdmin(seasonId);
+      }
+
+      // ── expenses ───────────────────────────────────────────────────────────
+      // Something the group bought with the extras' money. Readable by anyone
+      // signed in, unlike the dues beside it, because an expense names a ball
+      // rather than a person.
+      //
+      // There is no field for which pot it came out of. The entry fees pay the
+      // season's bill and nothing else, so the extras' money is the only money
+      // there is to spend, and a field with one legal value is a field that will
+      // eventually hold the other one.
+      match /expenses/{expenseId} {
+
+        function expenseShapeOk() {
+          return request.resource.data.keys().hasOnly(
+                   ['description', 'amount', 'date', 'createdBy', 'createdAt'])
+                 && request.resource.data.description is string
+                 && request.resource.data.description.size() > 0
+                 && request.resource.data.description.size() <= 100
+                 && request.resource.data.amount is number
+                 && request.resource.data.amount >= 0
+                 && request.resource.data.amount <= 1000000
+                 && request.resource.data.date is string
+                 && request.resource.data.date.size() == 10
+                 // Signed, the same reason a kit handover is: it is a claim
+                 // about money, so a wrong one needs a face on it.
+                 && request.resource.data.createdBy == request.auth.uid
+                 && request.resource.data.createdAt is string
+                 && request.resource.data.createdAt.size() <= 40;
+        }
+
+        allow read: if isSignedIn();
+
+        allow create, update: if isSeasonAdmin(seasonId) && expenseShapeOk();
 
         allow delete: if isSeasonAdmin(seasonId);
       }

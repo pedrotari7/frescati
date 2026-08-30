@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { CalendarDaysIcon, CalendarIcon, UsersIcon } from '@heroicons/react/24/outline';
 import type { SeasonStatus, Venue, Weekday } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
-import { SEASON_STATUS_LABELS, weekdayName } from '@shared/format';
+import { SEASON_STATUS_LABELS, formatSek, weekdayName } from '@shared/format';
+import { entryShare } from '@shared/finances';
 import { parseReminderHours } from '@shared/game';
 import { useAuth } from '../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
@@ -111,6 +112,15 @@ const SeasonAdminPage = () => {
 	// ever be short.
 	const { counts, invalid } = readCounts(form);
 
+	// What the bill on the form would come to per person, said out loud, because
+	// nobody types a total and does the division in their head. An empty squad is
+	// its own sentence rather than a share of nothing: the bill is real, there is
+	// just nobody to split it between yet.
+	const describeShare =
+		season.memberUids.length === 0
+			? 'Nobody in the squad to split it between yet.'
+			: `${formatSek(entryShare(counts.seasonCost ?? 0, season.memberUids.length))} each across ${season.memberUids.length} ${season.memberUids.length === 1 ? 'member' : 'members'}.`;
+
 	// The stored season has moved since this form was filled from it. Compared
 	// against the baseline rather than against `form`, which would also be true
 	// of every character this admin has typed.
@@ -153,6 +163,17 @@ const SeasonAdminPage = () => {
 					randomness: Number(form.randomness) / 100,
 					repeatPenalty: Number(form.repeatPenalty) / 100,
 					repeatLookback: counts.repeatLookback!,
+				},
+				// A nested map like `balance`, and written whole for the same
+				// reason: the rules check the shape of `fees` as one object, so a
+				// partial write would have to satisfy a check over fields it is
+				// not sending. `swish` is left off rather than written empty,
+				// since an empty string is a number the payment screen would try
+				// to build a QR code out of.
+				fees: {
+					total: counts.seasonCost!,
+					perGame: counts.perGameFee!,
+					...(form.swish.trim() ? { swish: form.swish.trim() } : {}),
 				},
 			});
 
@@ -385,6 +406,54 @@ const SeasonAdminPage = () => {
 										min={1}
 										value={form.repeatLookback}
 										onChange={e => setForm({ ...form, repeatLookback: e.target.value })}
+									/>
+								</Field>
+							</div>
+						</div>
+
+						<div className='border-t border-white/8 pt-4'>
+							<h3 className='text-ink mb-1 text-sm font-semibold'>The money</h3>
+							<p className='text-faint mb-4 text-xs'>
+								What the season costs and what an extra pays. Who has paid it is on the finances screen.
+							</p>
+
+							<div className='space-y-4'>
+								<Field
+									label='Season cost'
+									hint={`Kronor for the whole season, split equally between the members. ${describeShare}`}
+								>
+									<TextInput
+										type='number'
+										inputMode='numeric'
+										min={0}
+										value={form.seasonCost}
+										onChange={e => setForm({ ...form, seasonCost: e.target.value })}
+									/>
+								</Field>
+
+								<Field
+									label="An extra's fee"
+									hint='Kronor per game, charged to an extra who was confirmed and turned up. Zero if extras play free.'
+								>
+									<TextInput
+										type='number'
+										inputMode='numeric'
+										min={0}
+										value={form.perGameFee}
+										onChange={e => setForm({ ...form, perGameFee: e.target.value })}
+									/>
+								</Field>
+
+								<Field
+									label='Swish number'
+									hint='The number that collects. Anybody paying gets a QR code for it with the amount and the reference already filled in.'
+								>
+									<TextInput
+										value={form.swish}
+										onChange={e => setForm({ ...form, swish: e.target.value })}
+										placeholder='0701234567'
+										inputMode='tel'
+										maxLength={20}
 									/>
 								</Field>
 							</div>

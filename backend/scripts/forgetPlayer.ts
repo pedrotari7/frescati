@@ -15,7 +15,12 @@
  *
  *   Kept: the uid itself, wherever it appears in something more than one person
  *   took part in: `ratingLedger`, the generated lineups, the scoreboard's
- *   `updatedBy`, and the in/out of each response. Those are not theirs alone. The
+ *   `updatedBy`, the in/out of each response, and every charge in a season's
+ *   books. Those are not theirs alone. A charge especially: whether somebody paid
+ *   is a record between them and the group, it is what the season's bill is
+ *   covered out of, and deleting a paid one would leave a season looking short of
+ *   money it actually has. An unsettled one is reported instead, because settling
+ *   or writing it off is a decision for the people involved. The
  *   ledger especially: it is the undo history for the *whole* ladder, and
  *   `replayRatingsFrom` rebuilds each game from the state the one before it
  *   left, so deleting one player's entries would not lose only their history,
@@ -43,7 +48,7 @@
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Firestore, QueryDocumentSnapshot } from 'firebase-admin/firestore';
-import { counted } from '../../shared/format';
+import { counted, formatSek } from '../../shared/format';
 import { UsageError, runScript } from './lib/script';
 import type { ScriptContext } from './lib/script';
 
@@ -83,10 +88,12 @@ interface Plan {
 	adminOf: QueryDocumentSnapshot[];
 	/** Kit still recorded as theirs. Reported, never cleared, see `describe`. */
 	holds: QueryDocumentSnapshot[];
+	/** Charges they have not settled. Reported, never cleared, for the same reason. */
+	owes: QueryDocumentSnapshot[];
 }
 
 const buildPlan = async (db: Firestore, uid: string): Promise<Plan> => {
-	const [profileSnap, tokensSnap, responsesSnap, seasonsSnap, kitSnap] = await Promise.all([
+	const [profileSnap, tokensSnap, responsesSnap, seasonsSnap, kitSnap, duesSnap] = await Promise.all([
 		db.doc(`users/${uid}`).get(),
 		db.collection(`users/${uid}/pushTokens`).get(),
 		// Every answer they ever gave, across every season, in one query, the
@@ -96,6 +103,11 @@ const buildPlan = async (db: Firestore, uid: string): Promise<Plan> => {
 		// Same shape of query, and it rides the same automatic single-field
 		// index, nothing has to be declared for either.
 		db.collectionGroup('kit').where('holderUid', '==', uid).get(),
+		// And again for the books. `expenses` needs no query beside this one: it
+		// records what the group bought, and the only uid on one is the admin who
+		// wrote it down, which is a signature on a shared record rather than
+		// anything about them.
+		db.collectionGroup('dues').where('uid', '==', uid).get(),
 	]);
 
 	const profile = profileSnap.exists ? (profileSnap as QueryDocumentSnapshot) : null;
@@ -118,6 +130,7 @@ const buildPlan = async (db: Firestore, uid: string): Promise<Plan> => {
 		memberOf: seasonsSnap.docs.filter(doc => (doc.get('memberUids') ?? []).includes(uid)),
 		adminOf: seasonsSnap.docs.filter(doc => (doc.get('adminUids') ?? []).includes(uid)),
 		holds: kitSnap.docs,
+		owes: duesSnap.docs.filter(doc => doc.get('status') === 'owing'),
 	};
 };
 
@@ -149,8 +162,19 @@ const describe = (plan: Plan, email: string | undefined, hasAccount: boolean): v
 		);
 	}
 
+	// The other thing somebody has to act on off-screen, and the reason it is
+	// reported rather than cleared: this is money, and the group deciding to write
+	// it off is a different act from a script deleting the record of it.
+	if (plan.owes.length > 0) {
+		const total = plan.owes.reduce((sum, doc) => sum + (doc.get('amount') ?? 0), 0);
+
+		console.log(
+			row('dues', `${formatSek(total)} across ${counted(plan.owes.length, 'charge')}, settle it or write it off`)
+		);
+	}
+
 	console.log('\n  Kept: rating, and the uid wherever it appears in shared history:');
-	console.log('  ratingLedger, lineups, scores and the in/out of each response.');
+	console.log('  ratingLedger, lineups, scores, the in/out of each response, and the books.');
 };
 
 /** Returns the seasons left untouched because they would have been orphaned. */
