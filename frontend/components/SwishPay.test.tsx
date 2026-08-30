@@ -56,6 +56,23 @@ describe('SwishPay', () => {
 		expect(container.querySelector('[data-testid="swish-qr"] svg path')).toBeInTheDocument();
 	});
 
+	/**
+	 * The mark is excavated rather than drawn over: `qrcode.react` clears the
+	 * modules underneath it, so they have to be modules the code can afford to
+	 * lose. How wide the code came out is the only place the DOM says which
+	 * error correction level it ran at. 57 across is H for this payload and 41
+	 * would be the M it used to use, and an M code with a hole in the middle is
+	 * one a phone gives up on.
+	 */
+	it('excavates the app mark out of a code with the recovery to spare it', () => {
+		const { container } = pay();
+
+		const svg = container.querySelector('[data-testid="swish-qr"] svg')!;
+
+		expect(svg.querySelector('image')).toHaveAttribute('href', '/qr-mark.svg');
+		expect(svg).toHaveAttribute('viewBox', '0 0 57 57');
+	});
+
 	it('opens the app with the payment already filled in', () => {
 		pay();
 

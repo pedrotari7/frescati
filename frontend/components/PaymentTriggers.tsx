@@ -59,6 +59,14 @@ const readSeason = (season: Season, displayName: string) => {
  * The defaults come off the selected season rather than from constants, because
  * a number written down here would prove the QR library works and say nothing
  * about whether this season's own configuration produces a code anybody can pay.
+ *
+ * The one trap this panel walks you straight into: the number it fills in is the
+ * season's, the person testing is usually the admin whose number that is, and
+ * Swish will not let anybody pay themselves. It refuses with "the link used to
+ * open the app has an incorrect format", the same message a genuinely malformed
+ * link gets, so the panel reads as proof the format is wrong when it is proof of
+ * nothing at all. Hence the note on the number field. Scan it from a different
+ * phone, or type somebody else's number.
  */
 const PaymentTriggers = ({ season, displayName }: { season: Season | null; displayName: string }) => {
 	const write = useWrite();
@@ -101,7 +109,7 @@ const PaymentTriggers = ({ season, displayName }: { season: Season | null; displ
 					label='Swish number'
 					hint={
 						from?.fees.swish
-							? `The season collects to ${toLocal(from.fees.swish)}.`
+							? `The season collects to ${toLocal(from.fees.swish)}. Swish refuses a payment to your own number, so scan this from a phone that is not the one this number belongs to.`
 							: 'This season has no number set, so the app offers its players no way to pay. Type one to test the handoff anyway.'
 					}
 				>

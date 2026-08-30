@@ -45,13 +45,30 @@ const SwishPay = ({ payee, amount, message }: { payee: string; amount: number; m
 			    and a scanner needs the quiet zone to be lighter than the modules,
 			    so an inverted code reads on some phones and not others.
 
-			    200 rather than the 180 the payload was drawn at: a URL is about
-			    two and a half times the characters, which pushes the code up
-			    several versions and shrinks a module to roughly four screen
-			    pixels. Scanning it back is the entire job. */}
+			    The mark in the middle costs error correction, because `excavate`
+			    clears the modules underneath it rather than drawing over them, so
+			    the level goes to H and the code gets bigger to pay for it. A
+			    reference at the 50 character limit is 65 modules across at H
+			    against 49 at the M this used to run: at a fixed 200 pixels that
+			    is a three pixel module, which is under what a phone camera reads
+			    reliably at arm's length. So the code takes the width it is given
+			    up to 260 rather than a pinned number, which is four pixels a
+			    module on a phone in the worst case and better in every other.
+			    Scanning it back is the entire job.
+
+			    46 of those 260 is a mark covering about 3% of the modules, well
+			    inside the 30% H recovers. Making it bigger looks better on a
+			    screen and is exactly the wrong trade at the side of a pitch. */}
 			<div className='flex justify-center'>
-				<div className='rounded-xl bg-white p-3' data-testid='swish-qr'>
-					<QRCodeSVG value={appUrl} size={200} level='M' marginSize={0} />
+				<div className='w-full max-w-[260px] rounded-xl bg-white p-3' data-testid='swish-qr'>
+					<QRCodeSVG
+						value={appUrl}
+						size={260}
+						level='H'
+						marginSize={0}
+						className='h-auto w-full'
+						imageSettings={{ src: '/qr-mark.svg', height: 46, width: 46, excavate: true }}
+					/>
 				</div>
 			</div>
 

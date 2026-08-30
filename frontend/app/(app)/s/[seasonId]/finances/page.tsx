@@ -226,6 +226,22 @@ const FinancesPage = () => {
 				/>
 			)}
 
+			{/* The season collects to somebody, that somebody is almost always an
+			    admin, and they owe their own share like everybody else, so the app
+			    draws them a code to pay themselves. Nothing here can tell: a user
+			    document holds no phone number, so there is nothing to compare
+			    `fees.swish` against. Worth a line rather than nothing, because
+			    Swish refuses a self-payment with the same "the link used to open
+			    the app has an incorrect format" it gives a malformed one, which
+			    reads as a broken app and cost a whole evening to work out. */}
+			{isAdmin && mine.outstanding > 0 && fees.swish && (
+				<p className='text-faint px-1 text-xs leading-relaxed'>
+					Swish will not let you pay your own number, and it says the link has an incorrect format rather than
+					saying that. If the number above is yours, the code is fine. Mark your own charge paid in the book
+					below instead.
+				</p>
+			)}
+
 			{mine.outstanding > 0 && !fees.swish && (
 				<p className='text-faint px-1 text-xs leading-relaxed'>
 					No Swish number is set for this season, so ask an admin where to send it. An admin can add one in
