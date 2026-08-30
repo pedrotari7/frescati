@@ -234,6 +234,51 @@ export const duesFor = (uid: string, dues: Due[]): PlayerDues => {
 	};
 };
 
+/**
+ * Where a player stands with a season's books, and what that standing costs
+ * them.
+ *
+ * A union rather than a pair of booleans, for the same reason `Due` is one:
+ * `{ owes, blocked }` admits "blocked with nothing outstanding" and "clear but
+ * showing an amount", and five screens read this. Here the illegal state is a
+ * screen drawing a lock over a season that is paid up.
+ *
+ * On both owing arms `dues` is the charges the outstanding amount is made of,
+ * newest first, never empty. So a notice can say what it is made of without
+ * filtering the ledger a second time and arriving at a different answer.
+ */
+export type DebtStanding =
+	| { standing: 'clear' }
+	/** Owes, and it stops them signing up. */
+	| { standing: 'blocked'; outstanding: number; dues: Due[] }
+	/** Owes, and it does not stop them, because they run the season. */
+	| { standing: 'owing'; outstanding: number; dues: Due[] };
+
+/**
+ * What a season's books mean for one person.
+ *
+ * An admin owes their share like everybody else and is never blocked by it. The
+ * season usually collects to the admin's own number, Swish refuses a payment to
+ * yourself, and an admin locked out of signing up cannot run the season or mark
+ * the payment that would let them back in. They get told, and that is all.
+ *
+ * Signed out is `clear` rather than blocked, because there is nobody to owe
+ * anything yet and the screens behind this are all gated on being signed in.
+ */
+export const debtStanding = (uid: string | null, dues: Due[], isAdmin: boolean): DebtStanding => {
+	if (!uid) return { standing: 'clear' };
+
+	const mine = duesFor(uid, dues);
+
+	if (mine.outstanding <= 0) return { standing: 'clear' };
+
+	return {
+		standing: isAdmin ? 'owing' : 'blocked',
+		outstanding: mine.outstanding,
+		dues: mine.dues.filter(due => due.status === 'owing'),
+	};
+};
+
 export interface PlayerLedger extends PlayerDues {
 	uid: string;
 	charged: number;

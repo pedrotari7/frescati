@@ -1,4 +1,5 @@
 import {
+	debtStanding,
 	dueId,
 	duesByPlayer,
 	duesFor,
@@ -281,6 +282,59 @@ describe('duesFor', () => {
 		]);
 
 		expect(mine.outstanding).toBe(70);
+	});
+});
+
+describe('debtStanding', () => {
+	const settled = { status: 'paid', settledAt: 'x', settledBy: 'y' } as const;
+
+	it('blocks a member who owes, and says what it is made of', () => {
+		const standing = debtStanding('sam', [due('a', { uid: 'sam' }), due('b', { uid: 'sam' })], false);
+
+		expect(standing).toMatchObject({ standing: 'blocked', outstanding: 140 });
+		expect(standing.standing !== 'clear' && standing.dues.map(d => d.id)).toEqual(['a', 'b']);
+	});
+
+	// The season collects to the admin's own number, Swish refuses a payment to
+	// yourself, and an admin who cannot sign up cannot mark the payment either.
+	it('tells an admin they owe without blocking them', () => {
+		expect(debtStanding('sam', [due('a', { uid: 'sam' })], true)).toMatchObject({
+			standing: 'owing',
+			outstanding: 70,
+		});
+	});
+
+	it('is clear with nobody signed in', () => {
+		expect(debtStanding(null, [due('a', { uid: 'sam' })], false)).toEqual({ standing: 'clear' });
+	});
+
+	it('is clear on a season that has charged nothing', () => {
+		expect(debtStanding('sam', [], false)).toEqual({ standing: 'clear' });
+	});
+
+	it('is clear once every charge is paid', () => {
+		expect(debtStanding('sam', [due('a', { uid: 'sam', ...settled })], false)).toEqual({ standing: 'clear' });
+	});
+
+	it('is clear on a charge that was written off', () => {
+		const waived = due('a', { uid: 'sam', status: 'waived', settledAt: 'x', settledBy: 'y' });
+
+		expect(debtStanding('sam', [waived], false)).toEqual({ standing: 'clear' });
+	});
+
+	it('counts only this player, not the rest of the book', () => {
+		const standing = debtStanding('sam', [due('mine', { uid: 'sam' }), due('theirs', { uid: 'anna' })], false);
+
+		expect(standing).toMatchObject({ standing: 'blocked', outstanding: 70 });
+		expect(standing.standing !== 'clear' && standing.dues.map(d => d.id)).toEqual(['mine']);
+	});
+
+	// The amount and the list have to be the same debt. A settled charge in the
+	// list would let a notice say "700 across 3 charges" over two owing ones.
+	it('leaves a settled charge out of the list behind the amount', () => {
+		const standing = debtStanding('sam', [due('a', { uid: 'sam' }), due('b', { uid: 'sam', ...settled })], false);
+
+		expect(standing.standing !== 'clear' && standing.dues.map(d => d.id)).toEqual(['a']);
 	});
 });
 
