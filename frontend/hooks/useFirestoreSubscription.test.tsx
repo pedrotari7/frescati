@@ -76,6 +76,57 @@ describe('useFirestoreSubscription', () => {
 		});
 	});
 
+	/**
+	 * The effect that re-subscribes runs after the render that scheduled it, so
+	 * for one render the hook is still holding the answer to the question it has
+	 * stopped asking. Handing that back as settled is what let an admin sweep the
+	 * season books against a book they had not been allowed to read yet.
+	 *
+	 * Every render is collected rather than read off `result.current`, because
+	 * `rerender` flushes the effect and by then the hook has corrected itself.
+	 */
+	describe('when the deps change', () => {
+		const renderWithId = () => {
+			const { subscribe, latest } = controllable();
+			const seen: { data: string; loading: boolean }[] = [];
+
+			const { rerender } = renderHook(
+				({ id }: { id: string }) => {
+					const current = useFirestoreSubscription('', subscribe, [id], 'test');
+
+					seen.push({ data: current.data, loading: current.loading });
+
+					return current;
+				},
+				{ initialProps: { id: 'first' } }
+			);
+
+			return { latest, seen, rerender };
+		};
+
+		it('never reports the previous subscription as settled', () => {
+			const { latest, seen, rerender } = renderWithId();
+
+			act(() => latest().onChange('the first answer'));
+
+			const before = seen.length;
+
+			act(() => rerender({ id: 'second' }));
+
+			expect(seen[before]).toEqual({ data: 'the first answer', loading: true });
+		});
+
+		it('settles again once the new subscription lands', () => {
+			const { latest, seen, rerender } = renderWithId();
+
+			act(() => latest().onChange('the first answer'));
+			act(() => rerender({ id: 'second' }));
+			act(() => latest().onChange('the second answer'));
+
+			expect(seen[seen.length - 1]).toEqual({ data: 'the second answer', loading: false });
+		});
+	});
+
 	describe('retry', () => {
 		// Firestore drops a listener for good once it has handed one to
 		// `onError`, so there is nothing to resume, the only way back is a
