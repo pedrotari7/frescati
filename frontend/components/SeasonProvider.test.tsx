@@ -1,5 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
-import type { Game, GameResponse, Season } from '@shared/types';
+import type { Due, Game, GameResponse, Season } from '@shared/types';
 import { SeasonProvider, useSeasonContext } from './SeasonProvider';
 
 /**
@@ -19,24 +19,28 @@ const answers = {
 	error: null as Error | null,
 	retry: jest.fn(),
 };
+const books = { dues: [] as Due[], loading: false, error: null as Error | null, retry: jest.fn() };
+const auth = { user: { uid: 'anna', isAppAdmin: false } as { uid: string; isAppAdmin: boolean } | null };
 
 jest.mock('../hooks/useData', () => ({
 	useSeason: () => season,
 	useGames: () => games,
+	useDues: () => books,
 }));
 
 jest.mock('../hooks/useMyResponses', () => ({ useMyResponses: () => answers }));
 
-jest.mock('../lib/auth', () => ({ useAuth: () => ({ user: { uid: 'anna', isAppAdmin: false } }) }));
+jest.mock('../lib/auth', () => ({ useAuth: () => auth }));
 jest.mock('./SeasonScope', () => ({ useSeasonScope: () => ({ seasonId: null, remember: jest.fn() }) }));
 
 const Probe = () => {
-	const { loading, error, retry, isMember, isAdmin, role, myResponses } = useSeasonContext();
+	const { loading, error, retry, isMember, isAdmin, role, myResponses, debt, debtLock } = useSeasonContext();
 	const answer = myResponses['game-1']?.status ?? 'unanswered';
+	const lock = debtLock ? `locked-at-${debtLock.outstanding}-${debtLock.href}` : 'unlocked';
 
 	return (
 		<button type='button' onClick={retry}>
-			{`${loading ? 'loading' : 'ready'} ${error?.message ?? 'no-error'} ${isMember} ${isAdmin} ${role} ${answer}`}
+			{`${loading ? 'loading' : 'ready'} ${error?.message ?? 'no-error'} ${isMember} ${isAdmin} ${role} ${answer} ${debt.standing} ${lock}`}
 		</button>
 	);
 };
@@ -65,6 +69,13 @@ beforeEach(() => {
 	answers.loading = true;
 	answers.error = null;
 	answers.retry = jest.fn();
+
+	books.dues = [];
+	books.loading = false;
+	books.error = null;
+	books.retry = jest.fn();
+
+	auth.user = { uid: 'anna', isAppAdmin: false };
 });
 
 describe('SeasonProvider', () => {
@@ -147,6 +158,7 @@ describe('SeasonProvider', () => {
 			expect(season.retry).toHaveBeenCalledTimes(1);
 			expect(games.retry).toHaveBeenCalledTimes(1);
 			expect(answers.retry).toHaveBeenCalledTimes(1);
+			expect(books.retry).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -184,6 +196,88 @@ describe('SeasonProvider', () => {
 			renderProvider();
 
 			expect(state()).toContain('false false extra');
+		});
+	});
+
+	// The one derivation three screens read rather than repeat, because the part
+	// worth getting wrong is which arm of the union locks an In button.
+	describe('what they owe the season', () => {
+		const charge = (overrides: Partial<Due> = {}): Due =>
+			({
+				id: 'game-1_anna',
+				uid: 'anna',
+				kind: 'game',
+				amount: 70,
+				gameId: 'game-1',
+				status: 'owing',
+				createdAt: '2026-08-01T00:00:00.000Z',
+				...overrides,
+			}) as Due;
+
+		const landed = (overrides: Partial<Season> = {}) => {
+			season.season = { id: 'season-1', memberUids: ['anna'], adminUids: [], ...overrides } as Season;
+			season.loading = false;
+			games.loading = false;
+			answers.loading = false;
+		};
+
+		it('locks the In button of somebody who owes, and says how much', () => {
+			landed();
+			books.dues = [charge(), charge({ id: 'game-2_anna', gameId: 'game-2' })];
+			renderProvider();
+
+			expect(state()).toContain('blocked locked-at-140-/s/season-1/finances');
+		});
+
+		it('leaves somebody who has paid up alone', () => {
+			landed();
+			books.dues = [charge({ status: 'paid', settledAt: '2026-08-02T00:00:00.000Z', settledBy: 'bob' })];
+			renderProvider();
+
+			expect(state()).toContain('clear unlocked');
+		});
+
+		// A season admin owes their share like everybody else. The season usually
+		// collects to their own Swish number, which Swish refuses to pay, and an
+		// admin who cannot sign up cannot mark the payment that would unlock them.
+		it('tells a season admin what they owe without locking them out', () => {
+			landed({ adminUids: ['anna'] });
+			books.dues = [charge()];
+			renderProvider();
+
+			expect(state()).toContain('owing unlocked');
+		});
+
+		it('exempts an app admin the same way', () => {
+			landed();
+			auth.user = { uid: 'anna', isAppAdmin: true };
+			books.dues = [charge()];
+			renderProvider();
+
+			expect(state()).toContain('owing unlocked');
+		});
+
+		// A debt nobody has heard about yet draws a live In button the rules will
+		// refuse, so the books are one of the four things `loading` covers.
+		it('waits for the books before claiming anybody is clear', () => {
+			landed();
+			books.loading = true;
+			renderProvider();
+
+			expect(state()).toContain('loading');
+		});
+
+		// Failing open on purpose. The rule is the gate either way, so a dropped
+		// books listener costs a refused write, not a failure screen over the
+		// whole season and not a lock nobody can see the reason for.
+		it('stops claiming anybody is blocked when the books listener drops', () => {
+			landed();
+			books.dues = [charge()];
+			books.error = new Error('dues-denied');
+			renderProvider();
+
+			expect(state()).toContain('no-error');
+			expect(state()).toContain('clear unlocked');
 		});
 	});
 });

@@ -25,6 +25,7 @@ export const useRespondIntent = ({
 	ready,
 	isOpen,
 	pendingSpot = false,
+	blockedByDebt = false,
 	onRespond,
 }: {
 	/** Season and game have loaded, so the role behind the write is the real one. */
@@ -41,6 +42,17 @@ export const useRespondIntent = ({
 	 * before the screen behind the toast tells them they are waiting.
 	 */
 	pendingSpot?: boolean;
+	/**
+	 * Whether this player owes the season money, which refuses an In.
+	 *
+	 * The notification's buttons were sent before the charge existed and the
+	 * service worker cannot know, so the tap arrives here regardless. Checked
+	 * rather than left to the rule: a refused write would reach somebody as
+	 * "couldn't save your answer, try again", which is wrong about what happened
+	 * and wrong about what to do, and it would report a rule doing its job to
+	 * Sentry as an application error.
+	 */
+	blockedByDebt?: boolean;
 	onRespond: (status: ResponseStatus) => Promise<void>;
 }) => {
 	const { notify, warn } = useToast();
@@ -60,6 +72,14 @@ export const useRespondIntent = ({
 			return;
 		}
 
+		// Only the In, for the reason the button beside it is only half disabled.
+		// An Out from this notification is the answer somebody who owes money is
+		// most likely to be giving, and the one the organiser most needs.
+		if (blockedByDebt && intent === 'in') {
+			warn('You owe this season money. Settle up on the finances page to sign up again.');
+			return;
+		}
+
 		onRespond(intent)
 			.then(() =>
 				notify(
@@ -75,5 +95,5 @@ export const useRespondIntent = ({
 				warn("Couldn't save your answer. Open the game and try again.");
 				void captureError(error, { stage: 'respondIntent' });
 			});
-	}, [ready, isOpen, pendingSpot, onRespond, notify, warn]);
+	}, [ready, isOpen, pendingSpot, blockedByDebt, onRespond, notify, warn]);
 };

@@ -23,6 +23,7 @@ const NextGameHero = ({
 	myResponse,
 	isExtra,
 	watching = false,
+	debtLock,
 	now,
 	onRespond,
 	onClear,
@@ -33,6 +34,8 @@ const NextGameHero = ({
 	myResponse: GameResponse | undefined;
 	isExtra: boolean;
 	watching?: boolean;
+	/** Set when this player owes the season money. Takes the In half, and only that. */
+	debtLock?: { outstanding: number; href: string };
 	/** Passed in rather than read here, so the whole screen agrees on the time. */
 	now: Date;
 	onRespond: (status: ResponseStatus) => Promise<void>;
@@ -148,6 +151,7 @@ const NextGameHero = ({
 								onRespond={onRespond}
 								onClear={onClear}
 								disabled={lifecycle !== 'open'}
+								debtLock={debtLock}
 							/>
 						</div>
 

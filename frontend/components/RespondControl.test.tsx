@@ -203,4 +203,128 @@ describe('RespondControl', () => {
 
 		(console.error as jest.Mock).mockRestore();
 	});
+
+	describe('when they owe the season money', () => {
+		const debtLock = { outstanding: 140, href: '/s/s1/finances' };
+
+		it('holds the In half and leaves saying you cannot make it alone', async () => {
+			const onRespond = jest.fn().mockResolvedValue(undefined);
+
+			render(
+				<RespondControl response={undefined} onRespond={onRespond} onClear={jest.fn()} debtLock={debtLock} />
+			);
+
+			expect(screen.getByRole('button', { name: /I'm in/ })).toBeDisabled();
+			expect(screen.getByRole('button', { name: /Can't make it/ })).toBeEnabled();
+
+			await act(async () => {
+				fireEvent.click(screen.getByRole('button', { name: /Can't make it/ }));
+			});
+
+			expect(onRespond).toHaveBeenCalledWith('out');
+		});
+
+		it('writes nothing if the held half is tapped anyway', async () => {
+			const onRespond = jest.fn().mockResolvedValue(undefined);
+
+			render(
+				<RespondControl response={undefined} onRespond={onRespond} onClear={jest.fn()} debtLock={debtLock} />
+			);
+
+			await act(async () => {
+				fireEvent.click(screen.getByRole('button', { name: /I'm in/ }));
+			});
+
+			expect(onRespond).not.toHaveBeenCalled();
+		});
+
+		// A disabled button with no reason beside it reads as a broken app, and
+		// this replaces the unanswered note rather than stacking under it.
+		it('says what is owed and where to settle it, instead of the unanswered note', () => {
+			render(
+				<RespondControl response={undefined} onRespond={jest.fn()} onClear={jest.fn()} debtLock={debtLock} />
+			);
+
+			expect(screen.getByText(/You owe 140 kr/)).toBeInTheDocument();
+			expect(screen.getByRole('link', { name: 'Settle up' })).toHaveAttribute('href', '/s/s1/finances');
+			expect(screen.queryByText(/You haven't answered yet/)).not.toBeInTheDocument();
+		});
+
+		// A game row is where somebody meets the lock with no season notice on
+		// screen to explain it, so this line is drawn at both sizes.
+		it('explains itself in a game row too', () => {
+			render(
+				<RespondControl
+					response={undefined}
+					onRespond={jest.fn()}
+					onClear={jest.fn()}
+					debtLock={debtLock}
+					size='sm'
+				/>
+			);
+
+			expect(screen.getByText(/You owe 140 kr/)).toBeInTheDocument();
+		});
+
+		// Charged after they said yes. Draining the In would say they had been
+		// dropped from a game they are still playing in.
+		it('leaves an In given before the charge drawn as the answer it is', () => {
+			render(
+				<RespondControl
+					response={answered('in')}
+					onRespond={jest.fn()}
+					onClear={jest.fn()}
+					debtLock={debtLock}
+				/>
+			);
+
+			expect(screen.getByRole('button', { name: /You're in/ })).toBeEnabled();
+			expect(screen.queryByText(/You owe/)).not.toBeInTheDocument();
+		});
+
+		it('still lets them take that In back', async () => {
+			const onClear = jest.fn().mockResolvedValue(undefined);
+
+			render(
+				<RespondControl response={answered('in')} onRespond={jest.fn()} onClear={onClear} debtLock={debtLock} />
+			);
+
+			await act(async () => {
+				fireEvent.click(screen.getByRole('button', { name: 'Clear answer' }));
+			});
+
+			expect(onClear).toHaveBeenCalledTimes(1);
+		});
+
+		// The other direction of the same rule: an Out on file is not a way back in.
+		it('will not turn an out back into an in', () => {
+			render(
+				<RespondControl
+					response={answered('out')}
+					onRespond={jest.fn()}
+					onClear={jest.fn()}
+					debtLock={debtLock}
+				/>
+			);
+
+			expect(screen.getByRole('button', { name: /I'm in/ })).toBeDisabled();
+			expect(screen.getByRole('button', { name: 'Clear answer' })).toBeEnabled();
+		});
+
+		// Answers are closed, so there is nothing for the debt to hold and no
+		// reason to explain a button nobody can press.
+		it('says nothing about money once answers have closed', () => {
+			render(
+				<RespondControl
+					response={undefined}
+					onRespond={jest.fn()}
+					onClear={jest.fn()}
+					debtLock={debtLock}
+					disabled
+				/>
+			);
+
+			expect(screen.queryByText(/You owe/)).not.toBeInTheDocument();
+		});
+	});
 });

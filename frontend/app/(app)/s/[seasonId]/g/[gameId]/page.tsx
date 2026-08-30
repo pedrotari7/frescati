@@ -31,7 +31,7 @@ import WatchToggle from '../../../../../../components/WatchToggle';
 
 const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { gameId } = use(params);
-	const { seasonId, season, games, myResponses, loading, error, retry, isAdmin, role } = useSeasonContext();
+	const { seasonId, season, games, myResponses, loading, error, retry, isAdmin, role, debtLock } = useSeasonContext();
 	const { responses, loading: responsesLoading } = useResponses(seasonId, gameId);
 	const { kit } = useKit(seasonId);
 	const { usersByUid } = useUsersByUid();
@@ -77,6 +77,9 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 		// the spot they were given, because `setResponse` preserves it.
 		pendingSpot:
 			getExtraSpot({ status: 'in', role, confirmOverride: myResponses[gameId]?.confirmOverride }) === 'pending',
+		// The same lock the buttons below draw, on the one path into an In that
+		// never sees them.
+		blockedByDebt: !!debtLock,
 		onRespond: useCallback(status => respond(gameId, status), [respond, gameId]),
 	});
 
@@ -163,6 +166,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 								onRespond={status => respond(gameId, status)}
 								onClear={() => clear(gameId)}
 								disabled={lifecycle !== 'open'}
+								debtLock={debtLock}
 							/>
 
 							{/* The same note the season's home card draws, because

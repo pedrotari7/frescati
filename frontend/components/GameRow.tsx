@@ -54,6 +54,7 @@ const GameRow = ({
 	myResponse,
 	href,
 	watching = false,
+	debtLock,
 	now,
 	onRespond,
 	onClear,
@@ -65,6 +66,8 @@ const GameRow = ({
 	/** Where the row leads. Defaults to the game itself. */
 	href?: string;
 	watching?: boolean;
+	/** Set when this player owes the season money. Takes the In half, and only that. */
+	debtLock?: { outstanding: number; href: string };
 	/** Passed in rather than read here, so every row on a screen agrees. */
 	now: Date;
 	onRespond: (status: ResponseStatus) => Promise<void>;
@@ -153,7 +156,13 @@ const GameRow = ({
 
 			{lifecycle === 'open' && (
 				<div className='mt-3'>
-					<RespondControl response={myResponse} onRespond={onRespond} onClear={onClear} size='sm' />
+					<RespondControl
+						response={myResponse}
+						onRespond={onRespond}
+						onClear={onClear}
+						debtLock={debtLock}
+						size='sm'
+					/>
 				</div>
 			)}
 		</div>

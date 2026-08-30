@@ -132,7 +132,7 @@ export const useKit = (seasonId: string | null) => {
  * `useKit`: one screen reads it, and a season's book is a few dozen documents.
  */
 export const useDues = (seasonId: string | null, uid: string | null, squad: boolean) => {
-	const { data, loading, error } = useFirestoreSubscription<Due[]>(
+	const { data, loading, error, retry } = useFirestoreSubscription<Due[]>(
 		NO_DUES,
 		seasonId && (squad || uid)
 			? (onChange, onError) =>
@@ -144,7 +144,7 @@ export const useDues = (seasonId: string | null, uid: string | null, squad: bool
 		'dues'
 	);
 
-	return { dues: data, loading, error };
+	return { dues: data, loading, error, retry };
 };
 
 export const useExpenses = (seasonId: string | null) => {
