@@ -25,6 +25,7 @@ import {
 	addExpense,
 	deleteDue,
 	deleteExpense,
+	fetchDues,
 	fetchPlayedGameResponses,
 	raiseDues,
 	setDueStatus,
@@ -57,7 +58,7 @@ import { SectionHeading } from '../../../../../components/Section';
  * Charges are documents an admin raises rather than a sum worked out on the fly.
  * `shared/finances.ts` has the argument; the consequence here is the button below
  * that offers to raise the ones that are missing, and the sweep behind it, which
- * is the only one-shot read in the app.
+ * holds the only one-shot reads in the app.
  */
 const FinancesPage = () => {
 	const { seasonId, season, games, loading, error, retry, isAdmin, isMember } = useSeasonContext();
@@ -120,13 +121,22 @@ const FinancesPage = () => {
 	 * on load. Split in two on purpose: the first press says how many are
 	 * missing, the second raises them, because "raise 43 charges" is not a thing
 	 * to find out you have done.
+	 *
+	 * Both halves are read here rather than taken off the screen. The book above
+	 * is a live listener whose first event comes out of the local cache, and this
+	 * is the one thing on the page that turns a count into documents; the two
+	 * presses have to be answering the same question or the second one silently
+	 * does nothing.
 	 */
 	const sweep = async (raise: boolean) => {
 		setSweeping(true);
 
 		try {
-			const responsesByGame = await fetchPlayedGameResponses(seasonId, games);
-			const planned = missingDues(planDues(season, responsesByGame), dues);
+			const [responsesByGame, raised] = await Promise.all([
+				fetchPlayedGameResponses(seasonId, games),
+				fetchDues(seasonId),
+			]);
+			const planned = missingDues(planDues(season, responsesByGame), raised);
 
 			if (!raise || planned.length === 0) {
 				setMissing(planned.length);
