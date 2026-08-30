@@ -14,6 +14,12 @@ export interface SubscriptionResult<T> {
 
 type Subscribe<T> = (onChange: (value: T) => void, onError: (error: Error) => void) => Unsubscribe;
 
+/** React's own deps comparison: same length, `Object.is` on each. */
+const sameDeps = (settled: unknown[] | null, current: unknown[]): boolean =>
+	settled !== null &&
+	settled.length === current.length &&
+	settled.every((value, index) => Object.is(value, current[index]));
+
 /**
  * Shared plumbing for every `onSnapshot` in the app: tracks loading and error
  * state and tears the listener down on unmount.
@@ -36,6 +42,15 @@ type Subscribe<T> = (onChange: (value: T) => void, onError: (error: Error) => vo
  * a listener down for good when it hands one to `onError`, so there is nothing
  * left to resume. The only way back is a fresh `onSnapshot`, and a screen
  * showing a failure needs something to offer besides a page reload.
+ *
+ * `loading` is reported from the render rather than only from the effect,
+ * because an effect runs after the render that scheduled it. Left to the
+ * effect alone there is one render per deps change where the hook says it has
+ * settled and hands back the previous query's answer, and a screen gating on
+ * `loading` draws that answer as though it were this one. The finances screen
+ * is where it showed: `useDues` re-subscribes when the reader turns out to be
+ * in the squad, and an admin who pressed "Check what is missing" in that frame
+ * was told the whole season was unbilled off a book they could not see yet.
  */
 export const useFirestoreSubscription = <T>(
 	initial: T,
@@ -47,12 +62,22 @@ export const useFirestoreSubscription = <T>(
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
 	const [attempt, setAttempt] = useState(0);
+	/** Which subscription `data`, `loading` and `error` above are the answer to. */
+	const [settledFor, setSettledFor] = useState<unknown[] | null>(null);
 
 	const retry = useCallback(() => setAttempt(current => current + 1), []);
 
+	const key = [...deps, attempt];
+
 	useEffect(() => {
+		// `key` is a fresh array every render, so the second snapshot off a
+		// healthy listener would otherwise be a state change with nothing behind
+		// it.
+		const settle = () => setSettledFor(previous => (sameDeps(previous, key) ? previous : key));
+
 		if (!subscribe) {
 			setLoading(false);
+			settle();
 			return;
 		}
 
@@ -63,11 +88,13 @@ export const useFirestoreSubscription = <T>(
 				setData(value);
 				setError(null);
 				setLoading(false);
+				settle();
 			},
 			subscriptionError => {
 				console.error('Firestore subscription failed', subscriptionError);
 				setError(subscriptionError);
 				setLoading(false);
+				settle();
 				void captureError(subscriptionError, { source });
 			}
 		);
@@ -76,5 +103,9 @@ export const useFirestoreSubscription = <T>(
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [...deps, attempt]);
 
-	return { data, loading, error, retry };
+	// `error` is left as it was on purpose. A screen reads `loading` first and
+	// draws its skeleton, so the stale failure is never on screen, and clearing
+	// it here would take the retry button away from the one case that needs it:
+	// a listener that errors on every attempt.
+	return { data, loading: loading || !sameDeps(settledFor, key), error, retry };
 };
