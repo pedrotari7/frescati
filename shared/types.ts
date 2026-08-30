@@ -402,6 +402,11 @@ export interface Debtor {
 	outstanding: number;
 	/** How many charges are behind it, so the notice can say "across 3 charges". */
 	charges: number;
+	/**
+	 * When the debt last moved, not when the trigger last ran. `onDueWrite`
+	 * skips the write when the numbers come out the same, so a retried delivery
+	 * leaves this alone.
+	 */
 	updatedAt: string;
 }
 
