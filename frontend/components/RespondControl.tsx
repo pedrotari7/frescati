@@ -76,6 +76,21 @@ const OPTIONS: {
 ];
 
 /**
+ * What an unpaid charge does to an In button, passed down from `SeasonProvider`
+ * through whichever card is drawing the pair.
+ *
+ * One object rather than an amount plus a flag, so there is no way to draw the
+ * lock without the number that explains it, and `undefined` is the only way to
+ * say there is no lock. `firestore.rules` refuses the write either way; this is
+ * what stops the refusal arriving as a toast out of nowhere.
+ */
+export interface DebtLock {
+	outstanding: number;
+	/** The season's books, where the charge behind the lock is. */
+	href: string;
+}
+
+/**
  * The In/Out pair. This is the one control the whole app exists for, so on
  * mobile it is deliberately oversized and sits within thumb reach.
  *
@@ -115,13 +130,8 @@ const RespondControl = ({
 	 * leaves the rest of the control alone. Out and clearing stay live, because
 	 * a debt is a reason to keep somebody off the pitch and never a reason to
 	 * hold them inside a headcount somebody is booking a pitch against.
-	 *
-	 * One object rather than an amount plus a flag, so there is no way to draw
-	 * the lock without the number that explains it. `firestore.rules` refuses
-	 * the write either way; this is what stops the refusal arriving as a toast
-	 * out of nowhere.
 	 */
-	debtLock?: { outstanding: number; href: string };
+	debtLock?: DebtLock;
 	size?: 'sm' | 'lg';
 }) => {
 	const [pending, setPending] = useState<ResponseStatus | 'clear' | null>(null);

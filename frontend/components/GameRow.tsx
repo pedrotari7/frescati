@@ -8,6 +8,7 @@ import { getExtraSpot, getFormat, getGameLifecycle, getHeadcountState, isWatchab
 import { formatGameDate, formatGameTime } from '@shared/format';
 import { isMotmVotingOpen } from '@shared/motm';
 import { classNames } from '../lib/utils/reactHelper';
+import type { DebtLock } from './RespondControl';
 import RespondControl from './RespondControl';
 import type { PillTone } from './StatusPill';
 import StatusPill from './StatusPill';
@@ -67,7 +68,7 @@ const GameRow = ({
 	href?: string;
 	watching?: boolean;
 	/** Set when this player owes the season money. Takes the In half, and only that. */
-	debtLock?: { outstanding: number; href: string };
+	debtLock?: DebtLock;
 	/** Passed in rather than read here, so every row on a screen agrees. */
 	now: Date;
 	onRespond: (status: ResponseStatus) => Promise<void>;

@@ -10,6 +10,7 @@ import { useAuth } from '../lib/auth';
 import { useDues, useGames, useSeason } from '../hooks/useData';
 import type { MyResponses } from '../hooks/useMyResponses';
 import { useMyResponses } from '../hooks/useMyResponses';
+import type { DebtLock } from './RespondControl';
 import { useSeasonScope } from './SeasonScope';
 
 interface SeasonContextValue {
@@ -57,7 +58,7 @@ interface SeasonContextValue {
 	 * union locks: an admin's `owing` must not, and a copy of that ternary per
 	 * screen is two chances to forget it.
 	 */
-	debtLock: { outstanding: number; href: string } | undefined;
+	debtLock: DebtLock | undefined;
 }
 
 const SeasonContext = createContext<SeasonContextValue>({
