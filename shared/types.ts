@@ -389,6 +389,23 @@ interface DueSettled {
 export type Due = DueBase & (DueOwing | DueSettled);
 
 /**
+ * What one player still owes a season, denormalised so a security rule can read
+ * it. Function-owned: written only by `onDueWrite`, and the rules refuse every
+ * client write.
+ *
+ * The document exists if and only if the player owes something. Existence is the
+ * whole test, so the rule is an `exists()` and never has to parse a field, and a
+ * settled-up player leaves no zero-valued document behind to go stale.
+ */
+export interface Debtor {
+	uid: string;
+	outstanding: number;
+	/** How many charges are behind it, so the notice can say "across 3 charges". */
+	charges: number;
+	updatedAt: string;
+}
+
+/**
  * Something the group bought with the extras' money.
  *
  * There is no field saying which pot it came out of, because there is only one
