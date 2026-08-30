@@ -94,7 +94,7 @@ const KitPage = () => {
 
 	if (loading || kitLoading) {
 		return (
-			<SeasonShell title='Kit' backHref={`/s/${seasonId}`}>
+			<SeasonShell title='Kit' backHref={`/s/${seasonId}/members`}>
 				<Skeleton />
 			</SeasonShell>
 		);
@@ -102,7 +102,7 @@ const KitPage = () => {
 
 	if (error) {
 		return (
-			<SeasonShell title='Kit' backHref={`/s/${seasonId}`}>
+			<SeasonShell title='Kit' backHref={`/s/${seasonId}/members`}>
 				<LoadFailed what='the kit register' onRetry={retry} />
 			</SeasonShell>
 		);
@@ -110,7 +110,7 @@ const KitPage = () => {
 
 	if (!season) {
 		return (
-			<SeasonShell title='Kit' backHref={`/s/${seasonId}`}>
+			<SeasonShell title='Kit' backHref={`/s/${seasonId}/members`}>
 				<EmptyState title='Season not found' />
 			</SeasonShell>
 		);
@@ -216,7 +216,7 @@ const KitPage = () => {
 
 	return (
 		<>
-			<SeasonShell title='Kit' subtitle={season.name} backHref={`/s/${seasonId}`}>
+			<SeasonShell title='Kit' subtitle={season.name} backHref={`/s/${seasonId}/members`}>
 				<div className='space-y-6 p-4'>
 					{kit.length === 0 ? (
 						<EmptyState

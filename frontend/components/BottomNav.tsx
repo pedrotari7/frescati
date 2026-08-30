@@ -11,6 +11,15 @@ export interface NavItem {
 	href: string;
 	label: string;
 	icon: typeof CalendarDaysIcon;
+	/**
+	 * Screens that sit below this tab but whose paths do not nest under its href.
+	 *
+	 * The deepest-prefix rule below otherwise hands a screen to whichever tab's
+	 * href is a prefix of its path, and for a child of a season that is always the
+	 * season root. That is how the kit register and the books ended up lighting
+	 * Games, a tab across from the one they hang off.
+	 */
+	owns?: string[];
 }
 
 /**
@@ -26,7 +35,15 @@ export interface NavItem {
  */
 export const seasonNavItems = (seasonId: string): NavItem[] => [
 	{ href: `/s/${seasonId}`, label: 'Games', icon: CalendarDaysIcon },
-	{ href: `/s/${seasonId}/members`, label: 'Squad', icon: UsersIcon },
+	{
+		href: `/s/${seasonId}/members`,
+		label: 'Squad',
+		icon: UsersIcon,
+		// Kit and finances hang off Squad rather than taking a fifth and sixth tab
+		// of their own. The Squad screen says why. Their paths sit beside the season
+		// root rather than under /members, so the tab has to claim them by name.
+		owns: [`/s/${seasonId}/kit`, `/s/${seasonId}/finances`],
+	},
 	{ href: `/s/${seasonId}/table`, label: 'Table', icon: TrophyIcon },
 	{ href: '/me', label: 'Me', icon: UserCircleIcon },
 ];
@@ -36,7 +53,8 @@ export const seasonAdminHref = (seasonId: string) => `/s/${seasonId}/admin`;
 export const matchesHref = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
 /**
- * Deepest matching href wins, so /s/x/members doesn't also light up /s/x.
+ * Deepest matching href wins, so /s/x/members doesn't also light up /s/x, and a
+ * tab's `owns` beats the season root for the screens that hang off it.
  *
  * `sectionHrefs` are routes that own themselves without owning a tab, the admin
  * area. Being inside one leaves every tab unlit rather than falling back to the
@@ -53,7 +71,10 @@ export const activeIndexFor = (items: NavItem[], pathname: string, sectionHrefs:
 		}
 	};
 
-	items.forEach((item, index) => consider(item.href, index));
+	items.forEach((item, index) => {
+		consider(item.href, index);
+		item.owns?.forEach(href => consider(href, index));
+	});
 	sectionHrefs.forEach(href => consider(href, -1));
 
 	return best;

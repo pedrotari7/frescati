@@ -19,6 +19,12 @@ describe('seasonNavItems', () => {
 			'/me',
 		]);
 	});
+
+	it('hands the kit register and the books to Squad', () => {
+		const squad = seasonNavItems('season-1')[1];
+
+		expect(squad.owns).toEqual(['/s/season-1/kit', '/s/season-1/finances']);
+	});
 });
 
 describe('seasonAdminHref', () => {
@@ -50,6 +56,12 @@ describe('activeIndexFor', () => {
 
 	it('prefers the deepest matching href, so members does not also light up games', () => {
 		expect(activeIndexFor(items, '/s/season-1/members')).not.toBe(0);
+	});
+
+	// The reported bug: both of these hang off Squad, but their paths sit beside the
+	// season root rather than under /members, so prefix matching alone lit Games.
+	it.each(['/s/season-1/kit', '/s/season-1/finances'])('lights Squad on %s', pathname => {
+		expect(activeIndexFor(items, pathname)).toBe(1);
 	});
 
 	it('returns -1 for a path inside a section href, leaving every tab unlit', () => {
