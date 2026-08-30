@@ -2086,6 +2086,160 @@ describe('dues', () => {
 	});
 });
 
+// The gate itself. `onDueWrite` writes one document per person who owes, and
+// these are the rules that read it: signing up is refused while it is there,
+// and everything else about the season is not.
+describe('a season somebody owes money to', () => {
+	const debtorDoc = (uid: string) => `seasons/${SEASON}/debtors/${uid}`;
+	const kitDoc = () => `seasons/${SEASON}/kit/ball-1`;
+
+	const markAsOwing = async (uid: string) => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), debtorDoc(uid)), {
+				uid,
+				outstanding: 140,
+				charges: 2,
+				updatedAt: '2026-08-30T09:00:00.000Z',
+			});
+		});
+	};
+
+	it('stops a member who owes it saying they are in', async () => {
+		await markAsOwing(MEMBER);
+
+		await assertFails(setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member')));
+	});
+
+	// The case in the request: an extra pays per game, so the season they owe for
+	// is the season they are trying to play another game of.
+	it('stops an extra who owes it signing up for another game', async () => {
+		await markAsOwing(EXTRA);
+
+		await assertFails(setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), aResponse(EXTRA, 'extra')));
+	});
+
+	it('still lets them say they are out', async () => {
+		await markAsOwing(MEMBER);
+
+		await assertSucceeds(
+			setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member', { status: 'out' }))
+		);
+	});
+
+	// A debt is a reason to keep somebody off the pitch, never a reason to hold
+	// them inside a headcount. Somebody who said yes and then got charged has to
+	// be able to take it back, or the organiser books a pitch for a player who
+	// isn't coming.
+	it('still lets them take back an In they gave before they owed anything', async () => {
+		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member'));
+		await markAsOwing(MEMBER);
+
+		await assertSucceeds(updateDoc(doc(authed(MEMBER), responseDoc(MEMBER)), { status: 'out' }));
+	});
+
+	it('still lets them clear their answer entirely', async () => {
+		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member'));
+		await markAsOwing(MEMBER);
+
+		await assertSucceeds(deleteDoc(doc(authed(MEMBER), responseDoc(MEMBER))));
+	});
+
+	it('stops them turning an Out back into an In', async () => {
+		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member', { status: 'out' }));
+		await markAsOwing(MEMBER);
+
+		await assertFails(updateDoc(doc(authed(MEMBER), responseDoc(MEMBER)), { status: 'in' }));
+	});
+
+	it('lets them back in the moment the mark is gone', async () => {
+		await markAsOwing(MEMBER);
+		await assertFails(setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member')));
+
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await deleteDoc(doc(context.firestore(), debtorDoc(MEMBER)));
+		});
+
+		await assertSucceeds(setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member')));
+	});
+
+	// A season usually collects to the admin's own Swish number, and Swish refuses
+	// to pay yourself, so a locked-out admin could neither settle up nor run the
+	// season that would let them. Their `allow write` at the foot of the responses
+	// block is what lets them through, so this is the rule those two facts meet in.
+	it('lets a season admin who owes it play anyway', async () => {
+		await markAsOwing(SEASON_ADMIN);
+
+		await assertSucceeds(
+			setDoc(doc(authed(SEASON_ADMIN), responseDoc(SEASON_ADMIN)), aResponse(SEASON_ADMIN, 'member'))
+		);
+	});
+
+	it('lets an app admin who owes it play anyway', async () => {
+		await markAsOwing(APP_ADMIN);
+
+		await assertSucceeds(
+			setDoc(doc(authed(APP_ADMIN, { admin: true }), responseDoc(APP_ADMIN)), aResponse(APP_ADMIN, 'extra'))
+		);
+	});
+
+	// What is blocked is signing up, and nothing else. Somebody who owes for a
+	// game they played is still in the group: they carry the ball home, they vote,
+	// they read the books that say what they owe.
+	it('leaves everything that is not signing up alone', async () => {
+		await markAsOwing(MEMBER);
+
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), kitDoc()), {
+				name: 'Match ball',
+				kind: 'ball',
+				holderUid: OTHER_MEMBER,
+				updatedBy: SEASON_ADMIN,
+				updatedAt: '2026-08-30T09:00:00.000Z',
+			});
+		});
+
+		await assertSucceeds(
+			updateDoc(doc(authed(MEMBER), kitDoc()), {
+				holderUid: MEMBER,
+				updatedBy: MEMBER,
+				updatedAt: '2026-08-31T09:00:00.000Z',
+			})
+		);
+		await assertSucceeds(getDocs(collection(authed(MEMBER), `seasons/${SEASON}/dues`)));
+	});
+
+	// It is a Cloud Function's answer, and a client that could write it could sign
+	// itself off. Its existence is the whole test, so a delete is as good as a
+	// forged payment.
+	it('is not something a client can write, admins included', async () => {
+		const marker = { uid: MEMBER, outstanding: 0, charges: 0, updatedAt: '2026-08-30T09:00:00.000Z' };
+
+		await assertFails(setDoc(doc(authed(MEMBER), debtorDoc(MEMBER)), marker));
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), debtorDoc(MEMBER)), marker));
+		await assertFails(setDoc(doc(authed(APP_ADMIN, { admin: true }), debtorDoc(MEMBER)), marker));
+
+		await markAsOwing(MEMBER);
+		await assertFails(deleteDoc(doc(authed(MEMBER), debtorDoc(MEMBER))));
+		await assertFails(deleteDoc(doc(authed(SEASON_ADMIN), debtorDoc(MEMBER))));
+	});
+
+	// Readable exactly as far as the charges underneath it are. It says less than
+	// they do, but it still says who has not paid, and that is the one thing in
+	// the app the whole group does not get to see.
+	it('is readable by the person it names and by the squad, and by nobody else', async () => {
+		await markAsOwing(EXTRA);
+
+		await assertSucceeds(getDoc(doc(authed(EXTRA), debtorDoc(EXTRA))));
+		await assertSucceeds(getDoc(doc(authed(SEASON_ADMIN), debtorDoc(EXTRA))));
+		await assertSucceeds(getDoc(doc(authed(MEMBER), debtorDoc(EXTRA))));
+		await assertSucceeds(getDoc(doc(authed(APP_ADMIN, { admin: true }), debtorDoc(EXTRA))));
+
+		await markAsOwing(MEMBER);
+		await assertFails(getDoc(doc(authed(EXTRA), debtorDoc(MEMBER))));
+		await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), debtorDoc(MEMBER))));
+	});
+});
+
 describe('expenses', () => {
 	const expensesCol = () => `seasons/${SEASON}/expenses`;
 	const expenseDoc = (expenseId: string) => `${expensesCol()}/${expenseId}`;
