@@ -170,11 +170,11 @@ export const deleteExpense = (seasonId: string, expenseId: string) => deleteDoc(
 /**
  * Who played, game by game, read once.
  *
- * The only one-shot read in the app; everything else is `onSnapshot`. It is a
- * query per played game, roughly thirty over a full season, far too much to
- * hold open on a screen and cheap enough behind a button an admin presses when
- * they sit down to do the books. Cancelled games are skipped: nobody played
- * them, so nobody owes for them.
+ * One of the two one-shot reads in the app, both of them the sweep's;
+ * everything else is `onSnapshot`. It is a query per played game, roughly
+ * thirty over a full season, far too much to hold open on a screen and cheap
+ * enough behind a button an admin presses when they sit down to do the books.
+ * Cancelled games are skipped: nobody played them, so nobody owes for them.
  */
 export const fetchPlayedGameResponses = async (
 	seasonId: string,
@@ -189,4 +189,22 @@ export const fetchPlayedGameResponses = async (
 			return { gameId: game.id, responses: asData<GameResponse>()(snapshot.docs) };
 		})
 	);
+};
+
+/**
+ * Every charge in the season, read once.
+ *
+ * The other half of what a sweep compares, and read rather than taken off the
+ * screen's own listener on purpose. `onSnapshot` raises its first event from
+ * the local cache, and on the books that cache has already been filled by the
+ * season's `subscribeToMyDues`, so for a moment the whole book arrives as the
+ * one charge belonging to the admin reading it. A sweep counting against that
+ * offers to raise a season that is already billed, and the press that follows
+ * finds nothing to do. What gets written has to be decided against what is
+ * stored.
+ */
+export const fetchDues = async (seasonId: string): Promise<Due[]> => {
+	const snapshot = await getDocs(duesCol(seasonId));
+
+	return snapshot.docs.map(due => toDue(due.id, due.data()));
 };
