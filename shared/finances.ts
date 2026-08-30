@@ -261,6 +261,15 @@ export const duesByPlayer = (dues: Due[]): PlayerLedger[] => {
 };
 
 /**
+ * How much of a reference survives.
+ *
+ * Exported so the debug screen counts against the same number `paymentReference`
+ * cuts at. A counter carrying its own copy of this would keep saying a reference
+ * fits for as long as it took somebody to change one of the two.
+ */
+export const REFERENCE_LIMIT = 50;
+
+/**
  * What the payer writes on the payment, and what the admin reads to work out
  * whose it was.
  *
@@ -269,4 +278,4 @@ export const duesByPlayer = (dues: Due[]): PlayerLedger[] => {
  * to the same number.
  */
 export const paymentReference = (seasonName: string, displayName: string): string =>
-	`${seasonName}: ${displayName}`.slice(0, 50);
+	`${seasonName}: ${displayName}`.slice(0, REFERENCE_LIMIT);

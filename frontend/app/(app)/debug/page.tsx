@@ -23,6 +23,7 @@ import StatusPill from '../../../components/StatusPill';
 import type { PillTone } from '../../../components/StatusPill';
 import { Field, Select } from '../../../components/Field';
 import ErrorTriggers from '../../../components/ErrorTriggers';
+import PaymentTriggers from '../../../components/PaymentTriggers';
 
 /**
  * Fires each of the app's real notifications at your own devices.
@@ -216,7 +217,7 @@ const DebugPage = () => {
 	};
 
 	return (
-		<PageShell title='Debug' subtitle='Notifications, and breaking things on purpose' backHref='/me'>
+		<PageShell title='Debug' subtitle='Notifications, payments, and breaking things on purpose' backHref='/me'>
 			<div className='space-y-4 p-4'>
 				<section className='glass rounded-2xl p-5'>
 					<div className='mb-3 flex items-center gap-2'>
@@ -251,7 +252,9 @@ const DebugPage = () => {
 				</section>
 
 				<section className='glass space-y-4 rounded-2xl p-5'>
-					<h2 className='text-ink font-semibold'>Target game</h2>
+					{/* Both, since the payments panel below reads the season's fees off
+					    the same selection the notifications deep-link into. */}
+					<h2 className='text-ink font-semibold'>Target season and game</h2>
 
 					<Field label='Season'>
 						<Select value={seasonId ?? ''} onChange={event => setChosenSeason(event.target.value)}>
@@ -424,6 +427,8 @@ const DebugPage = () => {
 						</div>
 					)}
 				</section>
+
+				<PaymentTriggers season={season} displayName={user.displayName} />
 
 				<ErrorTriggers />
 			</div>
