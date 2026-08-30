@@ -399,8 +399,15 @@ export type Due = DueBase & (DueOwing | DueSettled);
  */
 export interface Debtor {
 	uid: string;
+	/**
+	 * What they owe, and how many charges it is spread across. No screen reads
+	 * either: the notice and the held button are drawn from the player's own
+	 * charges, which land a trigger's round trip sooner. They are here so
+	 * `onDueWrite` can tell a redelivery from a real change, and so somebody
+	 * reading the collection can see what a mark is about without joining it
+	 * back to the book.
+	 */
 	outstanding: number;
-	/** How many charges are behind it, so the notice can say "across 3 charges". */
 	charges: number;
 	/**
 	 * When the debt last moved, not when the trigger last ran. `onDueWrite`

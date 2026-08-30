@@ -9,6 +9,7 @@ import { useKit, useResponses, useUsersByUid } from '../hooks/useData';
 import ExtraSpotNote from './ExtraSpotNote';
 import GameKit from './GameKit';
 import HeadcountBar from './HeadcountBar';
+import type { DebtLock } from './RespondControl';
 import RespondControl from './RespondControl';
 import StatusPill from './StatusPill';
 import WatchToggle from './WatchToggle';
@@ -35,7 +36,7 @@ const NextGameHero = ({
 	isExtra: boolean;
 	watching?: boolean;
 	/** Set when this player owes the season money. Takes the In half, and only that. */
-	debtLock?: { outstanding: number; href: string };
+	debtLock?: DebtLock;
 	/** Passed in rather than read here, so the whole screen agrees on the time. */
 	now: Date;
 	onRespond: (status: ResponseStatus) => Promise<void>;
