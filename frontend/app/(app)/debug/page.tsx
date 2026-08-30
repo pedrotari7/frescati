@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { BellAlertIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
-import type { AppNotification, GameNotification, PushPayload } from '@shared/notifications';
-import { NOTIFICATIONS, buildGamePush, buildNewPlayerPush } from '@shared/notifications';
+import type { AnyNotification, PushPayload } from '@shared/notifications';
+import { NOTIFICATIONS, buildDuesPush, buildGamePush, buildNewPlayerPush } from '@shared/notifications';
 import { getSilentMembers } from '@shared/game';
+import { SAMPLE_DEBT } from '@shared/debug';
 import { counted, formatGameWhen, plural } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
 import { checkPushSupport, isPushEnabled } from '../../../lib/push';
@@ -40,16 +41,25 @@ import PaymentTriggers from '../../../components/PaymentTriggers';
 
 /**
  * The title alone, for the row that hasn't been sent yet. Read off the real
- * builder rather than retyped. None of the titles interpolate, so an empty
- * context gives the exact string, and one that starts to will still render
- * something rather than quietly drifting from what gets sent.
+ * builder rather than retyped, so a row can't label itself something other than
+ * what the send returns.
+ *
+ * `duesReminder` is the first title that interpolates. An empty context still
+ * renders, it just renders `0 kr`, so this one gets `SAMPLE_DEBT`, the same
+ * figures `buildTestPayload` sends with. Otherwise the row would relabel itself
+ * the moment a send came back.
  */
-const titleFor = (kind: GameNotification | AppNotification) =>
-	kind === 'newPlayer'
-		? buildNewPlayerPush({ uid: '', displayName: '', seasonId: null }).title
-		: buildGamePush(kind, { when: '', url: '', gameId: '' }).title;
+const titleFor = (kind: AnyNotification) => {
+	if (kind === 'newPlayer') return buildNewPlayerPush({ uid: '', displayName: '', seasonId: null }).title;
 
-const DESCRIPTIONS: Record<GameNotification | AppNotification, string> = {
+	if (kind === 'duesReminder') {
+		return buildDuesPush({ seasonId: '', seasonName: '', ...SAMPLE_DEBT, blocked: true }).title;
+	}
+
+	return buildGamePush(kind, { when: '', url: '', gameId: '' }).title;
+};
+
+const DESCRIPTIONS: Record<AnyNotification, string> = {
 	reminder: "The nudge before a game. Really goes to members who haven't answered yet.",
 	atRisk: 'Sent once, the moment a game first drops below its minimum.',
 	cancelled: 'Really goes to everyone who answered, either way.',
@@ -61,6 +71,8 @@ const DESCRIPTIONS: Record<GameNotification | AppNotification, string> = {
 	motm: 'Really goes to everybody in the lineup and every app admin, once, when a game is confirmed. Opens the team sheet, where the vote is.',
 	motmResult:
 		'Really goes to the same people when the vote is counted, two days later. Sends as if you had won it. Opens the team sheet, where the totals are.',
+	duesReminder:
+		'Really goes to one person an admin chased from the season books, with what they owe read off the books rather than typed. Needs the season above; sends a made-up amount. Opens the finances screen.',
 };
 
 const STATUS_TONE: Record<EmailTestStatus, PillTone> = { sent: 'in', noAddress: 'out', emailOff: 'neutral' };
@@ -82,10 +94,8 @@ const DebugPage = () => {
 	const [enabled, setEnabled] = useState<boolean | null>(null);
 	const [chosenSeason, setChosenSeason] = useState<string | null>(null);
 	const [chosenGame, setChosenGame] = useState<string | null>(null);
-	const [sentPayloads, setSentPayloads] = useState<Partial<Record<GameNotification | AppNotification, PushPayload>>>(
-		{}
-	);
-	const [emailKind, setEmailKind] = useState<GameNotification | AppNotification>('reminder');
+	const [sentPayloads, setSentPayloads] = useState<Partial<Record<AnyNotification, PushPayload>>>({});
+	const [emailKind, setEmailKind] = useState<AnyNotification>('reminder');
 	const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
 	const [emailResult, setEmailResult] = useState<TestEmailResult | null>(null);
 
@@ -109,6 +119,13 @@ const DebugPage = () => {
 	// previous one selected, which would send a notification deep-linking
 	// somewhere the picker isn't pointing.
 	const gameId = chosenGame && byKickoff.some(game => game.id === chosenGame) ? chosenGame : defaultGameId;
+
+	// What both send buttons aim at. The season travels on its own when there is
+	// no game to name, because `duesReminder` is about a season rather than a
+	// game and a season with no games generated yet would otherwise be told to
+	// pick one. The game kinds fall back to their stand-in context, as they
+	// already do when nothing is picked at all.
+	const target = seasonId ? { seasonId, gameId: gameId ?? undefined } : undefined;
 
 	const season = seasons.find(candidate => candidate.id === seasonId) ?? null;
 	const { responses } = useResponses(seasonId, gameId);
@@ -146,9 +163,9 @@ const DebugPage = () => {
 		);
 	}
 
-	const send = async (kind: GameNotification | AppNotification) => {
+	const send = async (kind: AnyNotification) => {
 		try {
-			const result = await sendTestPush(kind, seasonId && gameId ? { seasonId, gameId } : undefined);
+			const result = await sendTestPush(kind, target);
 
 			setSentPayloads(previous => ({ ...previous, [kind]: result.payload }));
 
@@ -201,7 +218,7 @@ const DebugPage = () => {
 		if (!ok) return;
 
 		try {
-			const result = await sendTestEmail(emailKind, uids, seasonId && gameId ? { seasonId, gameId } : undefined);
+			const result = await sendTestEmail(emailKind, uids, target);
 
 			setEmailResult(result);
 
@@ -345,7 +362,7 @@ const DebugPage = () => {
 					<Field label='Kind'>
 						<Select
 							value={emailKind}
-							onChange={event => setEmailKind(event.target.value as GameNotification | AppNotification)}
+							onChange={event => setEmailKind(event.target.value as AnyNotification)}
 						>
 							{NOTIFICATIONS.map(kind => (
 								<option key={kind} value={kind}>

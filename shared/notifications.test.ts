@@ -3,6 +3,7 @@ import {
 	GAME_NOTIFICATIONS,
 	NOTIFICATIONS,
 	NOTIFICATION_PREF,
+	buildDuesPush,
 	buildEmail,
 	buildGamePush,
 	buildNewPlayerPush,
@@ -250,6 +251,62 @@ describe('the man-of-the-match result', () => {
 	});
 });
 
+describe('buildDuesPush', () => {
+	const DEBT = { seasonId: 'spring', seasonName: 'Spring 2026', outstanding: 1735, charges: 2, blocked: true };
+
+	// The figure is the whole notification and the body is the half a lock screen
+	// truncates, the same argument `availability` makes for putting a name first.
+	it('leads with the amount', () => {
+		expect(buildDuesPush(DEBT)).toMatchObject({
+			title: 'You owe 1 735 kr',
+			body: 'Spring 2026, across 2 charges. You cannot say you are in for another game until it is settled.',
+		});
+	});
+
+	// Two seasons running at once is normal, and "you owe 400 kr" with no season
+	// on it is a message somebody cannot act on.
+	it('names the season the money is owed to', () => {
+		expect(buildDuesPush({ ...DEBT, seasonName: 'Autumn 2026' }).body).toContain('Autumn 2026');
+	});
+
+	it('counts a single charge in the singular', () => {
+		expect(buildDuesPush({ ...DEBT, charges: 1 }).body).toContain('across 1 charge.');
+	});
+
+	// A season admin owes their share and is never locked out by it, so the
+	// sentence about not being able to sign up would be a lie told to the one
+	// person who has to keep the season running.
+	it('drops the lock from the copy for somebody it does not lock', () => {
+		const body = buildDuesPush({ ...DEBT, blocked: false }).body;
+
+		expect(body).not.toContain('cannot say you are in');
+		expect(body).toBe('Spring 2026, across 2 charges. Mark it paid in the books once you have settled it.');
+	});
+
+	// Where the Swish code is drawn and the charges are itemised.
+	it('opens the season books', () => {
+		expect(buildDuesPush(DEBT).url).toBe('/s/spring/finances');
+	});
+
+	// Two admins doing the books the same evening, and the second chase says
+	// exactly what the first one did.
+	it('replaces an earlier chase for the same season', () => {
+		expect(buildDuesPush({ ...DEBT, outstanding: 400, charges: 1 }).tag).toBe(buildDuesPush(DEBT).tag);
+	});
+
+	// Owing one season says nothing about the other, and a lock screen showing
+	// one amount replaced by another would.
+	it('keeps two seasons apart', () => {
+		expect(buildDuesPush({ ...DEBT, seasonId: 'autumn' }).tag).not.toBe(buildDuesPush(DEBT).tag);
+	});
+
+	// The worker's "I'm in" shortcut writes the exact response this debt is
+	// refusing, so the button would be one the security rule exists to reject.
+	it('carries no respond shortcut', () => {
+		expect(buildDuesPush(DEBT).respondable).toBe(false);
+	});
+});
+
 describe('NOTIFICATION_PREF', () => {
 	it('gates every kind behind a preference, or explicitly behind none', () => {
 		for (const kind of NOTIFICATIONS) {
@@ -264,11 +321,20 @@ describe('NOTIFICATION_PREF', () => {
 		expect(NOTIFICATION_PREF.availability).toBeNull();
 	});
 
-	// `availability` is the only one that may be `null`. Everything else goes
-	// out to a standing audience nobody signed up for, so the profile has to be
-	// able to say no to it.
+	// The second kind with no switch, and it gets there differently. A subscription
+	// is something you asked for and can drop; this one is aimed by hand at one
+	// person about a fact that only exists while they owe. Paying is the switch.
+	it('leaves the chase for money to end when the money is paid', () => {
+		expect(NOTIFICATION_PREF.duesReminder).toBeNull();
+	});
+
+	// Those two are the only ones that may be `null`. Everything else goes out to
+	// a standing audience nobody signed up for, so the profile has to be able to
+	// say no to it.
+	const UNGATED = ['availability', 'duesReminder'];
+
 	it('keeps every standing-audience kind on a preference', () => {
-		for (const kind of NOTIFICATIONS.filter(candidate => candidate !== 'availability')) {
+		for (const kind of NOTIFICATIONS.filter(candidate => !UNGATED.includes(candidate))) {
 			expect(NOTIFICATION_PREF[kind]).not.toBeNull();
 		}
 	});

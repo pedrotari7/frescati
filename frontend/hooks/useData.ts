@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import type {
 	AppUser,
+	Debtor,
 	Due,
 	Expense,
 	Game,
@@ -20,7 +21,7 @@ import { subscribeToSeason, subscribeToSeasons } from '../lib/db/seasons';
 import { subscribeToGame, subscribeToGames } from '../lib/db/games';
 import { subscribeToResponses } from '../lib/db/responses';
 import { subscribeToKit } from '../lib/db/kit';
-import { subscribeToDues, subscribeToExpenses, subscribeToMyDues } from '../lib/db/finances';
+import { subscribeToDebtors, subscribeToDues, subscribeToExpenses, subscribeToMyDues } from '../lib/db/finances';
 import {
 	subscribeToMatches,
 	subscribeToPlayerLedger,
@@ -41,6 +42,7 @@ const NO_LEDGER: RatingLedgerEntry[] = [];
 const NO_KIT: KitItem[] = [];
 const NO_VOTERS: string[] = [];
 const NO_DUES: Due[] = [];
+const NO_DEBTORS: Debtor[] = [];
 const NO_EXPENSES: Expense[] = [];
 
 export const useSeasons = () => {
@@ -145,6 +147,28 @@ export const useDues = (seasonId: string | null, uid: string | null, squad: bool
 	);
 
 	return { dues: data, loading, error, retry };
+};
+
+/**
+ * The marks behind the debt lock, for the one thing only they know, which is
+ * when somebody was last chased.
+ *
+ * `squad` for the same reason `useDues` takes it. The rule allows a squad member
+ * the whole collection and everybody else only their own document, and a list is
+ * refused outright for the second sort, so the caller says which reader this is
+ * rather than letting the screen find out as an error card. Unlike dues there is
+ * no narrowed query to fall back to, because this exists for the admin's chase
+ * button and nobody outside the squad has one.
+ */
+export const useDebtors = (seasonId: string | null, squad: boolean) => {
+	const { data, loading, error } = useFirestoreSubscription<Debtor[]>(
+		NO_DEBTORS,
+		seasonId && squad ? (onChange, onError) => subscribeToDebtors(seasonId, onChange, onError) : null,
+		[seasonId, squad],
+		'debtors'
+	);
+
+	return { debtors: data, loading, error };
 };
 
 export const useExpenses = (seasonId: string | null) => {

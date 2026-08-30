@@ -43,7 +43,21 @@ const markWhatIsOwed = async (seasonId: string, uid: string): Promise<void> => {
 	// makes this converge; not writing is what makes converging free.
 	if (before && before.outstanding === outstanding && before.charges === owing.length) return;
 
-	const debtor: Debtor = { uid, outstanding, charges: owing.length, updatedAt: new Date().toISOString() };
+	const debtor: Debtor = {
+		uid,
+		outstanding,
+		charges: owing.length,
+		updatedAt: new Date().toISOString(),
+		// Carried forward by hand, because this is a whole-document `set` and
+		// `remindDebtors` writes that field on the same document. Losing it would
+		// tell the books nobody had ever been chased every time a charge moved,
+		// which is the moment an admin is most likely to be looking. Explicit
+		// rather than `{ merge: true }`, because merging would also preserve
+		// anything an older shape of this document had left lying around, and the
+		// whole point of the overwrite is that the numbers here are recomputed
+		// rather than adjusted. It goes when the mark does, one branch up.
+		...(before?.remindedAt ? { remindedAt: before.remindedAt } : {}),
+	};
 
 	await marker.set(debtor);
 	logger.debug('Marked what a player owes', { seasonId, uid, outstanding, charges: owing.length });

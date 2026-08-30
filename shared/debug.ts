@@ -33,3 +33,19 @@ export type BackendErrorKind =
 	| 'swallowed';
 
 export const BACKEND_ERROR_KINDS: BackendErrorKind[] = ['throw', 'httpsError', 'swallowed'];
+
+/**
+ * What a test chase claims somebody owes.
+ *
+ * Invented, the way the debug screen's vote count is, and for the same reason.
+ * The real figures come off a `debtors` mark, an admin trying the copy out on
+ * themselves rarely has one, and reading theirs back would test the read rather
+ * than the wording. A member's share of a five-figure season across a couple of
+ * charges, which is the shape of a real one.
+ *
+ * Shared because two places need the same numbers. `buildTestPayload` sends
+ * with them, and `duesReminder` is the first kind whose *title* interpolates,
+ * so the debug screen's unsent row has to build its placeholder from them too
+ * or the row would relabel itself the moment the send came back.
+ */
+export const SAMPLE_DEBT = { outstanding: 1735, charges: 2 };

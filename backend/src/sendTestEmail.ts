@@ -1,7 +1,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import type { AppUser, NotificationPrefs } from '../../shared/types';
-import type { AppNotification, GameNotification } from '../../shared/notifications';
+import type { AnyNotification } from '../../shared/notifications';
 import { NOTIFICATIONS, canEmail } from '../../shared/notifications';
 import { db, REGION } from './lib/firebase';
 import { EMAIL_SECRETS, lookUpVerifiedEmails, sendEmail } from './lib/email';
@@ -46,7 +46,7 @@ export interface EmailTestOutcome {
  * overriding either.
  */
 export const sendTestEmail = onCall<{
-	kind: GameNotification | AppNotification;
+	kind: AnyNotification;
 	uids: string[];
 	seasonId?: string;
 	gameId?: string;

@@ -10,12 +10,13 @@ import {
 	writeBatch,
 } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
-import type { Due, DueStatus, Expense, Game, GameResponse } from '@shared/types';
+import type { Debtor, Due, DueStatus, Expense, Game, GameResponse } from '@shared/types';
 import type { PlannedDue } from '@shared/finances';
 import { hasBeenPlayed } from '@shared/game';
 import { getDb } from '../firebaseClient';
-import { dueDoc, duesCol, expenseDoc, expensesCol, responsesCol } from './paths';
+import { debtorsCol, dueDoc, duesCol, expenseDoc, expensesCol, responsesCol } from './paths';
 import { asData, subscribeToCollection } from './subscribe';
+import { callFunction } from './call';
 
 // `Due` is a union, so `Omit<Due, 'id'>` would collapse to the keys both arms
 // share and quietly drop the receipt. The cast is the whole document either way.
@@ -66,6 +67,57 @@ export const subscribeToMyDues = (
 		onChange,
 		onError
 	);
+
+/**
+ * Who the trigger says still owes, one document each.
+ *
+ * The books already know what everybody owes, they are computing it out of the
+ * charges above. `remindedAt` is the one field that is only here, and it is why
+ * the screen subscribes at all. It answers "have I already chased them", and no
+ * charge can be made to say it.
+ *
+ * Squad only, like the unconstrained dues list. The rule reads
+ * `isSelf(uid) || isSeasonSquad(seasonId)`, and only the second half survives a
+ * list, so an extra asking for the collection gets a permission error. There is
+ * no per-person variant because nobody outside the squad has a screen for it.
+ */
+export const subscribeToDebtors = (
+	seasonId: string,
+	onChange: (debtors: Debtor[]) => void,
+	onError: (error: Error) => void
+): Unsubscribe => subscribeToCollection(debtorsCol(seasonId), asData<Debtor>(), onChange, onError);
+
+/** What one chase did, per person. Zero on both counts means it reached nobody. */
+export interface DuesReminderOutcome {
+	uid: string;
+	outstanding: number;
+	/** Devices FCM accepted the message for. */
+	pushed: number;
+	/** Whether the email fallback carried it instead, 1 or 0. Only when `pushed` is 0. */
+	emailed: number;
+}
+
+/**
+ * Tell people they owe money.
+ *
+ * A callable because sending is an FCM call, which only the Admin SDK can make,
+ * and because who owes what has to be decided by something the client cannot
+ * write. `uids` says who to chase and nothing else: the amounts, the count of
+ * charges and whether the debt is also blocking them are all read off the
+ * function-owned marks at the far end. Leaving it out chases everybody the
+ * season has a mark for.
+ *
+ * A uid with no mark is silently not sent to, so a stale screen chasing
+ * somebody who paid a second ago is a no-op rather than an accusation.
+ */
+export const remindDebtors = async (seasonId: string, uids?: string[]): Promise<DuesReminderOutcome[]> => {
+	const { reminded } = await callFunction<{ seasonId: string; uids?: string[] }, { reminded: DuesReminderOutcome[] }>(
+		'remindDebtors',
+		{ seasonId, ...(uids ? { uids } : {}) }
+	);
+
+	return reminded;
+};
 
 export const subscribeToExpenses = (
 	seasonId: string,

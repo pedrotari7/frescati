@@ -415,6 +415,21 @@ export interface Debtor {
 	 * leaves this alone.
 	 */
 	updatedAt: string;
+	/**
+	 * When a chase for this money last *reached* them, absent until one has.
+	 *
+	 * Written by `remindDebtors` and carried forward by `onDueWrite`, which
+	 * otherwise overwrites the whole document. Reached rather than sent. It is
+	 * stamped only when a push or an email got there, because the books show it
+	 * as "chased two days ago" beside their name, and that has to be a claim
+	 * about the player rather than about the admin's finger. A send that reached
+	 * nobody is reported to the admin who pressed the button instead, while they
+	 * are still looking at the screen.
+	 *
+	 * It goes with the mark. Settling up deletes the document, so nothing here
+	 * survives into a debt somebody has not been chased about yet.
+	 */
+	remindedAt?: string;
 }
 
 /**

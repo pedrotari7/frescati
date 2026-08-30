@@ -1,4 +1,4 @@
-import type { AppNotification, GameNotification, PushPayload } from '@shared/notifications';
+import type { AnyNotification, PushPayload } from '@shared/notifications';
 import { callFunction } from './call';
 
 export type EmailTestStatus = 'sent' | 'noAddress' | 'emailOff';
@@ -24,11 +24,11 @@ export interface TestEmailResult {
  * reach. See `backend/src/sendTestEmail.ts` for why that's the one exception.
  */
 export const sendTestEmail = async (
-	kind: GameNotification | AppNotification,
+	kind: AnyNotification,
 	uids: string[],
-	target?: { seasonId: string; gameId: string }
+	target?: { seasonId: string; gameId?: string }
 ): Promise<TestEmailResult> =>
-	callFunction<
-		{ kind: GameNotification | AppNotification; uids: string[]; seasonId?: string; gameId?: string },
-		TestEmailResult
-	>('sendTestEmail', { kind, uids, ...target });
+	callFunction<{ kind: AnyNotification; uids: string[]; seasonId?: string; gameId?: string }, TestEmailResult>(
+		'sendTestEmail',
+		{ kind, uids, ...target }
+	);

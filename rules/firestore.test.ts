@@ -2238,6 +2238,18 @@ describe('a season somebody owes money to', () => {
 		await assertFails(getDoc(doc(authed(EXTRA), debtorDoc(MEMBER))));
 		await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), debtorDoc(MEMBER))));
 	});
+
+	// The books subscribe to the whole collection, to say beside each name when
+	// that person was last chased. A list is granted or refused once for the
+	// query, not per document, so `isSelf(uid)` cannot carry one. An extra who
+	// can read their own mark still cannot ask for everybody's.
+	it('can be listed by the squad, and by nobody else', async () => {
+		await markAsOwing(MEMBER);
+
+		await assertSucceeds(getDocs(collection(authed(SEASON_ADMIN), `seasons/${SEASON}/debtors`)));
+		await assertSucceeds(getDocs(collection(authed(OTHER_MEMBER), `seasons/${SEASON}/debtors`)));
+		await assertFails(getDocs(collection(authed(EXTRA), `seasons/${SEASON}/debtors`)));
+	});
 });
 
 describe('expenses', () => {

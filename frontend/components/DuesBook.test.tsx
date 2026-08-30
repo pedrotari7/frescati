@@ -52,9 +52,17 @@ const press = async (name: string) => {
 
 const labelFor = (one: Due): string => (one.kind === 'entry' ? 'Entry fee' : 'Tue 8 Sep');
 
-const book = (players: PlayerLedger[], canSettle = false) => {
+/** How long ago, written the way the row's caller stores it. */
+const daysAgo = (days: number): string => new Date(Date.now() - days * 86_400_000).toISOString();
+
+const book = (
+	players: PlayerLedger[],
+	canSettle = false,
+	chase: { chasedAt?: Map<string, string>; canChase?: boolean } = {}
+) => {
 	const onSettle = jest.fn();
 	const onDelete = jest.fn();
+	const onRemind = jest.fn();
 
 	render(
 		<DuesBook
@@ -62,12 +70,14 @@ const book = (players: PlayerLedger[], canSettle = false) => {
 			usersByUid={usersByUid}
 			labelFor={labelFor}
 			canSettle={canSettle}
+			chasedAt={chase.chasedAt}
 			onSettle={onSettle}
 			onDelete={onDelete}
+			onRemind={chase.canChase ? onRemind : undefined}
 		/>
 	);
 
-	return { onSettle, onDelete };
+	return { onSettle, onDelete, onRemind };
 };
 
 describe('DuesBook', () => {
@@ -175,5 +185,66 @@ describe('DuesBook', () => {
 		book([ledger({ uid: 'forgotten', dues: [due({ id: 'entry_forgotten', uid: 'forgotten' })] })]);
 
 		expect(screen.getByText('Unknown player')).toBeInTheDocument();
+	});
+
+	describe('chasing a payment', () => {
+		// The screen draws this list twice and only the admin's copy passes a
+		// handler, so a member reading their own row must not find a bell on it.
+		it('draws no bell without a handler to hang it on', () => {
+			book([ledger()], true);
+
+			expect(screen.queryByRole('button', { name: /^Remind/ })).not.toBeInTheDocument();
+		});
+
+		it('draws none for somebody who owes nothing, however much they were charged', () => {
+			book([ledger({ dues: [settled('paid')] })], true, { canChase: true });
+
+			expect(screen.queryByRole('button', { name: /^Remind/ })).not.toBeInTheDocument();
+		});
+
+		// The label is the only text on it, so it carries both the person and the
+		// figure. A row holds one bell and fifteen rows hold fifteen.
+		it('names the person and the amount on the bell', async () => {
+			const { onRemind } = book([ledger()], true, { canChase: true });
+
+			await press('Remind Anna Berg about 1 736 kr');
+
+			expect(onRemind).toHaveBeenCalledWith(ledger());
+		});
+
+		// A button inside a button is markup no browser keeps, and the expander is
+		// the whole row. Pressing the bell must not also open the charges under it.
+		it('leaves the row shut when the bell is pressed', async () => {
+			book([ledger()], true, { canChase: true });
+
+			await press('Remind Anna Berg about 1 736 kr');
+
+			expect(screen.getByRole('button', { expanded: false })).toBeInTheDocument();
+			expect(screen.queryByText('Entry fee')).not.toBeInTheDocument();
+		});
+
+		it('says when somebody was last chased', () => {
+			book([ledger()], true, { canChase: true, chasedAt: new Map([['anna', daysAgo(2)]]) });
+
+			expect(screen.getByText(/chased 2 days ago/)).toBeInTheDocument();
+		});
+
+		it('says nothing at all about a chase that has never happened', () => {
+			book([ledger()], true, { canChase: true });
+
+			expect(screen.queryByText(/chased/)).not.toBeInTheDocument();
+		});
+
+		// Off the map keyed by uid, not off the row's position, since the book
+		// re-sorts as debts are settled.
+		it('reads the date off the person it belongs to', () => {
+			book([ledger(), ledger({ uid: 'bo', dues: [due({ id: 'entry_bo', uid: 'bo', amount: 900 })] })], true, {
+				canChase: true,
+				chasedAt: new Map([['bo', daysAgo(1)]]),
+			});
+
+			expect(screen.getByText(/1 736 kr charged$/)).toBeInTheDocument();
+			expect(screen.getByText(/900 kr charged · chased yesterday/)).toBeInTheDocument();
+		});
 	});
 });

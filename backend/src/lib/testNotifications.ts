@@ -1,12 +1,8 @@
 import { HttpsError } from 'firebase-functions/v2/https';
-import type {
-	AppNotification,
-	GameNotification,
-	GameNotificationContext,
-	PushPayload,
-} from '../../../shared/notifications';
-import { buildGamePush, buildNewPlayerPush } from '../../../shared/notifications';
+import type { AnyNotification, GameNotificationContext, PushPayload } from '../../../shared/notifications';
+import { buildDuesPush, buildGamePush, buildNewPlayerPush } from '../../../shared/notifications';
 import { formatGameWhen } from '../../../shared/format';
+import { SAMPLE_DEBT } from '../../../shared/debug';
 import { getGame, getMostRecentActiveSeasonId, getSeason } from './data';
 
 /**
@@ -29,15 +25,32 @@ import { getGame, getMostRecentActiveSeasonId, getSeason } from './data';
  * rather than the caller's `seasonId`. The debug screen's season picker is
  * for the game kinds, and a test send is only honest if it deep-links exactly
  * where the real trigger would.
+ *
+ * `duesReminder` is the one kind that needs the picker, since it is about a
+ * named season rather than a game, and the one that invents its figures rather
+ * than borrowing the sender's. An admin testing the copy is rarely somebody the
+ * books say owes anything.
  */
 /** The kinds whose deep link is the team sheet rather than the game page. */
-const ON_THE_TEAM_SHEET: (GameNotification | AppNotification)[] = ['motm', 'motmResult'];
+const ON_THE_TEAM_SHEET: AnyNotification[] = ['motm', 'motmResult'];
 
 export const buildTestPayload = async (
-	kind: GameNotification | AppNotification,
+	kind: AnyNotification,
 	{ sender, seasonId, gameId }: { sender: { uid: string; displayName: string }; seasonId?: string; gameId?: string }
 ): Promise<PushPayload> => {
 	if (kind === 'newPlayer') return buildNewPlayerPush({ ...sender, seasonId: await getMostRecentActiveSeasonId() });
+
+	// The one kind with no stand-in for a missing season. The game kinds all have
+	// one, and theirs links to `/seasons` and still reads. This one is entirely
+	// *about* a named season, and both halves worth testing, the name in the body
+	// and the deep link to that season's books, need a real one to point at.
+	if (kind === 'duesReminder') {
+		const season = seasonId ? await getSeason(seasonId) : null;
+
+		if (!season) throw new HttpsError('not-found', 'Pick a season to test the dues chase.');
+
+		return buildDuesPush({ seasonId: season.id, seasonName: season.name, ...SAMPLE_DEBT, blocked: true });
+	}
 
 	const context = await buildTestContext(seasonId, gameId);
 

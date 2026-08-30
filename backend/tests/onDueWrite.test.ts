@@ -137,6 +137,37 @@ describe('onDueWrite', () => {
 		expect(await readMarker()).toBeUndefined();
 	});
 
+	// The mark is written whole, so anything the chase put on it has to be carried
+	// across by hand. Losing it would tell the books nobody had ever been chased
+	// every time a charge moved, which is exactly when an admin is looking.
+	it('keeps when somebody was last chased across a recompute', async () => {
+		const entry = await raise('entry_player-1', PLAYER, 500);
+		await onDueWrite.run(dueEvent('entry_player-1', undefined, entry));
+		await getDb().doc(`seasons/${SEASON_ID}/debtors/${PLAYER}`).update({ remindedAt: '2026-08-28T18:00:00.000Z' });
+
+		const second = await raise('game_g1_player-1', PLAYER, 60);
+		await onDueWrite.run(dueEvent('game_g1_player-1', undefined, second));
+
+		expect(await readMarker()).toMatchObject({ outstanding: 560, remindedAt: '2026-08-28T18:00:00.000Z' });
+	});
+
+	// It is a fact about a debt, not about a person, so it dies with the debt.
+	// Otherwise the next charge they pick up would arrive already chased.
+	it('forgets the chase when the debt is settled', async () => {
+		const owing = await raise('entry_player-1', PLAYER, 500);
+		await onDueWrite.run(dueEvent('entry_player-1', undefined, owing));
+		await getDb().doc(`seasons/${SEASON_ID}/debtors/${PLAYER}`).update({ remindedAt: '2026-08-28T18:00:00.000Z' });
+
+		const paid = await raise('entry_player-1', PLAYER, 500, 'paid');
+		await onDueWrite.run(dueEvent('entry_player-1', owing, paid));
+
+		const later = await raise('game_g1_player-1', PLAYER, 60);
+		await onDueWrite.run(dueEvent('game_g1_player-1', undefined, later));
+
+		expect(await readMarker()).toMatchObject({ outstanding: 60 });
+		expect((await readMarker())?.remindedAt).toBeUndefined();
+	});
+
 	it('recomputes both people when a charge changes hands', async () => {
 		const before = await raise('hand-raised', PLAYER, 500);
 		await raise('entry_player-1', PLAYER, 200);

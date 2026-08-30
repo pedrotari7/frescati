@@ -1,4 +1,4 @@
-import type { AppNotification, GameNotification, PushPayload } from '@shared/notifications';
+import type { AnyNotification, PushPayload } from '@shared/notifications';
 import { callFunction } from './call';
 
 export interface TestPushResult {
@@ -25,10 +25,10 @@ export interface TestPushResult {
  * The function ignores any uid in the request and sends to the caller.
  */
 export const sendTestPush = async (
-	kind: GameNotification | AppNotification,
-	target?: { seasonId: string; gameId: string }
+	kind: AnyNotification,
+	target?: { seasonId: string; gameId?: string }
 ): Promise<TestPushResult> =>
-	callFunction<{ kind: GameNotification | AppNotification; seasonId?: string; gameId?: string }, TestPushResult>(
-		'sendTestPush',
-		{ kind, ...target }
-	);
+	callFunction<{ kind: AnyNotification; seasonId?: string; gameId?: string }, TestPushResult>('sendTestPush', {
+		kind,
+		...target,
+	});

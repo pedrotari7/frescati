@@ -1,6 +1,11 @@
 import type { NotificationPrefs } from '../../../shared/types';
-import type { GameNotification, GameNotificationContext, PushPayload } from '../../../shared/notifications';
-import { NOTIFICATION_PREF, buildGamePush } from '../../../shared/notifications';
+import type {
+	DuesReminderContext,
+	GameNotification,
+	GameNotificationContext,
+	PushPayload,
+} from '../../../shared/notifications';
+import { NOTIFICATION_PREF, buildDuesPush, buildGamePush } from '../../../shared/notifications';
 import { db, messaging } from './firebase';
 import { sendEmail } from './email';
 import { reportError } from './sentry';
@@ -165,3 +170,16 @@ export const sendGamePush = (
 	kind: GameNotification,
 	context: GameNotificationContext
 ): Promise<SendResult> => sendPush(uids, buildGamePush(kind, context), NOTIFICATION_PREF[kind]);
+
+/**
+ * Tell one player what they owe a season.
+ *
+ * One uid rather than a list, and that is the shape of the problem rather than a
+ * convenience. Every other notification is one payload sent to an audience.
+ * This one names the reader's own amount, so chasing six people is six payloads
+ * and six sends. Here beside `sendGamePush` for the reason that one exists, so
+ * the copy and the preference gating it are paired in one place and no caller
+ * gets to choose the gate.
+ */
+export const sendDuesReminder = (uid: string, context: DuesReminderContext): Promise<SendResult> =>
+	sendPush([uid], buildDuesPush(context), NOTIFICATION_PREF.duesReminder);

@@ -1,5 +1,6 @@
 import type { AvailabilityChange, NotificationPrefs } from './types';
 import { MOTM_VOTING_HOURS } from './motm';
+import { counted, formatSek } from './format';
 
 /**
  * Every notification the app sends, built in one place.
@@ -61,8 +62,24 @@ export type AppNotification = 'newPlayer';
 
 const APP_NOTIFICATIONS: AppNotification[] = ['newPlayer'];
 
+/**
+ * Notifications about a season's books rather than about one of its games.
+ *
+ * Its own category because neither of the two above fits. A game notification
+ * carries a kick-off and a headcount and deep-links to a game; an app one goes
+ * to every admin about the app itself. This goes to one named person about what
+ * they owe one season, and it is the first thing the app sends that an admin
+ * aims by hand rather than a trigger firing on an event.
+ */
+export type SeasonNotification = 'duesReminder';
+
+const SEASON_NOTIFICATIONS: SeasonNotification[] = ['duesReminder'];
+
+/** Every kind the app can send. */
+export type AnyNotification = GameNotification | AppNotification | SeasonNotification;
+
 /** Everything the app can send, for anywhere that has to cover all of it. */
-export const NOTIFICATIONS: (GameNotification | AppNotification)[] = [...GAME_NOTIFICATIONS, ...APP_NOTIFICATIONS];
+export const NOTIFICATIONS: AnyNotification[] = [...GAME_NOTIFICATIONS, ...APP_NOTIFICATIONS, ...SEASON_NOTIFICATIONS];
 
 export interface GameNotificationContext {
 	/** Kick-off, already formatted in the season's timezone. */
@@ -110,7 +127,7 @@ export interface GameNotificationContext {
  * that means nothing until you have already opted in somewhere else. That is
  * why `relevantPrefs` below hides `newPlayers` from everybody but an admin.
  */
-export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof NotificationPrefs | null> = {
+export const NOTIFICATION_PREF: Record<AnyNotification, keyof NotificationPrefs | null> = {
 	cancelled: 'gameChanges',
 	restored: 'gameChanges',
 	atRisk: 'gameChanges',
@@ -127,6 +144,25 @@ export const NOTIFICATION_PREF: Record<GameNotification | AppNotification, keyof
 	// never told, or told about a vote you were never invited to.
 	motmResult: 'motm',
 	availability: null,
+	// Settling up is the switch. The second kind with none, and it gets there a
+	// different way from `availability`. That one is opted into somewhere more
+	// specific; this one cannot be opted out of at all while it is still true.
+	//
+	// The test above is whether a kind goes to a standing audience nobody signed
+	// up for, and on that test this would qualify. What it fails is the other
+	// half of the sentence. Every kind with a switch is sent by a trigger to a
+	// list of people, and a switch is how one of them steps off the list. This is
+	// aimed at one named person by an admin who has looked at the books, about a
+	// fact that only exists while they owe money, and there is exactly one way to
+	// make it stop, which is to pay or to have the charge written off. A profile
+	// switch would be the app offering to silence the thing it is already
+	// stopping you signing up over, and the admin who pressed the button would
+	// have no way to tell the notification was dropped.
+	//
+	// `emailFallback` still applies, as it does for `availability`. That one
+	// picks a channel rather than a kind. Somebody who wants no mail from
+	// Frescati wants none about money either, and the push still goes.
+	duesReminder: null,
 };
 
 /**
@@ -363,6 +399,62 @@ export const buildNewPlayerPush = ({ uid, displayName, seasonId }: NewPlayerCont
 	// Per person rather than per event: two people joining the same evening are
 	// two separate things to know about, so these must not replace each other.
 	tag: `new-player-${uid}`,
+	respondable: false,
+});
+
+export interface DuesReminderContext {
+	seasonId: string;
+	/** What distinguishes two seasons somebody owes money to. */
+	seasonName: string;
+	/** SEK, read off the mark rather than sent by the screen that asked for this. */
+	outstanding: number;
+	/** How many charges it is spread across. */
+	charges: number;
+	/**
+	 * Whether this debt is also stopping them signing up for a game.
+	 *
+	 * A season admin owes their share like everybody else and is never locked
+	 * out by it, because the season usually collects to their own number and
+	 * Swish refuses a payment to yourself. So the sentence about not being able
+	 * to sign up would be a lie told to exactly the person who has to run the
+	 * season. Same split `debtStanding` makes between `blocked` and `owing`.
+	 */
+	blocked: boolean;
+}
+
+/**
+ * What you owe a season, sent because an admin sat down with the books and
+ * chased you.
+ *
+ * The amount goes in the title for the reason `availability` puts a name there.
+ * It is the whole notification, and the body is the half a lock screen
+ * truncates. It is also the only kind whose numbers are not the sender's to
+ * choose. They come off `debtors/{uid}`, which is function-owned, so nobody can
+ * push a figure at a player that the books do not already say.
+ *
+ * Never `respondable`. The worker's "I'm in" shortcut writes the exact response
+ * this debt is refusing, so offering it would put a button on the notification
+ * that the security rule is there to reject.
+ */
+export const buildDuesPush = ({
+	seasonId,
+	seasonName,
+	outstanding,
+	charges,
+	blocked,
+}: DuesReminderContext): PushPayload => ({
+	title: `You owe ${formatSek(outstanding)}`,
+	body: blocked
+		? `${seasonName}, across ${counted(charges, 'charge')}. You cannot say you are in for another game until it is settled.`
+		: `${seasonName}, across ${counted(charges, 'charge')}. Mark it paid in the books once you have settled it.`,
+	// The books, which is where the Swish code is drawn and where the charges
+	// are itemised. Nothing else on that screen needs finding.
+	url: `/s/${seasonId}/finances`,
+	// One tag per season, so being chased twice replaces itself on the lock
+	// screen rather than stacking. Two admins doing the books on the same
+	// evening is the case this exists for, and the second notification says the
+	// same thing as the first.
+	tag: `dues-${seasonId}`,
 	respondable: false,
 });
 

@@ -12,6 +12,7 @@ export { finaliseTournament, finaliseDueTournaments, onMatchWrite } from './fina
 export { closeMotmVoting } from './closeMotmVoting';
 export { onMotmVoteWrite } from './onMotmVoteWrite';
 export { onDueWrite } from './onDueWrite';
+export { remindDebtors } from './remindDebtors';
 export { onGameDeleted, onSeasonDeleted } from './cascadeDeletes';
 export { sendReminders } from './sendReminders';
 export { auditGameCounts } from './auditCounts';

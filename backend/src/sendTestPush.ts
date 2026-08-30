@@ -1,7 +1,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import type { NotificationPrefs } from '../../shared/types';
-import type { AppNotification, GameNotification } from '../../shared/notifications';
+import type { AnyNotification } from '../../shared/notifications';
 import { NOTIFICATIONS, NOTIFICATION_PREF } from '../../shared/notifications';
 import { db, REGION } from './lib/firebase';
 import { EMAIL_SECRETS } from './lib/email';
@@ -32,7 +32,7 @@ import { instrument } from './lib/sentry';
  * an admin with no device registered gets the mail here on exactly the terms a
  * player would, and there is no Resend sandbox worth standing up locally.
  */
-export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; seasonId?: string; gameId?: string }>(
+export const sendTestPush = onCall<{ kind: AnyNotification; seasonId?: string; gameId?: string }>(
 	{ region: REGION, secrets: EMAIL_SECRETS },
 	instrument('sendTestPush', async request => {
 		const uid = requireAppAdmin(request);
@@ -42,7 +42,6 @@ export const sendTestPush = onCall<{ kind: GameNotification | AppNotification; s
 		if (!NOTIFICATIONS.includes(kind)) {
 			throw new HttpsError('invalid-argument', `Unknown notification kind: ${kind}`);
 		}
-
 
 		// Read these alongside the send so a silent result can say which of the
 		// two reasons it was. "Nothing happened" is the least useful thing a

@@ -35,6 +35,14 @@ export const duesCol = (seasonId: string): CollectionReference => collection(get
 export const dueDoc = (seasonId: string, dueId: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'dues', dueId);
 
+/**
+ * Who still owes this season money. The id is the uid, and the document's
+ * presence is the answer, the same arrangement as `watchers`. Written only by
+ * `onDueWrite` and `remindDebtors`; a client that tries is refused.
+ */
+export const debtorsCol = (seasonId: string): CollectionReference =>
+	collection(getDb(), 'seasons', seasonId, 'debtors');
+
 /** Money out of one of the two pots. One document per purchase; the id is generated. */
 export const expensesCol = (seasonId: string): CollectionReference =>
 	collection(getDb(), 'seasons', seasonId, 'expenses');

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { BanknotesIcon } from '@heroicons/react/24/outline';
 import type { Due, DueStatus, Expense } from '@shared/types';
+import type { PlayerLedger } from '@shared/finances';
 import {
 	dueLabel,
 	duesByPlayer,
@@ -14,13 +15,15 @@ import {
 	planDues,
 	summarise,
 } from '@shared/finances';
-import { formatSek } from '@shared/format';
+import { counted, formatSek } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useAuth } from '../../../../../lib/auth';
-import { useDues, useExpenses, useUsersByUid } from '../../../../../hooks/useData';
+import { displayNameOf } from '../../../../../lib/people';
+import { useDebtors, useDues, useExpenses, useUsersByUid } from '../../../../../hooks/useData';
 import { useWrite } from '../../../../../hooks/useWrite';
 import { useToast } from '../../../../../components/Toast';
 import { useConfirm } from '../../../../../components/ConfirmDialog';
+import type { DuesReminderOutcome } from '../../../../../lib/db/finances';
 import {
 	addExpense,
 	deleteDue,
@@ -28,6 +31,7 @@ import {
 	fetchDues,
 	fetchPlayedGameResponses,
 	raiseDues,
+	remindDebtors,
 	setDueStatus,
 } from '../../../../../lib/db/finances';
 import SeasonShell from '../../../../../components/SeasonShell';
@@ -41,6 +45,17 @@ import DuesBook from '../../../../../components/DuesBook';
 import ExpenseList from '../../../../../components/ExpenseList';
 import SwishPay from '../../../../../components/SwishPay';
 import { SectionHeading } from '../../../../../components/Section';
+
+/**
+ * How many of the people chased the chase got to.
+ *
+ * Nothing on either count means it reached that person not at all, and the mark
+ * beside their name records no chase. Worth saying while the admin is still
+ * looking at the screen, because the alternative is waiting a week for a payment
+ * nobody was ever asked for.
+ */
+const reachedCount = (reminded: DuesReminderOutcome[]): number =>
+	reminded.filter(outcome => outcome.pushed + outcome.emailed > 0).length;
 
 /**
  * Where the season's money is.
@@ -72,6 +87,7 @@ const FinancesPage = () => {
 	const squad = isMember || isAdmin;
 
 	const { dues, loading: duesLoading } = useDues(seasonId, uid, squad);
+	const { debtors } = useDebtors(seasonId, squad);
 	const { expenses } = useExpenses(seasonId);
 
 	const [missing, setMissing] = useState<number | null>(null);
@@ -80,6 +96,14 @@ const FinancesPage = () => {
 	const summary = useMemo(() => summarise(dues, expenses, feesFor(season ?? {}).total), [dues, expenses, season]);
 	const book = useMemo(() => duesByPlayer(dues), [dues]);
 	const mine = useMemo(() => (uid ? duesFor(uid, dues) : { dues: [], outstanding: 0 }), [uid, dues]);
+
+	// The one thing the marks know that the charges don't. Everything else on
+	// this screen is worked out from the book, which lands a trigger's round trip
+	// sooner, so the marks are read for `remindedAt` and nothing else.
+	const chasedAt = useMemo(
+		() => new Map(debtors.flatMap(debtor => (debtor.remindedAt ? [[debtor.uid, debtor.remindedAt] as const] : []))),
+		[debtors]
+	);
 
 	if (loading || duesLoading) {
 		return (
@@ -108,6 +132,11 @@ const FinancesPage = () => {
 	const fees = feesFor(season);
 	const share = entryShare(fees.total, season.memberUids.length);
 	const collecting = fees.total > 0 || fees.perGame > 0;
+
+	// Counted off the book rather than the marks, so the button's number is the
+	// one the admin can see in the list right above it. The send goes by the
+	// marks either way, and the two disagree only for as long as a trigger runs.
+	const owing = book.filter(player => player.outstanding > 0);
 
 	// Shared with the season's own debt notice, which names the same charges to
 	// the person who owes them. It lives in `shared/finances.ts` because the two
@@ -171,6 +200,58 @@ const FinancesPage = () => {
 		if (!ok) return;
 
 		await write(() => deleteDue(seasonId, due.id), "Couldn't remove that charge.");
+	};
+
+	/**
+	 * Tell somebody they owe money.
+	 *
+	 * The request carries uids and nothing else. What each person owes, how many
+	 * charges it is spread across and whether the debt is also holding their In
+	 * are all read at the far end off the marks a trigger writes, so a screen a
+	 * few seconds stale cannot send a figure that was never true. Somebody who
+	 * paid between the render and the press has no mark left and is quietly not
+	 * sent to, rather than accused.
+	 *
+	 * `Button` owns the spinner, so there is no pending state here. `describe` is
+	 * what stands in its place, because the outcome is worth reading. A chase
+	 * that reached nobody looks exactly like one that worked.
+	 */
+	const chase = async (uids: string[] | undefined, describe: (reminded: DuesReminderOutcome[]) => string) => {
+		const reminded: DuesReminderOutcome[] = [];
+
+		const ok = await write(async () => {
+			reminded.push(...(await remindDebtors(seasonId, uids)));
+		}, "Couldn't send that reminder.");
+
+		if (ok) notify(describe(reminded));
+	};
+
+	const handleRemind = (player: PlayerLedger) => {
+		const name = displayNameOf(usersByUid.get(player.uid));
+
+		return chase([player.uid], reminded =>
+			reachedCount(reminded) > 0 ? `Chased ${name}.` : `The app cannot reach ${name}.`
+		);
+	};
+
+	const handleRemindEveryone = async () => {
+		const ok = await confirm({
+			title: `Remind ${counted(owing.length, 'player')}?`,
+			message: 'Each of them gets a notification naming their own amount. There is no taking it back.',
+			confirmLabel: 'Send',
+		});
+
+		if (!ok) return;
+
+		await chase(undefined, reminded => {
+			const reached = reachedCount(reminded);
+
+			if (reminded.length === 0) return 'Nobody owes anything.';
+
+			return reached === reminded.length
+				? `Chased ${counted(reached, 'player')}.`
+				: `Chased ${reached} of ${reminded.length}. The app cannot reach the rest.`;
+		});
 	};
 
 	const handleAddExpense = (expense: { description: string; amount: number; date: string }) =>
@@ -305,9 +386,37 @@ const FinancesPage = () => {
 								usersByUid={usersByUid}
 								labelFor={labelFor}
 								canSettle={isAdmin}
+								chasedAt={chasedAt}
 								onSettle={handleSettle}
 								onDelete={handleDeleteDue}
+								onRemind={isAdmin ? handleRemind : undefined}
 							/>
+
+							{/* Under the list rather than in the panel below, because
+							    this acts on the names above it and the panel is about
+							    raising charges that do not exist yet. Kept even when
+							    nobody owes, disabled, so the button an admin is
+							    looking for does not move around on them. */}
+							{isAdmin && (
+								<>
+									<Button
+										variant='secondary'
+										fullWidth
+										disabled={owing.length === 0}
+										onClick={handleRemindEveryone}
+									>
+										{owing.length === 0
+											? 'Everybody is settled up'
+											: `Remind all ${owing.length} who owe`}
+									</Button>
+
+									<p className='text-faint px-1 text-xs leading-relaxed'>
+										A reminder names one person&apos;s own amount and links to this page, and says
+										nothing about anybody else. There is no switch for it in their notification
+										settings; paying is what stops it.
+									</p>
+								</>
+							)}
 
 							{!isAdmin && (
 								<p className='text-faint px-1 text-xs leading-relaxed'>
