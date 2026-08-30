@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { CheckCircleIcon, CheckIcon, XCircleIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import type { GameResponse, ResponseStatus } from '@shared/types';
 import { getExtraSpot } from '@shared/game';
+import { formatSek } from '@shared/format';
 import { classNames } from '../lib/utils/reactHelper';
 import { useToast } from './Toast';
 import { hapticLight, hapticSuccess } from '../lib/utils/haptics';
@@ -95,6 +97,7 @@ const RespondControl = ({
 	onRespond,
 	onClear,
 	disabled = false,
+	debtLock,
 	size = 'lg',
 }: {
 	/**
@@ -107,6 +110,18 @@ const RespondControl = ({
 	/** Withdraws the answer, back to no response at all. */
 	onClear: () => Promise<void>;
 	disabled?: boolean;
+	/**
+	 * Set when this player owes the season money, which takes the In half and
+	 * leaves the rest of the control alone. Out and clearing stay live, because
+	 * a debt is a reason to keep somebody off the pitch and never a reason to
+	 * hold them inside a headcount somebody is booking a pitch against.
+	 *
+	 * One object rather than an amount plus a flag, so there is no way to draw
+	 * the lock without the number that explains it. `firestore.rules` refuses
+	 * the write either way; this is what stops the refusal arriving as a toast
+	 * out of nowhere.
+	 */
+	debtLock?: { outstanding: number; href: string };
 	size?: 'sm' | 'lg';
 }) => {
 	const [pending, setPending] = useState<ResponseStatus | 'clear' | null>(null);
@@ -120,8 +135,19 @@ const RespondControl = ({
 	// badge and the drained-out other half carry the selection on their own.
 	const answerHonoured = getExtraSpot(response) !== 'pending';
 
+	/**
+	 * Whether the debt takes this half.
+	 *
+	 * Only the In half, and only while In is not already the answer. Somebody
+	 * who said yes and was charged afterwards keeps their In drawn as the answer
+	 * it is, and tapping it writes nothing anyway; draining it would say they
+	 * had been dropped from a game they are still in.
+	 */
+	const refusedByDebt = (option: ResponseStatus) => !!debtLock && option === 'in' && status !== 'in';
+
 	const write = async (job: ResponseStatus | 'clear', save: () => Promise<void>) => {
 		if (disabled || pending) return;
+		if (job !== 'clear' && refusedByDebt(job)) return;
 
 		setPending(job);
 		try {
@@ -195,7 +221,7 @@ const RespondControl = ({
 						<button
 							key={option.status}
 							type='button'
-							disabled={busy}
+							disabled={busy || refusedByDebt(option.status)}
 							aria-pressed={chosen}
 							onClick={() => choose(option.status)}
 							className={classNames(base, WIDTHS[standing], option.styles[standing])}
@@ -228,10 +254,24 @@ const RespondControl = ({
 				</div>
 			)}
 
+			{/* At both sizes, unlike the line below it, and instead of it. A
+			    disabled button with no reason beside it reads as a broken app,
+			    and a game row is exactly where somebody meets this without the
+			    season's notice on screen to explain it. */}
+			{debtLock && !disabled && refusedByDebt('in') && (
+				<p className='text-faint mt-2 text-center text-xs leading-relaxed'>
+					You owe {formatSek(debtLock.outstanding)}.{' '}
+					<Link href={debtLock.href} className='text-brand font-semibold'>
+						Settle up
+					</Link>{' '}
+					to sign up again.
+				</p>
+			)}
+
 			{/* Only where the control stands alone. A game row carries a "No
 			    answer" pill two lines above this, and saying it twice in one card
 			    is worse than saying it once. */}
-			{!status && !disabled && size === 'lg' && (
+			{!status && !disabled && !debtLock && size === 'lg' && (
 				<p className='text-faint mt-2 text-center text-xs'>You haven&apos;t answered yet.</p>
 			)}
 		</div>

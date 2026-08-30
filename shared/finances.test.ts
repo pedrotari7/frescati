@@ -1,6 +1,7 @@
 import {
 	debtStanding,
 	dueId,
+	dueLabel,
 	duesByPlayer,
 	duesFor,
 	entryShare,
@@ -282,6 +283,29 @@ describe('duesFor', () => {
 		]);
 
 		expect(mine.outstanding).toBe(70);
+	});
+});
+
+describe('dueLabel', () => {
+	const games = [{ id: 'g1', kickoff: '2026-03-10T18:00:00.000Z' }];
+	const label = (charge: Due) => dueLabel(charge, games, 'Europe/Stockholm');
+
+	it('names the date of the game a charge is for', () => {
+		expect(label(due('a', { gameId: 'g1' }))).toBe('Tue 10 Mar');
+	});
+
+	it('says what an entry fee is without looking at the calendar', () => {
+		expect(label(due('a', { kind: 'entry' }))).toBe('Entry fee');
+	});
+
+	it('leaves a hand-raised charge to its own note', () => {
+		expect(label(due('a', { gameId: undefined }))).toBe('Added by hand');
+	});
+
+	// A game charge outlives the game: deleting one cascades the responses, not
+	// the money. So the label has to survive a gameId that no longer resolves.
+	it('still says it was a game when the game is gone', () => {
+		expect(label(due('a', { gameId: 'deleted' }))).toBe('A game');
 	});
 });
 

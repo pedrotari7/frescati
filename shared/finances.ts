@@ -1,6 +1,7 @@
 import { isAbsent, isConfirmed } from './game';
+import { formatGameDate } from './format';
 import { DEFAULT_FEES } from './types';
-import type { Due, DueKind, Expense, GameResponse, Season, SeasonFees } from './types';
+import type { Due, DueKind, Expense, Game, GameResponse, Season, SeasonFees } from './types';
 
 /**
  * What is owed, what has come in, and what is left.
@@ -232,6 +233,27 @@ export const duesFor = (uid: string, dues: Due[]): PlayerDues => {
 		dues: [...mine].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
 		outstanding: mine.reduce((total, due) => (due.status === 'owing' ? total + due.amount : total), 0),
 	};
+};
+
+/**
+ * What a charge is for, in the words the person paying it would use.
+ *
+ * A game charge names the date, not the game id, because somebody reconciling
+ * this against a bank statement or their own memory is looking for a Tuesday.
+ * A charge added by hand has no game at all, and its `note` is what says more,
+ * which is why this stops at "Added by hand" rather than guessing.
+ *
+ * Here rather than on the finances screen because two screens now ask: the
+ * season's home says what is blocking you, the finances page itemises the book,
+ * and two copies of this would eventually disagree about the same charge.
+ */
+export const dueLabel = (due: Due, games: Pick<Game, 'id' | 'kickoff'>[], timezone: string): string => {
+	if (due.kind === 'entry') return 'Entry fee';
+	if (!due.gameId) return 'Added by hand';
+
+	const game = games.find(candidate => candidate.id === due.gameId);
+
+	return game ? formatGameDate(game.kickoff, timezone) : 'A game';
 };
 
 /**

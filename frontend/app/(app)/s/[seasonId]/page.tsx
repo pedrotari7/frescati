@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { CalendarDaysIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import { groupGames } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
+import { useAuth } from '../../../../lib/auth';
 import { useRespond } from '../../../../hooks/useRespond';
 import { useWatchGames } from '../../../../hooks/useWatchGames';
 import { useLiveGameRedirect } from '../../../../hooks/useLiveGameRedirect';
@@ -14,12 +15,15 @@ import EmptyState from '../../../../components/EmptyState';
 import LoadFailed from '../../../../components/LoadFailed';
 import NextGameHero from '../../../../components/NextGameHero';
 import GameRow from '../../../../components/GameRow';
+import SeasonDebtNotice from '../../../../components/SeasonDebtNotice';
 import Button from '../../../../components/Button';
 import CalendarSubscribeSheet from '../../../../components/CalendarSubscribeSheet';
 import { SectionHeading } from '../../../../components/Section';
 
 const SeasonHomePage = () => {
-	const { seasonId, season, games, myResponses, loading, error, retry, isAdmin, role } = useSeasonContext();
+	const { seasonId, season, games, myResponses, loading, error, retry, isAdmin, role, debt, debtLock } =
+		useSeasonContext();
+	const { user } = useAuth();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
 
 	// One listener for the whole calendar, which is what lets the bell leave the
@@ -76,6 +80,12 @@ const SeasonHomePage = () => {
 		<>
 			<SeasonShell title={season.name} subtitle={season.venue.name}>
 				<div className='space-y-6 p-4'>
+					{/* First on the screen, and above the card whose In button it
+					    explains. Not instead of the games: hiding the calendar
+					    collects nothing and takes away what somebody needs in order
+					    to decide whether paying is worth it. */}
+					<SeasonDebtNotice debt={debt} season={season} games={games} displayName={user?.displayName ?? ''} />
+
 					{next ? (
 						<NextGameHero
 							game={next}
@@ -83,6 +93,7 @@ const SeasonHomePage = () => {
 							myResponse={myResponses[next.id]}
 							isExtra={role === 'extra'}
 							watching={isWatching(next.id)}
+							debtLock={debtLock}
 							now={now}
 							onRespond={status => respond(next.id, status)}
 							onClear={() => clear(next.id)}
@@ -121,6 +132,7 @@ const SeasonHomePage = () => {
 										season={season}
 										myResponse={myResponses[game.id]}
 										href={`/s/${seasonId}/g/${game.id}/tournament`}
+										debtLock={debtLock}
 										now={now}
 										onRespond={status => respond(game.id, status)}
 										onClear={() => clear(game.id)}
@@ -153,6 +165,7 @@ const SeasonHomePage = () => {
 											game={game}
 											season={season}
 											myResponse={myResponses[game.id]}
+											debtLock={debtLock}
 											now={now}
 											onRespond={status => respond(game.id, status)}
 											onClear={() => clear(game.id)}
@@ -178,6 +191,7 @@ const SeasonHomePage = () => {
 										season={season}
 										myResponse={myResponses[game.id]}
 										watching={isWatching(game.id)}
+										debtLock={debtLock}
 										now={now}
 										onRespond={status => respond(game.id, status)}
 										onClear={() => clear(game.id)}

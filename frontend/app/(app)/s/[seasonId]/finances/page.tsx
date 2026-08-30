@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { BanknotesIcon } from '@heroicons/react/24/outline';
 import type { Due, DueStatus, Expense } from '@shared/types';
 import {
+	dueLabel,
 	duesByPlayer,
 	duesFor,
 	entryShare,
@@ -13,7 +14,7 @@ import {
 	planDues,
 	summarise,
 } from '@shared/finances';
-import { formatGameDate, formatSek } from '@shared/format';
+import { formatSek } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useAuth } from '../../../../../lib/auth';
 import { useDues, useExpenses, useUsersByUid } from '../../../../../hooks/useData';
@@ -79,23 +80,6 @@ const FinancesPage = () => {
 	const book = useMemo(() => duesByPlayer(dues), [dues]);
 	const mine = useMemo(() => (uid ? duesFor(uid, dues) : { dues: [], outstanding: 0 }), [uid, dues]);
 
-	// What a charge is for, spelled out where the money is. A game due names the
-	// date rather than the id, because an admin reconciling a bank statement is
-	// looking for a Tuesday. A hand-raised one has no game, and its `note` is
-	// shown beside this by `DuesBook`.
-	const labelFor = useMemo(() => {
-		const byId = new Map(games.map(game => [game.id, game]));
-
-		return (due: Due): string => {
-			if (due.kind === 'entry') return 'Entry fee';
-			if (!due.gameId) return 'Added by hand';
-
-			const game = byId.get(due.gameId);
-
-			return game && season ? formatGameDate(game.kickoff, season.slot.timezone) : 'A game';
-		};
-	}, [games, season]);
-
 	if (loading || duesLoading) {
 		return (
 			<SeasonShell title='Finances' backHref={`/s/${seasonId}/members`}>
@@ -123,6 +107,11 @@ const FinancesPage = () => {
 	const fees = feesFor(season);
 	const share = entryShare(fees.total, season.memberUids.length);
 	const collecting = fees.total > 0 || fees.perGame > 0;
+
+	// Shared with the season's own debt notice, which names the same charges to
+	// the person who owes them. It lives in `shared/finances.ts` because the two
+	// screens would eventually disagree about the same line.
+	const labelFor = (due: Due) => dueLabel(due, games, season.slot.timezone);
 
 	/**
 	 * Work out which charges ought to exist, and raise the ones that don't.
