@@ -60,6 +60,7 @@ const DEPLOYED = [
 	'getGameWatchers',
 	'getPushDevices',
 	'onBudgetAlert',
+	'onDueWrite',
 	'onGameDeleted',
 	'onGameWrite',
 	'onMatchWrite',
@@ -98,6 +99,7 @@ const WATCHES: Record<string, { eventType: 'created' | 'written' | 'deleted'; do
 	onResponseWrite: { eventType: 'written', document: 'seasons/{seasonId}/games/{gameId}/responses/{uid}' },
 	onMatchWrite: { eventType: 'written', document: 'seasons/{seasonId}/games/{gameId}/matches/{order}' },
 	onMotmVoteWrite: { eventType: 'written', document: 'seasons/{seasonId}/games/{gameId}/motmVotes/{uid}' },
+	onDueWrite: { eventType: 'written', document: 'seasons/{seasonId}/dues/{dueId}' },
 };
 
 /** The sweeps, and how often each is expected to come round. */
