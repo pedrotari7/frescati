@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { AppUser, GameResponse } from '@shared/types';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
 import RosterList, { buildRoster } from './RosterList';
+import { ConfirmProvider } from './ConfirmDialog';
 
 const user = (uid: string, displayName: string): AppUser => ({
 	uid,
@@ -25,6 +26,22 @@ const usersByUid = new Map([
 	['carol', user('carol', 'Carol Diaz')],
 	['dave', user('dave', 'Dave Kim')],
 ]);
+
+// Reporting a no-show asks first, so the tests about it run inside the real
+// dialog rather than the context's default, which answers yes to everything and
+// would let the asking quietly disappear. See `ScoreboardLock.test.tsx`, which
+// makes the same trade for the same reason.
+const tapNoShow = async () => {
+	await act(async () => {
+		fireEvent.click(screen.getByRole('button', { name: 'No-show' }));
+	});
+};
+
+const answerDialog = async (name: 'Mark as a no-show' | 'Cancel') => {
+	await act(async () => {
+		fireEvent.click(screen.getByRole('button', { name }));
+	});
+};
 
 describe('buildRoster', () => {
 	it('sorts members into playing, out and awaiting', () => {
@@ -200,36 +217,67 @@ describe('RosterList', () => {
 		const onToggleAbsent = jest.fn().mockResolvedValue(undefined);
 
 		const { rerender } = render(
-			<RosterList
-				memberUids={['alice']}
-				responses={[response({ uid: 'alice', status: 'in', role: 'member' })]}
-				usersByUid={usersByUid}
-				canReportAbsence
-				onToggleAbsent={onToggleAbsent}
-			/>
+			<ConfirmProvider>
+				<RosterList
+					memberUids={['alice']}
+					responses={[response({ uid: 'alice', status: 'in', role: 'member' })]}
+					usersByUid={usersByUid}
+					canReportAbsence
+					onToggleAbsent={onToggleAbsent}
+				/>
+			</ConfirmProvider>
 		);
 
-		await act(async () => {
-			fireEvent.click(screen.getByRole('button', { name: 'No-show' }));
-		});
+		await tapNoShow();
+		await answerDialog('Mark as a no-show');
 
 		expect(onToggleAbsent).toHaveBeenCalledWith('alice', true);
 
 		rerender(
-			<RosterList
-				memberUids={['alice']}
-				responses={[response({ uid: 'alice', status: 'in', role: 'member', absent: true })]}
-				usersByUid={usersByUid}
-				canReportAbsence
-				onToggleAbsent={onToggleAbsent}
-			/>
+			<ConfirmProvider>
+				<RosterList
+					memberUids={['alice']}
+					responses={[response({ uid: 'alice', status: 'in', role: 'member', absent: true })]}
+					usersByUid={usersByUid}
+					canReportAbsence
+					onToggleAbsent={onToggleAbsent}
+				/>
+			</ConfirmProvider>
 		);
 
+		// Taking one back is nobody's regret, so it stays a single tap.
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
 		});
 
 		expect(onToggleAbsent).toHaveBeenLastCalledWith('alice', false);
+	});
+
+	// The whole reason the dialog exists: this button sits at the end of every
+	// row in the squad, and a mistap used to be an accusation.
+	it('writes nothing until the dialog agrees, and names who it is about', async () => {
+		const onToggleAbsent = jest.fn().mockResolvedValue(undefined);
+
+		render(
+			<ConfirmProvider>
+				<RosterList
+					memberUids={['alice']}
+					responses={[response({ uid: 'alice', status: 'in', role: 'member' })]}
+					usersByUid={usersByUid}
+					canReportAbsence
+					onToggleAbsent={onToggleAbsent}
+				/>
+			</ConfirmProvider>
+		);
+
+		await tapNoShow();
+
+		expect(onToggleAbsent).not.toHaveBeenCalled();
+		expect(screen.getByText('Mark Alice Ng as a no-show?')).toBeInTheDocument();
+
+		await answerDialog('Cancel');
+
+		expect(onToggleAbsent).not.toHaveBeenCalled();
 	});
 
 	// Past kick-off the row asks one question rather than showing two buttons in
@@ -238,22 +286,23 @@ describe('RosterList', () => {
 		const onToggleAbsent = jest.fn().mockResolvedValue(undefined);
 
 		render(
-			<RosterList
-				memberUids={[]}
-				responses={[response({ uid: 'carol', status: 'in', role: 'extra', confirmOverride: true })]}
-				usersByUid={usersByUid}
-				canManageExtras
-				canReportAbsence
-				onToggleExtra={jest.fn()}
-				onToggleAbsent={onToggleAbsent}
-			/>
+			<ConfirmProvider>
+				<RosterList
+					memberUids={[]}
+					responses={[response({ uid: 'carol', status: 'in', role: 'extra', confirmOverride: true })]}
+					usersByUid={usersByUid}
+					canManageExtras
+					canReportAbsence
+					onToggleExtra={jest.fn()}
+					onToggleAbsent={onToggleAbsent}
+				/>
+			</ConfirmProvider>
 		);
 
 		expect(screen.queryByRole('button', { name: 'Drop' })).not.toBeInTheDocument();
 
-		await act(async () => {
-			fireEvent.click(screen.getByRole('button', { name: 'No-show' }));
-		});
+		await tapNoShow();
+		await answerDialog('Mark as a no-show');
 
 		expect(onToggleAbsent).toHaveBeenCalledWith('carol', true);
 	});

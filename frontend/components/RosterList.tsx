@@ -7,6 +7,7 @@ import { personRow } from '../lib/people';
 import Avatar from './Avatar';
 import StatusPill from './StatusPill';
 import Button from './Button';
+import { useConfirm } from './ConfirmDialog';
 import { classNames } from '../lib/utils/reactHelper';
 
 export interface RosterEntry {
@@ -150,14 +151,40 @@ const RosterList = ({
 }) => {
 	const { playing, extras, absent, out, awaiting } = buildRoster(memberUids, responses, usersByUid);
 	const byUid = new Map(responses.map(response => [response.uid, response]));
+	const confirm = useConfirm();
 
 	// The handler itself rather than a boolean beside it, so every use below is
 	// narrowed by the same check that decides whether to offer the button at all.
 	const reportAbsence = canReportAbsence ? onToggleAbsent : undefined;
 
+	/**
+	 * Weighted like the thing it is, and asked about before it lands.
+	 *
+	 * This sits at the end of a row for every single person who said they were
+	 * in, on a screen an admin is thumbing through with a game going on, and it
+	 * writes a public mark against a named person. As a ghost button it was the
+	 * lightest thing on the row and a mistap away from accusing the wrong one.
+	 * So it carries the same rose as the section it moves people into, and a
+	 * second tap has to agree. Taking one back stays a single tap: nobody ever
+	 * regretted clearing a mark.
+	 */
 	const noShowButton = (entry: RosterEntry) =>
 		reportAbsence ? (
-			<Button size='sm' variant='ghost' onClick={() => reportAbsence(entry.uid, true)}>
+			<Button
+				size='sm'
+				variant='danger'
+				onClick={async () => {
+					const ok = await confirm({
+						title: `Mark ${entry.displayName} as a no-show?`,
+						message:
+							'They said they were in. This says they never turned up, and the whole group can see it. Nothing else about the game moves, and you can take it back.',
+						confirmLabel: 'Mark as a no-show',
+						tone: 'danger',
+					});
+
+					if (ok) await reportAbsence(entry.uid, true);
+				}}
+			>
 				No-show
 			</Button>
 		) : null;
