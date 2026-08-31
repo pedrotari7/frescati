@@ -381,22 +381,14 @@ const FinancesPage = () => {
 						<section className='space-y-3'>
 							<SectionHeading className='px-1'>Who owes what</SectionHeading>
 
-							<DuesBook
-								book={book}
-								usersByUid={usersByUid}
-								labelFor={labelFor}
-								canSettle={isAdmin}
-								chasedAt={chasedAt}
-								onSettle={handleSettle}
-								onDelete={handleDeleteDue}
-								onRemind={isAdmin ? handleRemind : undefined}
-							/>
-
-							{/* Under the list rather than in the panel below, because
-							    this acts on the names above it and the panel is about
-							    raising charges that do not exist yet. Kept even when
-							    nobody owes, disabled, so the button an admin is
-							    looking for does not move around on them. */}
+							{/* Over the list rather than under it. A season with
+							    enough people owing to be worth one press is a book
+							    long enough that the button sits off the bottom of a
+							    phone, and it belongs to the names below it, not to
+							    the panel further down about raising charges that do
+							    not exist yet. Kept even when nobody owes, disabled,
+							    so the button an admin is looking for does not move
+							    around on them. */}
 							{isAdmin && (
 								<>
 									<Button
@@ -417,6 +409,17 @@ const FinancesPage = () => {
 									</p>
 								</>
 							)}
+
+							<DuesBook
+								book={book}
+								usersByUid={usersByUid}
+								labelFor={labelFor}
+								canSettle={isAdmin}
+								chasedAt={chasedAt}
+								onSettle={handleSettle}
+								onDelete={handleDeleteDue}
+								onRemind={isAdmin ? handleRemind : undefined}
+							/>
 
 							{!isAdmin && (
 								<p className='text-faint px-1 text-xs leading-relaxed'>
