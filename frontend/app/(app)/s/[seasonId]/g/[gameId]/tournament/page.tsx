@@ -51,6 +51,7 @@ import {
 	setTeamLetter,
 } from '../../../../../../../lib/db/tournament';
 import { displayNameOf } from '../../../../../../../lib/people';
+import { useConfirm } from '../../../../../../../components/ConfirmDialog';
 import MotmPanel from '../../../../../../../components/MotmPanel';
 import PlayerTeamSheet from '../../../../../../../components/PlayerTeamSheet';
 import TeamLetterSheet from '../../../../../../../components/TeamLetterSheet';
@@ -78,6 +79,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	const { voterUids } = useMotmVoters(seasonId, gameId);
 	const { usersByUid } = useUsersByUid();
 	const write = useWrite();
+	const confirm = useConfirm();
 	// The vote closes on a deadline, so the panel needs a clock that moves.
 	// Anything off `new Date()` would keep offering the buttons for as long as
 	// the page stayed open.
@@ -355,6 +357,34 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 								className='mt-4'
 								disabled={!lineupOpen}
 								onClick={async () => {
+									// Asked about only when there is something to
+									// throw away, which is the whole distinction the
+									// button rests on. An automatic lineup is
+									// re-picked every time somebody changes their
+									// answer, so re-picking it deliberately costs
+									// nothing and stays one tap: that is what
+									// "free, instant and leaves no mark" above
+									// means. A pinned one is an evening of somebody
+									// else's planning, and this is the only button
+									// that undoes it. The pinned-lineup note above
+									// already names who, so the dialog does too.
+									if (lineup.edited) {
+										const ok = await confirm({
+											title: 'Throw away the hand-picked teams?',
+											message: `${displayNameOf(usersByUid.get(lineup.edited.by))} sorted these teams out by hand. Reshuffling hands them back to the app, which picks from who is in and re-picks whenever somebody changes their answer.`,
+											// Never the word on the button that opened
+											// it: "Reshuffle" twice on one screen
+											// is a thing for a tap, and a test, to
+											// pick the wrong one of. Same reason
+											// `ScoreboardLock` answers "Correct a
+											// score" with "Correct it".
+											confirmLabel: 'Re-pick them',
+											tone: 'danger',
+										});
+
+										if (!ok) return;
+									}
+
 									await write(
 										() => reshuffleTeams(seasonId, gameId),
 										"Couldn't reshuffle the teams."
@@ -520,11 +550,30 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 									on its own {AUTO_FINALISE_HOURS} hours after kick-off.
 								</p>
 
+								{/* The one tap on this screen that reaches everybody.
+								    It applies ratings, opens the vote and notifies
+								    the lineup, and freezes the sheet the ledger was
+								    computed against, and it sits directly under a
+								    table an admin came here to read, which is where
+								    a scrolling thumb ends up. `ScoreboardLock`
+								    already asks before *undoing* this; asking here
+								    too is the other half of the same trade, since
+								    this is the tap that makes the undo cost a
+								    replay. */}
 								{isAdmin && (
 									<Button
 										variant='primary'
 										className='mt-3'
 										onClick={async () => {
+											const ok = await confirm({
+												title: 'Confirm the results?',
+												message:
+													'Ratings are worked out and applied to everybody who played, the man-of-the-match vote opens and the lineup is notified. Correcting a score after this works the ratings out again: for this game, and for every game played since.',
+												confirmLabel: 'Confirm it',
+											});
+
+											if (!ok) return;
+
 											await write(
 												() => finaliseTournament(seasonId, gameId),
 												"Couldn't confirm the results."

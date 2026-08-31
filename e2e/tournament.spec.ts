@@ -186,7 +186,37 @@ test.describe('the team sheet', () => {
 	});
 
 	/**
-	 * The one screen in the app where a tap is not the whole gesture.
+	 * Confirming is the tap on this screen that reaches everybody.
+	 *
+	 * It applies ratings to the whole lineup, opens the vote and notifies them,
+	 * and none of it comes back: the way out is a correction, which replays the
+	 * ladder from that game forward. The button sits directly under the table an
+	 * admin came here to read, so a thumb scrolling to the standings ends up on
+	 * top of it, and the dialog is the only thing in between.
+	 *
+	 * Dismissed rather than answered, on purpose. Confirming for real would rate
+	 * a seeded game and move the ladder under every test that runs after this
+	 * one, and what needs proving is that the tap alone does nothing.
+	 */
+	test('makes an admin mean it before a game is confirmed', async ({ page }) => {
+		const admin = aSeasonAdmin();
+		await openSeasonAs(page, admin);
+		await openAPlayedGame(page, async sheet => !(await showsAsConfirmed(sheet)));
+
+		await confirmButton(page).click();
+		await expect(page.getByText('Confirm the results?')).toBeVisible();
+
+		await page.getByRole('button', { name: 'Cancel' }).click();
+
+		// Still offering to confirm, and still not confirmed: the dialog was
+		// dismissed, not answered. Both halves, because a screen that had
+		// confirmed the game would also stop offering to.
+		await expect(confirmButton(page), 'cancelling the dialog confirmed the game anyway').toBeVisible();
+		await expect(confirmedPill(page)).toBeHidden();
+	});
+
+	/**
+	 * The one *score* in the app where a tap is not the whole gesture.
 	 *
 	 * A confirmed game's ratings have been applied, so moving a score asks the
 	 * ladder to be worked out again from that game forward, and an admin opens
