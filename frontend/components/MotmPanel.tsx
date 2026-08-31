@@ -68,13 +68,17 @@ const MotmPanel = ({
 	const candidates = teams.flatMap(team => team.uids.map(uid => ({ uid, team: team.index })));
 	const votes = new Map((motm?.counts ?? []).map(count => [count.uid, count.votes]));
 
-	// Decided, the list stops being a ballot and becomes a result, so it is
-	// ordered like one: most votes first. While the vote is open it stays in team
-	// order, because there is nothing to rank by that anybody is allowed to see.
-	// The sort is stable, so everybody level, including the whole tail nobody
-	// voted for, keeps the team order they were drawn in.
+	const votesFor = (uid: string) => votes.get(uid) ?? 0;
+
+	// Decided, the list stops being a ballot and becomes a result: the people the
+	// group named, most votes first. Everybody else drops off, because a name with
+	// nothing beside it says only that nobody picked them, and the team sheet is
+	// already on this screen for anyone who wants the full lineup. While the vote
+	// is open it is that whole lineup in team order, since there is nothing to
+	// rank by that anybody is allowed to see. The sort is stable, so names level
+	// on votes keep the team order they were drawn in.
 	const ordered = motm
-		? [...candidates].sort((a, b) => (votes.get(b.uid) ?? 0) - (votes.get(a.uid) ?? 0))
+		? candidates.filter(candidate => votesFor(candidate.uid) > 0).sort((a, b) => votesFor(b.uid) - votesFor(a.uid))
 		: candidates;
 
 	return (
@@ -106,71 +110,77 @@ const MotmPanel = ({
 				</p>
 			)}
 
-			{/* The list stays up after the vote closes, carrying the counts, the
-			    same list, now answering a different question, and reordered to
-			    answer it. */}
-			<ul className='mt-3 grid gap-1.5 sm:grid-cols-2'>
-				{ordered.map(candidate => {
-					const picked = vote?.votedFor === candidate.uid;
-					const won = motm?.winners.includes(candidate.uid) ?? false;
-					const count = votes.get(candidate.uid) ?? 0;
+			{/* The ballot while the vote is open. After it closes, the same rows
+			    answer a different question, so they are cut down to the people who
+			    have an answer in them and reordered by it. Nothing at all when
+			    nobody voted: the line above has already said so. */}
+			{ordered.length > 0 && (
+				<ul className='mt-3 grid gap-1.5 sm:grid-cols-2'>
+					{ordered.map(candidate => {
+						const picked = vote?.votedFor === candidate.uid;
+						const won = motm?.winners.includes(candidate.uid) ?? false;
+						const count = votesFor(candidate.uid);
 
-					return (
-						<li key={candidate.uid}>
-							<button
-								type='button'
-								disabled={!open || !canVote}
-								aria-pressed={picked}
-								onClick={() => {
-									hapticLight();
-									onVote(candidate.uid);
-								}}
-								className={classNames(
-									'flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors',
-									'focus-visible:ring-brand/60 focus-visible:ring-2 focus-visible:outline-none',
-									// Not a disabled control once the vote is over. It is
-									// a list again, and greying every name would read as
-									// something being unavailable rather than finished.
-									open && canVote && 'hover:bg-white/5 active:scale-[0.99]',
-									// Three states rather than two that overlap. Backing
-									// the winner is the common case, and it used to put
-									// both class strings on one element and leave
-									// Tailwind's output order to decide which ring
-									// showed, on the most rewarding row on the screen.
-									// It gets its own treatment: the trophy's wash, ringed
-									// in the colour of your own pick, so it says both.
-									won && picked && 'bg-pending/15 ring-brand/40 ring-1',
-									won && !picked && 'bg-pending/10 ring-pending/30 ring-1',
-									!won && picked && 'bg-brand/10 ring-brand/30 ring-1'
-								)}
-							>
-								<Avatar
-									displayName={name(candidate.uid)}
-									photoURL={usersByUid.get(candidate.uid)?.photoURL}
-									size='sm'
-								/>
-								<span className='text-ink min-w-0 flex-1 truncate text-sm'>{name(candidate.uid)}</span>
-
-								{won && <TrophyIcon className='text-pending size-4 shrink-0' aria-hidden='true' />}
-								{picked && !motm && (
-									<CheckCircleIcon className='text-brand size-4 shrink-0' aria-hidden='true' />
-								)}
-
-								{/* Counts only exist once it is decided, and a nil is
-								    left blank, a column of zeroes is a list of people
-								    nobody voted for, printed out. */}
-								{motm && count > 0 && (
-									<span className='text-muted shrink-0 text-xs font-semibold tabular-nums'>
-										{count}
+						return (
+							<li key={candidate.uid}>
+								<button
+									type='button'
+									disabled={!open || !canVote}
+									aria-pressed={picked}
+									onClick={() => {
+										hapticLight();
+										onVote(candidate.uid);
+									}}
+									className={classNames(
+										'flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors',
+										'focus-visible:ring-brand/60 focus-visible:ring-2 focus-visible:outline-none',
+										// Not a disabled control once the vote is over. It
+										// is a list again, and greying every name would
+										// read as something being unavailable rather than
+										// finished.
+										open && canVote && 'hover:bg-white/5 active:scale-[0.99]',
+										// Three states rather than two that overlap.
+										// Backing the winner is the common case, and it
+										// used to put both class strings on one element and
+										// leave Tailwind's output order to decide which
+										// ring showed, on the most rewarding row on the
+										// screen. It gets its own treatment: the trophy's
+										// wash, ringed in the colour of your own pick, so
+										// it says both.
+										won && picked && 'bg-pending/15 ring-brand/40 ring-1',
+										won && !picked && 'bg-pending/10 ring-pending/30 ring-1',
+										!won && picked && 'bg-brand/10 ring-brand/30 ring-1'
+									)}
+								>
+									<Avatar
+										displayName={name(candidate.uid)}
+										photoURL={usersByUid.get(candidate.uid)?.photoURL}
+										size='sm'
+									/>
+									<span className='text-ink min-w-0 flex-1 truncate text-sm'>
+										{name(candidate.uid)}
 									</span>
-								)}
 
-								<TeamBadge index={candidate.team} size='sm' />
-							</button>
-						</li>
-					);
-				})}
-			</ul>
+									{won && <TrophyIcon className='text-pending size-4 shrink-0' aria-hidden='true' />}
+									{picked && !motm && (
+										<CheckCircleIcon className='text-brand size-4 shrink-0' aria-hidden='true' />
+									)}
+
+									{/* Counts only exist once it is decided, and by then
+									    everybody still on the list has at least one. */}
+									{motm && (
+										<span className='text-muted shrink-0 text-xs font-semibold tabular-nums'>
+											{count}
+										</span>
+									)}
+
+									<TeamBadge index={candidate.team} size='sm' />
+								</button>
+							</li>
+						);
+					})}
+				</ul>
+			)}
 
 			{open && <Turnout teams={teams} usersByUid={usersByUid} voterUids={voterUids} />}
 

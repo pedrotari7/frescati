@@ -176,9 +176,9 @@ describe('MotmPanel', () => {
 		});
 
 		// The ballot was in team order because there was nothing to rank by. A
-		// result is ranked, and everybody level keeps the order they were drawn
-		// in, including the tail nobody voted for.
-		it('reorders the list by votes, most first', () => {
+		// result is ranked, and it is only the people who were named: the rest of
+		// the lineup is the team sheet further up the same screen.
+		it('reorders the list by votes, most first, and drops the rest of the lineup', () => {
 			renderPanel({
 				motm: decided(
 					['erik'],
@@ -194,7 +194,15 @@ describe('MotmPanel', () => {
 				.getAllByRole('button')
 				.map(button => [...USERS.values()].find(u => button.textContent?.includes(u.displayName))?.uid);
 
-			expect(order).toEqual(['erik', 'johan', 'anna', 'zara']);
+			expect(order).toEqual(['erik', 'johan']);
+		});
+
+		// Nobody voted for them, and a row saying as much is a column of blanks
+		// where the names of everybody who turned up used to be.
+		it('leaves out a lineup nobody voted for entirely', () => {
+			renderPanel({ motm: decided([], []), votingUntil: undefined });
+
+			expect(screen.queryAllByRole('button')).toHaveLength(0);
 		});
 
 		// A tie is stated as a tie rather than resolved. The group produced two
@@ -233,7 +241,7 @@ describe('MotmPanel', () => {
 			const onVote = jest.fn();
 			renderPanel({ motm: decided(['zara'], [{ uid: 'zara', votes: 1 }]), votingUntil: undefined, onVote });
 
-			expect(screen.getByRole('button', { name: /Anna/ })).toBeDisabled();
+			expect(screen.getByRole('button', { name: /Zara/ })).toBeDisabled();
 		});
 
 		// Backing the winner is the common case, and both the picked and the won
@@ -252,9 +260,17 @@ describe('MotmPanel', () => {
 			expect(winner).not.toHaveClass('ring-pending/30');
 		});
 
+		// Your own pick is on the list whenever it lost too: it got your vote, so it
+		// got a vote, and the counts it is cut down to include it.
 		it('rings a winner you did not vote for in the trophy colour alone', () => {
 			renderPanel({
-				motm: decided(['zara'], [{ uid: 'zara', votes: 2 }]),
+				motm: decided(
+					['zara'],
+					[
+						{ uid: 'zara', votes: 2 },
+						{ uid: 'anna', votes: 1 },
+					]
+				),
 				vote: vote('anna'),
 				votingUntil: undefined,
 			});
