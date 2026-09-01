@@ -75,6 +75,39 @@ const explain = (error: { code?: string; message?: string }): string | null => {
 };
 
 /**
+ * Whether these requests have to name a project to bill.
+ *
+ * Credentials from `gcloud auth application-default login` are a person's, and
+ * a person is not a project, so Google has nothing to charge the call against.
+ * The Identity Toolkit API refuses to serve until it is told what to charge,
+ * which is what `GOOGLE_CLOUD_QUOTA_PROJECT` answers.
+ *
+ * A key already carries its project, so naming one tells Google nothing it did
+ * not know, and it is not free. The name goes out as `x-goog-user-project`,
+ * which is a request to spend that project's quota, and spending it needs
+ * `serviceusage.services.use`. This used to be set for everybody, under a
+ * comment calling that harmless. It is what broke `deploy-cors` in CI: the
+ * deploy service account holds `roles/storage.admin` and may read and write
+ * the bucket, but the header asked it for a permission nothing else in the
+ * deploy needs, and the 403 came back naming serviceusage rather than storage,
+ * so it read as the wrong bug.
+ */
+const needsQuotaProject = (): boolean => {
+	const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+	if (!keyFile) return true;
+
+	try {
+		return JSON.parse(readFileSync(keyFile, 'utf8'))?.type === 'authorized_user';
+	} catch {
+		// Missing, or not JSON. `applicationDefault()` is about to fail on the
+		// same file with a better message, and guessing wrong here only picks
+		// a header.
+		return false;
+	}
+};
+
+/**
  * Run a script body against an initialised app.
  *
  * The banner goes out before the body rather than after, deliberately: these
@@ -86,10 +119,7 @@ export const runScript = (main: (context: ScriptContext) => Promise<void>): void
 	const run = async () => {
 		const projectId = resolveProjectId();
 
-		// User-based ADC (from `gcloud auth application-default login`) carries no
-		// quota project, and the Identity Toolkit API refuses to serve without one.
-		// Service account keys don't need this, but setting it is harmless there.
-		process.env.GOOGLE_CLOUD_QUOTA_PROJECT ??= projectId;
+		if (needsQuotaProject()) process.env.GOOGLE_CLOUD_QUOTA_PROJECT ??= projectId;
 
 		initializeApp({ credential: applicationDefault(), projectId });
 

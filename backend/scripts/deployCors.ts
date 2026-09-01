@@ -21,8 +21,8 @@
  *
  * Credentials are `runScript`'s: application-default from `gcloud`, or a
  * service account key in GOOGLE_APPLICATION_CREDENTIALS, which is what CI has.
- * It needs `storage.buckets.update`; both `roles/storage.admin` and
- * `roles/firebase.admin` carry it.
+ * It needs `storage.buckets.get` to compare and `storage.buckets.update` to
+ * write; both `roles/storage.admin` and `roles/firebase.admin` carry them.
  */
 
 import { readFileSync } from 'fs';
