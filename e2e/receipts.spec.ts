@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { aSeasonAdmin, openAs, someone } from './fixtures';
 import { openSeasonAs, openTheBooks } from './helpers';
 import { AT, sectionUnder } from './locators';
@@ -57,6 +57,38 @@ let link = '';
 
 const theReceipts = (page: Page) => sectionUnder(page, /^Receipts$/);
 
+/**
+ * A file let go over the page, which Playwright has no gesture for.
+ *
+ * `setInputFiles` drives the picker and only the picker, and a real drag starts
+ * outside the browser where nothing here can reach it, so what this does is
+ * build the `DataTransfer` the browser would have built and hand it to the two
+ * events the area listens for. The `File` is assembled from bytes inside the
+ * page rather than fetched from a `data:` URL, because the app ships a CSP with
+ * opinions about where a fetch may go.
+ *
+ * The `DataTransfer` is also why this is worth doing here rather than in a
+ * jsdom render. It carries a real `FileList`, and a real `FileList` is the only
+ * thing a file input will take as its own value, so that handover is the one
+ * part of a drop a rendered test cannot see.
+ */
+const dropOnto = async (page: Page, target: Locator, fileName: string) => {
+	const dataTransfer = await page.evaluateHandle(
+		({ name, base64 }) => {
+			const transfer = new DataTransfer();
+			const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+
+			transfer.items.add(new File([bytes], name, { type: 'application/pdf' }));
+
+			return transfer;
+		},
+		{ name: fileName, base64: A_PDF.toString('base64') }
+	);
+
+	await target.dispatchEvent('dragover', { dataTransfer });
+	await target.dispatchEvent('drop', { dataTransfer });
+};
+
 /** Reading the clipboard needs asking for; writing to it is what the button does. */
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 
@@ -64,8 +96,8 @@ test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
  * Serial, unlike the other specs here, which each rebuild what they need from
  * the database on the way in. This one cannot: there is exactly one file, put
  * there by the first test and taken away by the last, so a failure half way
- * through should skip the rest rather than run four more tests against a
- * receipt that was never uploaded.
+ * through should skip the rest rather than run the others against a receipt
+ * that was never uploaded.
  */
 test.describe.configure({ mode: 'serial' });
 
@@ -184,5 +216,53 @@ test.describe('the season receipts', () => {
 		// straight back to a receipt that is no longer there.
 		await expect(page).toHaveURL(AT.finances);
 		await expect(theReceipts(page).getByText(receipt), 'the receipt outlived its own removal').toHaveCount(0);
+	});
+
+	// Both of these run after the clean-up above, and both leave the list as
+	// they found it. The second opens the form and then cancels it, so nothing
+	// is uploaded. The journey itself is covered by the tests above, and what is
+	// left to check is the other way into it.
+	test('says a file can be dragged in, where there is a pointer to do it with', async ({ page }, testInfo) => {
+		await openSeasonAs(page, aSeasonAdmin());
+		await openTheBooks(page);
+
+		const hint = theReceipts(page).getByText('Or drag a file in here.');
+
+		// A phone cannot drag a file at all, so the line offering it is drawn
+		// only on a fine pointer. A media query is invisible to a jsdom render,
+		// which is why this is asserted here and in both viewports.
+		if (testInfo.project.name === 'desktop') await expect(hint).toBeVisible();
+		else await expect(hint, 'a phone was told it could drag a file in').toBeHidden();
+	});
+
+	test('takes a file dropped on the list rather than into the picker', async ({ page }, testInfo) => {
+		test.skip(testInfo.project.name !== 'desktop', 'a phone has no drag to test');
+
+		await openSeasonAs(page, aSeasonAdmin());
+		await openTheBooks(page);
+
+		// The button rather than the form, which is shut. The whole area takes
+		// the drop, and having to open the form first would defeat the point.
+		await dropOnto(page, theReceipts(page).getByRole('button', { name: 'Add a receipt' }), 'pitch_invoice.pdf');
+
+		await expect(page.getByLabel('What it is'), 'the drop did not open the form and name the file').toHaveValue(
+			'pitch invoice'
+		);
+
+		// The other half, and the half only a browser can show. The picker holds
+		// the dropped file too, so the control does not read "No file chosen"
+		// beside a form that has already named it.
+		await expect
+			.poll(
+				() =>
+					page
+						.getByLabel('Receipt file')
+						.evaluate(picker => (picker as HTMLInputElement).files?.[0]?.name ?? ''),
+				{ message: 'the dropped file never reached the picker' }
+			)
+			.toBe('pitch_invoice.pdf');
+
+		await page.getByRole('button', { name: 'Cancel' }).click();
+		await expect(theReceipts(page).getByRole('button', { name: 'Add a receipt' })).toBeVisible();
 	});
 });

@@ -54,6 +54,23 @@ const pickFile = async (picked: File) => {
 	});
 };
 
+/**
+ * A file let go over the receipts area.
+ *
+ * jsdom has no `DataTransfer`, so the drag carries a stand-in with the two
+ * things the component reads off one. What it cannot carry is a real
+ * `FileList`, which is the only thing a file input's own value will accept, so
+ * the half of this that fills the picker in is checked in `e2e/receipts.spec.ts`
+ * where there is a browser to build one.
+ */
+const dropFile = async (picked: File | null, onto: HTMLElement) => {
+	await act(async () => {
+		fireEvent.drop(onto, {
+			dataTransfer: { files: picked ? [picked] : [], types: picked ? ['Files'] : ['text/plain'] },
+		});
+	});
+};
+
 describe('the list', () => {
 	it('says what a receipt is without opening it', () => {
 		list([receipt()]);
@@ -177,5 +194,56 @@ describe('adding one', () => {
 		await press('Upload it');
 
 		expect(screen.getByDisplayValue('kvitto')).toBeInTheDocument();
+	});
+});
+
+/**
+ * Dragging a file in, which is the desktop half of picking one.
+ *
+ * The whole area takes the drop rather than the picker inside the form, so the
+ * tests below let go over a row and over the empty card, both of which are as
+ * far from the input as this gets.
+ */
+describe('dropping one in', () => {
+	it('opens the form on a file let go anywhere in the area', async () => {
+		const { onUpload } = list([receipt()], true);
+
+		const picked = file('pitch_invoice-spring_2026.pdf', 'application/pdf', 318_000);
+		await dropFile(picked, screen.getByText('Pitch invoice, spring 2026'));
+
+		expect(screen.getByDisplayValue('pitch invoice spring 2026')).toBeInTheDocument();
+
+		await press('Upload it');
+
+		expect(onUpload).toHaveBeenCalledWith(picked, 'pitch invoice spring 2026');
+	});
+
+	// The same sentence a picked file gets, for the same reason. A drop is not a
+	// second way in with checks of its own.
+	it('checks a dropped file the way it checks a picked one', async () => {
+		list([], true);
+
+		await dropFile(file('season.zip', 'application/zip', 1000), screen.getByText('Nothing here yet.'));
+
+		expect(screen.getByText('A receipt has to be a PDF, a JPEG or a PNG.')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Upload it' })).toBeDisabled();
+	});
+
+	it('ignores a file dropped by somebody who cannot add one', async () => {
+		list([receipt()]);
+
+		await dropFile(file('kvitto.pdf', 'application/pdf', 1000), screen.getByText('Pitch invoice, spring 2026'));
+
+		expect(screen.queryByLabelText('Receipt file')).not.toBeInTheDocument();
+	});
+
+	// Dragging a selection across the page is not somebody trying to file a
+	// receipt, and the area should not light up or open anything for it.
+	it('leaves a drag that is carrying no file alone', async () => {
+		list([], true);
+
+		await dropFile(null, screen.getByText('Nothing here yet.'));
+
+		expect(screen.queryByLabelText('Receipt file')).not.toBeInTheDocument();
 	});
 });
