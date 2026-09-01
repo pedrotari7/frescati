@@ -1,6 +1,7 @@
-import { deleteDoc, deleteField, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, deleteField, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import type { GameResponse, PlayerRole, ResponseStatus } from '@shared/types';
+import type { SeasonResponses } from '@shared/availability';
 import { responseDoc, responsesCol } from './paths';
 import { asData, subscribeToCollection } from './subscribe';
 
@@ -10,6 +11,39 @@ export const subscribeToResponses = (
 	onChange: (responses: GameResponse[]) => void,
 	onError: (error: Error) => void
 ): Unsubscribe => subscribeToCollection(responsesCol(seasonId, gameId), asData<GameResponse>(), onChange, onError);
+
+/**
+ * Who said what, across a whole season, read once.
+ *
+ * A query per game, roughly thirty over a full season. `fetchPlayedGameResponses`
+ * already weighed thirty reads against thirty listeners for the books and came
+ * down here, and this is the harder case of the two: the Squad tab is one people
+ * leave open all week, so those listeners would stay open with it.
+ *
+ * A read is also the honest shape of the answer. What the strip draws is a
+ * season of history plus a handful of games ahead, and none of that moves while
+ * somebody is looking at it. The one answer on that screen that does is your
+ * own, and `useMyResponses` is already live for it.
+ *
+ * Keyed by the document id rather than the `uid` field beside it. The two are
+ * pinned together by the rules for anybody writing their own answer, but a
+ * season admin writes through a rule that checks neither, so the id is the half
+ * that cannot be wrong.
+ */
+export const fetchSeasonResponses = async (seasonId: string, gameIds: string[]): Promise<SeasonResponses> => {
+	const perGame = await Promise.all(
+		gameIds.map(async gameId => {
+			const snapshot = await getDocs(responsesCol(seasonId, gameId));
+
+			return [
+				gameId,
+				Object.fromEntries(snapshot.docs.map(answer => [answer.id, answer.data() as GameResponse])),
+			] as const;
+		})
+	);
+
+	return Object.fromEntries(perGame);
+};
 
 /**
  * Record an answer. `role` is snapshotted here and re-checked by security rules

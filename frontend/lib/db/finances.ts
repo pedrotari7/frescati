@@ -222,10 +222,11 @@ export const deleteExpense = (seasonId: string, expenseId: string) => deleteDoc(
 /**
  * Who played, game by game, read once.
  *
- * One of the two one-shot reads in the app, both of them the sweep's;
- * everything else is `onSnapshot`. It is a query per played game, roughly
- * thirty over a full season, far too much to hold open on a screen and cheap
- * enough behind a button an admin presses when they sit down to do the books.
+ * One of the three one-shot reads in the app, two of them the sweep's and the
+ * third the squad's availability strip; everything else is `onSnapshot`. It is
+ * a query per played game, roughly thirty over a full season, far too much to
+ * hold open on a screen and cheap enough behind a button an admin presses when
+ * they sit down to do the books.
  * Cancelled games are skipped: nobody played them, so nobody owes for them.
  */
 export const fetchPlayedGameResponses = async (

@@ -12,8 +12,10 @@ import {
 import { KIT_KIND_LABELS, groupKitByKind } from '@shared/kit';
 import { entryShare, feesFor } from '@shared/finances';
 import { byDisplayName, formatSek } from '@shared/format';
+import { availabilityGames, buildAvailability } from '@shared/availability';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useKit, useUsersByUid } from '../../../../../hooks/useData';
+import { useSeasonResponses } from '../../../../../hooks/useSeasonResponses';
 import { personRow } from '../../../../../lib/people';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
@@ -21,18 +23,35 @@ import EmptyState from '../../../../../components/EmptyState';
 import LoadFailed from '../../../../../components/LoadFailed';
 import Avatar from '../../../../../components/Avatar';
 import StatusPill from '../../../../../components/StatusPill';
+import AvailabilityDots, { AvailabilityLegend } from '../../../../../components/AvailabilityDots';
 import { ListCard } from '../../../../../components/Section';
 
 const MembersPage = () => {
-	const { seasonId, season, loading, error, retry, isAdmin } = useSeasonContext();
+	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
 	const { usersByUid } = useUsersByUid();
 	const { kit } = useKit(seasonId);
+	const {
+		responses,
+		loading: answersLoading,
+		error: answersError,
+		retry: retryAnswers,
+	} = useSeasonResponses(seasonId, games);
 
+	/** The games the strip has a dot for, which is every one still meant to be played. */
+	const dotted = useMemo(() => availabilityGames(games), [games]);
+
+	// The strip is built for everybody whether or not the answers have landed:
+	// the games are what decide how many dots there are and where they break, so
+	// building it early is what lets the rows hold their height. Until then every
+	// mark reads `unanswered`, which is why `answersLoading` has to travel with
+	// it rather than being checked here.
 	const members = useMemo(() => {
 		if (!season) return [];
 
-		return season.memberUids.map(uid => personRow(usersByUid, uid)).sort(byDisplayName);
-	}, [season, usersByUid]);
+		return season.memberUids
+			.map(uid => ({ ...personRow(usersByUid, uid), availability: buildAvailability(uid, dotted, responses) }))
+			.sort(byDisplayName);
+	}, [season, usersByUid, dotted, responses]);
 
 	if (loading) {
 		return (
@@ -129,6 +148,19 @@ const MembersPage = () => {
 		</Link>
 	) : null;
 
+	// A failed read takes the dots away and leaves the roster, which is what the
+	// screen is for. It says so out loud rather than drawing nothing, because a
+	// season nobody has answered anything in and a read that never landed are
+	// the same picture, and only one of them is worth pressing something about.
+	const availabilityFailed = (
+		<div className='mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-xs'>
+			<span className='text-muted'>Couldn&apos;t load who has been playing.</span>
+			<button type='button' onClick={retryAnswers} className='text-brand font-semibold'>
+				Try again
+			</button>
+		</div>
+	);
+
 	return (
 		<SeasonShell title='Squad' subtitle={`${members.length} in ${season.name}`}>
 			{members.length === 0 ? (
@@ -149,16 +181,37 @@ const MembersPage = () => {
 						{financesLink}
 					</div>
 
+					{dotted.length > 0 &&
+						(answersError ? availabilityFailed : <AvailabilityLegend className='mb-2 px-1' />)}
+
 					<ListCard>
 						{members.map(member => (
 							<Link
 								key={member.uid}
 								href={`/u/${member.uid}`}
-								className='flex items-center gap-3 py-3 transition-colors hover:bg-white/5'
+								className='block py-3 transition-colors hover:bg-white/5'
 							>
-								<Avatar displayName={member.displayName} photoURL={member.photoURL} />
-								<span className='text-ink flex-1 truncate text-sm'>{member.displayName}</span>
-								{season.adminUids.includes(member.uid) && <StatusPill tone='brand'>Admin</StatusPill>}
+								<div className='flex items-center gap-3'>
+									<Avatar displayName={member.displayName} photoURL={member.photoURL} />
+									<span className='text-ink flex-1 truncate text-sm'>{member.displayName}</span>
+									{season.adminUids.includes(member.uid) && (
+										<StatusPill tone='brand'>Admin</StatusPill>
+									)}
+								</div>
+
+								{/* Under the whole row rather than beside the name, so
+								    every strip gets the same width and therefore wraps
+								    at the same game. Beside the name it would be the
+								    admin pill deciding where one player's season broke
+								    and not another's. */}
+								{!answersError && member.availability.length > 0 && (
+									<AvailabilityDots
+										className='mt-2'
+										marks={member.availability}
+										timezone={season.slot.timezone}
+										pending={answersLoading}
+									/>
+								)}
 							</Link>
 						))}
 					</ListCard>
