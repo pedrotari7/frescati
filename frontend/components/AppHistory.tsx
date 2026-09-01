@@ -21,7 +21,7 @@ const AppHistoryContext = createContext<AppHistoryValue>({ canGoBack: false });
  * a player's profile is reached from a game's roster, a team sheet, the table
  * and other profiles, and putting all four of them back on the season page
  * throws away the screen they were reading. The same goes for the kit register,
- * which hangs off the Squad tab and sends you back to Games.
+ * which hangs off the Club tab and sends you back to Games.
  *
  * So the chevron goes *back* when this document has somewhere to go back to,
  * and falls back to the declared parent when it doesn't. This is the half that

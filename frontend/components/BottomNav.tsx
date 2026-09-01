@@ -37,10 +37,10 @@ export const seasonNavItems = (seasonId: string): NavItem[] => [
 	{ href: `/s/${seasonId}`, label: 'Games', icon: CalendarDaysIcon },
 	{
 		href: `/s/${seasonId}/members`,
-		label: 'Squad',
+		label: 'Club',
 		icon: UsersIcon,
-		// Kit and finances hang off Squad rather than taking a fifth and sixth tab
-		// of their own. The Squad screen says why. Their paths sit beside the season
+		// Kit and finances hang off Club rather than taking a fifth and sixth tab
+		// of their own. The Club screen says why. Their paths sit beside the season
 		// root rather than under /members, so the tab has to claim them by name.
 		owns: [`/s/${seasonId}/kit`, `/s/${seasonId}/finances`],
 	},

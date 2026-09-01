@@ -20,10 +20,10 @@ describe('seasonNavItems', () => {
 		]);
 	});
 
-	it('hands the kit register and the books to Squad', () => {
-		const squad = seasonNavItems('season-1')[1];
+	it('hands the kit register and the books to Club', () => {
+		const club = seasonNavItems('season-1')[1];
 
-		expect(squad.owns).toEqual(['/s/season-1/kit', '/s/season-1/finances']);
+		expect(club.owns).toEqual(['/s/season-1/kit', '/s/season-1/finances']);
 	});
 });
 
@@ -58,9 +58,9 @@ describe('activeIndexFor', () => {
 		expect(activeIndexFor(items, '/s/season-1/members')).not.toBe(0);
 	});
 
-	// The reported bug: both of these hang off Squad, but their paths sit beside the
+	// The reported bug: both of these hang off Club, but their paths sit beside the
 	// season root rather than under /members, so prefix matching alone lit Games.
-	it.each(['/s/season-1/kit', '/s/season-1/finances'])('lights Squad on %s', pathname => {
+	it.each(['/s/season-1/kit', '/s/season-1/finances'])('lights Club on %s', pathname => {
 		expect(activeIndexFor(items, pathname)).toBe(1);
 	});
 
@@ -90,7 +90,7 @@ describe('BottomNav', () => {
 
 		render(<BottomNav items={seasonNavItems('season-1')} sectionHrefs={[seasonAdminHref('season-1')]} />);
 
-		for (const label of ['Games', 'Squad', 'Table', 'Me']) {
+		for (const label of ['Games', 'Club', 'Table', 'Me']) {
 			expect(screen.getByRole('link', { name: label })).not.toHaveAttribute('aria-current');
 		}
 	});

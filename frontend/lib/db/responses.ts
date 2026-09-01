@@ -23,7 +23,7 @@ const AT_A_TIME = 8;
  *
  * A query per game, roughly thirty over a full season. `fetchPlayedGameResponses`
  * already weighed thirty reads against thirty listeners for the books and came
- * down here, and this is the harder case of the two: the Squad tab is one people
+ * down here, and this is the harder case of the two: the Club tab is one people
  * leave open all week, so those listeners would stay open with it.
  *
  * A read is also the honest shape of the answer. What the strip draws is a

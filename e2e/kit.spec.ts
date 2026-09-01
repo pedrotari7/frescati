@@ -27,14 +27,14 @@ import { AT, NO_PROFILE_YET, dialog, dialogGone } from './locators';
  */
 
 /**
- * Into the register, which lives behind the Squad tab rather than beside it.
+ * Into the register, which lives behind the Club tab rather than beside it.
  *
- * Two taps because it is two screens: the Squad tab is the roster, and the kit
- * is one of the things that roster owns. Worth naming once, every test here
+ * Two taps because it is two screens: the Club tab is the roster, and the kit
+ * is one of the things the club owns. Worth naming once, every test here
  * starts with the same walk, and none of them is about the walk.
  */
 const openTheKitRegister = async (page: Page): Promise<void> => {
-	await openTab(page, /^Squad$/);
+	await openTab(page, /^Club$/);
 	await page.getByRole('link', { name: /Kit/i }).first().click();
 
 	await expect(page).toHaveURL(AT.kit);

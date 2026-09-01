@@ -10,7 +10,7 @@ import type { SeasonResponses } from '@shared/availability';
  * this one have nothing to get right about when they run. This one does: it
  * reads once, and what it re-reads on is a joined list of game ids rather than
  * the array they came out of. That is not a tidiness thing, `games` is a fresh
- * array on every headcount tick and the Squad tab sits open all week, so keying
+ * array on every headcount tick and the Club tab sits open all week, so keying
  * on it would be thirty queries every time somebody tapped In.
  *
  * Two more are the ordinary hazards of a promise on a screen: a read that lands
@@ -128,7 +128,7 @@ describe('useSeasonResponses', () => {
 		expect(fetched).toHaveBeenCalledTimes(2);
 	});
 
-	// A phone that opened Squad, went back and opened another season: the first
+	// A phone that opened Club, went back and opened another season: the first
 	// read is still out, and it must not land on top of the second one.
 	it('drops a read that lands after the screen has gone', async () => {
 		let land: (responses: SeasonResponses) => void = () => {};

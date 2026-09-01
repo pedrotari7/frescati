@@ -29,7 +29,7 @@ export const AT = {
 	season: /\/s\/[^/]+$/,
 	game: /\/s\/[^/]+\/g\/[^/]+$/,
 	teamSheet: /\/tournament$/,
-	squad: /\/members$/,
+	club: /\/members$/,
 	kit: /\/kit$/,
 	finances: /\/finances$/,
 	receipt: /\/finances\/r\/[^/]+$/,

@@ -105,15 +105,15 @@ test.describe('the way back out of a screen', () => {
 	test('returns to the squad list a player was opened from', async ({ page }) => {
 		await openSeasonAs(page, aMember());
 
-		await openTab(page, /^Squad$/);
-		await expect(page).toHaveURL(AT.squad);
+		await openTab(page, /^Club$/);
+		await expect(page).toHaveURL(AT.club);
 
-		const squad = page.url();
+		const club = page.url();
 		await openAPlayer(page);
 
 		await backChevron(page).click();
 
-		await expect(page, 'the chevron went to the Games tab rather than back to Squad').toHaveURL(squad);
+		await expect(page, 'the chevron went to the Games tab rather than back to Club').toHaveURL(club);
 	});
 
 	// The boundary on the change above: drawn on desktop too is not drawn

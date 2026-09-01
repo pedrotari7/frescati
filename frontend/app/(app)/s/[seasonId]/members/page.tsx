@@ -55,7 +55,7 @@ const MembersPage = () => {
 
 	if (loading) {
 		return (
-			<SeasonShell title='Squad'>
+			<SeasonShell title='Club'>
 				<Skeleton />
 			</SeasonShell>
 		);
@@ -63,15 +63,15 @@ const MembersPage = () => {
 
 	if (error) {
 		return (
-			<SeasonShell title='Squad'>
-				<LoadFailed what='the squad' onRetry={retry} />
+			<SeasonShell title='Club'>
+				<LoadFailed what='the club' onRetry={retry} />
 			</SeasonShell>
 		);
 	}
 
 	if (!season) {
 		return (
-			<SeasonShell title='Squad'>
+			<SeasonShell title='Club'>
 				<EmptyState title='Season not found' />
 			</SeasonShell>
 		);
@@ -79,12 +79,15 @@ const MembersPage = () => {
 
 	const fees = feesFor(season);
 
-	// Kit and finances live behind the Squad tab rather than a fifth and sixth one
-	// of their own: both are properties of the squad, who is holding what and who
-	// has paid what, and the tab bar deliberately never grows or reflows, so a new
-	// tab would move every tab beside it on every screen in the app. Both are
-	// shown to everyone: anybody in the squad can hand a bag on, and an extra who
-	// owes for a game needs somewhere to go and pay it.
+	// Kit and finances live behind the Club tab rather than a fifth and sixth one
+	// of their own: both are the club's rather than any one game's, who is holding
+	// what and who has paid what, and the tab bar deliberately never grows or
+	// reflows, so a new tab would move every tab beside it on every screen in the
+	// app. The tab is called Club rather than Squad for the same reason. The
+	// roster is one of the three things on it, not the whole screen. All three are
+	// shown to everyone:
+	// anybody in the squad can hand a bag on, and an extra who owes for a game
+	// needs somewhere to go and pay it.
 	//
 	// Above the roster rather than under it. A full squad is eighteen rows, so
 	// underneath meant scrolling past every one of them to find the two things on
@@ -162,7 +165,7 @@ const MembersPage = () => {
 	);
 
 	return (
-		<SeasonShell title='Squad' subtitle={`${members.length} in ${season.name}`}>
+		<SeasonShell title='Club' subtitle={`${members.length} in ${season.name}`}>
 			{members.length === 0 ? (
 				<EmptyState
 					icon={<UsersIcon />}

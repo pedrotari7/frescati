@@ -77,7 +77,7 @@ describe('fetchSeasonResponses', () => {
 		await expect(season).resolves.toEqual(Object.fromEntries(gameIds(20).map(id => [id, {}])));
 	});
 
-	// The Squad tab unmounting is what says no, and the round already in the air
+	// The Club tab unmounting is what says no, and the round already in the air
 	// is the most it can cost.
 	it('sends nothing more once nobody wants the answer', async () => {
 		const reads = held();

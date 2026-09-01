@@ -157,13 +157,13 @@ const checkWhatIsMissing = async (page: Page): Promise<number> => {
 };
 
 test.describe('the season books', () => {
-	test('open off the Squad tab and hand the chevron back to it', async ({ page }) => {
+	test('open off the Club tab and hand the chevron back to it', async ({ page }) => {
 		await openSeasonAs(page, aSeasonAdmin());
 
-		await openTab(page, /^Squad$/);
-		await expect(page).toHaveURL(AT.squad);
+		await openTab(page, /^Club$/);
+		await expect(page).toHaveURL(AT.club);
 
-		const squad = page.url();
+		const club = page.url();
 
 		await page
 			.getByRole('link', { name: /Finances/ })
@@ -179,7 +179,7 @@ test.describe('the season books', () => {
 
 		await page.getByRole('button', { name: 'Back' }).click();
 
-		await expect(page, 'the chevron went up to the season instead of back to Squad').toHaveURL(squad);
+		await expect(page, 'the chevron went up to the season instead of back to Club').toHaveURL(club);
 	});
 
 	test('raise every charge that is missing, and nothing at all on the next sweep', async ({ page }) => {
