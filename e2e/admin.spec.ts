@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { aSeasonAdmin } from './fixtures';
 import { openSeasonAs } from './helpers';
-import { AT, dialog, expand, sectionUnder } from './locators';
+import { AT, dialog, dialogGone, expand, sectionUnder } from './locators';
 
 /**
  * The admin calendar, and the one button on it that notifies the whole group.
@@ -111,7 +111,7 @@ test.describe('the admin calendar', () => {
 		await expect(sheet.getByText(/gets a notification/), 'no confirmation before calling a game off').toBeVisible();
 
 		await sheet.getByRole('button', { name: 'Cancel' }).click();
-		await expect(sheet).toBeHidden();
+		await dialogGone(page);
 
 		// Backing out left the game alone, which is the whole point of asking.
 		// Had it gone through, this row's Cancel would now read Restore.

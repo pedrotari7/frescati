@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { dialog } from './locators';
+import { dialog, dialogGone } from './locators';
 
 /**
  * Signing in, and finding somebody worth signing in as.
@@ -103,7 +103,7 @@ export const signInAs = async (page: Page, user: DevUser): Promise<void> => {
 	await switcher.getByPlaceholder('Filter by name, email or role').fill(user.displayName);
 	await switcher.getByRole('button', { name: new RegExp(escapeForRegExp(user.displayName)) }).click();
 
-	await expect(switcher).toBeHidden();
+	await dialogGone(page);
 
 	// Deliberately no "and now the sign-in screen is gone" check here. It cannot
 	// be written as an absence, `toBeHidden` is satisfied by an element that has

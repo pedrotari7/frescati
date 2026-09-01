@@ -1,3 +1,4 @@
+import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
 /**
@@ -89,12 +90,39 @@ export const NO_PROFILE_YET = 'Unknown player';
 /**
  * The sheet on top of whatever is behind it.
  *
- * Wait on its *content* rather than on this, Headless UI's root is a zero-size
- * `relative` wrapper around a `fixed` panel, so Playwright reads the dialog
- * itself as hidden while the sheet is plainly up. `toBeHidden` on the way out is
- * a different question and is safe, which is why every caller closes on it.
+ * Wait on its *content* rather than on this. Every sheet in the app is a
+ * Headless UI `Dialog` with `relative z-50` on the root and both of its children
+ * `fixed`, so the element carrying `role="dialog"` is the full width of the page
+ * and none of its height. Playwright wants a non-empty box, so it reads this as
+ * hidden whether the sheet is up or not.
+ *
+ * Which means `toBeHidden` on it asserts nothing. It is true before the sheet
+ * opens, true while it is open and true once it has gone. `dialogGone` is how to
+ * wait for one to close.
  */
 export const dialog = (page: Page): Locator => page.getByRole('dialog');
+
+/**
+ * The sheet has closed.
+ *
+ * A count rather than `toBeHidden`, which is true of the wrapper above at every
+ * moment of a sheet's life. Headless UI unmounts on close and there is no leave
+ * transition to outlive it, so nothing on screen is the honest test.
+ *
+ * Worth getting right, because a sheet that closes on a write closes when the
+ * write lands. The kit sheet calls `onClose` after `transferKitItem` resolves,
+ * which is Firestore's ack rather than the local copy, so this is the only wait
+ * between handing the ball over and the reload that checks it stuck.
+ *
+ * The version that asserted nothing returned in 40ms. The reload behind it
+ * unloaded the page with the handover still queued in the browser, and the
+ * register came back naming the old holder. It failed four times running on CI
+ * and passed every time on a laptop quick enough to get the request out inside
+ * those 40ms.
+ */
+export const dialogGone = async (page: Page): Promise<void> => {
+	await expect(dialog(page)).toHaveCount(0);
+};
 
 /**
  * The In / Out pair, which appears on the hero card and the game screen.

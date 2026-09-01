@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { aMember, whoIs } from './fixtures';
 import { openSeasonAs, openTab } from './helpers';
-import { AT, NO_PROFILE_YET, dialog } from './locators';
+import { AT, NO_PROFILE_YET, dialog, dialogGone } from './locators';
 
 /**
  * Handing the ball over, and the two rules that meet on that screen.
@@ -106,7 +106,7 @@ test.describe('the kit register', () => {
 
 		const other = await handItToSomebody(page, sheet);
 
-		await expect(sheet).toBeHidden();
+		await dialogGone(page);
 		// The register now says so, which is the only question it answers.
 		await expect(page.getByText(other).first()).toBeVisible();
 	});
@@ -141,7 +141,11 @@ test.describe('the kit register', () => {
 		// Never the current holder, that button is disabled, and a handover that
 		// was a no-op would survive a reload for the wrong reason.
 		const holder = await handItToSomebody(page, sheet);
-		await expect(sheet).toBeHidden();
+
+		// The sheet closes on the write, so this is the wait for Firestore to
+		// have acked it. Reloading before that point unloads the page with the
+		// request still queued in the browser, and the handover is gone.
+		await dialogGone(page);
 
 		await page.reload();
 
