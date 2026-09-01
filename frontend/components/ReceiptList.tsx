@@ -53,6 +53,7 @@ const ReceiptList = ({
 	const [adding, setAdding] = useState(false);
 	const [file, setFile] = useState<File | null>(null);
 	const [name, setName] = useState('');
+	const [written, setWritten] = useState(false);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [over, setOver] = useState(false);
 	const [dropped, setDropped] = useState<FileList | null>(null);
@@ -88,6 +89,7 @@ const ReceiptList = ({
 	const close = () => {
 		setFile(null);
 		setName('');
+		setWritten(false);
 		setProblem(null);
 		setAdding(false);
 		if (input.current) input.current.value = '';
@@ -100,12 +102,21 @@ const ReceiptList = ({
 	 * actually decides. This is here so that picking a 40 MB photo is a sentence
 	 * rather than a failed upload, which on a phone is a spinner followed by a
 	 * toast that cannot say why.
+	 *
+	 * The name follows the file until somebody writes their own, and then it
+	 * stops for good. `written` is the whole of that: whether the admin has
+	 * touched the field, which is not the same question as whether it has
+	 * anything in it. Reading emptiness instead got both halves wrong. A field
+	 * cleared on purpose filled itself back in from the next file, which is
+	 * precisely the typing this is meant to protect; and a name left as the
+	 * first file's suggestion stayed put when the file was swapped, so picking
+	 * the wrong file first filed the right one under the wrong name.
 	 */
 	const pick = (picked: File | null) => {
 		setFile(picked);
 		setProblem(picked ? receiptProblem(picked) : null);
 
-		if (picked) setName(current => current.trim() || defaultReceiptName(picked.name));
+		if (picked && !written) setName(defaultReceiptName(picked.name));
 	};
 
 	const handleUpload = async () => {
@@ -263,7 +274,10 @@ const ReceiptList = ({
 							>
 								<TextInput
 									value={name}
-									onChange={event => setName(event.target.value)}
+									onChange={event => {
+										setName(event.target.value);
+										setWritten(true);
+									}}
 									placeholder='Pitch invoice, spring 2026'
 									maxLength={RECEIPT_NAME_MAX}
 								/>

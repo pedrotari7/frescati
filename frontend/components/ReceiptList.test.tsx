@@ -55,6 +55,18 @@ const pickFile = async (picked: File) => {
 };
 
 /**
+ * The name field. Matched loosely because `Field` puts the hint inside the
+ * label, so the accessible name is the heading and the hint run together.
+ */
+const theName = () => screen.getByLabelText(/^What it is/) as HTMLInputElement;
+
+const typeName = async (typed: string) => {
+	await act(async () => {
+		fireEvent.change(theName(), { target: { value: typed } });
+	});
+};
+
+/**
  * A file let go over the receipts area.
  *
  * jsdom has no `DataTransfer`, so the drag carries a stand-in with the two
@@ -131,6 +143,47 @@ describe('adding one', () => {
 		await press('Upload it');
 
 		expect(onUpload).toHaveBeenCalledWith(picked, 'pitch invoice spring 2026');
+	});
+
+	// The file name is a suggestion, and it stops being offered the moment
+	// somebody says what the receipt is. Filing the invoice under `kvitto 2026
+	// 03` is the whole thing this field exists to avoid.
+	it('leaves a name the admin wrote alone when the file lands', async () => {
+		const { onUpload } = list([], true);
+		await press('Add a receipt');
+
+		await typeName('Pitch invoice, spring 2026');
+		await pickFile(file('kvitto_2026-03.pdf', 'application/pdf', 318_000));
+
+		expect(theName()).toHaveValue('Pitch invoice, spring 2026');
+
+		await press('Upload it');
+
+		expect(onUpload).toHaveBeenCalledWith(expect.anything(), 'Pitch invoice, spring 2026');
+	});
+
+	// Picking the wrong file first should not file the right one under its name.
+	it('follows the file while nobody has written a name', async () => {
+		await openForm();
+
+		await pickFile(file('kvitto_2026-03.pdf', 'application/pdf', 1000));
+		expect(theName()).toHaveValue('kvitto 2026 03');
+
+		await pickFile(file('pitch_invoice-spring_2026.pdf', 'application/pdf', 1000));
+		expect(theName()).toHaveValue('pitch invoice spring 2026');
+	});
+
+	// Emptying the field is a decision too, and the next file refilling it is
+	// the same overwrite by a slower route.
+	it('leaves a name cleared on purpose cleared', async () => {
+		await openForm();
+
+		await pickFile(file('kvitto_2026-03.pdf', 'application/pdf', 1000));
+		await typeName('');
+		await pickFile(file('pitch_invoice.pdf', 'application/pdf', 1000));
+
+		expect(theName()).toHaveValue('');
+		expect(screen.getByRole('button', { name: 'Upload it' })).toBeDisabled();
 	});
 
 	// The rules refuse the same file from the far side. This is so that picking
@@ -216,6 +269,18 @@ describe('dropping one in', () => {
 		await press('Upload it');
 
 		expect(onUpload).toHaveBeenCalledWith(picked, 'pitch invoice spring 2026');
+	});
+
+	// A drop is the same pick by another gesture, so it is bound by the same
+	// rule: the name follows the file only until somebody writes one.
+	it('leaves a name the admin wrote alone when a file is dropped on it', async () => {
+		list([], true);
+		await press('Add a receipt');
+
+		await typeName('Pitch invoice, spring 2026');
+		await dropFile(file('kvitto_2026-03.pdf', 'application/pdf', 1000), screen.getByText('Nothing here yet.'));
+
+		expect(theName()).toHaveValue('Pitch invoice, spring 2026');
 	});
 
 	// The same sentence a picked file gets, for the same reason. A drop is not a
