@@ -31,6 +31,7 @@ export const AT = {
 	squad: /\/members$/,
 	kit: /\/kit$/,
 	finances: /\/finances$/,
+	receipt: /\/finances\/r\/[^/]+$/,
 	player: /\/u\/[^/]+$/,
 	seasonAdmin: /\/admin$/,
 	adminCalendar: /\/admin\/games$/,

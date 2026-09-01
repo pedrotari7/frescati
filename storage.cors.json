@@ -1,0 +1,8 @@
+[
+	{
+		"origin": ["https://frescati.xyz", "http://localhost:3000", "http://127.0.0.1:3000"],
+		"method": ["GET"],
+		"responseHeader": ["Content-Type", "Content-Length", "Content-Disposition"],
+		"maxAgeSeconds": 3600
+	}
+]

@@ -96,7 +96,12 @@ beforeEach(async () => {
 			createdBy: APP_ADMIN,
 		});
 
-		await setDoc(doc(db, gameDoc()), aGame('2026-09-01T17:00:00.000Z', '2026-09-01T18:30:00.000Z'));
+		// A week out, so it is comfortably outside the season's 24 hour deadline
+		// and answering it is still open. Relative to now for the same reason the
+		// locked game below is: pinned to a date, every open-response test in
+		// this file stopped testing anything the morning that date arrived.
+		const open = new Date(Date.now() + 7 * 86_400_000);
+		await setDoc(doc(db, gameDoc()), aGame(open.toISOString(), new Date(open.getTime() + 5_400_000).toISOString()));
 
 		// Kicks off in an hour, so it is already inside the season's 24h
 		// response deadline. Relative to now, not a fixed date, so the suite
@@ -2307,6 +2312,84 @@ describe('expenses', () => {
 		);
 		await assertFails(
 			setDoc(doc(authed(SEASON_ADMIN), expenseDoc('ball-1')), anExpense(SEASON_ADMIN, { date: '2026-09' }))
+		);
+	});
+});
+
+describe('receipts', () => {
+	const receiptsCol = () => `seasons/${SEASON}/receipts`;
+	const receiptDoc = (receiptId: string) => `${receiptsCol()}/${receiptId}`;
+
+	const aReceipt = (uploadedBy: string, extras: Record<string, unknown> = {}) => ({
+		name: 'Pitch invoice, spring 2026',
+		contentType: 'application/pdf',
+		size: 318_000,
+		uploadedBy,
+		uploadedAt: '2026-09-12T09:00:00.000Z',
+		...extras,
+	});
+
+	const seedReceipt = async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), receiptDoc('r1')), aReceipt(SEASON_ADMIN));
+		});
+	};
+
+	// The same audience as the dues and for the same reason. An expense names a
+	// ball, a receipt names what the season cost, which is the squad's business
+	// and nobody else's.
+	it('lets the squad read them and nobody else', async () => {
+		await seedReceipt();
+
+		await assertSucceeds(getDocs(collection(authed(MEMBER), receiptsCol())));
+		await assertSucceeds(getDocs(collection(authed(SEASON_ADMIN), receiptsCol())));
+		await assertSucceeds(getDocs(collection(authed(APP_ADMIN, { admin: true }), receiptsCol())));
+
+		await assertFails(getDocs(collection(authed(EXTRA), receiptsCol())));
+		await assertFails(getDoc(doc(authed(EXTRA), receiptDoc('r1'))));
+	});
+
+	it('lets a season admin add one and take it back', async () => {
+		await assertSucceeds(setDoc(doc(authed(SEASON_ADMIN), receiptDoc('r1')), aReceipt(SEASON_ADMIN)));
+		await assertSucceeds(deleteDoc(doc(authed(SEASON_ADMIN), receiptDoc('r1'))));
+	});
+
+	// A file going to somebody's payroll department, so unlike the kit register
+	// this is not a thing any member may swap.
+	it('refuses to let a member add or remove one', async () => {
+		await assertFails(setDoc(doc(authed(MEMBER), receiptDoc('r1')), aReceipt(MEMBER)));
+
+		await seedReceipt();
+		await assertFails(deleteDoc(doc(authed(MEMBER), receiptDoc('r1'))));
+	});
+
+	it("refuses a receipt signed in somebody else's name", async () => {
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), receiptDoc('r1')), aReceipt(MEMBER)));
+	});
+
+	// Everything on the document describes the object beside it, so an edit is
+	// either a lie about the bytes or a re-upload, and a re-upload mints a new id.
+	it('refuses an edit, even by the admin who uploaded it', async () => {
+		await seedReceipt();
+
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), receiptDoc('r1')), { name: 'Something else entirely' }));
+	});
+
+	it('rejects a receipt the schema does not describe', async () => {
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), receiptDoc('r1')), aReceipt(SEASON_ADMIN, { contentType: 'text/html' }))
+		);
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), receiptDoc('r1')), aReceipt(SEASON_ADMIN, { size: 20_000_000 }))
+		);
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), receiptDoc('r1')), aReceipt(SEASON_ADMIN, { name: '' })));
+		// The path is derived from the two ids, so a stored one is a second copy
+		// of the same fact that could point at another season's file.
+		await assertFails(
+			setDoc(
+				doc(authed(SEASON_ADMIN), receiptDoc('r1')),
+				aReceipt(SEASON_ADMIN, { path: 'seasons/other/receipts/r1' })
+			)
 		);
 	});
 });

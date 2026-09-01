@@ -55,7 +55,16 @@ const as = (uid: string, claims?: Record<string, unknown>): void => {
 	currentDb = testEnv.authenticatedContext(uid, claims).firestore() as unknown as Firestore;
 };
 
-const kickoff = '2026-09-01T17:00:00.000Z';
+/**
+ * A week out, so the game is comfortably outside the season's 24 hour response
+ * deadline and every write below is one the app would really be making.
+ *
+ * Relative to now rather than a fixed date, which is what this was: pinned to a
+ * Tuesday in September, the whole file went red the morning that Tuesday
+ * arrived, because a response is refused past the deadline and almost
+ * everything here starts by writing one.
+ */
+const kickoff = new Date(Date.now() + 7 * 86_400_000).toISOString();
 
 beforeAll(async () => {
 	testEnv = await initializeTestEnvironment({
@@ -89,7 +98,7 @@ beforeEach(async () => {
 			kickoff,
 			// Rules cannot parse ISO 8601, so the deadline is enforced against this.
 			kickoffMillis: Date.parse(kickoff),
-			endsAt: '2026-09-01T18:30:00.000Z',
+			endsAt: new Date(Date.parse(kickoff) + 5_400_000).toISOString(),
 			status: 'scheduled',
 			isOneOff: false,
 			counts: { membersIn: 0, membersOut: 0, extrasIn: 0, extrasOut: 0, extrasConfirmed: 0, playing: 0 },

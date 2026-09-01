@@ -1,4 +1,5 @@
 import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
+import { getStorage } from 'firebase-admin/storage';
 import { logger } from 'firebase-functions';
 import type { Game } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
@@ -82,6 +83,23 @@ export const onSeasonDeleted = onDocumentDeleted(
 		await db.recursiveDelete(db.doc(`seasons/${seasonId}`));
 
 		if (token) await db.doc(`calendarFeeds/${token}`).delete();
+
+		// The receipts are the one thing under a season that is not a Firestore
+		// document. `recursiveDelete` takes the index and leaves the files, which
+		// would then be unreachable, unlistable and still billed, and readable by
+		// nobody at all, since `storage.rules` decides by reading the season
+		// document that has just gone.
+		//
+		// Its own try, and deliberately after everything else: a bucket that has
+		// not been provisioned yet, or a network blip, is not a reason to leave a
+		// season half deleted in Firestore, where the cascade cannot be run again.
+		try {
+			await getStorage()
+				.bucket()
+				.deleteFiles({ prefix: `seasons/${seasonId}/receipts/` });
+		} catch (cause) {
+			logger.error("Left a deleted season's receipts behind", { seasonId, cause });
+		}
 
 		logger.info('Cleaned up after a deleted season', { seasonId });
 	})

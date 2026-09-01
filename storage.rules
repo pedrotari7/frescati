@@ -1,0 +1,81 @@
+rules_version = '2';
+
+// Frescati's one bucket, holding one thing: a season's receipts, so a player
+// can claim their friskvardsbidrag back from an employer who wants to see what
+// the money went on.
+//
+// The client uploads and downloads directly, the same arrangement as Firestore,
+// so these rules ARE the authorization layer for the file itself. There is no
+// signed URL anywhere in the app and no download token is ever minted: a
+// download is a fetch carrying the reader's own ID token, refused here if they
+// are not in the season. That is why the app reaches for `getBlob` rather than
+// minting a `getDownloadURL`, which hands back a URL that works for whoever
+// holds it, forever, and for anybody they forward it to.
+//
+// Who may see one is decided by the season document over in Firestore, which is
+// what `firestore.get` below is for. Storage rules cannot run a query, but they
+// can read a document by path, and `memberUids` and `adminUids` are both on the
+// season, which is the shape this needs. It means a squad change takes
+// effect on the files at the same moment it takes effect on the books, with
+// nothing to keep in step and nothing to backfill.
+//
+// The cost is one Firestore read per request, billed as a read, and a hard
+// dependency on that document existing. A receipt whose season has been deleted
+// is therefore readable by nobody, which is the right answer. The cascade in
+// `backend/src/cascadeDeletes.ts` is on its way to delete the object anyway.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Same default-tolerant read as `isAppAdmin` in firestore.rules: addressing
+    // a claim most people do not carry errors rather than evaluating false.
+    function isAppAdmin() {
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
+    }
+
+    function seasonData(seasonId) {
+      return firestore.get(/databases/(default)/documents/seasons/$(seasonId)).data;
+    }
+
+    function isSeasonAdmin(seasonId) {
+      return isAppAdmin() || (isSignedIn() && request.auth.uid in seasonData(seasonId).adminUids);
+    }
+
+    // Members and admins, one read of the season for both, the same union
+    // `isSeasonSquad` makes in firestore.rules. The books are already held back
+    // from everybody else and a receipt names an amount and a season, so it goes
+    // to the same audience rather than to every signed-in user.
+    function isSeasonSquad(seasonId) {
+      return isAppAdmin()
+             || (isSignedIn()
+                 && (request.auth.uid in seasonData(seasonId).memberUids
+                     || request.auth.uid in seasonData(seasonId).adminUids));
+    }
+
+    // One object per receipt, named after the Firestore document that indexes
+    // it: `shared/receipts.ts` derives both from the two ids, so an upload
+    // cannot land on top of another receipt and a download cannot be pointed at
+    // one by editing a stored path.
+    //
+    // The size and the three types are checked here as well as on the client,
+    // because the client's copy of that check is a courtesy to whoever picked a
+    // 40 MB photo and this one is the rule. Both numbers come from
+    // `shared/receipts.ts`; changing one means changing the other.
+    match /seasons/{seasonId}/receipts/{receiptId} {
+      allow read: if isSeasonSquad(seasonId);
+
+      // Spelled out rather than as `write`, which in this language is create,
+      // update *and* delete: a delete carries no `request.resource`, so the
+      // size check below would be an error evaluated against nothing.
+      allow create, update: if isSeasonAdmin(seasonId)
+                            && request.resource.size <= 10000000
+                            && request.resource.contentType in ['application/pdf', 'image/jpeg', 'image/png'];
+
+      allow delete: if isSeasonAdmin(seasonId);
+    }
+  }
+}

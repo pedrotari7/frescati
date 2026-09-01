@@ -80,3 +80,21 @@ export const openSeasonAs = async (page: Page, user: DevUser): Promise<void> => 
 export const openTab = async (page: Page, name: RegExp): Promise<void> => {
 	await page.getByRole('link', { name }).first().click();
 };
+
+/**
+ * Into the books, which sit behind the Squad tab beside the kit register.
+ *
+ * Here rather than in one spec because two of them start with it, the dues
+ * journey and the receipts one, and they are not allowed to disagree about where
+ * the screen is: it is reached from a link on the squad page rather than from a
+ * tab of its own, which is exactly the sort of thing that gets moved.
+ */
+export const openTheBooks = async (page: Page): Promise<void> => {
+	await openTab(page, /^Squad$/);
+	await page
+		.getByRole('link', { name: /Finances/ })
+		.first()
+		.click();
+
+	await expect(page).toHaveURL(AT.finances);
+};

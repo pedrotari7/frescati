@@ -10,6 +10,7 @@ import type {
 	GameResponse,
 	KitItem,
 	MotmVote,
+	Receipt,
 	Season,
 	RatingLedgerEntry,
 	TournamentMatch,
@@ -30,6 +31,7 @@ import {
 	subscribeToTeams,
 } from '../lib/db/tournament';
 import { subscribeToMotm, subscribeToMotmVoters, subscribeToMyMotmVote } from '../lib/db/motm';
+import { subscribeToReceipts } from '../lib/db/receipts';
 import { subscribeToUser, subscribeToUsers } from '../lib/db/users';
 import { useFirestoreSubscription } from './useFirestoreSubscription';
 
@@ -44,6 +46,7 @@ const NO_VOTERS: string[] = [];
 const NO_DUES: Due[] = [];
 const NO_DEBTORS: Debtor[] = [];
 const NO_EXPENSES: Expense[] = [];
+const NO_RECEIPTS: Receipt[] = [];
 
 export const useSeasons = () => {
 	const { data, loading, error } = useFirestoreSubscription<Season[]>(
@@ -180,6 +183,25 @@ export const useExpenses = (seasonId: string | null) => {
 	);
 
 	return { expenses: data, loading, error };
+};
+
+/**
+ * The season's paperwork, for anybody claiming it back from an employer.
+ *
+ * `squad` for the same reason `useDebtors` takes it: the rule hands the
+ * collection to a member or an admin and refuses everybody else outright, so
+ * the caller says which reader this is rather than letting an extra find out as
+ * an error card on a screen they can otherwise use.
+ */
+export const useReceipts = (seasonId: string | null, squad: boolean) => {
+	const { data, loading, error } = useFirestoreSubscription<Receipt[]>(
+		NO_RECEIPTS,
+		seasonId && squad ? (onChange, onError) => subscribeToReceipts(seasonId, onChange, onError) : null,
+		[seasonId, squad],
+		'receipts'
+	);
+
+	return { receipts: data, loading, error };
 };
 
 export const useUsers = () => {

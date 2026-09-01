@@ -83,7 +83,7 @@ jobs:
       # sharp: for indexes it answers yes to "delete the ones the file does not
       # mention". rules/indexes.test.ts is the guard, every override live in
       # the project has to be written down there, or this deletes it.
-      - run: pnpm exec firebase deploy --only functions,firestore:rules,firestore:indexes --force --project default
+      - run: pnpm exec firebase deploy --only functions,firestore:rules,firestore:indexes,storage --force --project default
 
   # Vercel's git integration no longer deploys `main`, `frontend/vercel.json`
   # turns it off for that branch and nothing else, so production goes out from

@@ -457,6 +457,37 @@ export interface Expense {
 	createdAt: string;
 }
 
+/**
+ * One piece of the season's paperwork, kept so a player can claim the money
+ * back from their employer.
+ *
+ * The document is the index and the bytes are somewhere else: the file sits in
+ * Cloud Storage at `receiptObjectPath(seasonId, id)`, derived from the two ids
+ * and nothing else, so there is no stored path here that could point at the
+ * wrong object or at none. What is here is what a list has to draw without
+ * fetching ten megabytes to do it.
+ *
+ * Readable by the season's squad and nobody else, the same audience as the
+ * books, and written only by a season admin. Both halves are enforced twice,
+ * once in `firestore.rules` for this document and once in `storage.rules` for
+ * the object, which reads this season out of Firestore to decide.
+ */
+export interface Receipt {
+	id: string;
+	/** What it is, as an admin typed it: "Pitch invoice, spring 2026". */
+	name: string;
+	/** The stored object's type, one of `RECEIPT_CONTENT_TYPES`. Decides the extension a download lands with. */
+	contentType: string;
+	/** Bytes, as the upload reported them. Shown, never trusted for anything. */
+	size: number;
+	/**
+	 * Who uploaded it. Signed for the same reason an expense is: a receipt is a
+	 * claim about money, so a wrong one needs a face on it.
+	 */
+	uploadedBy: string;
+	uploadedAt: string;
+}
+
 export interface GameCounts {
 	membersIn: number;
 	membersOut: number;

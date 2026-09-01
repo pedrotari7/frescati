@@ -48,6 +48,11 @@ jobs:
               - '.github/**'
             rules:
               - 'firestore.rules'
+              # The bucket's ruleset, checked by rules/storage.test.ts against
+              # the Storage and Firestore emulators together: it decides who may
+              # read a receipt by reading the season document, so a change to
+              # either file can move the answer.
+              - 'storage.rules'
               # Deployed config with no compiler to answer to, and the emulator
               # serves queries it does not cover, so editing it alone used to
               # run no job at all. rules/indexes.test.ts is what checks it.
@@ -69,6 +74,7 @@ jobs:
               - 'backend/**'
               - 'shared/**'
               - 'firestore.rules'
+              - 'storage.rules'
               - 'e2e/**'
               - 'playwright.config.ts'
               - 'package.json'

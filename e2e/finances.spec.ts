@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { aSeasonAdmin, escapeForRegExp, readCast, signInAs, someone } from './fixtures';
 import type { DevUser } from './fixtures';
-import { openSeasonAs, openTab } from './helpers';
+import { openSeasonAs, openTab, openTheBooks } from './helpers';
 import { AT, NO_PROFILE_YET, sectionUnder } from './locators';
 
 /**
@@ -58,17 +58,6 @@ const UNSWEPT_SEASON = 'Sunday Kickabout';
 
 /** Its admin, whoever the scenario has put in charge of it. */
 const itsAdmin = (): DevUser => someone(new RegExp(`Admin of [^·]*${escapeForRegExp(UNSWEPT_SEASON)}`));
-
-/** Into the books, which sit behind the Squad tab beside the kit register. */
-const openTheBooks = async (page: Page): Promise<void> => {
-	await openTab(page, /^Squad$/);
-	await page
-		.getByRole('link', { name: /Finances/ })
-		.first()
-		.click();
-
-	await expect(page).toHaveURL(AT.finances);
-};
 
 /**
  * Who owes what, rather than the copy of it above that shows you only your own.

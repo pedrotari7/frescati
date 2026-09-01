@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { BanknotesIcon } from '@heroicons/react/24/outline';
-import type { Due, DueStatus, Expense } from '@shared/types';
+import type { Due, DueStatus, Expense, Receipt } from '@shared/types';
 import type { PlayerLedger } from '@shared/finances';
 import {
 	dueLabel,
@@ -19,8 +19,9 @@ import { counted, formatSek } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useAuth } from '../../../../../lib/auth';
 import { displayNameOf } from '../../../../../lib/people';
-import { useDebtors, useDues, useExpenses, useUsersByUid } from '../../../../../hooks/useData';
+import { useDebtors, useDues, useExpenses, useReceipts, useUsersByUid } from '../../../../../hooks/useData';
 import { useWrite } from '../../../../../hooks/useWrite';
+import { useReceiptActions } from '../../../../../hooks/useReceiptActions';
 import { useToast } from '../../../../../components/Toast';
 import { useConfirm } from '../../../../../components/ConfirmDialog';
 import type { DuesReminderOutcome } from '../../../../../lib/db/finances';
@@ -34,6 +35,7 @@ import {
 	remindDebtors,
 	setDueStatus,
 } from '../../../../../lib/db/finances';
+import { deleteReceipt, uploadReceipt } from '../../../../../lib/db/receipts';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
 import EmptyState from '../../../../../components/EmptyState';
@@ -43,6 +45,7 @@ import StatusPill from '../../../../../components/StatusPill';
 import FinanceOverview from '../../../../../components/FinanceOverview';
 import DuesBook from '../../../../../components/DuesBook';
 import ExpenseList from '../../../../../components/ExpenseList';
+import ReceiptList from '../../../../../components/ReceiptList';
 import SwishPay from '../../../../../components/SwishPay';
 import { SectionHeading } from '../../../../../components/Section';
 
@@ -89,6 +92,8 @@ const FinancesPage = () => {
 	const { dues, loading: duesLoading } = useDues(seasonId, uid, squad);
 	const { debtors } = useDebtors(seasonId, squad);
 	const { expenses } = useExpenses(seasonId);
+	const { receipts } = useReceipts(seasonId, squad);
+	const { download, copyLink } = useReceiptActions(seasonId);
 
 	const [missing, setMissing] = useState<number | null>(null);
 	const [sweeping, setSweeping] = useState(false);
@@ -254,6 +259,22 @@ const FinancesPage = () => {
 		});
 	};
 
+	const handleUploadReceipt = (file: File, name: string) =>
+		write(() => uploadReceipt(seasonId, file, name, uid ?? ''), "Couldn't upload that receipt.");
+
+	const handleDeleteReceipt = async (receipt: Receipt) => {
+		const ok = await confirm({
+			title: `Remove ${receipt.name}?`,
+			message: 'The file goes with it, and every link anybody has to it stops working.',
+			confirmLabel: 'Remove',
+			tone: 'danger',
+		});
+
+		if (!ok) return;
+
+		await write(() => deleteReceipt(seasonId, receipt.id), `Couldn't remove ${receipt.name}.`);
+	};
+
 	const handleAddExpense = (expense: { description: string; amount: number; date: string }) =>
 		write(() => addExpense(seasonId, expense, uid ?? ''), "Couldn't record that purchase.");
 
@@ -377,6 +398,34 @@ const FinancesPage = () => {
 						<FinanceOverview summary={summary} memberCount={season.memberUids.length} />
 
 						{yourDues}
+
+						{/* Between what somebody owes and what everybody owes,
+						    because it is the other half of the first one: you paid
+						    for a season, and this is the piece of paper that gets
+						    some of it back. */}
+						<section className='space-y-3'>
+							<div className='flex items-center gap-2 px-1'>
+								<SectionHeading>Receipts</SectionHeading>
+								{receipts.length > 0 && (
+									<StatusPill tone='neutral'>{counted(receipts.length, 'file')}</StatusPill>
+								)}
+							</div>
+
+							<p className='text-faint px-1 text-xs leading-relaxed'>
+								What to hand your employer if you claim friskv&aring;rdsbidrag. Downloading takes your
+								own copy. The link beside it opens this receipt for anybody in this season and for
+								nobody else, so it is safe to paste into the group chat.
+							</p>
+
+							<ReceiptList
+								receipts={receipts}
+								canEdit={isAdmin}
+								onUpload={handleUploadReceipt}
+								onDownload={download}
+								onCopyLink={copyLink}
+								onDelete={handleDeleteReceipt}
+							/>
+						</section>
 
 						<section className='space-y-3'>
 							<SectionHeading className='px-1'>Who owes what</SectionHeading>

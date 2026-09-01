@@ -925,6 +925,56 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // ── receipts ───────────────────────────────────────────────────────────
+      // The index over the season's paperwork: one document per receipt, and
+      // the file itself in Cloud Storage at a path derived from these two ids.
+      // `storage.rules` guards the bytes and reads this same season document to
+      // decide, so the two halves can never disagree about who may see one.
+      //
+      // Squad only, the same audience as the dues above and for the same
+      // reason. A receipt is the season's invoice with an amount on it; the
+      // README's argument for an open group reaches a game and a headcount, and
+      // stops well short of the paperwork. An extra sees no receipts at all.
+      //
+      // Written only by a season admin, because the whole point of the thing is
+      // that a player can hand it to their employer: a file anybody could add
+      // to is a file nobody's payroll department should believe.
+      match /receipts/{receiptId} {
+
+        // `id` is not stored, the same as kit and dues: the document id is the
+        // id, and it is also the name of the object in the bucket, so a stored
+        // path is a second copy of the same fact that could point somewhere
+        // else. `shared/receipts.ts` derives it.
+        function receiptShapeOk() {
+          return request.resource.data.keys().hasOnly(
+                   ['name', 'contentType', 'size', 'uploadedBy', 'uploadedAt'])
+                 && request.resource.data.name is string
+                 && request.resource.data.name.size() > 0
+                 && request.resource.data.name.size() <= 100
+                 && request.resource.data.contentType in ['application/pdf', 'image/jpeg', 'image/png']
+                 && request.resource.data.size is int
+                 && request.resource.data.size > 0
+                 && request.resource.data.size <= 10000000
+                 // Signed, the same reason an expense is: a receipt is a claim
+                 // about money, so a wrong one needs a face on it.
+                 && request.resource.data.uploadedBy == request.auth.uid
+                 && request.resource.data.uploadedAt is string
+                 && request.resource.data.uploadedAt.size() <= 40;
+        }
+
+        allow read: if isSeasonSquad(seasonId);
+
+        allow create: if isSeasonAdmin(seasonId) && receiptShapeOk();
+
+        // No update. Everything on the document describes the object beside it,
+        // so an edit is either a lie about the bytes or a re-upload, and a
+        // re-upload mints a new id. Renaming one means removing it and putting
+        // it back, which is two taps and cannot leave the pair inconsistent.
+        allow update: if false;
+
+        allow delete: if isSeasonAdmin(seasonId);
+      }
+
       // ── expenses ───────────────────────────────────────────────────────────
       // Something the group bought with the extras' money. Readable by anyone
       // signed in, unlike the dues beside it, because an expense names a ball

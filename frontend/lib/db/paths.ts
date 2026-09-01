@@ -43,6 +43,17 @@ export const dueDoc = (seasonId: string, dueId: string): DocumentReference =>
 export const debtorsCol = (seasonId: string): CollectionReference =>
 	collection(getDb(), 'seasons', seasonId, 'debtors');
 
+/**
+ * The season's paperwork, one document per receipt. The id is generated, and it
+ * is also the name of the file in Cloud Storage: `receiptObjectPath` in
+ * `shared/receipts.ts` is the only thing that spells that path.
+ */
+export const receiptsCol = (seasonId: string): CollectionReference =>
+	collection(getDb(), 'seasons', seasonId, 'receipts');
+
+export const receiptDoc = (seasonId: string, receiptId: string): DocumentReference =>
+	doc(getDb(), 'seasons', seasonId, 'receipts', receiptId);
+
 /** Money out of one of the two pots. One document per purchase; the id is generated. */
 export const expensesCol = (seasonId: string): CollectionReference =>
 	collection(getDb(), 'seasons', seasonId, 'expenses');
