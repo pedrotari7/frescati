@@ -16,6 +16,7 @@
 		"logs": "firebase functions:log",
 		"seed": "ts-node --transpile-only --compiler-options '{\"module\":\"commonjs\"}' scripts/seed.ts",
 		"set-admin": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/setAdmin.ts",
+		"deploy-cors": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/deployCors.ts",
 		"backfill-kickoff-millis": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillKickoffMillis.ts",
 		"backfill-motm-voters": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillMotmVoters.ts",
 		"backfill-ledger-teams": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillLedgerTeams.ts",

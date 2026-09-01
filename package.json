@@ -24,7 +24,7 @@
 		"emulators": "scripts/emulators.sh",
 		"seed": "pnpm --filter backend seed",
 		"firebase": "firebase",
-		"deploy:rules": "firebase deploy --only firestore:rules,storage",
+		"deploy:rules": "firebase deploy --only firestore:rules,storage && pnpm --filter backend deploy-cors",
 		"deploy:functions": "firebase deploy --only functions",
 		"prepare": "husky",
 		"preinstall": "npx only-allow pnpm"

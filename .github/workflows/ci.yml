@@ -84,6 +84,14 @@ jobs:
       # mention". rules/indexes.test.ts is the guard, every override live in
       # the project has to be written down there, or this deletes it.
       - run: pnpm exec firebase deploy --only functions,firestore:rules,firestore:indexes,storage --force --project default
+      # The bucket's CORS configuration, which the firebase CLI has no command
+      # for. `--only storage` above deploys the ruleset and nothing else. This
+      # was a manual step in the README until it turned out nobody had ever run
+      # it, and receipts had been undownloadable since the day they shipped.
+      # Reads the same GOOGLE_APPLICATION_CREDENTIALS; that service account
+      # holds roles/storage.admin, which carries storage.buckets.update. It
+      # writes only when the bucket and the file disagree.
+      - run: pnpm --filter backend deploy-cors
 
   # Vercel's git integration no longer deploys `main`, `frontend/vercel.json`
   # turns it off for that branch and nothing else, so production goes out from

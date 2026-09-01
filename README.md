@@ -44,16 +44,9 @@ Project: **`footballfrescati`**.
 2. Upgrade to the **Blaze** plan. Cloud Functions v2 and scheduled functions require it.
 3. **Cloud Messaging → Web Push certificates** → generate a key pair, put it in `frontend/.env.local` as `NEXT_PUBLIC_FIREBASE_VAPID_KEY`.
 4. **Authentication → Settings → Authorized domains** → add `localhost` and your Vercel domain.
-5. Deploy rules and indexes: `pnpm deploy:rules && firebase deploy --only firestore:indexes`. That covers both rulesets, Firestore's and the bucket's.
-6. **Let the browser download a receipt.** Cloud Storage serves object bytes to a page on another origin only if the bucket says so, and the app fetches a receipt with the reader's own credentials rather than through a public download URL, on purpose. One-off, per bucket:
-
-    ```sh
-    gcloud storage buckets update gs://footballfrescati.firebasestorage.app --cors-file=storage.cors.json
-    ```
-
-    Without it, uploading works and every download fails as a CORS error in the console. Add any new origin the app is served from to `storage.cors.json` and run it again. The emulator ignores CORS, so a local stack is no evidence either way.
-7. Sign into the app once so a Firebase Auth user exists for you.
-8. Make yourself an app admin (nothing in the app can grant this, that's the point):
+5. Deploy rules and indexes: `pnpm deploy:rules && firebase deploy --only firestore:indexes`. That covers Firestore's ruleset, the bucket's, and the CORS configuration in `storage.cors.json`, without which a receipt uploads fine and never downloads. See `docs/finances.md`.
+6. Sign into the app once so a Firebase Auth user exists for you.
+7. Make yourself an app admin (nothing in the app can grant this, that's the point):
 
     ```sh
     gcloud auth application-default login   # once, if you have no ADC yet
@@ -64,7 +57,7 @@ Project: **`footballfrescati`**.
 
     A service account key works too, via `GOOGLE_APPLICATION_CREDENTIALS`, but ADC avoids putting a key file on disk.
 
-9. **Create the `RESEND_API_KEY` secret.** Required before any functions deploy, whether or not you want the email fallback, the functions declare the secret, and a deploy that can't find it fails outright.
+8. **Create the `RESEND_API_KEY` secret.** Required before any functions deploy, whether or not you want the email fallback, the functions declare the secret, and a deploy that can't find it fails outright.
 
     ```sh
     firebase functions:secrets:set RESEND_API_KEY
@@ -85,7 +78,7 @@ Project: **`footballfrescati`**.
 
     Check it by opening **You → Push debug** as an app admin on a device with notifications switched off: the send should report that it went to your email instead. **You → Notification status** says up front if no sender is configured.
 
-10. Wire up GitHub Actions, without this, the deploy jobs in `ci.yml` fail on your first push to `main`:
+9. Wire up GitHub Actions, without this, the deploy jobs in `ci.yml` fail on your first push to `main`:
     - **Repo variables** (Settings → Secrets and variables → Actions → **Variables**): the same `NEXT_PUBLIC_FIREBASE_*` keys as `frontend/.env.local` (all except `VAPID_KEY`), `frontend.yml` needs them to build the frontend in CI.
     - **Repo secret** (Settings → Secrets and variables → Actions → **Secrets**): `GCP_SA_KEY`, the JSON key of a service account that can deploy functions and rules:
 
@@ -115,7 +108,7 @@ Project: **`footballfrescati`**.
 
     - **Three more repo secrets** for `deploy-frontend`, which is what puts the frontend into production (see "Deployment"): `VERCEL_TOKEN` from **Vercel → Account Settings → Tokens**, scoped to the team that owns the project, and `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`, which `vercel link` writes into the gitignored `.vercel/project.json` as `orgId` and `projectId`. Only the token is really a secret, the two ids appear in every deployment URL, but they are kept together so all three are rotated in one place.
 
-11. **Set up App Check**, which is what keeps a script holding this project's public config out of a database every read of which is a plain signed-in read. See "Who can see the group" for what it does and doesn't cover.
+10. **Set up App Check**, which is what keeps a script holding this project's public config out of a database every read of which is a plain signed-in read. See "Who can see the group" for what it does and doesn't cover.
     1. **Project settings → App Check → Apps →** your web app **→ reCAPTCHA Enterprise.** Register it, and put the **site key** in `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY`, in `frontend/.env.local`, in Vercel's environment variables, and as a repo variable for CI. It is public, like every other `NEXT_PUBLIC_` value.
     2. Deploy the frontend and leave it alone for a few days. App Check starts in **monitoring** mode: tokens are collected and nothing is rejected. **Project settings → App Check → APIs** then shows the share of verified requests per service.
     3. Only once Firestore reads **and** Cloud Functions calls are showing ~100% verified, switch **Enforce** on, one service at a time. Cloud Storage is a fourth service on that page, and it goes the same way: the app starts App Check before it reaches for the bucket, so receipt uploads and downloads carry a token like everything else, but its share only climbs once somebody has actually opened the receipts.
@@ -126,7 +119,7 @@ Project: **`footballfrescati`**.
 
     `pnpm dev:seeded` needs none of this: the emulators don't verify App Check tokens, and the client skips it entirely when pointed at them.
 
-12. **Set up Sentry**, which is how a crash on somebody's phone reaches you at all. Almost every screen talks to Firestore directly from the browser, so most of what can go wrong never touches a server log. Before this, the only way it surfaced was somebody mentioning at the pitch that the app "wasn't working".
+11. **Set up Sentry**, which is how a crash on somebody's phone reaches you at all. Almost every screen talks to Firestore directly from the browser, so most of what can go wrong never touches a server log. Before this, the only way it surfaced was somebody mentioning at the pitch that the app "wasn't working".
 
     Sign up at [sentry.io](https://sentry.io) and create **one** project (platform: Next.js). The functions report into the same project on purpose. A failed write and the trigger that should have followed it belong in one place.
 

@@ -57,6 +57,13 @@ jobs:
               # serves queries it does not cover, so editing it alone used to
               # run no job at all. rules/indexes.test.ts is what checks it.
               - 'firestore.indexes.json'
+              # The other half of who may read a receipt. storage.rules decides
+              # whether the reader is allowed the bytes, and this decides
+              # whether the browser hands them over once they are. It was in no
+              # filter at all, so adding an origin to it deployed nothing and
+              # the origin stayed blocked. The emulator ignores CORS, so no
+              # suite here can catch that. Only the deploy can.
+              - 'storage.cors.json'
               - 'rules/**'
               # rules/clientWrites.test.ts drives these through the real rules,
               # so a path or shape changed here has to re-run this job, the
