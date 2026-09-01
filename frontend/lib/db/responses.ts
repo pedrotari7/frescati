@@ -13,6 +13,12 @@ export const subscribeToResponses = (
 ): Unsubscribe => subscribeToCollection(responsesCol(seasonId, gameId), asData<GameResponse>(), onChange, onError);
 
 /**
+ * Games read at once. Low enough that abandoning the read costs at most this
+ * many queries nobody wanted, high enough that a full season is four rounds.
+ */
+const AT_A_TIME = 8;
+
+/**
  * Who said what, across a whole season, read once.
  *
  * A query per game, roughly thirty over a full season. `fetchPlayedGameResponses`
@@ -25,24 +31,44 @@ export const subscribeToResponses = (
  * somebody is looking at it. The one answer on that screen that does is your
  * own, and `useMyResponses` is already live for it.
  *
+ * Eight at a time, and it stops between rounds once `stillWanted` says no, which
+ * is the part that had to be here rather than in the caller. Every response
+ * document comes down the listen stream as its own message, so a season fired
+ * off in one go is a burst of six hundred of them. The books can afford that:
+ * an admin pressed a button and is sitting there waiting for the answer. This
+ * one runs when a tab mounts, so the burst outlives the screen that asked for it
+ * and lands on whichever screen you opened next. It left the kit register two
+ * seconds away from answering a tap and lost the handover written behind it.
+ *
+ * `null` means it stopped early, so a caller can't mistake an abandoned read for
+ * a season nobody answered.
+ *
  * Keyed by the document id rather than the `uid` field beside it. The two are
  * pinned together by the rules for anybody writing their own answer, but a
  * season admin writes through a rule that checks neither, so the id is the half
  * that cannot be wrong.
  */
-export const fetchSeasonResponses = async (seasonId: string, gameIds: string[]): Promise<SeasonResponses> => {
-	const perGame = await Promise.all(
-		gameIds.map(async gameId => {
-			const snapshot = await getDocs(responsesCol(seasonId, gameId));
+export const fetchSeasonResponses = async (
+	seasonId: string,
+	gameIds: string[],
+	stillWanted: () => boolean = () => true
+): Promise<SeasonResponses | null> => {
+	const responses: SeasonResponses = {};
 
-			return [
-				gameId,
-				Object.fromEntries(snapshot.docs.map(answer => [answer.id, answer.data() as GameResponse])),
-			] as const;
-		})
-	);
+	for (let from = 0; from < gameIds.length; from += AT_A_TIME) {
+		if (!stillWanted()) return null;
 
-	return Object.fromEntries(perGame);
+		const round = gameIds.slice(from, from + AT_A_TIME);
+		const read = await Promise.all(round.map(gameId => getDocs(responsesCol(seasonId, gameId))));
+
+		round.forEach((gameId, at) => {
+			responses[gameId] = Object.fromEntries(
+				read[at].docs.map(answer => [answer.id, answer.data() as GameResponse])
+			);
+		});
+	}
+
+	return responses;
 };
 
 /**

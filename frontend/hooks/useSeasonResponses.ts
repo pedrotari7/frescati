@@ -51,14 +51,17 @@ export const useSeasonResponses = (seasonId: string | null, games: Pick<Game, 'i
 		}
 
 		// A read that lands after the screen has moved on, or after a second one
-		// has been started, must not write over what is on screen now.
+		// has been started, must not write over what is on screen now. It is also
+		// what calls the read off: a season is thirty queries and the tab this
+		// runs on is one people pass through, so the rest of them would otherwise
+		// arrive on top of whatever they opened next.
 		let live = true;
 
 		setLoading(true);
 
-		fetchSeasonResponses(seasonId, gameIds)
+		fetchSeasonResponses(seasonId, gameIds, () => live)
 			.then(fetched => {
-				if (!live) return;
+				if (!live || !fetched) return;
 
 				setResponses(fetched);
 				setError(null);
