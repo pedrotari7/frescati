@@ -59,6 +59,26 @@ const isDev = process.env.NODE_ENV !== 'production';
 const devScriptSrc = ["'unsafe-eval'", 'https://va.vercel-scripts.com'];
 const devConnectSrc = ['http://127.0.0.1:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'ws://localhost:*'];
 
+/**
+ * Where the callable functions answer.
+ *
+ * Nothing else here covers them. A callable is posted to
+ * `<region>-<project>.cloudfunctions.net`, which is neither same-origin nor
+ * `googleapis.com`, so the browser reported a violation for every one the ten
+ * in `lib/db` make: chasing a debtor, granting the admin claim, handing out a
+ * calendar link. The day this policy enforces it would refuse them instead.
+ *
+ * The exact host rather than `*.cloudfunctions.net`, which would name every
+ * project on Google Cloud as somewhere this app may post to. That costs one
+ * more copy of the region, which has to match `FUNCTIONS_REGION` in
+ * `lib/firebaseClient.ts`, which already has to match `REGION` in the backend.
+ * A build with no project id has no working Firebase config either, so it gets
+ * no entry rather than a malformed one.
+ */
+const functionsRegion = 'europe-west1';
+const functionsProject = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+const functionsSrc = functionsProject ? [`https://${functionsRegion}-${functionsProject}.cloudfunctions.net`] : [];
+
 const scriptSrc = [
 	"'self'",
 	// Next inlines the hydration payload; there's no nonce plumbed through.
@@ -79,6 +99,7 @@ const connectSrc = [
 	'https://*.firebaseio.com',
 	'wss://*.firebaseio.com',
 	'https://*.gstatic.com',
+	...functionsSrc,
 	...(isDev ? devConnectSrc : []),
 ];
 

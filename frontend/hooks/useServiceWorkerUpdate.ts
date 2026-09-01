@@ -4,6 +4,37 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { captureError } from '../lib/sentry';
 
 /**
+ * Throw away any worker registered on this origin that is not ours.
+ *
+ * One worker does both jobs here, caching and push, so `/sw.js` at the root
+ * scope is the only registration this app wants. Registering it deals with
+ * anything else parked at that scope on its own, because a registration is
+ * keyed by scope. A registration under a scope of its own it cannot touch, and
+ * there is one of those about. The Firebase messaging SDK registers
+ * `/firebase-messaging-sw.js` under `/firebase-cloud-messaging-push-scope`
+ * whenever it is asked for a token without being handed a worker to use.
+ * `lib/push.ts` always hands it one and that script has never been served here,
+ * so a browser carrying the registration re-fetches it on its own schedule,
+ * gets a 404 and prints it.
+ *
+ * The stray controls no page and runs no code, which is why it survives. The
+ * console line is the only symptom, and devtools is the only way to clear one
+ * by hand. Sweeping after registration clears it wherever it is.
+ */
+const dropStrayWorkers = async (ours: ServiceWorkerRegistration): Promise<void> => {
+	// Older Safari has no `getRegistrations`, and a browser that cannot list
+	// them has nothing to answer for anyway.
+	if (typeof navigator.serviceWorker.getRegistrations !== 'function') return;
+
+	const all = await navigator.serviceWorker.getRegistrations();
+
+	// Told apart by scope rather than by object identity. Scope is what a
+	// registration is keyed by, so whatever sits at ours is ours, whichever
+	// script it names.
+	await Promise.all(all.filter(other => other.scope !== ours.scope).map(other => other.unregister()));
+};
+
+/**
  * Registers the service worker, and notices when a newer one is ready.
  *
  * Registration and update detection are the same object: you cannot watch for
@@ -65,6 +96,10 @@ export const useServiceWorkerUpdate = () => {
 				if (cancelled) return;
 
 				registration.current = current;
+
+				// Nothing waits on this, and nothing breaks if it fails. The
+				// worst case is the console line it exists to silence.
+				void dropStrayWorkers(current).catch(() => undefined);
 
 				// Already finished waiting before this page even loaded. The
 				// common case for a phone that was closed during a deploy.

@@ -38,7 +38,10 @@ class FakeRegistration {
 	waiting: FakeWorker | null = null;
 	installing: FakeWorker | null = null;
 	readonly update = jest.fn().mockResolvedValue(undefined);
+	readonly unregister = jest.fn().mockResolvedValue(true);
 	private readonly listeners = new Map<string, Listener[]>();
+
+	constructor(readonly scope = 'https://frescati.test/') {}
 
 	addEventListener(type: string, listener: Listener) {
 		this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
@@ -55,13 +58,14 @@ let registration: FakeRegistration;
 let container: {
 	controller: unknown;
 	register: jest.Mock;
+	getRegistrations?: jest.Mock;
 	addEventListener: jest.Mock;
 	removeEventListener: jest.Mock;
 };
 let controllerChange: Listener | undefined;
 let reload: jest.Mock;
 
-const install = ({ controlled }: { controlled: boolean }) => {
+const install = ({ controlled, others }: { controlled: boolean; others?: FakeRegistration[] }) => {
 	registration = new FakeRegistration();
 	controllerChange = undefined;
 
@@ -73,6 +77,10 @@ const install = ({ controlled }: { controlled: boolean }) => {
 		}),
 		removeEventListener: jest.fn(),
 	};
+
+	// Left off unless a test asks for it, because Safari leaves it off too and
+	// the hook has to survive that.
+	if (others) container.getRegistrations = jest.fn().mockResolvedValue([registration, ...others]);
 
 	Object.defineProperty(navigator, 'serviceWorker', { value: container, configurable: true });
 };
@@ -90,6 +98,32 @@ describe('useServiceWorkerUpdate', () => {
 		renderHook(() => useServiceWorkerUpdate());
 
 		await waitFor(() => expect(container.register).toHaveBeenCalledWith('/sw.js', { scope: '/' }));
+	});
+
+	/**
+	 * The one this cleans up after is the Firebase SDK's
+	 * `/firebase-messaging-sw.js`, parked under a scope of its own by anything
+	 * that let the SDK register a worker for itself. The script has never been
+	 * served here, so the browser 404s on it every time it re-checks, and there
+	 * is no screen to notice that on.
+	 */
+	it('unregisters a worker parked under a scope of its own', async () => {
+		const stray = new FakeRegistration('https://frescati.test/firebase-cloud-messaging-push-scope');
+		install({ controlled: true, others: [stray] });
+
+		renderHook(() => useServiceWorkerUpdate());
+
+		await waitFor(() => expect(stray.unregister).toHaveBeenCalled());
+		expect(registration.unregister).not.toHaveBeenCalled();
+	});
+
+	it('leaves everything alone in a browser that cannot list registrations', async () => {
+		install({ controlled: true });
+
+		renderHook(() => useServiceWorkerUpdate());
+
+		await waitFor(() => expect(container.register).toHaveBeenCalled());
+		expect(registration.unregister).not.toHaveBeenCalled();
 	});
 
 	it('offers an update that finished installing behind the running build', async () => {
