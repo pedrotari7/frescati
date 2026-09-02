@@ -18,8 +18,27 @@ const SEASON_ID = 'season-1';
 
 const asAdmin = (data: unknown) => callRequest(data, { uid: CALLER, admin: true });
 
-/** Somewhere in the past, every helper game kicks off in September 2026. */
+/** Somewhere in the past, well before anything these tests schedule. */
 const PLAYED = '2020-09-01T17:00:00.000Z';
+
+const HOUR = 3_600_000;
+
+/**
+ * A kickoff relative to now, rather than the fixed date `aGame` carries,
+ * because `gamesToRepick` reads the clock. Pinned to 2026-09-01, these tests
+ * only meant anything until that date passed. Then the game that has to be
+ * re-picked went red, and three of the four that expect to be left alone went
+ * on passing because the code was already skipping them as played.
+ *
+ * So every game here kicks off in the future, even the confirmed one, which is
+ * an odd thing for a confirmed game to be. Each of those tests names a single
+ * reason to leave a lineup alone, and a kickoff in the past would be a second.
+ */
+const upcoming = () => {
+	const kickoff = Date.now() + 7 * 24 * HOUR;
+
+	return { kickoff: new Date(kickoff).toISOString(), endsAt: new Date(kickoff + 1.5 * HOUR).toISOString() };
+};
 
 beforeEach(async () => {
 	await clearFirestore();
@@ -147,7 +166,7 @@ describe('setStartingRating, and the lineups it invalidates', () => {
 	const generation = async (gameId: string) => (await readGame(SEASON_ID, gameId))?.teamsGeneration;
 
 	it('marks an upcoming game they said In to for re-picking', async () => {
-		await writeGame(SEASON_ID, 'game-1', { teamsGeneration: 3 });
+		await writeGame(SEASON_ID, 'game-1', { ...upcoming(), teamsGeneration: 3 });
 		await writeResponse(SEASON_ID, 'game-1', TARGET, { status: 'in' });
 
 		await setStartingRating.run(asAdmin({ uid: TARGET, rating: 80 }));
@@ -156,7 +175,7 @@ describe('setStartingRating, and the lineups it invalidates', () => {
 	});
 
 	it('leaves a game they said Out to alone', async () => {
-		await writeGame(SEASON_ID, 'game-2', { teamsGeneration: 3 });
+		await writeGame(SEASON_ID, 'game-2', { ...upcoming(), teamsGeneration: 3 });
 		await writeResponse(SEASON_ID, 'game-2', TARGET, { status: 'out' });
 
 		await setStartingRating.run(asAdmin({ uid: TARGET, rating: 80 }));
@@ -177,7 +196,11 @@ describe('setStartingRating, and the lineups it invalidates', () => {
 
 	// The ledger was computed against that lineup, and a replay reads it back.
 	it('leaves a confirmed game alone', async () => {
-		await writeGame(SEASON_ID, 'game-4', { teamsGeneration: 3, resultFinalisedAt: '2026-08-05T10:00:00.000Z' });
+		await writeGame(SEASON_ID, 'game-4', {
+			...upcoming(),
+			teamsGeneration: 3,
+			resultFinalisedAt: '2026-08-05T10:00:00.000Z',
+		});
 		await writeResponse(SEASON_ID, 'game-4', TARGET, { status: 'in' });
 
 		await setStartingRating.run(asAdmin({ uid: TARGET, rating: 80 }));
@@ -186,7 +209,7 @@ describe('setStartingRating, and the lineups it invalidates', () => {
 	});
 
 	it('does nothing to games somebody else answered', async () => {
-		await writeGame(SEASON_ID, 'game-5', { teamsGeneration: 3 });
+		await writeGame(SEASON_ID, 'game-5', { ...upcoming(), teamsGeneration: 3 });
 		await writeResponse(SEASON_ID, 'game-5', 'somebody-else', { status: 'in' });
 
 		await setStartingRating.run(asAdmin({ uid: TARGET, rating: 80 }));
