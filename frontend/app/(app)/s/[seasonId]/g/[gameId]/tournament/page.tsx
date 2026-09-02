@@ -26,6 +26,7 @@ import { getAbsentUids, isConfirmed, sortResponses } from '@shared/game';
 import { getStandings } from '@shared/standings';
 import { formatGameDateLong, formatRelative } from '@shared/format';
 import { isMotmVotingOpen } from '@shared/motm';
+import * as stylex from '@stylexjs/stylex';
 import { useSeasonContext } from '../../../../../../../components/SeasonProvider';
 import {
 	useMatches,
@@ -40,7 +41,6 @@ import {
 import { useNow } from '../../../../../../../hooks/useNow';
 import { useWrite } from '../../../../../../../hooks/useWrite';
 import { useAuth } from '../../../../../../../lib/auth';
-import { classNames } from '../../../../../../../lib/utils/reactHelper';
 import { clearMotmVote, setMotmVote } from '../../../../../../../lib/db/motm';
 import {
 	clearMatchScore,
@@ -66,6 +66,74 @@ import TeamCard from '../../../../../../../components/TeamCard';
 import MatchScore from '../../../../../../../components/MatchScore';
 import ScoreboardLock from '../../../../../../../components/ScoreboardLock';
 import StandingsTable from '../../../../../../../components/StandingsTable';
+import { bp, colors, tint } from '../../../../../../tokens.stylex';
+import { surfaces, utils } from '../../../../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
+	card: { borderRadius: 24, padding: 20 },
+
+	pills: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+
+	/* An icon and a sentence about it, the icon holding its line at the top
+	   rather than centring against three wrapped lines of text. */
+	noteRow: { color: colors.muted, marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 14 },
+	warnRow: { color: colors.pending, marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 14 },
+	noteIcon: { marginTop: 2, width: 16, height: 16, flexShrink: 0 },
+	note: { color: colors.muted, marginTop: 12, fontSize: 14 },
+	hint: { color: colors.faint, marginTop: 8, fontSize: 12, lineHeight: '16px' },
+	buttonIcon: { width: 16, height: 16 },
+	reshuffle: { marginTop: 16 },
+	confirm: { marginTop: 12 },
+
+	/* One column on a phone, two from 640px. Four squads side by side would put
+	   a seven-name list in a 160px column; two of them is the widest a card can
+	   be read at, and it is what the roster on the game screen does too. */
+	cards: { display: 'grid', gap: 16, gridTemplateColumns: { default: null, [bp.sm]: 'repeat(2, minmax(0, 1fr))' } },
+
+	head: { marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 },
+	headIcon: { color: colors.pending, width: 16, height: 16, flexShrink: 0 },
+	title: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	titleGap: { color: colors.ink, marginBottom: 12, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	lead: { color: colors.faint, marginBottom: 12, fontSize: 12, lineHeight: '16px' },
+	tableNote: { color: colors.faint, marginTop: 16, fontSize: 12, lineHeight: '16px' },
+
+	/* `divide-y divide-white/5`, hung off the row: StyleX has no sibling
+	   selector to put it on the list. */
+	person: {
+		display: 'flex',
+		alignItems: 'center',
+		gap: 12,
+		paddingBlock: 8,
+		borderTopWidth: { default: 1, ':first-child': 0 },
+		borderTopStyle: 'solid',
+		borderTopColor: tint.white5,
+	},
+	personName: { color: colors.ink, minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%', fontSize: 14 },
+
+	scoreHead: { marginBottom: 12, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
+	fixtures: { display: 'flex', flexDirection: 'column', gap: 8 },
+
+	/*
+	 * The label over each round of matches.
+	 *
+	 * The 8px above the rule is the list's own gap now, where Tailwind wrote it
+	 * as an `mt-2` that landed on the same property as its `space-y-2` and
+	 * resolved to the same 8px either way. Setting it again here would stack on
+	 * top of the gap and open the break to 16.
+	 */
+	round: {
+		color: colors.faint,
+		paddingInline: 4,
+		paddingBottom: 4,
+		fontSize: 12,
+		lineHeight: '16px',
+		fontWeight: 600,
+		letterSpacing: '0.05em',
+		textTransform: 'uppercase',
+	},
+	roundBreak: { borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: tint.white8, paddingTop: 16 },
+});
 
 const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { seasonId, gameId } = use(params);
@@ -298,11 +366,11 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 
 	return (
 		<SeasonShell title='Teams' subtitle={subtitle} backHref={backHref}>
-			<div className='space-y-6 p-4'>
+			<div {...stylex.props(styles.page)}>
 				{voting && motmPanel}
 
-				<section className='glass rounded-3xl p-5'>
-					<div className='flex flex-wrap items-center gap-2'>
+				<section {...stylex.props(surfaces.glass, styles.card)}>
+					<div {...stylex.props(styles.pills)}>
 						<StatusPill tone='brand'>{describeSquads(squadSizes)}</StatusPill>
 						<StatusPill tone='neutral'>
 							{fit.matchCount} {fit.matchCount === 1 ? 'match' : 'matches'} · {fit.matchMinutes} min
@@ -310,8 +378,8 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					</div>
 
 					{lineup.edited ? (
-						<p className='text-muted mt-3 flex items-start gap-1.5 text-sm'>
-							<PencilSquareIcon className='mt-0.5 size-4 shrink-0' aria-hidden='true' />
+						<p {...stylex.props(styles.noteRow)}>
+							<PencilSquareIcon {...stylex.props(styles.noteIcon)} aria-hidden='true' />
 							{/* The way back out of a pinned lineup is named only to the
 							    people who have it. Everyone else gets the fact without a
 							    button they will go looking for and not find. */}
@@ -322,14 +390,14 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 							</span>
 						</p>
 					) : (
-						<p className='text-muted mt-3 text-sm'>
+						<p {...stylex.props(styles.note)}>
 							Picked automatically from who is in, and re-picked whenever somebody changes their answer.
 						</p>
 					)}
 
 					{fit.overrunMinutes > 0 && (
-						<p className='text-pending mt-3 flex items-start gap-1.5 text-sm'>
-							<ExclamationTriangleIcon className='mt-0.5 size-4 shrink-0' aria-hidden='true' />
+						<p {...stylex.props(styles.warnRow)}>
+							<ExclamationTriangleIcon {...stylex.props(styles.noteIcon)} aria-hidden='true' />
 							<span>
 								{fit.totalMinutes} minutes of football in a {fit.slotMinutes} minute slot, about{' '}
 								{fit.overrunMinutes} over. Shorten the matches in season settings, or expect to run
@@ -354,7 +422,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 						<>
 							<Button
 								variant='secondary'
-								className='mt-4'
+								sx={styles.reshuffle}
 								disabled={!lineupOpen}
 								onClick={async () => {
 									// Asked about only when there is something to
@@ -391,13 +459,13 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 									);
 								}}
 							>
-								<ArrowPathIcon className='size-4' aria-hidden='true' />
+								<ArrowPathIcon {...stylex.props(styles.buttonIcon)} aria-hidden='true' />
 								Reshuffle
 							</Button>
 
 							{/* A greyed-out button with no reason beside it reads as a bug. */}
 							{!lineupOpen && (
-								<p className='text-faint mt-2 text-xs'>
+								<p {...stylex.props(styles.hint)}>
 									{finalised
 										? 'The lineup is frozen now the game is confirmed.'
 										: 'Scores are in. Clear them to re-pick the teams.'}
@@ -407,7 +475,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					)}
 				</section>
 
-				<div className='grid gap-4 sm:grid-cols-2'>
+				<div {...stylex.props(styles.cards)}>
 					{lineup.teams.map(team => (
 						<TeamCard
 							key={team.index}
@@ -431,30 +499,30 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 				    four cards and not finding it deserves the explanation, even though
 				    only an admin can do anything about it. */}
 				{unassigned.length > 0 && (
-					<section className='glass rounded-3xl p-5'>
-						<div className='mb-1 flex items-center gap-2'>
-							<HandRaisedIcon className='text-pending size-4 shrink-0' aria-hidden='true' />
-							<h2 className='text-ink text-sm font-semibold'>Not on the sheet</h2>
+					<section {...stylex.props(surfaces.glass, styles.card)}>
+						<div {...stylex.props(styles.head)}>
+							<HandRaisedIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
+							<h2 {...stylex.props(styles.title)}>Not on the sheet</h2>
 							<StatusPill tone='pending'>{unassigned.length}</StatusPill>
 						</div>
 
-						<p className='text-faint mb-3 text-xs'>
+						<p {...stylex.props(styles.lead)}>
 							In for this game, but on no team. The app stopped picking when the teams were sorted out by
 							hand.
 						</p>
 
-						<ul className='divide-y divide-white/5'>
+						<ul>
 							{unassigned.map(uid => {
 								const player = usersByUid.get(uid);
 
 								return (
-									<li key={uid} className='flex items-center gap-3 py-2'>
+									<li key={uid} {...stylex.props(styles.person)}>
 										<Avatar
 											displayName={displayNameOf(player)}
 											photoURL={player?.photoURL}
 											size='sm'
 										/>
-										<span className='text-ink min-w-0 flex-1 truncate text-sm'>
+										<span {...stylex.props(styles.personName, utils.truncate)}>
 											{displayNameOf(player)}
 										</span>
 										{canMovePlayers && (
@@ -469,28 +537,23 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					</section>
 				)}
 
-				<section className='glass rounded-3xl p-5'>
-					<div className='mb-3 flex items-baseline justify-between gap-2'>
-						<h2 className='text-ink text-sm font-semibold'>Scoreboard</h2>
+				<section {...stylex.props(surfaces.glass, styles.card)}>
+					<div {...stylex.props(styles.scoreHead)}>
+						<h2 {...stylex.props(styles.title)}>Scoreboard</h2>
 						{finalised && <StatusPill tone='neutral'>Confirmed</StatusPill>}
 					</div>
 
 					{access === 'none' && !finalised && (
-						<p className='text-faint mb-3 text-xs'>Say you&apos;re in and you can keep the score too.</p>
+						<p {...stylex.props(styles.lead)}>Say you&apos;re in and you can keep the score too.</p>
 					)}
 
 					{access === 'locked' && <ScoreboardLock correcting={correcting} onChange={setCorrecting} />}
 
-					<ol className='space-y-2'>
+					<ol {...stylex.props(styles.fixtures)}>
 						{fixtures.map(fixture => (
 							<Fragment key={fixture.order}>
 								{showRounds && fixture.order % roundLength === 0 && (
-									<li
-										className={classNames(
-											'text-faint px-1 pb-1 text-xs font-semibold tracking-wider uppercase',
-											fixture.order > 0 && 'mt-2 border-t border-white/8 pt-4'
-										)}
-									>
+									<li {...stylex.props(styles.round, fixture.order > 0 && styles.roundBreak)}>
 										Round {fixture.order / roundLength + 1}
 									</li>
 								)}
@@ -525,27 +588,27 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 				{!voting && motmPanel}
 
 				{(played > 0 || finalised) && (
-					<section className='glass rounded-3xl p-5'>
-						<h2 className='text-ink mb-3 text-sm font-semibold'>Table</h2>
+					<section {...stylex.props(surfaces.glass, styles.card)}>
+						<h2 {...stylex.props(styles.titleGap)}>Table</h2>
 						<StandingsTable standings={standings} unequal={unequal} />
 
 						{/* Said on the screen the table is on, because this is where
 						    somebody works out why their rating moved the way it did,
 						    and the answer stopped being "we came second" in Aug 2026. */}
-						<p className='text-faint mt-4 text-xs'>
-							Ratings read how much of the evening each team won, not just where it finished, so two
-							teams that end up level move almost together, and the team that wins the table always moves
+						<p {...stylex.props(styles.tableNote)}>
+							Ratings read how much of the evening each team won, not just where it finished, so two teams
+							that end up level move almost together, and the team that wins the table always moves
 							further.
 						</p>
 
 						{finalised ? (
-							<p className='text-faint mt-2 text-xs'>
-								Confirmed {formatRelative(game.resultFinalisedAt!)}. Ratings have been applied. A
-								season admin correcting a score from here will work them out again.
+							<p {...stylex.props(styles.hint)}>
+								Confirmed {formatRelative(game.resultFinalisedAt!)}. Ratings have been applied. A season
+								admin correcting a score from here will work them out again.
 							</p>
 						) : (
 							<>
-								<p className='text-faint mt-2 text-xs'>
+								<p {...stylex.props(styles.hint)}>
 									Nothing counts towards anyone&apos;s rating until this is confirmed, which happens
 									on its own {AUTO_FINALISE_HOURS} hours after kick-off.
 								</p>
@@ -563,7 +626,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 								{isAdmin && (
 									<Button
 										variant='primary'
-										className='mt-3'
+										sx={styles.confirm}
 										onClick={async () => {
 											const ok = await confirm({
 												title: 'Confirm the results?',
@@ -580,7 +643,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 											);
 										}}
 									>
-										<CheckCircleIcon className='size-4' aria-hidden='true' />
+										<CheckCircleIcon {...stylex.props(styles.buttonIcon)} aria-hidden='true' />
 										Confirm results
 									</Button>
 								)}

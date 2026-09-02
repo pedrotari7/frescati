@@ -2,9 +2,37 @@
 
 import { useEffect, useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
+import * as stylex from '@stylexjs/stylex';
 import type { KitItem } from '@shared/types';
 import Button from './Button';
 import { TextInput } from './Field';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { animations, elevation, surfaces, utils } from '../lib/styles';
+
+const styles = stylex.create({
+	dialog: { position: 'relative', zIndex: 50 },
+	scrim: {
+		backgroundColor: tint.canvas80,
+		position: 'fixed',
+		inset: 0,
+		backdropFilter: 'blur(4px)',
+		WebkitBackdropFilter: 'blur(4px)',
+	},
+	/* Sheet from the bottom on a phone, centred once there's room. */
+	positioner: {
+		position: 'fixed',
+		inset: 0,
+		display: 'flex',
+		alignItems: { default: 'flex-end', [bp.sm]: 'center' },
+		justifyContent: 'center',
+		padding: 16,
+	},
+	panel: { width: '100%', maxWidth: 384, borderRadius: 24, padding: 20 },
+	title: { color: colors.ink, fontSize: 18, lineHeight: '28px', fontWeight: 600 },
+	blurb: { color: colors.muted, marginTop: 4, fontSize: 14, lineHeight: '20px' },
+	field: { marginTop: 16 },
+	actions: { marginTop: 16, display: 'flex', gap: 12 },
+});
 
 /**
  * Changing what a piece of kit is called.
@@ -49,14 +77,16 @@ const KitRenameSheet = ({
 	};
 
 	return (
-		<Dialog open={open && !!item} onClose={onClose} className='relative z-50'>
-			<div className='bg-canvas/80 fixed inset-0 backdrop-blur-sm' aria-hidden='true' />
+		<Dialog open={open && !!item} onClose={onClose} {...stylex.props(styles.dialog)}>
+			<div {...stylex.props(styles.scrim)} aria-hidden='true' />
 
-			<div className='fixed inset-0 flex items-end justify-center p-4 sm:items-center'>
-				<DialogPanel className='glass shadow-lift animate-rise mb-safe w-full max-w-sm rounded-3xl p-5'>
-					<DialogTitle className='text-ink text-lg font-semibold'>Rename {item?.name}</DialogTitle>
+			<div {...stylex.props(styles.positioner)}>
+				<DialogPanel
+					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, styles.panel)}
+				>
+					<DialogTitle {...stylex.props(styles.title)}>Rename {item?.name}</DialogTitle>
 
-					<p className='text-muted mt-1 text-sm'>
+					<p {...stylex.props(styles.blurb)}>
 						Only what it&apos;s called. What kind of kit it is, and who has it, stay as they are.
 					</p>
 
@@ -77,10 +107,10 @@ const KitRenameSheet = ({
 							placeholder='Match ball'
 							maxLength={60}
 							autoFocus
-							className='mt-4'
+							sx={styles.field}
 						/>
 
-						<div className='mt-4 flex gap-3'>
+						<div {...stylex.props(styles.actions)}>
 							<Button variant='primary' type='submit' fullWidth disabled={!savable}>
 								Save
 							</Button>

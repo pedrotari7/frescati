@@ -1,12 +1,19 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import * as stylex from '@stylexjs/stylex';
 import { useAuth } from '../../lib/auth';
 import { useLastSeen } from '../../hooks/useLastSeen';
 import Login from '../../components/Login';
 import Spinner from '../../components/Spinner';
 import { SeasonScopeProvider } from '../../components/SeasonScope';
 import { AppHistoryProvider } from '../../components/AppHistory';
+import { colors } from '../../app/tokens.stylex';
+
+const styles = stylex.create({
+	restoring: { display: 'flex', minHeight: '100dvh', alignItems: 'center', justifyContent: 'center' },
+	spinner: { color: colors.brand, width: 32, height: 32 },
+});
 
 /**
  * Auth gate for every signed-in screen.
@@ -28,8 +35,8 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
 	// here would flash it on every refresh.
 	if (user === null) {
 		return (
-			<div className='flex min-h-dvh items-center justify-center'>
-				<Spinner className='text-brand size-8' />
+			<div {...stylex.props(styles.restoring)}>
+				<Spinner sx={styles.spinner} />
 			</div>
 		);
 	}

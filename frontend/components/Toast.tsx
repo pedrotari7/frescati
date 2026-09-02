@@ -3,8 +3,10 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import BottomStackHost, { BottomSlot } from './BottomStack';
-import { classNames } from '../lib/utils/reactHelper';
+import { colors } from '../app/tokens.stylex';
+import { animations, elevation, surfaces } from '../lib/styles';
 
 type Tone = 'error' | 'success';
 
@@ -28,6 +30,28 @@ const DISMISS_MS = 4500;
 
 /** Beyond this the stack is covering the screen it's reporting on. */
 const MAX_VISIBLE = 3;
+
+const styles = stylex.create({
+	stack: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 },
+	toast: {
+		display: 'flex',
+		width: '100%',
+		maxWidth: 384,
+		alignItems: 'flex-start',
+		gap: 10,
+		borderRadius: 16,
+		paddingInline: 16,
+		paddingBlock: 12,
+		textAlign: 'left',
+		fontSize: 14,
+		lineHeight: '20px',
+	},
+	error: { color: colors.out },
+	success: { color: colors.in },
+
+	icon: { marginTop: 1, width: 16, height: 16, flexShrink: 0 },
+	text: { color: colors.ink, flexGrow: 1 },
+});
 
 /**
  * App-wide transient messages.
@@ -87,24 +111,26 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
 
 			{/* Nearest the thumb of the three, being the transient one. */}
 			<BottomSlot order={3}>
-				<div className='flex flex-col items-center gap-2' role='status' aria-live='polite'>
+				<div {...stylex.props(styles.stack)} role='status' aria-live='polite'>
 					{toasts.map(toast => (
 						<button
 							key={toast.id}
 							type='button'
 							onClick={() => forget(toast.id)}
-							className={classNames(
-								'glass animate-rise shadow-lift flex w-full max-w-sm items-start gap-2.5',
-								'rounded-2xl px-4 py-3 text-left text-sm',
-								toast.tone === 'error' ? 'text-out' : 'text-in'
+							{...stylex.props(
+								surfaces.glass,
+								elevation.lift,
+								animations.rise,
+								styles.toast,
+								toast.tone === 'error' ? styles.error : styles.success
 							)}
 						>
 							{toast.tone === 'error' ? (
-								<ExclamationTriangleIcon className='mt-px size-4 shrink-0' aria-hidden='true' />
+								<ExclamationTriangleIcon {...stylex.props(styles.icon)} aria-hidden='true' />
 							) : (
-								<CheckCircleIcon className='mt-px size-4 shrink-0' aria-hidden='true' />
+								<CheckCircleIcon {...stylex.props(styles.icon)} aria-hidden='true' />
 							)}
-							<span className='text-ink flex-1'>{toast.text}</span>
+							<span {...stylex.props(styles.text)}>{toast.text}</span>
 						</button>
 					))}
 				</div>

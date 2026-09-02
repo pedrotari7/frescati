@@ -4,19 +4,19 @@ import type { AppUser } from '@shared/types';
 const anna = { uid: 'anna', displayName: 'Anna' } as AppUser;
 const marco = { uid: 'marco', displayName: 'Marco' } as AppUser;
 
-let users: AppUser[] = [anna, marco];
-let loading = false;
+let mockUsers: AppUser[] = [anna, marco];
+let mockLoading = false;
 
 jest.mock('../lib/db/users', () => ({ subscribeToUsers: jest.fn(), subscribeToUser: jest.fn() }));
 jest.mock('./useFirestoreSubscription', () => ({
-	useFirestoreSubscription: () => ({ data: users, loading, error: null }),
+	useFirestoreSubscription: () => ({ data: mockUsers, loading: mockLoading, error: null }),
 }));
 
 import { useUsersByUid } from './useData';
 
 beforeEach(() => {
-	users = [anna, marco];
-	loading = false;
+	mockUsers = [anna, marco];
+	mockLoading = false;
 });
 
 describe('useUsersByUid', () => {
@@ -50,7 +50,7 @@ describe('useUsersByUid', () => {
 		const { result, rerender } = renderHook(() => useUsersByUid());
 		const first = result.current.usersByUid;
 
-		users = [anna, marco, { uid: 'pedro', displayName: 'Pedro' } as AppUser];
+		mockUsers = [anna, marco, { uid: 'pedro', displayName: 'Pedro' } as AppUser];
 		rerender();
 
 		expect(result.current.usersByUid).not.toBe(first);
@@ -59,7 +59,7 @@ describe('useUsersByUid', () => {
 
 	// Three callers gate a skeleton on it, so it has to come through.
 	it('passes the loading flag through', () => {
-		loading = true;
+		mockLoading = true;
 
 		const { result } = renderHook(() => useUsersByUid());
 

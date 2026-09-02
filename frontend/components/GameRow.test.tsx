@@ -1,7 +1,12 @@
+import * as stylex from '@stylexjs/stylex';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { Game, GameResponse, Season } from '@shared/types';
 import { EMPTY_COUNTS } from '@shared/types';
+import { stylesFor, stylesOf } from '../test/stylex';
 import GameRow from './GameRow';
+
+/* The fade a game is drawn with once there is nothing left to do about it. */
+const expected = stylex.create({ past: { opacity: 0.7 } });
 
 const season = {
 	id: 'season-1',
@@ -243,7 +248,7 @@ describe('GameRow', () => {
 		);
 
 		expect(screen.getByText('Vote open')).toBeInTheDocument();
-		expect(container.firstElementChild).not.toHaveClass('opacity-70');
+		expect(stylesOf(container.firstElementChild)).not.toEqual(expect.arrayContaining(stylesFor(expected.past)));
 	});
 
 	it('fades a played game once the vote has been counted', () => {
@@ -261,7 +266,7 @@ describe('GameRow', () => {
 		);
 
 		expect(screen.queryByText('Vote open')).not.toBeInTheDocument();
-		expect(container.firstElementChild).toHaveClass('opacity-70');
+		expect(stylesOf(container.firstElementChild)).toEqual(expect.arrayContaining(stylesFor(expected.past)));
 	});
 
 	it('marks a one-off game', () => {

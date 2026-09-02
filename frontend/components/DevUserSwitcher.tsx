@@ -3,12 +3,139 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { BeakerIcon } from '@heroicons/react/24/solid';
+import * as stylex from '@stylexjs/stylex';
 import { useAuth, signOutOfApp } from '../lib/auth';
 import { DEV_MODE, loadDevUsers, signInAsDevUser } from '../lib/devUsers';
 import type { DevUser, DevUserFile } from '../lib/devUsers';
-import { classNames } from '../lib/utils/reactHelper';
 import Avatar from './Avatar';
 import Button from './Button';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { animations, elevation, surfaces, utils } from '../lib/styles';
+
+const styles = stylex.create({
+	/* Clear of the bottom bar on a phone, and of nothing in particular once the
+	   tabs move into the top bar above lg. */
+	fab: {
+		color: colors.brand,
+		position: 'fixed',
+		right: 16,
+		bottom: { default: 96, [bp.lg]: 24 },
+		zIndex: 40,
+		display: 'flex',
+		width: 44,
+		height: 44,
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderRadius: 9999,
+	},
+	beaker: { width: 20, height: 20 },
+
+	dialog: { position: 'relative', zIndex: 50 },
+	scrim: {
+		backgroundColor: tint.canvas80,
+		position: 'fixed',
+		inset: 0,
+		backdropFilter: 'blur(4px)',
+		WebkitBackdropFilter: 'blur(4px)',
+	},
+	positioner: {
+		position: 'fixed',
+		inset: 0,
+		display: 'flex',
+		alignItems: { default: 'flex-end', [bp.sm]: 'center' },
+		justifyContent: 'center',
+		padding: 16,
+	},
+	/* Capped rather than sized, so a short list stays short and a long one
+	   scrolls inside the panel instead of pushing the buttons off screen. */
+	panel: {
+		display: 'flex',
+		maxHeight: '80dvh',
+		width: '100%',
+		maxWidth: 448,
+		flexDirection: 'column',
+		borderRadius: 24,
+		padding: 20,
+	},
+	title: { color: colors.ink, fontSize: 18, lineHeight: '28px', fontWeight: 600 },
+	blurb: { color: colors.muted, marginTop: 4, fontSize: 12, lineHeight: 1.625 },
+	current: { color: colors.faint, marginTop: 8, fontSize: 12, lineHeight: '16px' },
+
+	filter: {
+		backgroundColor: colors.raised,
+		color: colors.ink,
+		marginTop: 16,
+		height: 44,
+		width: '100%',
+		borderRadius: 12,
+		borderWidth: 0,
+		paddingInline: 12,
+		fontSize: 14,
+		lineHeight: '20px',
+		boxShadow: { default: `inset 0 0 0 1px ${colors.line}`, ':focus': `inset 0 0 0 1px ${tint.brand50}` },
+		outline: 'none',
+		'::placeholder': { color: colors.faint },
+	},
+
+	/*
+	 * The negative margin lets a row's hover surface reach the panel's padding
+	 * while the scrollbar stays where the panel's edge is.
+	 *
+	 * `flexBasis` is the percentage rather than the length, and the difference is
+	 * the whole list: the panel is capped at 80dvh but sized by its content, so
+	 * its height is indefinite, and a column item basing off a length of 0 gets
+	 * exactly that, no free space to grow into and every seeded account rendered
+	 * into nothing. A percentage against an indefinite container falls back to
+	 * the item's content instead. Tailwind's `flex-1` is `flex: 1 1 0%` and this
+	 * is the half of it that mattered.
+	 */
+	list: {
+		marginInline: -8,
+		marginTop: 12,
+		minHeight: 0,
+		flexGrow: 1,
+		flexBasis: '0%',
+		overflowY: 'auto',
+		paddingInline: 8,
+	},
+	row: {
+		display: 'flex',
+		width: '100%',
+		alignItems: 'center',
+		gap: 12,
+		borderRadius: 12,
+		padding: 8,
+		textAlign: 'left',
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	rowCurrent: { backgroundColor: tint.brand10 },
+	rowOther: { backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } } },
+
+	rowBody: { minWidth: 0, flexGrow: 1, flexBasis: '0%' },
+	name: {
+		color: colors.ink,
+		display: 'block',
+		overflow: 'hidden',
+		textOverflow: 'ellipsis',
+		whiteSpace: 'nowrap',
+		fontSize: 14,
+		lineHeight: '20px',
+		fontWeight: 500,
+	},
+	hint: {
+		color: colors.faint,
+		display: 'block',
+		overflow: 'hidden',
+		textOverflow: 'ellipsis',
+		whiteSpace: 'nowrap',
+		fontSize: 12,
+		lineHeight: '16px',
+	},
+
+	none: { color: colors.faint, paddingBlock: 24, textAlign: 'center', fontSize: 14, lineHeight: '20px' },
+	actions: { marginTop: 16, display: 'flex', gap: 12 },
+});
 
 /**
  * Become any seeded player, in two taps.
@@ -55,26 +182,28 @@ const DevUserSwitcher = () => {
 				type='button'
 				onClick={() => setOpen(true)}
 				aria-label='Switch seeded user'
-				className='glass shadow-lift text-brand fixed right-4 bottom-24 z-40 flex size-11 items-center justify-center rounded-full lg:bottom-6'
+				{...stylex.props(surfaces.glass, elevation.lift, styles.fab)}
 			>
-				<BeakerIcon className='size-5' aria-hidden='true' />
+				<BeakerIcon {...stylex.props(styles.beaker)} aria-hidden='true' />
 			</button>
 
-			<Dialog open={open} onClose={() => setOpen(false)} className='relative z-50'>
-				<div className='bg-canvas/80 fixed inset-0 backdrop-blur-sm' aria-hidden='true' />
+			<Dialog open={open} onClose={() => setOpen(false)} {...stylex.props(styles.dialog)}>
+				<div {...stylex.props(styles.scrim)} aria-hidden='true' />
 
-				<div className='fixed inset-0 flex items-end justify-center p-4 sm:items-center'>
-					<DialogPanel className='glass shadow-lift animate-rise mb-safe flex max-h-[80dvh] w-full max-w-md flex-col rounded-3xl p-5'>
-						<DialogTitle className='text-ink text-lg font-semibold'>Sign in as</DialogTitle>
+				<div {...stylex.props(styles.positioner)}>
+					<DialogPanel
+						{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, styles.panel)}
+					>
+						<DialogTitle {...stylex.props(styles.title)}>Sign in as</DialogTitle>
 
-						<p className='text-muted mt-1 text-xs leading-relaxed'>
+						<p {...stylex.props(styles.blurb)}>
 							{file
 								? `Scenario "${file.scenario}" · ${file.users.length} seeded accounts`
 								: 'No seeded accounts found. Run pnpm seed.'}
 						</p>
 
 						{user && (
-							<p className='text-faint mt-2 text-xs'>
+							<p {...stylex.props(styles.current)}>
 								Currently {user.displayName}
 								{user.isAppAdmin && ' · app admin'}
 							</p>
@@ -86,38 +215,36 @@ const DevUserSwitcher = () => {
 								value={query}
 								onChange={event => setQuery(event.target.value)}
 								placeholder='Filter by name, email or role'
-								className='bg-raised text-ink placeholder:text-faint ring-line focus:ring-brand/50 mt-4 h-11 w-full rounded-xl px-3 text-sm ring-1 outline-none'
+								{...stylex.props(styles.filter)}
 							/>
 						)}
 
-						<div className='-mx-2 mt-3 min-h-0 flex-1 overflow-y-auto px-2'>
+						<div {...stylex.props(styles.list)}>
 							{matches.map(candidate => (
 								<button
 									key={candidate.uid}
 									type='button'
 									onClick={() => become(candidate)}
-									className={classNames(
-										'flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors',
-										candidate.uid === user?.uid ? 'bg-brand/10' : 'hover:bg-white/5'
+									{...stylex.props(
+										styles.row,
+										candidate.uid === user?.uid ? styles.rowCurrent : styles.rowOther
 									)}
 								>
 									<Avatar displayName={candidate.displayName} photoURL={candidate.photoURL} />
 
-									<span className='min-w-0 flex-1'>
-										<span className='text-ink block truncate text-sm font-medium'>
-											{candidate.displayName}
-										</span>
-										<span className='text-faint block truncate text-xs'>{candidate.hint}</span>
+									<span {...stylex.props(styles.rowBody)}>
+										<span {...stylex.props(styles.name)}>{candidate.displayName}</span>
+										<span {...stylex.props(styles.hint)}>{candidate.hint}</span>
 									</span>
 								</button>
 							))}
 
 							{file && matches.length === 0 && (
-								<p className='text-faint py-6 text-center text-sm'>Nobody matches &quot;{query}&quot;.</p>
+								<p {...stylex.props(styles.none)}>Nobody matches &quot;{query}&quot;.</p>
 							)}
 						</div>
 
-						<div className='mt-4 flex gap-3'>
+						<div {...stylex.props(styles.actions)}>
 							<Button variant='ghost' fullWidth onClick={() => setOpen(false)}>
 								Close
 							</Button>

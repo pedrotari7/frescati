@@ -1,8 +1,13 @@
+import * as stylex from '@stylexjs/stylex';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { AppUser, TournamentTeam } from '@shared/types';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
 import { BASE_ELO } from '@shared/rating';
+import { stylesFor, stylesOf } from '../test/stylex';
 import TeamCard from './TeamCard';
+
+/* A name struck through is on the sheet but not on the pitch. */
+const expected = stylex.create({ struck: { textDecorationLine: 'line-through' } });
 
 const user = (uid: string, displayName: string): AppUser => ({
 	uid,
@@ -187,8 +192,8 @@ describe('TeamCard', () => {
 		);
 
 		expect(screen.getByText('Out')).toBeInTheDocument();
-		expect(screen.getByText('Bob Lee')).toHaveClass('line-through');
-		expect(screen.getByText('Alice Ng')).not.toHaveClass('line-through');
+		expect(stylesOf(screen.getByText('Bob Lee'))).toEqual(expect.arrayContaining(stylesFor(expected.struck)));
+		expect(stylesOf(screen.getByText('Alice Ng'))).not.toEqual(expect.arrayContaining(stylesFor(expected.struck)));
 	});
 
 	// The team sheet is the one screen in a position to say a squad played a man
@@ -205,7 +210,7 @@ describe('TeamCard', () => {
 		);
 
 		expect(screen.getByText('No-show')).toBeInTheDocument();
-		expect(screen.getByText('Alice Ng')).toHaveClass('line-through');
+		expect(stylesOf(screen.getByText('Alice Ng'))).toEqual(expect.arrayContaining(stylesFor(expected.struck)));
 	});
 
 	// One is a report about somebody, the other a disagreement between the sheet

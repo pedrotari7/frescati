@@ -1,15 +1,47 @@
+import * as stylex from '@stylexjs/stylex';
 import { formatSek } from '@shared/format';
 import type { FinanceSummary } from '@shared/finances';
-import { classNames } from '../lib/utils/reactHelper';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { surfaces, text } from '../lib/styles';
+
+const styles = stylex.create({
+	/* One column on a phone, both cards side by side once there's room. */
+	grid: { display: 'grid', gap: 12, gridTemplateColumns: { default: '1fr', [bp.sm]: '1fr 1fr' } },
+
+	card: { display: 'flex', flexDirection: 'column', gap: 12, borderRadius: 16, padding: 16 },
+	headline: { marginTop: 4, fontSize: 24, lineHeight: '32px', fontWeight: 600, fontVariantNumeric: 'tabular-nums' },
+	headlineInk: { color: colors.ink },
+	headlineCovered: { color: colors.in },
+	headlineOverdrawn: { color: colors.out },
+	note: { color: colors.faint, marginTop: 4, fontSize: 12, lineHeight: 1.625 },
+
+	list: {
+		borderTopWidth: 1,
+		borderTopStyle: 'solid',
+		borderTopColor: tint.white5,
+		display: 'flex',
+		flexDirection: 'column',
+		gap: 4,
+		paddingTop: 12,
+		fontSize: 12,
+		lineHeight: '16px',
+	},
+	row: { display: 'flex', justifyContent: 'space-between', gap: 12 },
+	label: { color: colors.faint },
+	amount: { fontVariantNumeric: 'tabular-nums', color: colors.ink },
+	amountOwed: { color: colors.pending },
+	amountMuted: { color: colors.muted },
+});
 
 /** One line of a card: a label, a number, and whether the number is bad news. */
 const Row = ({ label, amount, tone }: { label: string; amount: number; tone?: 'owed' | 'muted' }) => (
-	<div className='flex justify-between gap-3'>
-		<dt className='text-faint'>{label}</dt>
+	<div {...stylex.props(styles.row)}>
+		<dt {...stylex.props(styles.label)}>{label}</dt>
 		<dd
-			className={classNames(
-				'tabular-nums',
-				tone === 'owed' ? 'text-pending' : tone === 'muted' ? 'text-muted' : 'text-ink'
+			{...stylex.props(
+				styles.amount,
+				tone === 'owed' && styles.amountOwed,
+				tone === 'muted' && styles.amountMuted
 			)}
 		>
 			{formatSek(amount)}
@@ -35,27 +67,24 @@ const FinanceOverview = ({ summary, memberCount }: { summary: FinanceSummary; me
 	const covered = entry.target > 0 && entry.short === 0;
 
 	return (
-		<div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
-			<section className='glass space-y-3 rounded-2xl p-4'>
+		<div {...stylex.props(styles.grid)}>
+			<section {...stylex.props(surfaces.glass, styles.card)}>
 				<div>
-					<h2 className='text-faint text-xs font-semibold tracking-wider uppercase'>The season</h2>
+					<h2 {...stylex.props(text.sectionHeading)}>The season</h2>
 					<p
-						className={classNames(
-							'mt-1 text-2xl font-semibold tabular-nums',
-							covered ? 'text-in' : 'text-ink'
-						)}
+						{...stylex.props(styles.headline, covered ? styles.headlineCovered : styles.headlineInk)}
 						data-testid='season-shortfall'
 					>
 						{entry.target === 0 ? 'Free' : covered ? 'Paid for' : `${formatSek(entry.short)} to go`}
 					</p>
-					<p className='text-faint mt-1 text-xs leading-relaxed'>
+					<p {...stylex.props(styles.note)}>
 						{entry.target === 0
 							? 'No bill has been set for this season.'
 							: `${formatSek(entry.target)} for the season, split ${memberCount === 1 ? 'between 1 member' : `between ${memberCount} members`}.`}
 					</p>
 				</div>
 
-				<dl className='space-y-1 border-t border-white/5 pt-3 text-xs'>
+				<dl {...stylex.props(styles.list)}>
 					<Row label='The bill' amount={entry.target} />
 					<Row label='Collected' amount={entry.collected} />
 					<Row
@@ -67,24 +96,24 @@ const FinanceOverview = ({ summary, memberCount }: { summary: FinanceSummary; me
 				</dl>
 			</section>
 
-			<section className='glass space-y-3 rounded-2xl p-4'>
+			<section {...stylex.props(surfaces.glass, styles.card)}>
 				<div>
-					<h2 className='text-faint text-xs font-semibold tracking-wider uppercase'>Equipment money</h2>
+					<h2 {...stylex.props(text.sectionHeading)}>Equipment money</h2>
 					<p
-						className={classNames(
-							'mt-1 text-2xl font-semibold tabular-nums',
-							extras.balance < 0 ? 'text-out' : 'text-ink'
+						{...stylex.props(
+							styles.headline,
+							extras.balance < 0 ? styles.headlineOverdrawn : styles.headlineInk
 						)}
 						data-testid='equipment-balance'
 					>
 						{formatSek(extras.balance)}
 					</p>
-					<p className='text-faint mt-1 text-xs leading-relaxed'>
+					<p {...stylex.props(styles.note)}>
 						What the extras have paid in, less what it has bought. This is the ball money.
 					</p>
 				</div>
 
-				<dl className='space-y-1 border-t border-white/5 pt-3 text-xs'>
+				<dl {...stylex.props(styles.list)}>
 					<Row label='Collected' amount={extras.collected} />
 					<Row label='Spent' amount={extras.spent} />
 					<Row

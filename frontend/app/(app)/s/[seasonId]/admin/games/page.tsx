@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import * as stylex from '@stylexjs/stylex';
 import type { Game, Season } from '@shared/types';
 import { diffGeneratedGames, generateGameDates } from '@shared/schedule';
 import { getGameLifecycle, hasBeenPlayed, splitOnWhistle } from '@shared/game';
@@ -21,7 +22,46 @@ import Button from '../../../../../../components/Button';
 import StatusPill from '../../../../../../components/StatusPill';
 import DatePicker from '../../../../../../components/DatePicker';
 import { Field, TextInput } from '../../../../../../components/Field';
-import { ListCard, ListEmpty, SectionHeading } from '../../../../../../components/Section';
+import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../../../components/Section';
+import { colors } from '../../../../../tokens.stylex';
+import { surfaces } from '../../../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16 },
+	card: { borderRadius: 16, padding: 20 },
+	cardTitle: { color: colors.ink, marginBottom: 4, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	oneOffTitle: { marginBottom: 16 },
+	blurb: { color: colors.muted, marginBottom: 16, fontSize: 14, lineHeight: 1.625 },
+	preview: { marginBottom: 16, display: 'flex', gap: 8 },
+
+	/*
+	 * Two across at every width. The date and the kick-off are one question, and
+	 * a date picker beside a time field fits the narrowest phone.
+	 */
+	pair: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 },
+	add: { marginTop: 16 },
+
+	heading: { marginBottom: 8, paddingInline: 4 },
+	playedHead: {
+		marginBottom: 8,
+		display: 'flex',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		paddingInline: 4,
+	},
+
+	/*
+	 * Does not wrap, on purpose: Cancel and Delete are three and six characters
+	 * and the date beside them shrinks instead, which keeps the two buttons in
+	 * the same place on every row of a list somebody is working down.
+	 */
+	row: { display: 'flex', alignItems: 'center', gap: 8, paddingBlock: 12 },
+	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	when: { color: colors.ink, fontSize: 14, lineHeight: '20px' },
+	time: { color: colors.faint, fontVariantNumeric: 'tabular-nums' },
+	marks: { marginTop: 4, display: 'flex', gap: 6 },
+	playing: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+});
 
 /**
  * What deleting this game actually costs.
@@ -71,16 +111,14 @@ const CalendarRow = ({
 	const isOver = hasBeenPlayed(game, now);
 
 	return (
-		<div className='flex items-center gap-2 py-3'>
-			<div className='min-w-0 flex-1'>
-				<p className='text-ink text-sm'>
+		<div {...stylex.props(listRow, styles.row)}>
+			<div {...stylex.props(styles.body)}>
+				<p {...stylex.props(styles.when)}>
 					{formatGameDate(game.kickoff, season.slot.timezone)}{' '}
-					<span className='text-faint tabular-nums'>
-						{formatGameTime(game.kickoff, season.slot.timezone)}
-					</span>
+					<span {...stylex.props(styles.time)}>{formatGameTime(game.kickoff, season.slot.timezone)}</span>
 				</p>
-				<div className='mt-1 flex gap-1.5'>
-					<span className='text-faint text-xs'>{game.counts.playing} playing</span>
+				<div {...stylex.props(styles.marks)}>
+					<span {...stylex.props(styles.playing)}>{game.counts.playing} playing</span>
 					{game.isOneOff && <StatusPill tone='extra'>One-off</StatusPill>}
 					{isCancelled && <StatusPill tone='out'>Cancelled</StatusPill>}
 				</div>
@@ -256,17 +294,17 @@ const AdminGamesPage = () => {
 
 	return (
 		<SeasonShell title='Games' subtitle={`${games.length} on the calendar`} backHref={`/s/${seasonId}/admin`}>
-			<div className='space-y-4 p-4'>
-				<section className='glass rounded-2xl p-5'>
-					<h2 className='text-ink mb-1 font-semibold'>Generate the calendar</h2>
-					<p className='text-muted mb-4 text-sm leading-relaxed'>
+			<div {...stylex.props(styles.page)}>
+				<section {...stylex.props(surfaces.glass, styles.card)}>
+					<h2 {...stylex.props(styles.cardTitle)}>Generate the calendar</h2>
+					<p {...stylex.props(styles.blurb)}>
 						Creates every {season.slot.time} game on the season&apos;s weekday between {season.startDate}{' '}
 						and {season.endDate}. Games that already exist are left alone, so it&apos;s safe to run again
 						after extending the season.
 					</p>
 
 					{preview && (
-						<div className='mb-4 flex gap-2'>
+						<div {...stylex.props(styles.preview)}>
 							<StatusPill tone={preview.toCreate.length > 0 ? 'in' : 'neutral'}>
 								{preview.toCreate.length} new
 							</StatusPill>
@@ -286,10 +324,10 @@ const AdminGamesPage = () => {
 					</Button>
 				</section>
 
-				<section className='glass rounded-2xl p-5'>
-					<h2 className='text-ink mb-4 font-semibold'>Add a one-off</h2>
+				<section {...stylex.props(surfaces.glass, styles.card)}>
+					<h2 {...stylex.props(styles.cardTitle, styles.oneOffTitle)}>Add a one-off</h2>
 
-					<div className='grid grid-cols-2 gap-3'>
+					<div {...stylex.props(styles.pair)}>
 						<Field label='Date'>
 							<DatePicker value={oneOff.date} onChange={date => setOneOff({ ...oneOff, date })} />
 						</Field>
@@ -306,7 +344,7 @@ const AdminGamesPage = () => {
 					<Button
 						variant='secondary'
 						fullWidth
-						className='mt-4'
+						sx={styles.add}
 						disabled={!oneOff.date || !oneOff.time}
 						onClick={handleAddOneOff}
 					>
@@ -315,7 +353,7 @@ const AdminGamesPage = () => {
 				</section>
 
 				<section>
-					<SectionHeading className='mb-2 px-1'>Coming up ({scheduled.length})</SectionHeading>
+					<SectionHeading sx={styles.heading}>Coming up ({scheduled.length})</SectionHeading>
 
 					<ListCard>
 						{scheduled.length === 0 && (
@@ -344,7 +382,7 @@ const AdminGamesPage = () => {
 				    change something that hasn't. */}
 				{played.length > 0 && (
 					<section>
-						<div className='mb-2 flex items-center justify-between px-1'>
+						<div {...stylex.props(styles.playedHead)}>
 							<SectionHeading>Played ({played.length})</SectionHeading>
 							<Button variant='ghost' size='sm' onClick={() => setShowPast(!showPast)}>
 								{showPast ? 'Hide' : 'Show'}

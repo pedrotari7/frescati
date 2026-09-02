@@ -1,6 +1,20 @@
+import * as stylex from '@stylexjs/stylex';
 import { render, screen } from '@testing-library/react';
 import type { AvailabilityMark } from '@shared/availability';
+import { colors, tint } from '../app/tokens.stylex';
+import { stylesFor, stylesOf } from '../test/stylex';
 import AvailabilityDots, { AvailabilityLegend } from './AvailabilityDots';
+
+/* The three answers as three colours, plus the dimmed dot that means "not yet". */
+const expected = stylex.create({
+	in: { backgroundColor: colors.in },
+	out: { backgroundColor: colors.out },
+	unanswered: { backgroundColor: tint.white15 },
+	pending: { backgroundColor: tint.white5 },
+	strip: { display: 'flex', flexWrap: 'wrap' },
+});
+
+const caller = stylex.create({ spaced: { marginTop: 8 } });
 
 const TZ = 'Europe/Stockholm';
 
@@ -17,11 +31,11 @@ describe('AvailabilityDots', () => {
 	it('gives each answer its own colour, in the order it was handed', () => {
 		render(<AvailabilityDots marks={marks} timezone={TZ} />);
 
-		const tones = dotsOf(screen.getByRole('img')).map(dot => dot.className);
+		const tones = dotsOf(screen.getByRole('img')).map(stylesOf);
 
-		expect(tones[0]).toContain('bg-in');
-		expect(tones[1]).toContain('bg-out');
-		expect(tones[2]).toContain('bg-white/15');
+		expect(tones[0]).toEqual(expect.arrayContaining(stylesFor(expected.in)));
+		expect(tones[1]).toEqual(expect.arrayContaining(stylesFor(expected.out)));
+		expect(tones[2]).toEqual(expect.arrayContaining(stylesFor(expected.unanswered)));
 	});
 
 	it('sums the season into one label rather than labelling every dot', () => {
@@ -52,15 +66,17 @@ describe('AvailabilityDots', () => {
 		expect(dotsOf(strip)).toHaveLength(3);
 
 		for (const dot of dotsOf(strip)) {
-			expect(dot).toHaveClass('bg-white/5');
+			expect(stylesOf(dot)).toEqual(expect.arrayContaining(stylesFor(expected.pending)));
 			expect(dot).not.toHaveAttribute('title');
 		}
 	});
 
-	it('accepts extra classes alongside its own', () => {
-		render(<AvailabilityDots marks={marks} timezone={TZ} className='mt-2' />);
+	it('accepts a caller style alongside its own', () => {
+		render(<AvailabilityDots marks={marks} timezone={TZ} sx={caller.spaced} />);
 
-		expect(screen.getByRole('img')).toHaveClass('flex', 'flex-wrap', 'mt-2');
+		expect(stylesOf(screen.getByRole('img'))).toEqual(
+			expect.arrayContaining(stylesFor(expected.strip, caller.spaced))
+		);
 	});
 });
 
@@ -71,9 +87,9 @@ describe('AvailabilityLegend', () => {
 		render(<AvailabilityDots marks={marks} timezone={TZ} />);
 
 		// The key's swatches, which are the only aria-hidden spans in it.
-		const swatches = Array.from(container.querySelectorAll('[aria-hidden="true"]')).map(swatch => swatch.className);
+		const swatches = Array.from(container.querySelectorAll('[aria-hidden="true"]')).map(stylesOf);
 
-		expect(swatches).toEqual(dotsOf(screen.getByRole('img')).map(dot => dot.className));
+		expect(swatches).toEqual(dotsOf(screen.getByRole('img')).map(stylesOf));
 	});
 
 	it('names all three answers and says what a dot is', () => {

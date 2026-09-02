@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { ChevronRightIcon, ExclamationTriangleIcon, ShoppingBagIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { AppUser, GameResponse, KitItem } from '@shared/types';
 import type { KitCoverage, KitKindStatus } from '@shared/kit';
 import { KIT_KIND_LABELS, KIT_KIND_NOUNS, getKitGaps, getKitStatus } from '@shared/kit';
-import { classNames } from '../lib/utils/reactHelper';
 import type { PillTone } from './StatusPill';
 import StatusPill from './StatusPill';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { surfaces } from '../lib/styles';
 
 /**
  * Whether the ball and the vests are coming to this game.
@@ -30,6 +32,66 @@ const TONES: Record<KitCoverage, PillTone> = {
 	missing: 'out',
 };
 
+const styles = stylex.create({
+	strip: {
+		marginTop: 16,
+		display: 'flex',
+		alignItems: 'center',
+		gap: 10,
+		borderRadius: 16,
+		borderWidth: 1,
+		borderStyle: 'solid',
+		paddingInline: 12,
+		paddingBlock: 10,
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	severe: {
+		borderColor: tint.out30,
+		backgroundColor: { default: tint.out8, [bp.hover]: { default: null, ':hover': tint.out12 } },
+	},
+	unsure: {
+		borderColor: tint.pending25,
+		backgroundColor: { default: tint.pending8, [bp.hover]: { default: null, ':hover': tint.pending12 } },
+	},
+	warnIcon: { width: 16, height: 16, flexShrink: 0 },
+	warnSevere: { color: colors.out },
+	warnUnsure: { color: colors.pending },
+
+	gaps: { minWidth: 0, flexGrow: 1, flexBasis: '0%', display: 'flex', flexDirection: 'column', gap: 2 },
+	gap: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, lineHeight: '16px' },
+	gapLead: { color: colors.ink, fontWeight: 600 },
+	gapRest: { color: colors.faint },
+	chevron: { color: colors.faint, width: 16, height: 16, flexShrink: 0 },
+
+	card: { borderRadius: 16, padding: 16 },
+	head: { marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+	headLeft: { display: 'flex', minWidth: 0, alignItems: 'center', gap: 8 },
+	bagIcon: { color: colors.brand, width: 16, height: 16, flexShrink: 0 },
+	title: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	more: {
+		color: { default: colors.faint, [bp.hover]: { default: null, ':hover': colors.ink } },
+		flexShrink: 0,
+		fontSize: 12,
+		lineHeight: '16px',
+	},
+
+	/* A divider between rows and none above the first, which is `divide-y`. */
+	row: {
+		borderTopWidth: { default: 1, ':first-child': 0 },
+		borderTopStyle: 'solid',
+		borderTopColor: tint.white5,
+		display: 'flex',
+		alignItems: 'flex-start',
+		justifyContent: 'space-between',
+		gap: 12,
+		paddingTop: { default: 10, ':first-child': 0 },
+		paddingBottom: { default: 10, ':last-child': 0 },
+	},
+	kind: { color: colors.ink, fontSize: 14, lineHeight: '20px' },
+	who: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
+});
+
 /**
  * Who is bringing them, or who is holding the ones that aren't coming.
  *
@@ -44,7 +106,7 @@ const holders = (items: KitItem[], usersByUid: Map<string, AppUser>): string =>
  * The pill beside a row that has already said which kind it is, so this only
  * has to say what is happening to it. Tense-consistent across all three, and
  * across a required kind and a pump alike: "Missing" reads as *lost* rather
- * than *not coming tonight*, which is a different problem.
+ * than *not coming to this game*, which is a different problem.
  */
 const pillLabel = (coverage: KitCoverage): string =>
 	coverage === 'covered' ? 'Coming' : coverage === 'unknown' ? 'Unconfirmed' : 'Not coming';
@@ -99,17 +161,9 @@ const GameKit = ({
 		const severe = gaps.some(status => status.coverage === 'missing');
 
 		return (
-			<Link
-				href={`/s/${seasonId}/kit`}
-				className={classNames(
-					'mt-4 flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition-colors',
-					severe
-						? 'border-out/30 bg-out/8 hover:bg-out/12'
-						: 'border-pending/25 bg-pending/8 hover:bg-pending/12'
-				)}
-			>
+			<Link href={`/s/${seasonId}/kit`} {...stylex.props(styles.strip, severe ? styles.severe : styles.unsure)}>
 				<ExclamationTriangleIcon
-					className={classNames('size-4 shrink-0', severe ? 'text-out' : 'text-pending')}
+					{...stylex.props(styles.warnIcon, severe ? styles.warnSevere : styles.warnUnsure)}
 					aria-hidden='true'
 				/>
 
@@ -117,42 +171,39 @@ const GameKit = ({
 				    most two, and "No ball · Vests unconfirmed" over "Anna has it
 				    and isn't playing · Pedro has them and hasn't answered" makes
 				    the reader pair them up by position. */}
-				<ul className='min-w-0 flex-1 space-y-0.5'>
+				<ul {...stylex.props(styles.gaps)}>
 					{gaps.map(status => (
-						<li key={status.kind} className='truncate text-xs'>
-							<span className='text-ink font-semibold'>{gapLabel(status)}</span>
-							<span className='text-faint'> · {detail(status, usersByUid)}</span>
+						<li key={status.kind} {...stylex.props(styles.gap)}>
+							<span {...stylex.props(styles.gapLead)}>{gapLabel(status)}</span>
+							<span {...stylex.props(styles.gapRest)}> · {detail(status, usersByUid)}</span>
 						</li>
 					))}
 				</ul>
 
-				<ChevronRightIcon className='text-faint size-4 shrink-0' aria-hidden='true' />
+				<ChevronRightIcon {...stylex.props(styles.chevron)} aria-hidden='true' />
 			</Link>
 		);
 	}
 
 	return (
-		<section className='glass rounded-2xl p-4'>
-			<div className='mb-3 flex items-center justify-between gap-2'>
-				<div className='flex min-w-0 items-center gap-2'>
-					<ShoppingBagIcon className='text-brand size-4 shrink-0' aria-hidden='true' />
-					<h2 className='text-ink text-sm font-semibold'>Kit</h2>
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<div {...stylex.props(styles.head)}>
+				<div {...stylex.props(styles.headLeft)}>
+					<ShoppingBagIcon {...stylex.props(styles.bagIcon)} aria-hidden='true' />
+					<h2 {...stylex.props(styles.title)}>Kit</h2>
 				</div>
 
-				<Link href={`/s/${seasonId}/kit`} className='text-faint hover:text-ink shrink-0 text-xs'>
+				<Link href={`/s/${seasonId}/kit`} {...stylex.props(styles.more)}>
 					Who has what
 				</Link>
 			</div>
 
-			<ul className='divide-y divide-white/5'>
+			<ul>
 				{statuses.map(status => (
-					<li
-						key={status.kind}
-						className='flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0'
-					>
-						<div className='min-w-0'>
-							<p className='text-ink text-sm'>{KIT_KIND_LABELS[status.kind]}</p>
-							<p className='text-faint mt-0.5 text-xs'>{detail(status, usersByUid)}</p>
+					<li key={status.kind} {...stylex.props(styles.row)}>
+						<div {...stylex.props(styles.gaps)}>
+							<p {...stylex.props(styles.kind)}>{KIT_KIND_LABELS[status.kind]}</p>
+							<p {...stylex.props(styles.who)}>{detail(status, usersByUid)}</p>
 						</div>
 
 						<StatusPill tone={TONES[status.coverage]}>{pillLabel(status.coverage)}</StatusPill>

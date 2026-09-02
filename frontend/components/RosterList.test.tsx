@@ -1,8 +1,13 @@
+import * as stylex from '@stylexjs/stylex';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { AppUser, GameResponse } from '@shared/types';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
+import { stylesFor, stylesOf } from '../test/stylex';
 import RosterList, { buildRoster } from './RosterList';
 import { ConfirmProvider } from './ConfirmDialog';
+
+/* A name struck through is somebody who said In and then did not turn up. */
+const expected = stylex.create({ struck: { textDecorationLine: 'line-through' } });
 
 const user = (uid: string, displayName: string): AppUser => ({
 	uid,
@@ -194,8 +199,8 @@ describe('RosterList', () => {
 
 		expect(screen.getByText("Didn't show")).toBeInTheDocument();
 		expect(screen.getByText('No-show')).toBeInTheDocument();
-		expect(screen.getByText('Bob Lee')).toHaveClass('line-through');
-		expect(screen.getByText('Alice Ng')).not.toHaveClass('line-through');
+		expect(stylesOf(screen.getByText('Bob Lee'))).toEqual(expect.arrayContaining(stylesFor(expected.struck)));
+		expect(stylesOf(screen.getByText('Alice Ng'))).not.toEqual(expect.arrayContaining(stylesFor(expected.struck)));
 	});
 
 	// Before kick-off there is nothing anybody could know, which is what

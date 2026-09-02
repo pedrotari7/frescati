@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { aMember } from './fixtures';
 import { openSeasonAs } from './helpers';
-import { AT, respondControl, sectionUnder } from './locators';
+import { AT, gameRows, respondControl, sectionUnder } from './locators';
 
 /**
  * The loop the whole app exists for: somebody says they are in, and the
@@ -208,8 +208,7 @@ test.describe('following a game from the calendar', () => {
 		// Found by the bell rather than by position. A called-off game carries
 		// none, there is nothing left to hear about, and which row that is
 		// depends on how far into the season the seed has got.
-		const row = coming
-			.locator('.glass-card')
+		const row = gameRows(coming)
 			.filter({ has: page.getByRole('switch', { name: /notify/i }) })
 			.first();
 		const bell = row.getByRole('switch', { name: /notify/i });

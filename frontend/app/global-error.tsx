@@ -2,7 +2,36 @@
 
 import { useEffect } from 'react';
 import * as Sentry from '@sentry/nextjs';
+import * as stylex from '@stylexjs/stylex';
+import { colors } from './tokens.stylex';
 import './globals.css';
+
+const styles = stylex.create({
+	body: { backgroundColor: colors.canvas },
+	panel: {
+		display: 'flex',
+		minHeight: '100dvh',
+		flexDirection: 'column',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 16,
+		padding: 32,
+		textAlign: 'center',
+	},
+	title: { color: colors.ink, fontSize: 18, lineHeight: '28px', fontWeight: 600 },
+	blurb: { color: colors.muted, maxWidth: 320, fontSize: 14, lineHeight: '20px' },
+	button: {
+		backgroundColor: colors.brand,
+		color: colors.canvas,
+		marginTop: 8,
+		height: 44,
+		borderRadius: 12,
+		paddingInline: 20,
+		fontSize: 14,
+		lineHeight: '20px',
+		fontWeight: 600,
+	},
+});
 
 /**
  * The last resort, for a crash in the root layout itself.
@@ -23,17 +52,11 @@ const GlobalError = ({ error }: { error: Error & { digest?: string } }) => {
 
 	return (
 		<html lang='en'>
-			<body className='bg-canvas'>
-				<div className='flex min-h-dvh flex-col items-center justify-center gap-4 p-8 text-center'>
-					<p className='text-ink text-lg font-semibold'>Something broke</p>
-					<p className='text-muted max-w-xs text-sm'>
-						That&apos;s on us. Reloading usually sorts it out.
-					</p>
-					<button
-						type='button'
-						onClick={() => window.location.reload()}
-						className='bg-brand text-canvas mt-2 h-11 rounded-xl px-5 text-sm font-semibold'
-					>
+			<body {...stylex.props(styles.body)}>
+				<div {...stylex.props(styles.panel)}>
+					<p {...stylex.props(styles.title)}>Something broke</p>
+					<p {...stylex.props(styles.blurb)}>That&apos;s on us. Reloading usually sorts it out.</p>
+					<button type='button' onClick={() => window.location.reload()} {...stylex.props(styles.button)}>
 						Reload
 					</button>
 				</div>

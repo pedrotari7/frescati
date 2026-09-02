@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarDaysIcon, CalendarIcon, UsersIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { SeasonStatus, Venue, Weekday } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
 import { SEASON_STATUS_LABELS, formatSek, weekdayName } from '@shared/format';
@@ -26,6 +27,64 @@ import DatePicker from '../../../../../components/DatePicker';
 import { Field, RangeInput, Select, TextInput } from '../../../../../components/Field';
 import { EMPTY_FORM, INVALID_COUNT, formFromSeason, readCounts, sameForm } from '../../../../../lib/seasonForm';
 import type { SeasonForm } from '../../../../../lib/seasonForm';
+import { colors, tint } from '../../../../tokens.stylex';
+import { surfaces } from '../../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16 },
+
+	/* The three shortcuts off the top of the screen. Two across at every width,
+	   with the calendar link taking a row of its own, because its one line of
+	   explanation is longer than the two above it put together. */
+	tiles: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 },
+	tile: { borderRadius: 16, padding: 16 },
+	/*
+	 * The one tile that is a button rather than a link. `appearance: none` and
+	 * the inherited font are what stop it looking like a form control next to
+	 * the two links; the border and the background come from `glassCard`, so
+	 * this must not touch either.
+	 */
+	tileButton: {
+		appearance: 'none',
+		gridColumn: 'span 2',
+		color: 'inherit',
+		fontFamily: 'inherit',
+		textAlign: 'left',
+		cursor: 'pointer',
+	},
+	tileIcon: { color: colors.brand, marginBottom: 8, width: 24, height: 24 },
+	tileTitle: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	small: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+
+	card: { display: 'flex', flexDirection: 'column', gap: 16, borderRadius: 16, padding: 20 },
+	cardTight: { display: 'flex', flexDirection: 'column', gap: 12, borderRadius: 16, padding: 20 },
+	title: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+
+	/* Two across even on the narrowest phone: these are the pairs read as one
+	   question, day and kick-off, start and end, and the controls are a time, a
+	   date and a two-digit number. Same call as the new-season form. */
+	pair: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 },
+
+	/* A rule and a subheading, for the two groups of settings that are their own
+	   subject rather than another field. */
+	block: { borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: tint.white8, paddingTop: 16 },
+	blockTitle: { color: colors.ink, marginBottom: 4, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	blockNote: { color: colors.faint, marginBottom: 16, fontSize: 12, lineHeight: '16px' },
+	stack: { display: 'flex', flexDirection: 'column', gap: 16 },
+
+	stale: {
+		borderWidth: 1,
+		borderStyle: 'solid',
+		borderColor: tint.pending25,
+		backgroundColor: tint.pending8,
+		borderRadius: 12,
+		padding: 12,
+	},
+	staleBody: { color: colors.muted, fontSize: 14, lineHeight: 1.625 },
+	staleAction: { marginTop: 12 },
+
+	error: { color: colors.out, fontSize: 14, lineHeight: '20px' },
+});
 
 const SeasonAdminPage = () => {
 	const router = useRouter();
@@ -211,33 +270,33 @@ const SeasonAdminPage = () => {
 	return (
 		<>
 			<SeasonShell title='Admin' subtitle={season.name} backHref={`/s/${seasonId}`}>
-				<div className='space-y-4 p-4'>
-					<div className='grid grid-cols-2 gap-3'>
-						<Link href={`/s/${seasonId}/admin/members`} className='glass-card rounded-2xl p-4'>
-							<UsersIcon className='text-brand mb-2 size-6' aria-hidden='true' />
-							<p className='text-ink text-sm font-semibold'>Squad</p>
-							<p className='text-faint text-xs'>{season.memberUids.length} players</p>
+				<div {...stylex.props(styles.page)}>
+					<div {...stylex.props(styles.tiles)}>
+						<Link href={`/s/${seasonId}/admin/members`} {...stylex.props(surfaces.glassCard, styles.tile)}>
+							<UsersIcon {...stylex.props(styles.tileIcon)} aria-hidden='true' />
+							<p {...stylex.props(styles.tileTitle)}>Squad</p>
+							<p {...stylex.props(styles.small)}>{season.memberUids.length} players</p>
 						</Link>
 
-						<Link href={`/s/${seasonId}/admin/games`} className='glass-card rounded-2xl p-4'>
-							<CalendarDaysIcon className='text-brand mb-2 size-6' aria-hidden='true' />
-							<p className='text-ink text-sm font-semibold'>Games</p>
-							<p className='text-faint text-xs'>Generate &amp; edit</p>
+						<Link href={`/s/${seasonId}/admin/games`} {...stylex.props(surfaces.glassCard, styles.tile)}>
+							<CalendarDaysIcon {...stylex.props(styles.tileIcon)} aria-hidden='true' />
+							<p {...stylex.props(styles.tileTitle)}>Games</p>
+							<p {...stylex.props(styles.small)}>Generate &amp; edit</p>
 						</Link>
 
 						<button
 							type='button'
 							onClick={() => setSubscribeOpen(true)}
-							className='glass-card col-span-2 rounded-2xl p-4 text-left'
+							{...stylex.props(surfaces.glassCard, styles.tile, styles.tileButton)}
 						>
-							<CalendarIcon className='text-brand mb-2 size-6' aria-hidden='true' />
-							<p className='text-ink text-sm font-semibold'>Calendar link</p>
-							<p className='text-faint text-xs'>Get or rotate the season&apos;s subscribe link</p>
+							<CalendarIcon {...stylex.props(styles.tileIcon)} aria-hidden='true' />
+							<p {...stylex.props(styles.tileTitle)}>Calendar link</p>
+							<p {...stylex.props(styles.small)}>Get or rotate the season&apos;s subscribe link</p>
 						</button>
 					</div>
 
-					<section className='glass space-y-4 rounded-2xl p-5'>
-						<h2 className='text-ink font-semibold'>Season settings</h2>
+					<section {...stylex.props(surfaces.glass, styles.card)}>
+						<h2 {...stylex.props(styles.title)}>Season settings</h2>
 
 						<Field label='Name'>
 							<TextInput value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
@@ -270,7 +329,7 @@ const SeasonAdminPage = () => {
 							/>
 						</Field>
 
-						<div className='grid grid-cols-2 gap-3'>
+						<div {...stylex.props(styles.pair)}>
 							<Field label='Day'>
 								<Select
 									value={form.weekday}
@@ -293,7 +352,7 @@ const SeasonAdminPage = () => {
 							</Field>
 						</div>
 
-						<div className='grid grid-cols-2 gap-3'>
+						<div {...stylex.props(styles.pair)}>
 							<Field label='Season starts'>
 								<DatePicker
 									value={form.startDate}
@@ -306,7 +365,7 @@ const SeasonAdminPage = () => {
 							</Field>
 						</div>
 
-						<div className='grid grid-cols-2 gap-3'>
+						<div {...stylex.props(styles.pair)}>
 							<Field label='Slot' hint='Minutes the pitch is booked.'>
 								<TextInput
 									type='number'
@@ -350,14 +409,14 @@ const SeasonAdminPage = () => {
 							/>
 						</Field>
 
-						<div className='border-t border-white/8 pt-4'>
-							<h3 className='text-ink mb-1 text-sm font-semibold'>Team selection</h3>
-							<p className='text-faint mb-4 text-xs'>
+						<div {...stylex.props(styles.block)}>
+							<h3 {...stylex.props(styles.blockTitle)}>Team selection</h3>
+							<p {...stylex.props(styles.blockNote)}>
 								Teams are picked automatically from who is in and re-picked whenever somebody changes
 								their answer. These change how.
 							</p>
 
-							<div className='space-y-4'>
+							<div {...stylex.props(styles.stack)}>
 								<Field
 									label='Match length'
 									hint='Minutes per match. The rotation repeats to fill the slot, so shorter matches mean more of them.'
@@ -411,13 +470,13 @@ const SeasonAdminPage = () => {
 							</div>
 						</div>
 
-						<div className='border-t border-white/8 pt-4'>
-							<h3 className='text-ink mb-1 text-sm font-semibold'>The money</h3>
-							<p className='text-faint mb-4 text-xs'>
+						<div {...stylex.props(styles.block)}>
+							<h3 {...stylex.props(styles.blockTitle)}>The money</h3>
+							<p {...stylex.props(styles.blockNote)}>
 								What the season costs and what an extra pays. Who has paid it is on the finances screen.
 							</p>
 
-							<div className='space-y-4'>
+							<div {...stylex.props(styles.stack)}>
 								<Field
 									label='Season cost'
 									hint={`Kronor for the whole season, split equally between the members. ${describeShare}`}
@@ -466,15 +525,15 @@ const SeasonAdminPage = () => {
 						    a deliberate tap now instead of happening under the
 						    cursor. */}
 						{changedElsewhere && (
-							<div className='border-pending/25 bg-pending/8 rounded-xl border p-3'>
-								<p className='text-muted text-sm leading-relaxed'>
+							<div {...stylex.props(styles.stale)}>
+								<p {...stylex.props(styles.staleBody)}>
 									Somebody else has changed these settings since you opened this screen. Saving now
 									writes what is on this form over theirs.
 								</p>
 								<Button
 									variant='secondary'
 									size='sm'
-									className='mt-3'
+									sx={styles.staleAction}
 									onClick={() => {
 										if (!live) return;
 
@@ -487,13 +546,13 @@ const SeasonAdminPage = () => {
 							</div>
 						)}
 
-						{countError && <p className='text-out text-sm'>{countError}</p>}
+						{countError && <p {...stylex.props(styles.error)}>{countError}</p>}
 
 						<Button variant='primary' fullWidth onClick={handleSave}>
 							Save settings
 						</Button>
 
-						<p className='text-faint text-xs'>
+						<p {...stylex.props(styles.small)}>
 							Changing the day or time doesn&apos;t move games that already exist. Regenerate them from
 							the Games screen.
 						</p>
@@ -502,9 +561,9 @@ const SeasonAdminPage = () => {
 					{/* App-admin only, per the security rules, a season admin can run
 				    the season but not erase it. */}
 					{user?.isAppAdmin && (
-						<section className='glass space-y-3 rounded-2xl p-5'>
-							<h2 className='text-ink font-semibold'>Danger zone</h2>
-							<p className='text-faint text-xs'>
+						<section {...stylex.props(surfaces.glass, styles.cardTight)}>
+							<h2 {...stylex.props(styles.title)}>Danger zone</h2>
+							<p {...stylex.props(styles.small)}>
 								Deletes the season and every game, response and tournament result in it. This can&apos;t
 								be undone.
 							</p>

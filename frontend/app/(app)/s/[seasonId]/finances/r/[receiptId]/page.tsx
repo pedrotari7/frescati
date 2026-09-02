@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDownTrayIcon, DocumentTextIcon, LinkIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import { formatFileSize, receiptHref, receiptKindLabel } from '@shared/receipts';
 import { formatCivilDate } from '@shared/format';
 import { useSeasonContext } from '../../../../../../../components/SeasonProvider';
@@ -18,6 +19,32 @@ import EmptyState from '../../../../../../../components/EmptyState';
 import LoadFailed from '../../../../../../../components/LoadFailed';
 import Button from '../../../../../../../components/Button';
 import { CONTROL } from '../../../../../../../components/Field';
+import { colors, fonts } from '../../../../../../tokens.stylex';
+import { surfaces } from '../../../../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
+	card: { display: 'flex', flexDirection: 'column', gap: 16, borderRadius: 16, padding: 20 },
+	share: { display: 'flex', flexDirection: 'column', gap: 12, borderRadius: 16, padding: 20 },
+
+	head: { display: 'flex', alignItems: 'flex-start', gap: 12 },
+	doc: { color: colors.faint, marginTop: 2, width: 24, height: 24, flexShrink: 0 },
+	body: { minWidth: 0 },
+	/* Wraps mid-word rather than truncating. A receipt is named by whoever
+	   scanned it, so this is regularly one unbroken forty-character string, and
+	   an ellipsis on the one screen the file is identified from is no use. */
+	name: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600, overflowWrap: 'break-word' },
+	meta: { color: colors.faint, marginTop: 4, fontSize: 12, lineHeight: '16px' },
+	blurb: { color: colors.faint, fontSize: 12, lineHeight: 1.625 },
+	heading: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+
+	/* Monospaced so a link somebody has to read out loud has no ambiguous
+	   characters in it. */
+	link: { fontFamily: fonts.mono, fontSize: 12, lineHeight: '16px' },
+
+	download: { width: 20, height: 20 },
+	copy: { width: 16, height: 16 },
+});
 
 /**
  * One receipt, on a screen of its own.
@@ -123,13 +150,13 @@ const ReceiptPage = ({ params }: { params: Promise<{ seasonId: string; receiptId
 
 	return (
 		<SeasonShell title='Receipt' subtitle={season.name} backHref={books}>
-			<div className='space-y-6 p-4'>
-				<section className='glass space-y-4 rounded-2xl p-5'>
-					<div className='flex items-start gap-3'>
-						<DocumentTextIcon className='text-faint mt-0.5 size-6 shrink-0' aria-hidden='true' />
-						<div className='min-w-0'>
-							<h2 className='text-ink font-semibold break-words'>{receipt.name}</h2>
-							<p className='text-faint mt-1 text-xs'>
+			<div {...stylex.props(styles.page)}>
+				<section {...stylex.props(surfaces.glass, styles.card)}>
+					<div {...stylex.props(styles.head)}>
+						<DocumentTextIcon {...stylex.props(styles.doc)} aria-hidden='true' />
+						<div {...stylex.props(styles.body)}>
+							<h2 {...stylex.props(styles.name)}>{receipt.name}</h2>
+							<p {...stylex.props(styles.meta)}>
 								{receiptKindLabel(receipt.contentType)} · {formatFileSize(receipt.size)} · added by{' '}
 								{displayNameOf(usersByUid.get(receipt.uploadedBy))} on{' '}
 								{formatCivilDate(receipt.uploadedAt.slice(0, 10))}
@@ -138,19 +165,19 @@ const ReceiptPage = ({ params }: { params: Promise<{ seasonId: string; receiptId
 					</div>
 
 					<Button variant='primary' size='lg' fullWidth onClick={() => download(receipt)}>
-						<ArrowDownTrayIcon className='size-5' aria-hidden='true' />
+						<ArrowDownTrayIcon {...stylex.props(styles.download)} aria-hidden='true' />
 						Download
 					</Button>
 
-					<p className='text-faint text-xs leading-relaxed'>
+					<p {...stylex.props(styles.blurb)}>
 						Hand this to your employer if you claim friskv&aring;rdsbidrag. It is what says the money went
 						on playing football.
 					</p>
 				</section>
 
-				<section className='glass space-y-3 rounded-2xl p-5'>
-					<h2 className='text-ink font-semibold'>Share it</h2>
-					<p className='text-faint text-xs leading-relaxed'>
+				<section {...stylex.props(surfaces.glass, styles.share)}>
+					<h2 {...stylex.props(styles.heading)}>Share it</h2>
+					<p {...stylex.props(styles.blurb)}>
 						This link opens for anybody in {season.name} and for nobody else, so it is safe in the group
 						chat. It asks whoever follows it to sign in, the same as every other screen.
 					</p>
@@ -164,11 +191,11 @@ const ReceiptPage = ({ params }: { params: Promise<{ seasonId: string; receiptId
 						value={url}
 						onFocus={event => event.currentTarget.select()}
 						aria-label='Link to this receipt'
-						className={`${CONTROL} font-mono text-xs`}
+						{...stylex.props(CONTROL, styles.link)}
 					/>
 
 					<Button variant='secondary' fullWidth onClick={() => copyLink(receipt)}>
-						<LinkIcon className='size-4' aria-hidden='true' />
+						<LinkIcon {...stylex.props(styles.copy)} aria-hidden='true' />
 						Copy link
 					</Button>
 				</section>

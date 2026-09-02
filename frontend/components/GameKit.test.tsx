@@ -1,6 +1,15 @@
+import * as stylex from '@stylexjs/stylex';
 import { render, screen } from '@testing-library/react';
 import type { AppUser, GameResponse, KitItem, KitKind } from '@shared/types';
+import { tint } from '../app/tokens.stylex';
+import { stylesFor, stylesOf } from '../test/stylex';
 import GameKit from './GameKit';
+
+/* The two edges the strip is drawn with: something is missing, or nobody has said. */
+const expected = stylex.create({
+	severe: { borderColor: tint.out30 },
+	unconfirmed: { borderColor: tint.pending25 },
+});
 
 const user = (uid: string, displayName: string) => [uid, { uid, displayName, photoURL: null } as AppUser] as const;
 
@@ -121,12 +130,14 @@ describe('GameKit', () => {
 		// strip that painted both the same amber said they were.
 		it('goes red for something genuinely missing and amber for merely unconfirmed', () => {
 			const { container: unconfirmed } = draw([item('ball-1', 'ball', 'anna')], [], { compact: true });
-			expect(unconfirmed.querySelector('a')?.className).toContain('border-pending/25');
+			expect(stylesOf(unconfirmed.querySelector('a'))).toEqual(
+				expect.arrayContaining(stylesFor(expected.unconfirmed))
+			);
 
 			const { container: severe } = draw([item('ball-1', 'ball', 'anna')], [answer('anna', 'out')], {
 				compact: true,
 			});
-			expect(severe.querySelector('a')?.className).toContain('border-out/30');
+			expect(stylesOf(severe.querySelector('a'))).toEqual(expect.arrayContaining(stylesFor(expected.severe)));
 		});
 
 		it('takes the worse of two gaps for its colour', () => {
@@ -136,7 +147,7 @@ describe('GameKit', () => {
 				{ compact: true }
 			);
 
-			expect(container.querySelector('a')?.className).toContain('border-out/30');
+			expect(stylesOf(container.querySelector('a'))).toEqual(expect.arrayContaining(stylesFor(expected.severe)));
 		});
 	});
 });

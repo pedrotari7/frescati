@@ -151,6 +151,17 @@ export const utils = stylex.create({
 		},
 	},
 
+	/**
+	 * One line, cut with an ellipsis. Tailwind's `truncate`, which was on 60-odd
+	 * elements: every name in a roster, every label in the books.
+	 *
+	 * Three properties that only work together, which is the argument for it
+	 * being one export rather than three lines repeated. It still needs whatever
+	 * flex parent it sits in to allow shrinking, `minWidth: 0` on the item; that
+	 * part is local and stays at the call site.
+	 */
+	truncate: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+
 	/** A scroller with no visible bar, for the horizontal strips. */
 	noScrollbar: {
 		scrollbarWidth: 'none',
@@ -170,6 +181,59 @@ export const utils = stylex.create({
 	pbSafe: { paddingBottom: 'env(safe-area-inset-bottom, 0px)' },
 	ptSafe: { paddingTop: 'env(safe-area-inset-top, 0px)' },
 	mbSafe: { marginBottom: 'env(safe-area-inset-bottom, 0px)' },
+});
+
+/**
+ * The wash a pressable row takes under a finger or a pointer.
+ *
+ * Both states have to be one property, and the press has to be repeated inside
+ * the hover query, because StyleX settles a collision by priority rather than by
+ * source order. Measured on `backgroundColor`: the resting value scores 3000, a
+ * bare `:active` 3170, a `:hover` inside `@media (hover: hover)` 6130 and an
+ * `:active` inside it 6170. So a bare press loses to a hover it has nothing to
+ * do with, and only the copy inside the query outranks it. Written the obvious
+ * way, a click on a desktop shows the lighter hover wash and the press never
+ * lands. Tailwind got the same pair for free by writing `active:` after `hover:`
+ * in the sheet.
+ *
+ * One property, and the resting state is spelled out rather than left null,
+ * because a later style replaces a property outright: composed after a base
+ * that says `backgroundColor: transparent`, a null default would drop that and
+ * hand a `<button>` back to whatever the browser paints one. For the same
+ * reason a row that wants a resting colour of its own cannot get it by setting
+ * one after this; it has to carry the whole pair itself, the way the table's
+ * own row does.
+ *
+ * Colours only. Every row that uses this already declares its own transition,
+ * and folding one in here would silently retime whichever of them composed it
+ * last.
+ */
+export const press = stylex.create({
+	wash: {
+		backgroundColor: {
+			default: 'transparent',
+			':active': tint.white10,
+			[bp.hover]: { default: null, ':hover': tint.white5, ':active': tint.white10 },
+		},
+	},
+});
+
+/**
+ * A chevron that leans towards wherever its row goes, while the row is hovered.
+ *
+ * Tailwind wrote this as `group-hover:translate-x-0.5` on the chevron, which is
+ * a child reacting to its parent's state. StyleX has no parent selector and no
+ * `group`, so the parent sets a custom property on its own hover and the child
+ * reads it, which is what the `group` class was doing underneath anyway. Put
+ * `nudge.row` on the link and `nudge.chevron` on the icon inside it.
+ */
+export const nudge = stylex.create({
+	row: { '--nudge': { default: '0px', [bp.hover]: { default: null, ':hover': '2px' } } },
+	chevron: {
+		transform: 'translateX(var(--nudge, 0px))',
+		transitionProperty: 'transform',
+		transitionDuration: '0.2s',
+	},
 });
 
 /**

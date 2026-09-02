@@ -2,10 +2,10 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { Season } from '@shared/types';
 import PaymentTriggers from './PaymentTriggers';
 
-const warn = jest.fn();
+const mockWarn = jest.fn();
 
 jest.mock('./Toast', () => ({
-	useToast: () => ({ notify: jest.fn(), warn }),
+	useToast: () => ({ notify: jest.fn(), warn: mockWarn }),
 }));
 
 const aSeason = (overrides: Partial<Season> = {}): Season =>
@@ -122,7 +122,7 @@ describe('PaymentTriggers', () => {
 		expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
 			'https://app.swish.nu/1/p/sw/?sw=46701234567&amt=1000&cur=SEK&msg=Fall%202026%3A%20Anna%20Berg&src=qr'
 		);
-		expect(warn).not.toHaveBeenCalled();
+		expect(mockWarn).not.toHaveBeenCalled();
 	});
 
 	it('offers a number to type when the season has none set', () => {

@@ -1,6 +1,8 @@
 'use client';
 
 import { useId } from 'react';
+import * as stylex from '@stylexjs/stylex';
+import { bp, colors } from '../app/tokens.stylex';
 
 /**
  * A career as a line.
@@ -31,6 +33,25 @@ const PADDING = 3;
  */
 const MIN_SPAN = 10;
 
+const styles = stylex.create({
+	frame: { color: colors.brand, position: 'relative', height: { default: 96, [bp.sm]: 128 }, width: '100%' },
+	svg: { width: '100%', height: '100%', overflow: 'visible' },
+	dot: {
+		backgroundColor: colors.brand,
+		boxShadow: `0 0 0 2px ${colors.canvas}`,
+		position: 'absolute',
+		right: 0,
+		width: 10,
+		height: 10,
+		borderRadius: 9999,
+	},
+});
+
+/** Where the line ended, which is the only thing on this chart that moves. */
+const marker = stylex.create({
+	at: (top: string) => ({ top, transform: 'translate(50%, -50%)' }),
+});
+
 const RatingChart = ({ values, label }: { values: number[]; label: string }) => {
 	const gradientId = useId();
 
@@ -50,11 +71,11 @@ const RatingChart = ({ values, label }: { values: number[]; label: string }) => 
 	const line = `M${points.join(' L')}`;
 
 	return (
-		<div className='text-brand relative h-24 w-full sm:h-32'>
+		<div {...stylex.props(styles.frame)}>
 			<svg
 				viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
 				preserveAspectRatio='none'
-				className='size-full overflow-visible'
+				{...stylex.props(styles.svg)}
 				role='img'
 				aria-label={label}
 			>
@@ -79,8 +100,7 @@ const RatingChart = ({ values, label }: { values: number[]; label: string }) => 
 			</svg>
 
 			<span
-				className='bg-brand ring-canvas absolute size-2.5 translate-x-1/2 -translate-y-1/2 rounded-full ring-2'
-				style={{ right: 0, top: `${(y(values[values.length - 1]) / VIEW_HEIGHT) * 100}%` }}
+				{...stylex.props(styles.dot, marker.at(`${(y(values[values.length - 1]) / VIEW_HEIGHT) * 100}%`))}
 				aria-hidden='true'
 			/>
 		</div>

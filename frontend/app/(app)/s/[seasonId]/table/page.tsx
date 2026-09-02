@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { TrophyIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import { getRatingLadder, getSeasonTable, toDisplayMovement } from '@shared/leaderboard';
 import type { SeasonResult, SeasonSort } from '@shared/leaderboard';
 import { toDisplayRating } from '@shared/rating';
@@ -17,7 +18,111 @@ import EmptyState from '../../../../../components/EmptyState';
 import LoadFailed from '../../../../../components/LoadFailed';
 import Avatar from '../../../../../components/Avatar';
 import StatusPill from '../../../../../components/StatusPill';
-import { classNames } from '../../../../../lib/utils/reactHelper';
+import { bp, colors, tint } from '../../../../tokens.stylex';
+import { focus, surfaces, utils } from '../../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16 },
+
+	tabs: { display: 'flex', gap: 4, borderRadius: 16, padding: 4 },
+	tab: {
+		appearance: 'none',
+		borderWidth: 0,
+		backgroundColor: 'transparent',
+		height: 40,
+		flexGrow: 1,
+		borderRadius: 12,
+		fontFamily: 'inherit',
+		fontSize: 14,
+		lineHeight: '20px',
+		fontWeight: 600,
+		cursor: 'pointer',
+		transitionProperty: 'background-color, color',
+		transitionDuration: '0.2s',
+	},
+	/*
+	 * One complete declaration per state rather than a hover layered over a
+	 * base. A later style in a `stylex.props` call replaces a property outright,
+	 * conditions and all, so `{ ':hover': ink }` on top of `{ default: muted }`
+	 * would drop the resting colour instead of adding to it.
+	 */
+	tabOn: { backgroundColor: colors.brand, color: colors.canvas },
+	tabOff: { color: { default: colors.muted, [bp.hover]: { default: null, ':hover': colors.ink } } },
+
+	sortRow: { display: 'flex', alignItems: 'center', gap: 8, paddingInline: 4 },
+	sortLabel: { color: colors.faint, fontSize: 12, lineHeight: '16px', fontWeight: 600 },
+	sortGroup: { display: 'flex', gap: 4, borderRadius: 9999, padding: 4 },
+	sortChip: {
+		appearance: 'none',
+		borderWidth: 0,
+		backgroundColor: 'transparent',
+		height: 36,
+		borderRadius: 9999,
+		paddingInline: 12,
+		fontFamily: 'inherit',
+		fontSize: 12,
+		lineHeight: '16px',
+		fontWeight: 600,
+		cursor: 'pointer',
+		transitionProperty: 'background-color, color',
+		transitionDuration: '0.2s',
+	},
+	sortOn: { backgroundColor: tint.white12, color: colors.ink },
+	sortOff: { color: { default: colors.muted, [bp.hover]: { default: null, ':hover': colors.ink } } },
+
+	list: { overflow: 'hidden', borderRadius: 24 },
+	/* The dividers `divide-y` drew, moved onto the rows: StyleX has no sibling
+	   selector, so the rule has to hang off the row itself. Same shape as
+	   `Section`'s `listRow`, a shade lighter, which is what this list had. */
+	item: {
+		borderTopWidth: { default: 1, ':first-child': 0 },
+		borderTopStyle: 'solid',
+		borderTopColor: tint.white6,
+	},
+	row: {
+		display: 'flex',
+		alignItems: 'center',
+		gap: 12,
+		paddingInline: 16,
+		paddingBlock: 12,
+		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	/* Your own row keeps its wash and brightens on hover. Under Tailwind the
+	   hover rule won and took it from 6% to 5%, so pointing at yourself dimmed
+	   the one row that was meant to stand out. */
+	mine: { backgroundColor: { default: tint.white6, [bp.hover]: { default: null, ':hover': tint.white10 } } },
+
+	place: {
+		color: colors.faint,
+		width: 36,
+		flexShrink: 0,
+		fontSize: 12,
+		lineHeight: '16px',
+		fontWeight: 600,
+		fontVariantNumeric: 'tabular-nums',
+	},
+	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	name: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	played: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+	figure: {
+		color: colors.ink,
+		width: 40,
+		textAlign: 'right',
+		fontSize: 18,
+		lineHeight: '28px',
+		fontWeight: 700,
+		fontVariantNumeric: 'tabular-nums',
+	},
+
+	note: { color: colors.faint, paddingInline: 4, fontSize: 12, lineHeight: '16px' },
+
+	form: { display: 'flex', width: 48, flexShrink: 0, alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
+	dot: { width: 6, height: 6, borderRadius: 9999 },
+	won: { backgroundColor: colors.brand },
+	lost: { backgroundColor: tint.white20 },
+});
 
 type Tab = 'season' | 'all-time';
 
@@ -64,13 +169,13 @@ const FormDots = ({ form, timezone }: { form: SeasonResult[]; timezone: string }
 		aria-label={`Last ${counted(form.length, 'game')}, oldest first: ${form
 			.map(game => placeLabel(game.position))
 			.join(', ')}`}
-		className='flex w-12 shrink-0 items-center justify-end gap-1'
+		{...stylex.props(styles.form)}
 	>
 		{form.map(game => (
 			<span
 				key={game.gameId}
 				title={`${placeLabel(game.position)} · ${formatGameDate(game.kickoff, timezone)}`}
-				className={classNames('size-1.5 rounded-full', game.won ? 'bg-brand' : 'bg-white/20')}
+				{...stylex.props(styles.dot, game.won ? styles.won : styles.lost)}
 			/>
 		))}
 	</span>
@@ -117,14 +222,14 @@ const LeaderboardPage = () => {
 
 	return (
 		<SeasonShell title='Table' subtitle={season.name} backHref={`/s/${seasonId}`}>
-			<div className='space-y-4 p-4'>
+			<div {...stylex.props(styles.page)}>
 				{/* A pair of toggles rather than a tablist, which would want
 				    `aria-controls` and a `tabpanel` for a table that is just the
 				    rest of the page. `aria-pressed` is what says which one is on:
 				    without it the active tab was a colour and nothing else, so a
 				    screen reader got "This season, button. All time, button" with
 				    no way to tell which table was underneath. */}
-				<div className='glass flex gap-1 rounded-2xl p-1' role='group' aria-label='Which table to show'>
+				<div {...stylex.props(surfaces.glass, styles.tabs)} role='group' aria-label='Which table to show'>
 					{(
 						[
 							['season', 'This season'],
@@ -136,11 +241,7 @@ const LeaderboardPage = () => {
 							type='button'
 							aria-pressed={tab === key}
 							onClick={() => setTab(key)}
-							className={classNames(
-								'focus-visible:ring-brand/60 h-10 flex-1 rounded-xl text-sm font-semibold transition-colors',
-								'focus-visible:ring-2 focus-visible:outline-none',
-								tab === key ? 'bg-brand text-canvas' : 'text-muted hover:text-ink'
-							)}
+							{...stylex.props(styles.tab, focus.ring, tab === key ? styles.tabOn : styles.tabOff)}
 						>
 							{label}
 						</button>
@@ -154,13 +255,13 @@ const LeaderboardPage = () => {
 				    rather than green when it is on, so two rows of buttons don't
 				    read as two sets of tabs. */}
 				{tab === 'season' && (
-					<div className='flex items-center gap-2 px-1'>
-						<span id='season-sort-label' className='text-faint text-xs font-semibold'>
+					<div {...stylex.props(styles.sortRow)}>
+						<span id='season-sort-label' {...stylex.props(styles.sortLabel)}>
 							Sort
 						</span>
 
 						<div
-							className='glass flex gap-1 rounded-full p-1'
+							{...stylex.props(surfaces.glass, styles.sortGroup)}
 							role='group'
 							aria-labelledby='season-sort-label'
 						>
@@ -173,10 +274,10 @@ const LeaderboardPage = () => {
 									// h-9 because it is a thumb, not a pointer. The text
 									// is small to keep this behind the toggle above it.
 									// The target it sits in is not.
-									className={classNames(
-										'focus-visible:ring-brand/60 h-9 rounded-full px-3 text-xs font-semibold transition-colors',
-										'focus-visible:ring-2 focus-visible:outline-none',
-										sort === key ? 'text-ink bg-white/12' : 'text-muted hover:text-ink'
+									{...stylex.props(
+										styles.sortChip,
+										focus.ring,
+										sort === key ? styles.sortOn : styles.sortOff
 									)}
 								>
 									{label}
@@ -197,23 +298,18 @@ const LeaderboardPage = () => {
 						}
 					/>
 				) : (
-					<ul className='glass divide-y divide-white/6 overflow-hidden rounded-3xl'>
+					<ul {...stylex.props(surfaces.glass, styles.list)}>
 						{rows.map(row => {
 							const shared = rows.filter(other => other.position === row.position).length > 1;
 							const profile = usersByUid.get(row.uid);
 
 							return (
-								<li key={row.uid}>
+								<li key={row.uid} {...stylex.props(styles.item)}>
 									<Link
 										href={`/u/${row.uid}`}
-										className={classNames(
-											'flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5',
-											row.uid === user?.uid && 'bg-white/6'
-										)}
+										{...stylex.props(styles.row, row.uid === user?.uid && styles.mine)}
 									>
-										<span className='text-faint w-9 shrink-0 text-xs font-semibold tabular-nums'>
-											{placeLabel(row.position, shared)}
-										</span>
+										<span {...stylex.props(styles.place)}>{placeLabel(row.position, shared)}</span>
 
 										<Avatar
 											displayName={displayNameOf(profile)}
@@ -221,9 +317,9 @@ const LeaderboardPage = () => {
 											size='sm'
 										/>
 
-										<div className='min-w-0 flex-1'>
-											<p className='text-ink truncate text-sm font-semibold'>{name(row.uid)}</p>
-											<p className='text-faint text-xs'>
+										<div {...stylex.props(styles.body)}>
+											<p {...stylex.props(styles.name, utils.truncate)}>{name(row.uid)}</p>
+											<p {...stylex.props(styles.played)}>
 												{'wins' in row
 													? `${row.appearances} played · ${row.wins} won`
 													: `${row.games} played`}
@@ -238,7 +334,7 @@ const LeaderboardPage = () => {
 											<StatusPill tone='pending'>Settling</StatusPill>
 										)}
 
-										<span className='text-ink w-10 text-right text-lg font-bold tabular-nums'>
+										<span {...stylex.props(styles.figure)}>
 											{'elo' in row
 												? toDisplayRating(row.elo)
 												: signed(toDisplayMovement(row.movement))}
@@ -250,7 +346,7 @@ const LeaderboardPage = () => {
 					</ul>
 				)}
 
-				<p className='text-faint px-1 text-xs'>
+				<p {...stylex.props(styles.note)}>
 					{tab === 'season'
 						? `${SORT_NOTES[sort]} The dots are the last five games, oldest first, and a filled one is a win. The number reads the whole season and rounds once, so adding up the per game changes on a profile can land a point or two either side of it.`
 						: 'Your rating follows you across every season. It moves on how your team did against how it was expected to, so beating a stronger side is worth more, and beating them comfortably more again.'}

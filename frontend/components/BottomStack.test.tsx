@@ -1,5 +1,9 @@
+import * as stylex from '@stylexjs/stylex';
 import { render, screen } from '@testing-library/react';
+import { stylesFor, stylesOf } from '../test/stylex';
 import BottomStackHost, { BottomSlot } from './BottomStack';
+
+const expected = stylex.create({ first: { order: 1 }, third: { order: 3 } });
 
 describe('BottomStack', () => {
 	// Three things want the bottom of the screen and they live in three
@@ -42,8 +46,12 @@ describe('BottomStack', () => {
 			</>
 		);
 
-		expect(screen.getByText('update').parentElement).toHaveClass('order-1');
-		expect(screen.getByText('toast').parentElement).toHaveClass('order-3');
+		expect(stylesOf(screen.getByText('update').parentElement)).toEqual(
+			expect.arrayContaining(stylesFor(expected.first))
+		);
+		expect(stylesOf(screen.getByText('toast').parentElement)).toEqual(
+			expect.arrayContaining(stylesFor(expected.third))
+		);
 	});
 
 	it('draws nothing at all when there is no host to draw into', () => {

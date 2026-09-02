@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { AppUser } from '@shared/types';
 import { hasPlayed, toDisplayRating } from '@shared/rating';
 import { counted } from '@shared/format';
@@ -17,8 +17,57 @@ import Skeleton from '../../../../components/Skeleton';
 import Avatar from '../../../../components/Avatar';
 import Button from '../../../../components/Button';
 import StatusPill from '../../../../components/StatusPill';
-import { RangeInput, TextInput } from '../../../../components/Field';
-import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Section';
+import { RangeInput, SearchInput } from '../../../../components/Field';
+import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../components/Section';
+import { bp, colors, tint } from '../../../tokens.stylex';
+import { utils } from '../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
+	heading: { marginBottom: 8, paddingInline: 4 },
+
+	editor: {
+		marginTop: 12,
+		display: 'flex',
+		flexDirection: 'column',
+		gap: 12,
+		borderRadius: 12,
+		backgroundColor: tint.white5,
+		padding: 12,
+	},
+	hint: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+	actions: { display: 'flex', gap: 8 },
+	/* Save takes the room and Clear keeps its own width, so the destructive one
+	   is never the button under a thumb reaching for the other. */
+	save: { flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+
+	row: { paddingBlock: 12 },
+	person: { display: 'flex', alignItems: 'center', gap: 12 },
+	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	name: { color: colors.ink, fontSize: 14, lineHeight: '20px' },
+	meta: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+
+	rated: {
+		display: 'flex',
+		alignItems: 'center',
+		gap: 12,
+		paddingBlock: 12,
+		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	figure: {
+		color: colors.ink,
+		width: 40,
+		textAlign: 'right',
+		fontSize: 18,
+		lineHeight: '28px',
+		fontWeight: 700,
+		fontVariantNumeric: 'tabular-nums',
+	},
+
+	note: { color: colors.faint, marginTop: 12, paddingInline: 4, fontSize: 12, lineHeight: 1.625 },
+});
 
 /**
  * Starting ratings: what an admin knows about a player before the ladder does.
@@ -89,7 +138,7 @@ const StartingRatingEditor = ({
 	};
 
 	return (
-		<div className='mt-3 space-y-3 rounded-xl bg-white/5 p-3'>
+		<div {...stylex.props(styles.editor)}>
 			<RangeInput
 				min={0}
 				max={100}
@@ -99,10 +148,10 @@ const StartingRatingEditor = ({
 				onChange={event => setDraft(Number(event.target.value))}
 			/>
 
-			<p className='text-faint text-xs'>{describeRating(draft)}</p>
+			<p {...stylex.props(styles.hint)}>{describeRating(draft)}</p>
 
-			<div className='flex gap-2'>
-				<Button size='sm' variant='primary' className='flex-1' onClick={() => save(draft)}>
+			<div {...stylex.props(styles.actions)}>
+				<Button size='sm' variant='primary' sx={styles.save} onClick={() => save(draft)}>
 					Save
 				</Button>
 
@@ -137,13 +186,13 @@ const StartingRatingRow = ({
 	const current = player.rating ? toDisplayRating(player.rating.elo) : null;
 
 	return (
-		<div className='py-3'>
-			<div className='flex items-center gap-3'>
+		<div {...stylex.props(listRow, styles.row)}>
+			<div {...stylex.props(styles.person)}>
 				<Avatar displayName={player.displayName} photoURL={player.photoURL} />
 
-				<div className='min-w-0 flex-1'>
-					<p className='text-ink truncate text-sm'>{player.displayName}</p>
-					<p className='text-faint text-xs'>
+				<div {...stylex.props(styles.body)}>
+					<p {...stylex.props(styles.name, utils.truncate)}>{player.displayName}</p>
+					<p {...stylex.props(styles.meta)}>
 						{current === null
 							? 'On the group average'
 							: `Starts on ${current} · ${describeRating(current)}`}
@@ -200,23 +249,16 @@ const RatingsAdminPage = () => {
 
 	return (
 		<PageShell title='Starting ratings' subtitle={`${estimated.length} yet to play`} backHref='/me'>
-			<div className='space-y-6 p-4'>
-				<div className='relative'>
-					<MagnifyingGlassIcon
-						className='text-faint pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2'
-						aria-hidden='true'
-					/>
-					<TextInput
-						value={search}
-						onChange={e => setSearch(e.target.value)}
-						placeholder='Search by name'
-						className='pl-10'
-						type='search'
-					/>
-				</div>
+			<div {...stylex.props(styles.page)}>
+				<SearchInput
+					label='Search by name'
+					value={search}
+					onChange={e => setSearch(e.target.value)}
+					placeholder='Search by name'
+				/>
 
 				<section>
-					<SectionHeading className='mb-2 px-1'>Yet to play ({estimated.length})</SectionHeading>
+					<SectionHeading sx={styles.heading}>Yet to play ({estimated.length})</SectionHeading>
 
 					<ListCard>
 						{estimated.length === 0 && (
@@ -238,7 +280,7 @@ const RatingsAdminPage = () => {
 						))}
 					</ListCard>
 
-					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
+					<p {...stylex.props(styles.note)}>
 						Left alone, a new player is worth the average of the season&apos;s rated members, which is the
 						right guess for somebody you know nothing about, and the wrong one for somebody you do. A
 						starting rating counts from their first game: the balancer uses it, and their first few results
@@ -247,7 +289,7 @@ const RatingsAdminPage = () => {
 				</section>
 
 				<section>
-					<SectionHeading className='mb-2 px-1'>Rated ({rated.length})</SectionHeading>
+					<SectionHeading sx={styles.heading}>Rated ({rated.length})</SectionHeading>
 
 					<ListCard>
 						{rated.length === 0 && (
@@ -261,26 +303,20 @@ const RatingsAdminPage = () => {
 						    it are the answer. The estimated rows have a Set button,
 						    and a <button> inside an <a> is invalid. */}
 						{rated.map(player => (
-							<Link
-								key={player.uid}
-								href={`/u/${player.uid}`}
-								className='flex items-center gap-3 py-3 transition-colors hover:bg-white/5'
-							>
+							<Link key={player.uid} href={`/u/${player.uid}`} {...stylex.props(listRow, styles.rated)}>
 								<Avatar displayName={player.displayName} photoURL={player.photoURL} />
 
-								<div className='min-w-0 flex-1'>
-									<p className='text-ink truncate text-sm'>{player.displayName}</p>
-									<p className='text-faint text-xs'>{counted(player.rating!.games, 'rated game')}</p>
+								<div {...stylex.props(styles.body)}>
+									<p {...stylex.props(styles.name, utils.truncate)}>{player.displayName}</p>
+									<p {...stylex.props(styles.meta)}>{counted(player.rating!.games, 'rated game')}</p>
 								</div>
 
-								<span className='text-ink w-10 text-right text-lg font-bold tabular-nums'>
-									{toDisplayRating(player.rating!.elo)}
-								</span>
+								<span {...stylex.props(styles.figure)}>{toDisplayRating(player.rating!.elo)}</span>
 							</Link>
 						))}
 					</ListCard>
 
-					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
+					<p {...stylex.props(styles.note)}>
 						These are earned, so they are not editable here. Every rated game records what each player
 						carried into it, and a correction to any result rewinds and replays from there, an edit dropped
 						on top would be undone by the next one. Fix a wrong rating by fixing the scores behind it.

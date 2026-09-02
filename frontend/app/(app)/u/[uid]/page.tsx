@@ -3,6 +3,7 @@
 import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, TrophyIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import { FORM_LENGTH, getRatingLadder } from '@shared/leaderboard';
 import { getPlayerChemistry, getPlayerLinks, getPlayerRecord, getRatingTrend } from '@shared/player';
 import type { PlayerGame, PlayerLink } from '@shared/player';
@@ -23,7 +24,145 @@ import StatusPill from '../../../../components/StatusPill';
 import RatingChart from '../../../../components/RatingChart';
 import RatingMovement from '../../../../components/RatingMovement';
 import { SectionHeading } from '../../../../components/Section';
-import { classNames } from '../../../../lib/utils/reactHelper';
+import { bp, colors, tint } from '../../../tokens.stylex';
+import { surfaces, utils } from '../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16 },
+
+	/* Eleven px, small caps. The label under a figure and the caption over a run
+	   of rows are both labels on something else rather than text to read, which
+	   is why they sit a size below everything around them. */
+	caption: {
+		color: colors.faint,
+		fontSize: 11,
+		fontWeight: 600,
+		letterSpacing: '0.05em',
+		textTransform: 'uppercase',
+	},
+
+	/* Two across on a phone, four on anything wider. Four of these on a 320px
+	   row would break every one of the labels across two lines. */
+	stats: {
+		display: 'grid',
+		gridTemplateColumns: { default: 'repeat(2, minmax(0, 1fr))', [bp.sm]: 'repeat(4, minmax(0, 1fr))' },
+		gap: 12,
+	},
+	stat: { borderRadius: 16, padding: 12, textAlign: 'center' },
+	statValue: {
+		color: colors.ink,
+		fontSize: 24,
+		lineHeight: '32px',
+		fontWeight: 700,
+		fontVariantNumeric: 'tabular-nums',
+	},
+	statLabel: { marginTop: 2 },
+	statHint: { color: colors.faint, marginTop: 4, fontSize: 11 },
+
+	profile: { display: 'flex', alignItems: 'center', gap: 16, borderRadius: 24, padding: 20 },
+	identity: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	name: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	rank: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
+	pills: { marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 },
+	pillIcon: { width: 12, height: 12 },
+	ratingBox: { flexShrink: 0, textAlign: 'right' },
+	elo: {
+		color: colors.ink,
+		fontSize: 36,
+		lineHeight: '40px',
+		fontWeight: 700,
+		fontVariantNumeric: 'tabular-nums',
+	},
+
+	card: { borderRadius: 24, padding: 20 },
+	cardHead: { marginBottom: 16, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
+	headTight: { marginBottom: 12 },
+	cardTitle: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	small: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+	strong: { color: colors.ink, fontWeight: 600 },
+	chartNote: { color: colors.faint, marginTop: 16, fontSize: 12, lineHeight: 1.625 },
+
+	form: { display: 'flex', gap: 8 },
+	formCell: {
+		display: 'flex',
+		width: 40,
+		height: 40,
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderRadius: 12,
+		fontSize: 12,
+		lineHeight: '16px',
+		fontWeight: 700,
+	},
+	formWon: { backgroundColor: tint.brand15, color: colors.brand, boxShadow: `inset 0 0 0 1px ${tint.brand25}` },
+	formLost: { backgroundColor: tint.white6, color: colors.muted, boxShadow: `inset 0 0 0 1px ${tint.white10}` },
+	formNote: { color: colors.faint, marginTop: 12, fontSize: 12, lineHeight: '16px' },
+
+	heading: { marginBottom: 8, paddingInline: 4 },
+	chemistry: { marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 4, paddingInline: 4 },
+
+	list: { overflow: 'hidden', borderRadius: 24 },
+	/* The `divide-y divide-white/6` these two lists drew, moved onto the row:
+	   StyleX has no sibling selector, so the hairline hangs off the row itself. */
+	item: { borderTopWidth: { default: 1, ':first-child': 0 }, borderTopStyle: 'solid', borderTopColor: tint.white6 },
+	captionRow: { backgroundColor: tint.white5, paddingInline: 16, paddingBlock: 6 },
+	captionCols: { display: 'flex', alignItems: 'center', gap: 12 },
+	colPlayer: { flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	colNum: { width: 44, textAlign: 'right' },
+
+	rowLink: {
+		display: 'flex',
+		alignItems: 'center',
+		gap: 12,
+		paddingInline: 16,
+		paddingBlock: 12,
+		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	rowName: {
+		color: colors.ink,
+		minWidth: 0,
+		flexGrow: 1,
+		flexShrink: 1,
+		flexBasis: '0%',
+		fontSize: 14,
+		lineHeight: '20px',
+	},
+	rowNum: {
+		color: colors.muted,
+		width: 44,
+		textAlign: 'right',
+		fontSize: 12,
+		lineHeight: '16px',
+		fontVariantNumeric: 'tabular-nums',
+	},
+
+	place: {
+		width: 40,
+		flexShrink: 0,
+		fontSize: 12,
+		lineHeight: '16px',
+		fontWeight: 700,
+		fontVariantNumeric: 'tabular-nums',
+	},
+	placeWon: { color: colors.brand },
+	placeLost: { color: colors.faint },
+	trophy: { color: colors.pending, width: 16, height: 16, flexShrink: 0 },
+	flat: { color: colors.faint, fontSize: 12, lineHeight: '16px', fontVariantNumeric: 'tabular-nums' },
+	after: {
+		color: colors.faint,
+		width: 32,
+		textAlign: 'right',
+		fontSize: 12,
+		lineHeight: '16px',
+		fontVariantNumeric: 'tabular-nums',
+	},
+	chevron: { color: colors.faint, width: 16, height: 16, flexShrink: 0 },
+
+	note: { color: colors.faint, marginTop: 12, paddingInline: 4, fontSize: 12, lineHeight: 1.625 },
+	more: { marginTop: 12 },
+});
 
 /**
  * One player, across every season they have ever played.
@@ -55,10 +194,10 @@ const INITIAL_LINKS = 6;
 const MIN_LINK_GAMES = 4;
 
 const Stat = ({ label, value, hint }: { label: string; value: string; hint?: string }) => (
-	<div className='glass rounded-2xl p-3 text-center'>
-		<p className='text-ink text-2xl font-bold tabular-nums'>{value}</p>
-		<p className='text-faint mt-0.5 text-[11px] font-semibold tracking-wider uppercase'>{label}</p>
-		{hint && <p className='text-faint mt-1 text-[11px]'>{hint}</p>}
+	<div {...stylex.props(surfaces.glass, styles.stat)}>
+		<p {...stylex.props(styles.statValue)}>{value}</p>
+		<p {...stylex.props(styles.caption, styles.statLabel)}>{label}</p>
+		{hint && <p {...stylex.props(styles.statHint)}>{hint}</p>}
 	</div>
 );
 
@@ -134,25 +273,25 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 
 	return (
 		<PageShell title={player.displayName} {...shell}>
-			<div className='space-y-4 p-4'>
-				<section className='glass flex items-center gap-4 rounded-3xl p-5'>
+			<div {...stylex.props(styles.page)}>
+				<section {...stylex.props(surfaces.glass, styles.profile)}>
 					<Avatar displayName={player.displayName} photoURL={player.photoURL} size='lg' />
 
-					<div className='min-w-0 flex-1'>
-						<p className='text-ink truncate font-semibold'>{player.displayName}</p>
-						<p className='text-faint mt-0.5 truncate text-xs'>
+					<div {...stylex.props(styles.identity)}>
+						<p {...stylex.props(styles.name, utils.truncate)}>{player.displayName}</p>
+						<p {...stylex.props(styles.rank, utils.truncate)}>
 							{rank
 								? `${placeLabel(rank.position, ladder.filter(row => row.position === rank.position).length > 1)} of ${ladder.length} on the all-time ladder`
 								: 'Not on the ladder yet'}
 						</p>
 
-						<div className='mt-2 flex flex-wrap gap-1.5'>
+						<div {...stylex.props(styles.pills)}>
 							{isYou && <StatusPill tone='brand'>You</StatusPill>}
 							{/* Only when there is one to show. A "0" here would put the
 							    absence of an award on every profile in the group. */}
 							{record.motm > 0 && (
 								<StatusPill tone='pending'>
-									<TrophyIcon className='size-3' aria-hidden='true' />
+									<TrophyIcon {...stylex.props(styles.pillIcon)} aria-hidden='true' />
 									{record.motm} man of the match
 								</StatusPill>
 							)}
@@ -163,11 +302,9 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 						</div>
 					</div>
 
-					<div className='shrink-0 text-right'>
-						<p className='text-ink text-4xl font-bold tabular-nums'>
-							{rating ? toDisplayRating(rating.elo) : '—'}
-						</p>
-						<p className='text-faint text-[11px] font-semibold tracking-wider uppercase'>Rating</p>
+					<div {...stylex.props(styles.ratingBox)}>
+						<p {...stylex.props(styles.elo)}>{rating ? toDisplayRating(rating.elo) : '—'}</p>
+						<p {...stylex.props(styles.caption)}>Rating</p>
 					</div>
 				</section>
 
@@ -183,7 +320,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 					/>
 				) : (
 					<>
-						<div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
+						<div {...stylex.props(styles.stats)}>
 							<Stat label='Played' value={String(record.appearances)} />
 							<Stat
 								label='Won'
@@ -207,10 +344,10 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 						</div>
 
 						{trend.length > 1 && (
-							<section className='glass rounded-3xl p-5'>
-								<div className='mb-4 flex items-baseline justify-between gap-2'>
-									<h2 className='text-ink text-sm font-semibold'>Rating over time</h2>
-									<span className='text-faint text-xs'>
+							<section {...stylex.props(surfaces.glass, styles.card)}>
+								<div {...stylex.props(styles.cardHead)}>
+									<h2 {...stylex.props(styles.cardTitle)}>Rating over time</h2>
+									<span {...stylex.props(styles.small)}>
 										{trend[0]} → {trend[trend.length - 1]}
 									</span>
 								</div>
@@ -220,7 +357,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 									label={`Rating across ${record.appearances} games, from ${trend[0]} to ${trend[trend.length - 1]}`}
 								/>
 
-								<p className='text-faint mt-4 text-xs leading-relaxed'>
+								<p {...stylex.props(styles.chartNote)}>
 									A rating moves on how your team did against how it was expected to, so a win over a
 									stronger field is worth more than one over a weaker, and a comfortable win more than
 									a squeak.
@@ -228,25 +365,20 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 							</section>
 						)}
 
-						<section className='glass rounded-3xl p-5'>
-							<div className='mb-3 flex items-baseline justify-between gap-2'>
-								<h2 className='text-ink text-sm font-semibold'>Form</h2>
+						<section {...stylex.props(surfaces.glass, styles.card)}>
+							<div {...stylex.props(styles.cardHead, styles.headTight)}>
+								<h2 {...stylex.props(styles.cardTitle)}>Form</h2>
 								{record.currentRun > 1 && (
 									<StatusPill tone='brand'>{record.currentRun} in a row</StatusPill>
 								)}
 							</div>
 
 							{/* Oldest on the left, the way a form guide reads. */}
-							<ol className='flex gap-2'>
+							<ol {...stylex.props(styles.form)}>
 								{form.map(game => (
 									<li
 										key={game.gameId}
-										className={classNames(
-											'flex size-10 items-center justify-center rounded-xl text-xs font-bold ring-1 ring-inset',
-											game.won
-												? 'bg-brand/15 text-brand ring-brand/25'
-												: 'text-muted bg-white/6 ring-white/10'
-										)}
+										{...stylex.props(styles.formCell, game.won ? styles.formWon : styles.formLost)}
 										title={formatGameDate(
 											game.kickoff,
 											seasonsById.get(game.seasonId)?.slot.timezone ?? 'UTC'
@@ -257,21 +389,21 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 								))}
 							</ol>
 
-							<p className='text-faint mt-3 text-xs'>
+							<p {...stylex.props(styles.formNote)}>
 								Where their team finished in the last {counted(form.length, 'game')}, oldest first.
 							</p>
 						</section>
 
 						{links.length > 0 && (
 							<section>
-								<SectionHeading className='mb-2 px-1'>Played with ({links.length})</SectionHeading>
+								<SectionHeading sx={styles.heading}>Played with ({links.length})</SectionHeading>
 
 								{(chemistry.bestWith || chemistry.nemesis) && (
-									<div className='mb-2 space-y-1 px-1'>
+									<div {...stylex.props(styles.chemistry)}>
 										{chemistry.bestWith && (
-											<p className='text-faint text-xs'>
+											<p {...stylex.props(styles.small)}>
 												Wins most alongside{' '}
-												<span className='text-ink font-semibold'>
+												<span {...stylex.props(styles.strong)}>
 													{nameByUid(usersById, chemistry.bestWith.uid)}
 												</span>{' '}
 												, {chemistry.bestWith.wonTogether} of {chemistry.bestWith.together}{' '}
@@ -279,9 +411,9 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 											</p>
 										)}
 										{chemistry.nemesis && (
-											<p className='text-faint text-xs'>
+											<p {...stylex.props(styles.small)}>
 												Comes off worst against{' '}
-												<span className='text-ink font-semibold'>
+												<span {...stylex.props(styles.strong)}>
 													{nameByUid(usersById, chemistry.nemesis.uid)}
 												</span>{' '}
 												, {chemistry.nemesis.beat}–{chemistry.nemesis.drewWith}–
@@ -291,14 +423,21 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 									</div>
 								)}
 
-								<ul className='glass divide-y divide-white/6 overflow-hidden rounded-3xl'>
+								<ul {...stylex.props(surfaces.glass, styles.list)}>
 									{/* Two numbers need saying which is which, and the
 									    caption strip is already how this page labels a
 									    run of rows. */}
-									<li className='text-faint flex items-center gap-3 bg-white/5 px-4 py-1.5 text-[11px] font-semibold tracking-wider uppercase'>
-										<span className='flex-1'>Player</span>
-										<span className='w-11 text-right'>With</span>
-										<span className='w-11 text-right'>Vs</span>
+									<li
+										{...stylex.props(
+											styles.item,
+											styles.caption,
+											styles.captionRow,
+											styles.captionCols
+										)}
+									>
+										<span {...stylex.props(styles.colPlayer)}>Player</span>
+										<span {...stylex.props(styles.colNum)}>With</span>
+										<span {...stylex.props(styles.colNum)}>Vs</span>
 									</li>
 
 									{(showAllLinks ? links : links.slice(0, INITIAL_LINKS)).map(link => (
@@ -306,7 +445,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 									))}
 								</ul>
 
-								<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
+								<p {...stylex.props(styles.note)}>
 									Games their team won out of games on the same team, then games they finished above
 									out of games on opposite teams. A level finish counts for neither.
 									{linkedGames < record.appearances &&
@@ -317,7 +456,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 									<Button
 										variant='secondary'
 										fullWidth
-										className='mt-3'
+										sx={styles.more}
 										onClick={() => setShowAllLinks(!showAllLinks)}
 									>
 										{showAllLinks ? 'Show fewer' : `Show all ${links.length}`}
@@ -327,9 +466,9 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 						)}
 
 						<section>
-							<SectionHeading className='mb-2 px-1'>Every game ({record.appearances})</SectionHeading>
+							<SectionHeading sx={styles.heading}>Every game ({record.appearances})</SectionHeading>
 
-							<ul className='glass divide-y divide-white/6 overflow-hidden rounded-3xl'>
+							<ul {...stylex.props(surfaces.glass, styles.list)}>
 								{visible.map((game, index) => (
 									<GameRow
 										key={game.gameId}
@@ -346,7 +485,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 
 							{/* Two roundings sitting next to each other, which is a
 							    contradiction the group will spot before we do. */}
-							<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
+							<p {...stylex.props(styles.note)}>
 								Every change rounds to a whole point on its own, so a run of them will not always add up
 								to the rating on the right. That column comes straight off the stored rating and is what
 								the next game starts from.
@@ -361,7 +500,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 								<Button
 									variant='secondary'
 									fullWidth
-									className='mt-3'
+									sx={styles.more}
 									onClick={() => setShowAll(!showAll)}
 								>
 									{showAll ? 'Show fewer' : `Show all ${listed.length} games`}
@@ -387,24 +526,21 @@ const LinkRow = ({ link, profile }: { link: PlayerLink; profile: AppUser | null 
 	const name = displayNameOf(profile);
 
 	return (
-		<li>
-			<Link
-				href={`/u/${link.uid}`}
-				className='flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5'
-			>
+		<li {...stylex.props(styles.item)}>
+			<Link href={`/u/${link.uid}`} {...stylex.props(styles.rowLink)}>
 				<Avatar displayName={name} photoURL={profile?.photoURL} size='sm' />
 
-				<span className='text-ink min-w-0 flex-1 truncate text-sm'>{name}</span>
+				<span {...stylex.props(styles.rowName, utils.truncate)}>{name}</span>
 
 				<span
-					className='text-muted w-11 text-right text-xs tabular-nums'
+					{...stylex.props(styles.rowNum)}
 					title={`${link.wonTogether} of ${link.together} won on the same team`}
 				>
 					{link.together === 0 ? '—' : `${link.wonTogether}/${link.together}`}
 				</span>
 
 				<span
-					className='text-muted w-11 text-right text-xs tabular-nums'
+					{...stylex.props(styles.rowNum)}
 					title={`Finished above them in ${link.beat} of ${link.against}, level in ${link.drewWith}`}
 				>
 					{link.against === 0 ? '—' : `${link.beat}/${link.against}`}
@@ -422,31 +558,19 @@ const LinkRow = ({ link, profile }: { link: PlayerLink; profile: AppUser | null 
  * in step.
  */
 const GameRow = ({ game, seasonName, timezone }: { game: PlayerGame; seasonName?: string; timezone: string }) => (
-	<li>
-		{seasonName && (
-			<p className='text-faint bg-white/5 px-4 py-1.5 text-[11px] font-semibold tracking-wider uppercase'>
-				{seasonName}
-			</p>
-		)}
+	<li {...stylex.props(styles.item)}>
+		{seasonName && <p {...stylex.props(styles.caption, styles.captionRow)}>{seasonName}</p>}
 
-		<Link
-			href={`/s/${game.seasonId}/g/${game.gameId}/tournament`}
-			className='flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5'
-		>
-			<span
-				className={classNames(
-					'w-10 shrink-0 text-xs font-bold tabular-nums',
-					game.won ? 'text-brand' : 'text-faint'
-				)}
-			>
+		<Link href={`/s/${game.seasonId}/g/${game.gameId}/tournament`} {...stylex.props(styles.rowLink)}>
+			<span {...stylex.props(styles.place, game.won ? styles.placeWon : styles.placeLost)}>
 				{placeLabel(game.position)}
 			</span>
 
-			<span className='text-ink min-w-0 flex-1 truncate text-sm'>{formatGameDate(game.kickoff, timezone)}</span>
+			<span {...stylex.props(styles.rowName, utils.truncate)}>{formatGameDate(game.kickoff, timezone)}</span>
 
 			{game.motm && (
 				<TrophyIcon
-					className='text-pending size-4 shrink-0'
+					{...stylex.props(styles.trophy)}
 					aria-label='Man of the match'
 					// A title as well as a label: on a desktop this is the only
 					// explanation a hover can offer, and the row is otherwise numbers.
@@ -454,11 +578,11 @@ const GameRow = ({ game, seasonName, timezone }: { game: PlayerGame; seasonName?
 				/>
 			)}
 
-			<RatingMovement delta={game.delta} flat={<span className='text-faint text-xs tabular-nums'>—</span>} />
+			<RatingMovement delta={game.delta} flat={<span {...stylex.props(styles.flat)}>—</span>} />
 
-			<span className='text-faint w-8 text-right text-xs tabular-nums'>{toDisplayRating(game.after)}</span>
+			<span {...stylex.props(styles.after)}>{toDisplayRating(game.after)}</span>
 
-			<ChevronRightIcon className='text-faint size-4 shrink-0' aria-hidden='true' />
+			<ChevronRightIcon {...stylex.props(styles.chevron)} aria-hidden='true' />
 		</Link>
 	</li>
 );

@@ -1,6 +1,12 @@
+import * as stylex from '@stylexjs/stylex';
 import { render, screen } from '@testing-library/react';
 import type { FinanceSummary } from '@shared/finances';
+import { colors } from '../app/tokens.stylex';
+import { stylesFor, stylesOf } from '../test/stylex';
 import FinanceOverview from './FinanceOverview';
+
+/* A headline the group is square on reads green, one it is carrying reads red. */
+const expected = stylex.create({ covered: { color: colors.in }, overdrawn: { color: colors.out } });
 
 const books = (
 	entry: Partial<FinanceSummary['entry']> = {},
@@ -39,7 +45,9 @@ describe('FinanceOverview', () => {
 		render(<FinanceOverview summary={books({ collected: 31248, target: 31240, short: 0 })} memberCount={18} />);
 
 		expect(screen.getByTestId('season-shortfall')).toHaveTextContent('Paid for');
-		expect(screen.getByTestId('season-shortfall')).toHaveClass('text-in');
+		expect(stylesOf(screen.getByTestId('season-shortfall'))).toEqual(
+			expect.arrayContaining(stylesFor(expected.covered))
+		);
 	});
 
 	it('names the one member a bill is split between without pluralising them', () => {
@@ -64,6 +72,8 @@ describe('FinanceOverview', () => {
 		render(<FinanceOverview summary={books({}, { collected: 140, spent: 450, balance: -310 })} memberCount={18} />);
 
 		expect(screen.getByTestId('equipment-balance')).toHaveTextContent('-310 kr');
-		expect(screen.getByTestId('equipment-balance')).toHaveClass('text-out');
+		expect(stylesOf(screen.getByTestId('equipment-balance'))).toEqual(
+			expect.arrayContaining(stylesFor(expected.overdrawn))
+		);
 	});
 });

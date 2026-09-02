@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { aSeasonAdmin, escapeForRegExp, readCast, signInAs, someone } from './fixtures';
 import type { DevUser } from './fixtures';
 import { openSeasonAs, openTab, openTheBooks } from './helpers';
-import { AT, NO_PROFILE_YET, sectionUnder } from './locators';
+import { AT, NO_PROFILE_YET, gameRows, sectionUnder } from './locators';
 
 /**
  * The season's books: raising the charges, reporting a payment, paying, and what
@@ -129,8 +129,7 @@ const settleEverything = async (page: Page, name: string): Promise<void> => {
  * is, and the same row is there before and after the charge is settled.
  */
 const unanswered = (page: Page): Locator =>
-	sectionUnder(page, /^Coming up$/)
-		.locator('.glass-card')
+	gameRows(sectionUnder(page, /^Coming up$/))
 		.filter({ hasText: 'No answer' })
 		.first();
 

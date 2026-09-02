@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { AppUser, TournamentTeam } from '@shared/types';
 import { toDisplayRating } from '@shared/rating';
 import { counted } from '@shared/format';
@@ -10,7 +11,87 @@ import Avatar from './Avatar';
 import RatingMovement from './RatingMovement';
 import StatusPill from './StatusPill';
 import TeamBadge, { teamName, teamStyle } from './TeamBadge';
-import { classNames } from '../lib/utils/reactHelper';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { press, surfaces, utils } from '../lib/styles';
+
+const styles = stylex.create({
+	card: { overflow: 'hidden', borderRadius: 24 },
+	bib: { height: 6, width: '100%' },
+	body: { padding: 16 },
+	header: { marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+
+	identity: { display: 'flex', minWidth: 0, alignItems: 'center', gap: 10 },
+	identityButton: {
+		marginInline: -4,
+		borderRadius: 12,
+		paddingInline: 4,
+		paddingBlock: 4,
+		textAlign: 'left',
+		transitionProperty: 'background-color',
+		transitionDuration: '0.15s',
+	},
+	names: { minWidth: 0 },
+	teamName: { fontSize: 18, lineHeight: 1.25, fontWeight: 700 },
+	sub: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+
+	chip: { flexShrink: 0, borderRadius: 9999, paddingInline: 8, paddingBlock: 2, fontSize: 11, fontWeight: 600 },
+
+	list: { display: 'flex', flexDirection: 'column', gap: 4 },
+	row: {
+		display: 'flex',
+		alignItems: 'center',
+		borderRadius: 12,
+		transitionProperty: 'background-color',
+		transitionDuration: '0.15s',
+	},
+	highlighted: { backgroundColor: tint.white6 },
+
+	link: {
+		display: 'flex',
+		minWidth: 0,
+		flexGrow: 1,
+		alignItems: 'center',
+		gap: 10,
+		borderRadius: 12,
+		paddingInline: 8,
+		paddingBlock: 6,
+		transitionProperty: 'background-color',
+		transitionDuration: '0.15s',
+		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
+	},
+	name: {
+		minWidth: 0,
+		flexGrow: 1,
+		overflow: 'hidden',
+		textOverflow: 'ellipsis',
+		whiteSpace: 'nowrap',
+		fontSize: 14,
+		lineHeight: '20px',
+		color: colors.ink,
+	},
+	struck: { color: colors.muted, textDecorationLine: 'line-through' },
+	movement: { fontSize: 11 },
+	elo: { color: colors.faint, fontSize: 12, lineHeight: '16px', fontVariantNumeric: 'tabular-nums' },
+
+	move: {
+		color: colors.faint,
+		marginRight: 4,
+		display: 'flex',
+		width: 36,
+		height: 36,
+		flexShrink: 0,
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderRadius: 12,
+		transitionProperty: 'color, background-color',
+		transitionDuration: '0.15s',
+	},
+	movable: { color: { default: colors.faint, [bp.hover]: { default: null, ':hover': colors.ink } } },
+	stuck: { opacity: 0.3 },
+	moveIcon: { width: 16, height: 16 },
+
+	rotating: { color: colors.faint, marginTop: 12, fontSize: 11 },
+});
 
 /**
  * One squad's team sheet.
@@ -43,7 +124,7 @@ const TeamCard = ({
 	 * Anyone on this sheet who is no longer in the playing pool. Only possible
 	 * on a hand-picked lineup, which stops being re-picked, so the sheet can
 	 * outlive somebody's answer, and saying nothing would leave a squad quietly
-	 * a man short on the night.
+	 * a man short on the game.
 	 */
 	notPlaying?: Set<string>;
 	/**
@@ -81,9 +162,9 @@ const TeamCard = ({
 		<>
 			<TeamBadge index={team.index} size='md' />
 
-			<div className='min-w-0'>
-				<p className={classNames('text-lg leading-tight font-bold', style.text)}>Team {teamName(team.index)}</p>
-				<p className='text-faint text-xs'>
+			<div {...stylex.props(styles.names)}>
+				<p {...stylex.props(styles.teamName, style.text)}>Team {teamName(team.index)}</p>
+				<p {...stylex.props(styles.sub)}>
 					{counted(team.uids.length, 'player')}
 					{onChangeLetter && ' · tap to swap'}
 				</p>
@@ -92,12 +173,12 @@ const TeamCard = ({
 	);
 
 	return (
-		<section className={classNames('glass overflow-hidden rounded-3xl ring-1', style.ring)}>
+		<section {...stylex.props(surfaces.glass, styles.card, style.ring)}>
 			{/* Reads as a bib from across the card, before any letter has been. */}
-			<div className={classNames('h-1.5 w-full', style.bar)} aria-hidden='true' />
+			<div {...stylex.props(styles.bib, style.bar)} aria-hidden='true' />
 
-			<div className='p-4'>
-				<header className='mb-3 flex items-center justify-between gap-2'>
+			<div {...stylex.props(styles.body)}>
+				<header {...stylex.props(styles.header)}>
 					{/* The letter is the biggest thing on the card and the thing being
 					    changed, so it is the target rather than a control of its own.
 					    But only a button when there is somebody who can press it. A
@@ -108,27 +189,20 @@ const TeamCard = ({
 							type='button'
 							onClick={onChangeLetter}
 							aria-label={`Change which team ${teamName(team.index)} is`}
-							className='-mx-1 flex min-w-0 items-center gap-2.5 rounded-xl px-1 py-1 text-left transition-colors hover:bg-white/5 active:bg-white/10'
+							{...stylex.props(styles.identity, styles.identityButton, press.wash)}
 						>
 							{identity}
 						</button>
 					) : (
-						<div className='flex min-w-0 items-center gap-2.5'>{identity}</div>
+						<div {...stylex.props(styles.identity)}>{identity}</div>
 					)}
 
 					{average !== null && (
-						<span
-							className={classNames(
-								'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold',
-								style.chip
-							)}
-						>
-							avg {toDisplayRating(average)}
-						</span>
+						<span {...stylex.props(styles.chip, style.chip)}>avg {toDisplayRating(average)}</span>
 					)}
 				</header>
 
-				<ul className='space-y-1'>
+				<ul {...stylex.props(styles.list)}>
 					{team.uids.map(uid => {
 						const user = usersByUid.get(uid);
 						const elo = elos[uid];
@@ -139,35 +213,21 @@ const TeamCard = ({
 						const dropped = !noShow && notPlaying?.has(uid) === true;
 
 						return (
-							<li
-								key={uid}
-								className={classNames(
-									'flex items-center rounded-xl transition-colors',
-									uid === highlightUid && 'bg-white/6'
-								)}
-							>
+							<li key={uid} {...stylex.props(styles.row, uid === highlightUid && styles.highlighted)}>
 								{/* Only the name is the link. An admin's move button sits
 								    beside it, and a <button> inside an <a> is invalid and
 								    breaks keyboard navigation. */}
-								<Link
-									href={`/u/${uid}`}
-									className='flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/5'
-								>
+								<Link href={`/u/${uid}`} {...stylex.props(styles.link)}>
 									<Avatar displayName={displayNameOf(user)} photoURL={user?.photoURL} size='sm' />
 									{/* Full name, like every other list of people in the app: a team
 									    sheet is where two Davids have to be told apart. */}
-									<span
-										className={classNames(
-											'min-w-0 flex-1 truncate text-sm',
-											noShow || dropped ? 'text-muted line-through' : 'text-ink'
-										)}
-									>
+									<span {...stylex.props(styles.name, (noShow || dropped) && styles.struck)}>
 										{displayNameOf(user)}
 									</span>
 									{noShow && <StatusPill tone='out'>No-show</StatusPill>}
 									{dropped && <StatusPill tone='out'>Out</StatusPill>}
-									<RatingMovement delta={deltas?.get(uid)} className='text-[11px]' />
-									<span className='text-faint text-xs tabular-nums'>
+									<RatingMovement delta={deltas?.get(uid)} sx={styles.movement} />
+									<span {...stylex.props(styles.elo)}>
 										{typeof elo === 'number' ? toDisplayRating(elo) : '–'}
 									</span>
 								</Link>
@@ -191,14 +251,13 @@ const TeamCard = ({
 												? "The only player on a team can't be moved, a team with nobody on it still gets a fixture."
 												: undefined
 										}
-										className={classNames(
-											'text-faint tap-44 mr-1 flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors',
-											isOnlyTeammate
-												? 'opacity-30'
-												: 'hover:text-ink hover:bg-white/5 active:bg-white/10'
+										{...stylex.props(
+											styles.move,
+											utils.tap44,
+											isOnlyTeammate ? styles.stuck : [styles.movable, press.wash]
 										)}
 									>
-										<ArrowsRightLeftIcon className='size-4' aria-hidden='true' />
+										<ArrowsRightLeftIcon {...stylex.props(styles.moveIcon)} aria-hidden='true' />
 									</button>
 								)}
 							</li>
@@ -207,7 +266,7 @@ const TeamCard = ({
 				</ul>
 
 				{rotating > 0 && (
-					<p className='text-faint mt-3 text-[11px]'>
+					<p {...stylex.props(styles.rotating)}>
 						{sideSize} on the pitch · {rotating} rotating
 					</p>
 				)}

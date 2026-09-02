@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
@@ -13,6 +14,71 @@ import type { DebtLock } from './RespondControl';
 import RespondControl from './RespondControl';
 import StatusPill from './StatusPill';
 import WatchToggle from './WatchToggle';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { animations, elevation, focus, nudge, surfaces } from '../lib/styles';
+
+const styles = stylex.create({
+	card: { position: 'relative', overflow: 'hidden', borderRadius: 24, padding: 20 },
+	glow: {
+		backgroundColor: tint.brand20,
+		pointerEvents: 'none',
+		position: 'absolute',
+		top: -96,
+		right: -80,
+		width: 224,
+		height: 224,
+		borderRadius: 9999,
+		filter: 'blur(64px)',
+	},
+	inner: { position: 'relative' },
+
+	/*
+	 * The gap below is wider than it looks: both neighbours paint outside their
+	 * layout box, the bell's 44px circle hangs 8px below this row, and the link
+	 * panel's hover surface reaches 8px above its text, so anything under 16px
+	 * has the panel's corner painting over the bell.
+	 */
+	topRow: { marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+	pills: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+	relative: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+
+	link: {
+		marginInline: -8,
+		marginBlock: -8,
+		display: 'block',
+		borderRadius: 16,
+		paddingInline: 8,
+		paddingBlock: 8,
+		backgroundColor: {
+			default: null,
+			':active': tint.white5,
+			[bp.hover]: { default: null, ':hover': tint.white5 },
+		},
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	linkRow: { display: 'flex', alignItems: 'center', gap: 12 },
+	linkBody: { minWidth: 0, flexGrow: 1, flexBasis: '0%' },
+
+	date: { color: colors.ink, fontSize: 24, lineHeight: 1.25, fontWeight: 700 },
+	time: {
+		color: colors.brand,
+		marginTop: 2,
+		fontSize: 30,
+		lineHeight: '36px',
+		fontWeight: 700,
+		fontVariantNumeric: 'tabular-nums',
+	},
+	venue: { color: colors.muted, marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 },
+	pin: { width: 16, height: 16, flexShrink: 0 },
+	lead: { color: colors.brand, marginTop: 8, fontSize: 12, lineHeight: '16px', fontWeight: 600 },
+	chevron: { color: colors.faint, width: 20, height: 20, flexShrink: 0 },
+
+	bar: { marginTop: 20 },
+	off: { color: colors.out, marginTop: 20, fontSize: 14, lineHeight: '20px' },
+	respond: { marginTop: 20 },
+	closed: { color: colors.faint, marginTop: 12, textAlign: 'center', fontSize: 12, lineHeight: '16px' },
+});
 
 /**
  * The whole point of the app on one card: when the next game is, whether it's
@@ -68,25 +134,16 @@ const NextGameHero = ({
 	const { usersByUid } = useUsersByUid();
 
 	return (
-		<section className='glass animate-rise shadow-glass relative overflow-hidden rounded-3xl p-5'>
-			<div
-				className='bg-brand/20 pointer-events-none absolute -top-24 -right-20 size-56 rounded-full blur-3xl'
-				aria-hidden='true'
-			/>
+		<section {...stylex.props(surfaces.glass, elevation.glass, animations.rise, styles.card)}>
+			<div {...stylex.props(styles.glow)} aria-hidden='true' />
 
-			<div className='relative'>
+			<div {...stylex.props(styles.inner)}>
 				{/* The pills wrap on a narrow phone; the bell stays pinned to the
-				    top-right of the card rather than wrapping with them.
-
-				    The gap below is wider than it looks: both neighbours paint
-				    outside their layout box, the bell's 44px circle hangs 8px
-				    below this row, and the link panel's hover surface reaches
-				    8px above its text, so anything under 16px has the panel's
-				    corner painting over the bell. */}
-				<div className='mb-5 flex items-center justify-between gap-2'>
-					<div className='flex flex-wrap items-center gap-2'>
+				    top-right of the card rather than wrapping with them. */}
+				<div {...stylex.props(styles.topRow)}>
+					<div {...stylex.props(styles.pills)}>
 						<StatusPill tone='brand'>Next game</StatusPill>
-						<span className='text-faint text-xs'>{formatRelative(game.kickoff)}</span>
+						<span {...stylex.props(styles.relative)}>{formatRelative(game.kickoff)}</span>
 						{lifecycle === 'cancelled' && <StatusPill tone='out'>Cancelled</StatusPill>}
 						{lifecycle === 'locked' && <StatusPill tone='neutral'>Locked</StatusPill>}
 						{lifecycle === 'live' && <StatusPill tone='in'>Playing now</StatusPill>}
@@ -104,35 +161,25 @@ const NextGameHero = ({
 				    padding, so the panel is bigger than the text without moving it.
 				    Only this block is a link, the bell and the answer buttons are
 				    inside the card too, and nesting them in one would swallow them. */}
-				<Link
-					href={`/s/${season.id}/g/${game.id}`}
-					className='group focus-visible:ring-brand/60 -mx-2 -my-2 block rounded-2xl px-2 py-2 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none active:bg-white/5'
-				>
-					<div className='flex items-center gap-3'>
-						<div className='min-w-0 flex-1'>
-							<h2 className='text-ink text-2xl leading-tight font-bold'>
-								{formatGameDateLong(game.kickoff, timezone)}
-							</h2>
-							<p className='text-brand mt-0.5 text-3xl font-bold tabular-nums'>
-								{formatGameTime(game.kickoff, timezone)}
-							</p>
-							<p className='text-muted mt-2 flex items-center gap-1.5 text-sm'>
-								<MapPinIcon className='size-4 shrink-0' aria-hidden='true' />
+				<Link href={`/s/${season.id}/g/${game.id}`} {...stylex.props(focus.ring, nudge.row, styles.link)}>
+					<div {...stylex.props(styles.linkRow)}>
+						<div {...stylex.props(styles.linkBody)}>
+							<h2 {...stylex.props(styles.date)}>{formatGameDateLong(game.kickoff, timezone)}</h2>
+							<p {...stylex.props(styles.time)}>{formatGameTime(game.kickoff, timezone)}</p>
+							<p {...stylex.props(styles.venue)}>
+								<MapPinIcon {...stylex.props(styles.pin)} aria-hidden='true' />
 								{game.venue.name}
 							</p>
-							<p className='text-brand mt-2 text-xs font-semibold'>
+							<p {...stylex.props(styles.lead)}>
 								{lifecycle === 'cancelled' ? 'Game details' : "See who's playing"}
 							</p>
 						</div>
 
-						<ChevronRightIcon
-							className='text-faint size-5 shrink-0 transition-transform group-hover:translate-x-0.5'
-							aria-hidden='true'
-						/>
+						<ChevronRightIcon {...stylex.props(styles.chevron, nudge.chevron)} aria-hidden='true' />
 					</div>
 				</Link>
 
-				<HeadcountBar game={liveGame} season={season} className='mt-5' />
+				<HeadcountBar game={liveGame} season={season} sx={styles.bar} />
 
 				{/* Only ever drawn when something required is genuinely missing,
 				    which is the point: this card is what most people ever look
@@ -143,10 +190,10 @@ const NextGameHero = ({
 				)}
 
 				{lifecycle === 'cancelled' ? (
-					<p className='text-out mt-5 text-sm'>{game.cancelledReason || 'This game is off.'}</p>
+					<p {...stylex.props(styles.off)}>{game.cancelledReason || 'This game is off.'}</p>
 				) : (
 					<>
-						<div className='mt-5'>
+						<div {...stylex.props(styles.respond)}>
 							<RespondControl
 								response={myResponse}
 								onRespond={onRespond}
@@ -157,7 +204,7 @@ const NextGameHero = ({
 						</div>
 
 						{lifecycle === 'locked' && (
-							<p className='text-faint mt-3 text-center text-xs'>
+							<p {...stylex.props(styles.closed)}>
 								Answers closed {season.responseDeadlineHours}h before kickoff. Ask an admin if you need
 								to change yours.
 							</p>

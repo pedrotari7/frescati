@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { CheckCircleIcon, CheckIcon, XCircleIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import * as stylex from '@stylexjs/stylex';
+import type { StyleXStyles } from '@stylexjs/stylex';
 import type { GameResponse, ResponseStatus } from '@shared/types';
 import { getExtraSpot } from '@shared/game';
 import { formatSek } from '@shared/format';
-import { classNames } from '../lib/utils/reactHelper';
+import { bp, colors, shadows, tint } from '../app/tokens.stylex';
 import { useToast } from './Toast';
 import { hapticLight, hapticSuccess } from '../lib/utils/haptics';
 import { captureError } from '../lib/sentry';
@@ -23,11 +25,31 @@ import { captureError } from '../lib/sentry';
  */
 type Standing = 'chosen' | 'offered' | 'passedOver';
 
-/**
- * The half you did not take, drained of its colour. On an answered pair, colour
- * is what says which one is yours, so only one half may carry any.
- */
-const PASSED_OVER = 'bg-white/5 text-muted ring-white/10 hover:bg-white/10 hover:text-ink ring-1 ring-inset';
+const halves = stylex.create({
+	/**
+	 * The half you did not take, drained of its colour. On an answered pair,
+	 * colour is what says which one is yours, so only one half may carry any.
+	 */
+	passedOver: {
+		backgroundColor: { default: tint.white5, [bp.hover]: { default: null, ':hover': tint.white10 } },
+		color: { default: colors.muted, [bp.hover]: { default: null, ':hover': colors.ink } },
+		boxShadow: `inset 0 0 0 1px ${tint.white10}`,
+	},
+
+	inChosen: { backgroundColor: colors.in, color: colors.canvas, boxShadow: shadows.lift },
+	inOffered: {
+		backgroundColor: { default: tint.in10, [bp.hover]: { default: null, ':hover': tint.in20 } },
+		color: colors.in,
+		boxShadow: `inset 0 0 0 1px ${tint.in25}`,
+	},
+
+	outChosen: { backgroundColor: colors.out, color: colors.canvas, boxShadow: shadows.lift },
+	outOffered: {
+		backgroundColor: { default: tint.out10, [bp.hover]: { default: null, ':hover': tint.out20 } },
+		color: colors.out,
+		boxShadow: `inset 0 0 0 1px ${tint.out25}`,
+	},
+});
 
 /**
  * How much of the row each half gets. The answer takes more of it, so the pair
@@ -37,10 +59,16 @@ const PASSED_OVER = 'bg-white/5 text-muted ring-white/10 hover:bg-white/10 hover
  * the half giving the width up, so a heavier tilt wraps it onto two lines on a
  * phone.
  */
-const WIDTHS: Record<Standing, string> = {
-	chosen: 'flex-[1.3]',
-	offered: 'flex-1',
-	passedOver: 'flex-1',
+const widths = stylex.create({
+	chosen: { flexGrow: 1.3, flexShrink: 1, flexBasis: '0%' },
+	offered: { flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	passedOver: { flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+});
+
+const WIDTHS: Record<Standing, StyleXStyles> = {
+	chosen: widths.chosen,
+	offered: widths.offered,
+	passedOver: widths.passedOver,
 };
 
 const OPTIONS: {
@@ -49,31 +77,64 @@ const OPTIONS: {
 	/** What the half says once it is the answer: a state, where the other one is still an action. */
 	chosenLabel: string;
 	icons: Record<'chosen' | 'other', typeof CheckIcon>;
-	styles: Record<Standing, string>;
+	styles: Record<Standing, StyleXStyles>;
 }[] = [
 	{
 		status: 'in',
 		label: "I'm in",
 		chosenLabel: "You're in",
 		icons: { chosen: CheckCircleIcon, other: CheckIcon },
-		styles: {
-			chosen: 'bg-in text-canvas shadow-lift',
-			offered: 'bg-in/10 text-in ring-in/25 hover:bg-in/20 ring-1 ring-inset',
-			passedOver: PASSED_OVER,
-		},
+		styles: { chosen: halves.inChosen, offered: halves.inOffered, passedOver: halves.passedOver },
 	},
 	{
 		status: 'out',
 		label: "Can't make it",
 		chosenLabel: "You're out",
 		icons: { chosen: XCircleIcon, other: XMarkIcon },
-		styles: {
-			chosen: 'bg-out text-canvas shadow-lift',
-			offered: 'bg-out/10 text-out ring-out/25 hover:bg-out/20 ring-1 ring-inset',
-			passedOver: PASSED_OVER,
-		},
+		styles: { chosen: halves.outChosen, offered: halves.outOffered, passedOver: halves.passedOver },
 	},
 ];
+
+const styles = stylex.create({
+	root: { width: '100%' },
+	pair: { display: 'flex', width: '100%' },
+	pairLg: { gap: 12 },
+	pairSm: { gap: 8 },
+
+	half: {
+		display: 'flex',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 8,
+		fontWeight: 600,
+		transitionProperty: 'background-color, color, box-shadow, transform, opacity',
+		transitionDuration: '0.15s',
+		opacity: { default: null, ':disabled': 0.4 },
+		transform: { default: null, ':active': 'scale(0.98)' },
+	},
+	halfLg: { height: 56, borderRadius: 16, fontSize: 16, lineHeight: '24px' },
+	halfSm: { height: 40, borderRadius: 12, paddingInline: 8, fontSize: 14, lineHeight: '20px' },
+
+	iconLg: { width: 20, height: 20 },
+	iconSm: { width: 16, height: 16 },
+
+	withdrawRow: { marginTop: 8, display: 'flex', justifyContent: 'center' },
+	withdraw: {
+		color: { default: colors.faint, [bp.hover]: { default: null, ':hover': colors.muted } },
+		borderRadius: 8,
+		paddingInline: 12,
+		paddingBlock: 6,
+		fontSize: 12,
+		lineHeight: '16px',
+		fontWeight: 500,
+		transitionProperty: 'color',
+		transitionDuration: '0.2s',
+		opacity: { default: null, ':disabled': 0.4 },
+	},
+
+	note: { color: colors.faint, marginTop: 8, textAlign: 'center', fontSize: 12, lineHeight: 1.625 },
+	settle: { color: colors.brand, fontWeight: 600 },
+});
 
 /**
  * What an unpaid charge does to an In button, passed down from `SeasonProvider`
@@ -212,16 +273,11 @@ const RespondControl = ({
 	 * this component promises.
 	 */
 	const busy = disabled || pending !== null;
-
-	const base = classNames(
-		'flex items-center justify-center gap-2 font-semibold transition-all duration-150',
-		'disabled:opacity-40 active:scale-[0.98]',
-		size === 'lg' ? 'h-14 rounded-2xl text-base' : 'h-10 rounded-xl px-2 text-sm'
-	);
+	const large = size === 'lg';
 
 	return (
-		<div className='w-full'>
-			<div className={classNames('flex w-full', size === 'lg' ? 'gap-3' : 'gap-2')}>
+		<div {...stylex.props(styles.root)}>
+			<div {...stylex.props(styles.pair, large ? styles.pairLg : styles.pairSm)}>
 				{OPTIONS.map(option => {
 					const chosen = status === option.status;
 					const standing: Standing = chosen ? 'chosen' : status ? 'passedOver' : 'offered';
@@ -234,9 +290,14 @@ const RespondControl = ({
 							disabled={busy || refusedByDebt(option.status)}
 							aria-pressed={chosen}
 							onClick={() => choose(option.status)}
-							className={classNames(base, WIDTHS[standing], option.styles[standing])}
+							{...stylex.props(
+								styles.half,
+								large ? styles.halfLg : styles.halfSm,
+								WIDTHS[standing],
+								option.styles[standing]
+							)}
 						>
-							<Icon className={size === 'lg' ? 'size-5' : 'size-4'} aria-hidden='true' />
+							<Icon {...stylex.props(large ? styles.iconLg : styles.iconSm)} aria-hidden='true' />
 							{pending === option.status
 								? 'Saving…'
 								: chosen && answerHonoured
@@ -252,13 +313,8 @@ const RespondControl = ({
 			    answers are closed, along with everything else there is no longer
 			    any point offering. */}
 			{status && !disabled && (
-				<div className='mt-2 flex justify-center'>
-					<button
-						type='button'
-						disabled={busy}
-						onClick={withdraw}
-						className='text-faint hover:text-muted rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40'
-					>
+				<div {...stylex.props(styles.withdrawRow)}>
+					<button type='button' disabled={busy} onClick={withdraw} {...stylex.props(styles.withdraw)}>
 						{pending === 'clear' ? 'Clearing…' : 'Clear answer'}
 					</button>
 				</div>
@@ -269,9 +325,9 @@ const RespondControl = ({
 			    and a game row is exactly where somebody meets this without the
 			    season's notice on screen to explain it. */}
 			{debtLock && !disabled && refusedByDebt('in') && (
-				<p className='text-faint mt-2 text-center text-xs leading-relaxed'>
+				<p {...stylex.props(styles.note)}>
 					You owe {formatSek(debtLock.outstanding)}.{' '}
-					<Link href={debtLock.href} className='text-brand font-semibold'>
+					<Link href={debtLock.href} {...stylex.props(styles.settle)}>
 						Settle up
 					</Link>{' '}
 					to sign up again.
@@ -281,8 +337,8 @@ const RespondControl = ({
 			{/* Only where the control stands alone. A game row carries a "No
 			    answer" pill two lines above this, and saying it twice in one card
 			    is worse than saying it once. */}
-			{!status && !disabled && !debtLock && size === 'lg' && (
-				<p className='text-faint mt-2 text-center text-xs'>You haven&apos;t answered yet.</p>
+			{!status && !disabled && !debtLock && large && (
+				<p {...stylex.props(styles.note)}>You haven&apos;t answered yet.</p>
 			)}
 		</div>
 	);

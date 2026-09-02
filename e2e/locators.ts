@@ -66,6 +66,18 @@ export const expand = async (section: Locator): Promise<void> => {
 export const gameLinks = (scope: Page | Locator): Locator => scope.locator('a[href*="/g/"]');
 
 /**
+ * The game rows themselves, card and all, rather than the links inside them.
+ *
+ * Two specs pick a row out of a section by what is on it, a bell or a missing
+ * answer, and then act on the rest of the row, which is more than the link
+ * covers. That used to be `.glass-card`, a class the row wore by name. StyleX
+ * hashes its class names and owns them, so the row carries a `data-testid`
+ * instead: a hook a test is allowed to depend on, rather than styling a test
+ * had quietly made load-bearing.
+ */
+export const gameRows = (scope: Page | Locator): Locator => scope.getByTestId('game-row');
+
+/**
  * Every link into somebody's record.
  *
  * A roster, a team sheet, the squad list and the table all draw them, which is

@@ -1,25 +1,44 @@
 'use client';
 
 import { useState } from 'react';
+import * as stylex from '@stylexjs/stylex';
+import type { StyleXStyles } from '@stylexjs/stylex';
 import { initials } from '@shared/format';
-import { classNames } from '../lib/utils/reactHelper';
+import { colors, tint } from '../app/tokens.stylex';
 
-const SIZES = {
-	sm: 'size-7 text-[10px]',
-	md: 'size-9 text-xs',
-	lg: 'size-12 text-sm',
-};
+const styles = stylex.create({
+	root: {
+		backgroundColor: colors.raised,
+		color: colors.muted,
+		display: 'flex',
+		flexShrink: 0,
+		alignItems: 'center',
+		justifyContent: 'center',
+		overflow: 'hidden',
+		borderRadius: 9999,
+		fontWeight: 600,
+		// Outside the circle, not inside it: `overflow: hidden` crops a photo to
+		// the box, and an inset ring would be a hairline drawn over the face.
+		boxShadow: `0 0 0 1px ${tint.white10}`,
+	},
+	photo: { width: '100%', height: '100%', objectFit: 'cover' },
+	sm: { width: 28, height: 28, fontSize: 10 },
+	md: { width: 36, height: 36, fontSize: 12, lineHeight: '16px' },
+	lg: { width: 48, height: 48, fontSize: 14, lineHeight: '20px' },
+});
+
+const SIZES = { sm: styles.sm, md: styles.md, lg: styles.lg };
 
 const Avatar = ({
 	displayName,
 	photoURL,
 	size = 'md',
-	className = '',
+	sx,
 }: {
 	displayName: string;
 	photoURL?: string | null;
 	size?: keyof typeof SIZES;
-	className?: string;
+	sx?: StyleXStyles;
 }) => {
 	/**
 	 * The photo that didn't load, if one didn't.
@@ -36,21 +55,14 @@ const Avatar = ({
 	const showPhoto = !!photoURL && failedUrl !== photoURL;
 
 	return (
-		<div
-			className={classNames(
-				'bg-raised text-muted flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold ring-1 ring-white/10',
-				SIZES[size],
-				className
-			)}
-			title={displayName}
-		>
+		<div {...stylex.props(styles.root, SIZES[size], sx)} title={displayName}>
 			{showPhoto ? (
 				// Google avatar URLs are already sized; next/image would add a proxy
 				// hop for no benefit on a 36px circle.
 				<img
 					src={photoURL}
 					alt=''
-					className='size-full object-cover'
+					{...stylex.props(styles.photo)}
 					referrerPolicy='no-referrer'
 					onError={() => setFailedUrl(photoURL)}
 				/>

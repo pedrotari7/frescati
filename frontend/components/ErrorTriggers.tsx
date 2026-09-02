@@ -3,12 +3,48 @@
 import { useState } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { BugAntIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { BackendErrorKind } from '@shared/debug';
 import { getDb } from '../lib/firebaseClient';
 import { throwTestError } from '../lib/db/testError';
 import { useWrite } from '../hooks/useWrite';
 import { useToast } from '../components/Toast';
 import Button from './Button';
+import { colors, fonts, tint } from '../app/tokens.stylex';
+import { surfaces, text } from '../lib/styles';
+
+const styles = stylex.create({
+	card: { borderRadius: 16, padding: 20 },
+	head: { marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 },
+	headIcon: { color: colors.muted, width: 20, height: 20 },
+	title: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	blurb: { color: colors.muted, marginBottom: 16, fontSize: 14, lineHeight: 1.625 },
+	/* A script name in the middle of a sentence. `1em` because the browser draws
+	   its own `<code>` a size smaller than whatever it sits in, and there is no
+	   preflight rule putting that back any more. */
+	code: { fontFamily: fonts.mono, fontSize: '1em' },
+
+	heading: { marginBottom: 4 },
+	headingLater: { marginTop: 24, marginBottom: 4 },
+
+	/* A rule above every row, the first one included, which is what
+	   `divide-y` plus a `border-t` on the container came to. */
+	row: {
+		borderTopWidth: 1,
+		borderTopStyle: 'solid',
+		borderTopColor: tint.white5,
+		display: 'flex',
+		flexWrap: 'wrap',
+		alignItems: 'center',
+		gap: 12,
+		paddingBlock: 16,
+	},
+	rowBody: { minWidth: 160, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	label: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 500 },
+	description: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: 1.625 },
+
+	footnote: { color: colors.faint, marginTop: 20, fontSize: 12, lineHeight: 1.625 },
+});
 
 /**
  * Breaks things on purpose, so error reporting can be proved rather than hoped
@@ -126,25 +162,25 @@ const ErrorTriggers = () => {
 	};
 
 	return (
-		<section className='glass rounded-2xl p-5'>
-			<div className='mb-1 flex items-center gap-2'>
-				<BugAntIcon className='text-muted size-5' aria-hidden='true' />
-				<h2 className='text-ink font-semibold'>Break something on purpose</h2>
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<div {...stylex.props(styles.head)}>
+				<BugAntIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
+				<h2 {...stylex.props(styles.title)}>Break something on purpose</h2>
 			</div>
 
-			<p className='text-muted mb-4 text-sm leading-relaxed'>
+			<p {...stylex.props(styles.blurb)}>
 				Each of these fails a different way, on purpose, so you can watch it arrive in Sentry. Nothing here
 				changes a game, a rating or anybody&apos;s data.
 			</p>
 
-			<h3 className='text-faint mb-1 text-xs font-semibold tracking-wider uppercase'>In this browser</h3>
+			<h3 {...stylex.props(text.sectionHeading, styles.heading)}>In this browser</h3>
 
-			<div className='divide-y divide-white/5 border-t border-white/5'>
+			<div>
 				{frontend.map(trigger => (
-					<div key={trigger.id} className='flex flex-wrap items-center gap-3 py-4'>
-						<div className='min-w-40 flex-1'>
-							<p className='text-ink text-sm font-medium'>{trigger.label}</p>
-							<p className='text-faint mt-0.5 text-xs leading-relaxed'>{trigger.description}</p>
+					<div key={trigger.id} {...stylex.props(styles.row)}>
+						<div {...stylex.props(styles.rowBody)}>
+							<p {...stylex.props(styles.label)}>{trigger.label}</p>
+							<p {...stylex.props(styles.description)}>{trigger.description}</p>
 						</div>
 
 						<Button size='sm' variant='secondary' onClick={() => void trigger.run()}>
@@ -154,14 +190,14 @@ const ErrorTriggers = () => {
 				))}
 			</div>
 
-			<h3 className='text-faint mt-6 mb-1 text-xs font-semibold tracking-wider uppercase'>In the functions</h3>
+			<h3 {...stylex.props(text.sectionHeading, styles.headingLater)}>In the functions</h3>
 
-			<div className='divide-y divide-white/5 border-t border-white/5'>
+			<div>
 				{backend.map(trigger => (
-					<div key={trigger.kind} className='flex flex-wrap items-center gap-3 py-4'>
-						<div className='min-w-40 flex-1'>
-							<p className='text-ink text-sm font-medium'>{trigger.label}</p>
-							<p className='text-faint mt-0.5 text-xs leading-relaxed'>{trigger.description}</p>
+					<div key={trigger.kind} {...stylex.props(styles.row)}>
+						<div {...stylex.props(styles.rowBody)}>
+							<p {...stylex.props(styles.label)}>{trigger.label}</p>
+							<p {...stylex.props(styles.description)}>{trigger.description}</p>
 						</div>
 
 						<Button size='sm' variant='secondary' onClick={() => void fireBackend(trigger.kind)}>
@@ -171,10 +207,11 @@ const ErrorTriggers = () => {
 				))}
 			</div>
 
-			<p className='text-faint mt-5 text-xs leading-relaxed'>
+			<p {...stylex.props(styles.footnote)}>
 				Nothing is reported when the DSN is unset, and nothing at all is reported from a local run,{' '}
-				<code>dev:seeded</code> and <code>dev:live</code> alike, since only a build Vercel made reports. These
-				only prove anything against a deployed build.
+				<code {...stylex.props(styles.code)}>dev:seeded</code> and{' '}
+				<code {...stylex.props(styles.code)}>dev:live</code> alike, since only a build Vercel made reports.
+				These only prove anything against a deployed build.
 			</p>
 		</section>
 	);

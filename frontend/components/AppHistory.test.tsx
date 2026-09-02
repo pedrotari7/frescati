@@ -1,8 +1,8 @@
 import { act, render, screen } from '@testing-library/react';
 
-let pathname = '/s/1';
+let mockPathname = '/s/1';
 
-jest.mock('next/navigation', () => ({ usePathname: () => pathname }));
+jest.mock('next/navigation', () => ({ usePathname: () => mockPathname }));
 
 import { AppHistoryProvider, useAppHistory } from './AppHistory';
 
@@ -20,7 +20,7 @@ const canGoBack = () => screen.getByTestId('back').textContent === 'true';
  * itself with a `popstate`. Nothing here mocks the provider's own reasoning.
  */
 const journey = (start: string) => {
-	pathname = start;
+	mockPathname = start;
 	window.history.pushState({}, '', start);
 
 	// A fresh element every time: React bails out of re-rendering the very same
@@ -36,7 +36,7 @@ const journey = (start: string) => {
 	const move = (path: string, arrive: () => void) =>
 		act(() => {
 			arrive();
-			pathname = path;
+			mockPathname = path;
 			rerender(tree());
 		});
 

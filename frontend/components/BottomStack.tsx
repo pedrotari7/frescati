@@ -3,9 +3,42 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
-import { classNames } from '../lib/utils/reactHelper';
+import * as stylex from '@stylexjs/stylex';
+import { bp } from '../app/tokens.stylex';
 
 const HOST_ID = 'bottom-stack';
+
+const styles = stylex.create({
+	host: {
+		pointerEvents: 'none',
+		position: 'fixed',
+		insetInline: 0,
+		bottom: 0,
+		zIndex: 50,
+		display: 'flex',
+		flexDirection: 'column',
+		alignItems: 'center',
+		gap: 8,
+		paddingInline: 8,
+		// Clears the tab bar and the home indicator on a phone; on a desktop
+		// the bar is hidden, so it just sits off the bottom edge.
+		paddingBottom: { default: 'calc(80px + env(safe-area-inset-bottom, 0px))', [bp.lg]: 16 },
+	},
+	slot: { pointerEvents: 'auto', width: '100%' },
+});
+
+/*
+ * Was `order-1`/`order-2`/`order-3`, spelled out because Tailwind reads class
+ * names as literals. StyleX has no such constraint, the values are numbers in
+ * a normal object, but the table stays: three named slots is the point, and an
+ * `order` a caller passed straight through would let a fourth thing land
+ * anywhere.
+ */
+const ORDER = stylex.create({
+	1: { order: 1 },
+	2: { order: 2 },
+	3: { order: 3 },
+});
 
 /**
  * The one slot at the bottom of the screen, and the only thing that knows where
@@ -24,17 +57,7 @@ const HOST_ID = 'bottom-stack';
  * children of it. Which is the point: one container laying them out with `gap`,
  * and nobody adding a fourth has to work out what the other three are doing.
  */
-const BottomStackHost = () => (
-	<div
-		id={HOST_ID}
-		className={classNames(
-			'pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-2 px-2',
-			// Clears the tab bar and the home indicator on a phone; on a desktop
-			// the bar is hidden, so it just sits off the bottom edge.
-			'pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-4'
-		)}
-	/>
-);
+const BottomStackHost = () => <div id={HOST_ID} {...stylex.props(styles.host)} />;
 
 /**
  * Puts one thing in that slot.
@@ -55,10 +78,7 @@ export const BottomSlot = ({ order, children }: { order: 1 | 2 | 3; children: Re
 
 	if (!host) return null;
 
-	return createPortal(<div className={classNames('pointer-events-auto w-full', ORDER[order])}>{children}</div>, host);
+	return createPortal(<div {...stylex.props(styles.slot, ORDER[order])}>{children}</div>, host);
 };
-
-// Spelled out rather than composed, since Tailwind reads these as literals.
-const ORDER = { 1: 'order-1', 2: 'order-2', 3: 'order-3' } as const;
 
 export default BottomStackHost;

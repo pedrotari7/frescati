@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { BellAlertIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { AnyNotification, PushPayload } from '@shared/notifications';
 import { NOTIFICATIONS, buildDuesPush, buildGamePush, buildNewPlayerPush } from '@shared/notifications';
 import { getSilentMembers } from '@shared/game';
@@ -25,6 +26,113 @@ import type { PillTone } from '../../../components/StatusPill';
 import { Field, Select } from '../../../components/Field';
 import ErrorTriggers from '../../../components/ErrorTriggers';
 import PaymentTriggers from '../../../components/PaymentTriggers';
+import { colors, tint } from '../../tokens.stylex';
+import { surfaces, utils } from '../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16 },
+
+	card: { borderRadius: 16, padding: 20 },
+	/* `space-y-4` on the two panels that are a stack of form rows. */
+	stack: { display: 'flex', flexDirection: 'column', gap: 16 },
+
+	head: { display: 'flex', alignItems: 'center', gap: 8 },
+	headGap: { marginBottom: 12 },
+	headTight: { marginBottom: 4 },
+	headIcon: { color: colors.muted, width: 20, height: 20 },
+	title: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	titleGap: { marginBottom: 4 },
+
+	pills: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+
+	body: { color: colors.muted, fontSize: 14, lineHeight: 1.625 },
+	bodyGap: { marginTop: 12 },
+	lead: { color: colors.muted, marginBottom: 16, fontSize: 14, lineHeight: 1.625 },
+	warn: { color: colors.pending, fontSize: 14, lineHeight: 1.625 },
+	note: { color: colors.faint, marginTop: 12, fontSize: 12, lineHeight: 1.625 },
+
+	/*
+	 * `divide-y divide-white/5 border-t border-white/5`, which is a hairline
+	 * above every row including the first, so the row carries it with no
+	 * `:first-child` exception and the container needs no border of its own.
+	 */
+	row: {
+		display: 'flex',
+		flexWrap: 'wrap',
+		alignItems: 'center',
+		gap: 12,
+		paddingBlock: 16,
+		borderTopWidth: 1,
+		borderTopStyle: 'solid',
+		borderTopColor: tint.white5,
+	},
+	/* Wide enough to be worth a line of its own: under 160px the description
+	   wraps to one word per line, so below that the Send button drops instead. */
+	rowBody: { minWidth: 160, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	rowTitle: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 500 },
+	rowNote: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: 1.625 },
+
+	/** What actually went out, quoted. */
+	quote: {
+		color: colors.muted,
+		borderLeftWidth: 2,
+		borderLeftStyle: 'solid',
+		borderLeftColor: tint.white10,
+		paddingLeft: 8,
+		fontSize: 12,
+		lineHeight: 1.625,
+	},
+	quoteGap: { marginTop: 8 },
+
+	pickerHead: { marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+	pickerLabel: {
+		color: colors.muted,
+		fontSize: 12,
+		lineHeight: '16px',
+		fontWeight: 600,
+		letterSpacing: '0.025em',
+		textTransform: 'uppercase',
+	},
+	pickerActions: { display: 'flex', gap: 4 },
+
+	/* Capped and scrolling: the full roster is longer than the screen, and the
+	   send button underneath has to stay reachable without scrolling past it. */
+	roster: { maxHeight: 256, overflowY: 'auto', borderRadius: 12, paddingInline: 12 },
+	empty: { color: colors.faint, paddingBlock: 12, fontSize: 14, lineHeight: '20px' },
+	person: {
+		display: 'flex',
+		cursor: 'pointer',
+		alignItems: 'center',
+		gap: 12,
+		paddingBlock: 8,
+		borderTopWidth: { default: 1, ':first-child': 0 },
+		borderTopStyle: 'solid',
+		borderTopColor: tint.white5,
+	},
+	tick: { accentColor: colors.brand, width: 16, height: 16, flexShrink: 0 },
+	personName: {
+		color: colors.ink,
+		minWidth: 0,
+		flexGrow: 1,
+		flexShrink: 1,
+		flexBasis: '0%',
+		fontSize: 14,
+		lineHeight: '20px',
+	},
+
+	outcome: {
+		display: 'flex',
+		flexDirection: 'column',
+		gap: 8,
+		borderTopWidth: 1,
+		borderTopStyle: 'solid',
+		borderTopColor: tint.white5,
+		paddingTop: 16,
+	},
+	outcomes: { marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 },
+	outcomeRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+	outcomeName: { color: colors.muted, minWidth: 0, fontSize: 12, lineHeight: '16px' },
+});
 
 /**
  * Fires each of the app's real notifications at your own devices.
@@ -235,14 +343,14 @@ const DebugPage = () => {
 
 	return (
 		<PageShell title='Debug' subtitle='Notifications, payments, and breaking things on purpose' backHref='/me'>
-			<div className='space-y-4 p-4'>
-				<section className='glass rounded-2xl p-5'>
-					<div className='mb-3 flex items-center gap-2'>
-						<BellAlertIcon className='text-muted size-5' aria-hidden='true' />
-						<h2 className='text-ink font-semibold'>This device</h2>
+			<div {...stylex.props(styles.page)}>
+				<section {...stylex.props(surfaces.glass, styles.card)}>
+					<div {...stylex.props(styles.head, styles.headGap)}>
+						<BellAlertIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
+						<h2 {...stylex.props(styles.title)}>This device</h2>
 					</div>
 
-					<div className='flex flex-wrap items-center gap-2'>
+					<div {...stylex.props(styles.pills)}>
 						{support === null && <StatusPill tone='neutral'>Checking…</StatusPill>}
 						{support === 'needs-install' && (
 							<StatusPill tone='pending'>Add to home screen first</StatusPill>
@@ -255,23 +363,23 @@ const DebugPage = () => {
 					</div>
 
 					{support === 'supported' && enabled === false && (
-						<p className='text-muted mt-3 text-sm leading-relaxed'>
+						<p {...stylex.props(styles.body, styles.bodyGap)}>
 							Turn notifications on from the You screen, then come back. Sends will report zero devices
 							until this browser holds a token.
 						</p>
 					)}
 
-					<p className='text-faint mt-3 text-xs leading-relaxed'>
+					<p {...stylex.props(styles.note)}>
 						Anything sent here goes only to accounts you are signed in as, on every device you have
 						registered. To test how the notification renders without involving FCM at all, use the Push box
 						in DevTools under Application → Service Workers.
 					</p>
 				</section>
 
-				<section className='glass space-y-4 rounded-2xl p-5'>
+				<section {...stylex.props(surfaces.glass, styles.card, styles.stack)}>
 					{/* Both, since the payments panel below reads the season's fees off
 					    the same selection the notifications deep-link into. */}
-					<h2 className='text-ink font-semibold'>Target season and game</h2>
+					<h2 {...stylex.props(styles.title)}>Target season and game</h2>
 
 					<Field label='Season'>
 						<Select value={seasonId ?? ''} onChange={event => setChosenSeason(event.target.value)}>
@@ -301,40 +409,34 @@ const DebugPage = () => {
 					</Field>
 
 					{!gameId && (
-						<p className='text-pending text-sm leading-relaxed'>
+						<p {...stylex.props(styles.warn)}>
 							Without a game these send a sample payload linking to the season list. Pick one to test the
 							deep link.
 						</p>
 					)}
 				</section>
 
-				<section className='glass rounded-2xl p-5'>
-					<h2 className='text-ink mb-1 font-semibold'>Send one</h2>
-					<p className='text-muted mb-4 text-sm leading-relaxed'>
+				<section {...stylex.props(surfaces.glass, styles.card)}>
+					<h2 {...stylex.props(styles.title, styles.titleGap)}>Send one</h2>
+					<p {...stylex.props(styles.lead)}>
 						The same payload the real trigger builds, through the same preferences check. Sending does not
 						change any game.
 					</p>
 
-					<div className='divide-y divide-white/5 border-t border-white/5'>
+					<div>
 						{NOTIFICATIONS.map(kind => {
 							const payload = sentPayloads[kind];
 
 							return (
-								<div key={kind} className='flex flex-wrap items-center gap-3 py-4'>
-									<div className='min-w-40 flex-1'>
-										<p className='text-ink text-sm font-medium'>
-											{payload?.title ?? titleFor(kind)}
-										</p>
-										<p className='text-faint mt-0.5 text-xs leading-relaxed'>
-											{DESCRIPTIONS[kind]}
-										</p>
+								<div key={kind} {...stylex.props(styles.row)}>
+									<div {...stylex.props(styles.rowBody)}>
+										<p {...stylex.props(styles.rowTitle)}>{payload?.title ?? titleFor(kind)}</p>
+										<p {...stylex.props(styles.rowNote)}>{DESCRIPTIONS[kind]}</p>
 
 										{/* What actually went out, straight from the
 										    function, not a preview built here. */}
 										{payload && (
-											<p className='text-muted mt-2 border-l-2 border-white/10 pl-2 text-xs leading-relaxed'>
-												{payload.body}
-											</p>
+											<p {...stylex.props(styles.quote, styles.quoteGap)}>{payload.body}</p>
 										)}
 									</div>
 
@@ -347,13 +449,13 @@ const DebugPage = () => {
 					</div>
 				</section>
 
-				<section className='glass space-y-4 rounded-2xl p-5'>
-					<div className='mb-1 flex items-center gap-2'>
-						<EnvelopeIcon className='text-muted size-5' aria-hidden='true' />
-						<h2 className='text-ink font-semibold'>Email a selection of people</h2>
+				<section {...stylex.props(surfaces.glass, styles.card, styles.stack)}>
+					<div {...stylex.props(styles.head, styles.headTight)}>
+						<EnvelopeIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
+						<h2 {...stylex.props(styles.title)}>Email a selection of people</h2>
 					</div>
 
-					<p className='text-muted text-sm leading-relaxed'>
+					<p {...stylex.props(styles.body)}>
 						Unlike everything above, this reaches real accounts other than your own, through the same
 						fallback transport a genuine send would use, so it proves delivery and rendering, not just the
 						copy.
@@ -373,10 +475,10 @@ const DebugPage = () => {
 					</Field>
 
 					<div>
-						<div className='mb-1.5 flex items-center justify-between gap-2'>
-							<span className='text-muted text-xs font-semibold tracking-wide uppercase'>Recipients</span>
+						<div {...stylex.props(styles.pickerHead)}>
+							<span {...stylex.props(styles.pickerLabel)}>Recipients</span>
 
-							<div className='flex gap-1'>
+							<div {...stylex.props(styles.pickerActions)}>
 								{gameId && silentUids.length > 0 && (
 									<Button
 										size='sm'
@@ -394,14 +496,14 @@ const DebugPage = () => {
 							</div>
 						</div>
 
-						<div className='glass-card max-h-64 divide-y divide-white/5 overflow-y-auto rounded-xl px-3'>
-							{users.length === 0 && <p className='text-faint py-3 text-sm'>No accounts yet.</p>}
+						<div {...stylex.props(surfaces.glassCard, styles.roster)}>
+							{users.length === 0 && <p {...stylex.props(styles.empty)}>No accounts yet.</p>}
 
 							{users.map(candidate => (
-								<label key={candidate.uid} className='flex cursor-pointer items-center gap-3 py-2'>
+								<label key={candidate.uid} {...stylex.props(styles.person)}>
 									<input
 										type='checkbox'
-										className='accent-brand size-4 shrink-0'
+										{...stylex.props(styles.tick)}
 										checked={selectedUids.has(candidate.uid)}
 										onChange={() => toggleRecipient(candidate.uid)}
 									/>
@@ -410,7 +512,9 @@ const DebugPage = () => {
 										photoURL={candidate.photoURL}
 										size='sm'
 									/>
-									<span className='text-ink flex-1 truncate text-sm'>{candidate.displayName}</span>
+									<span {...stylex.props(styles.personName, utils.truncate)}>
+										{candidate.displayName}
+									</span>
 								</label>
 							))}
 						</div>
@@ -425,16 +529,16 @@ const DebugPage = () => {
 					</Button>
 
 					{emailResult && (
-						<div className='space-y-2 border-t border-white/5 pt-4'>
-							<p className='text-ink text-sm font-medium'>{emailResult.payload.title}</p>
-							<p className='text-muted border-l-2 border-white/10 pl-2 text-xs leading-relaxed'>
-								{emailResult.payload.body}
-							</p>
+						<div {...stylex.props(styles.outcome)}>
+							<p {...stylex.props(styles.rowTitle)}>{emailResult.payload.title}</p>
+							<p {...stylex.props(styles.quote)}>{emailResult.payload.body}</p>
 
-							<ul className='mt-2 space-y-1.5'>
+							<ul {...stylex.props(styles.outcomes)}>
 								{emailResult.results.map((outcome: EmailTestOutcome) => (
-									<li key={outcome.uid} className='flex items-center justify-between gap-2'>
-										<span className='text-muted truncate text-xs'>{outcome.displayName}</span>
+									<li key={outcome.uid} {...stylex.props(styles.outcomeRow)}>
+										<span {...stylex.props(styles.outcomeName, utils.truncate)}>
+											{outcome.displayName}
+										</span>
 										<StatusPill tone={STATUS_TONE[outcome.status]}>
 											{STATUS_LABEL[outcome.status]}
 										</StatusPill>

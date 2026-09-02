@@ -1,8 +1,37 @@
 'use client';
 
 import { BellAlertIcon, BellIcon } from '@heroicons/react/24/outline';
-import { classNames } from '../lib/utils/reactHelper';
+import * as stylex from '@stylexjs/stylex';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { focus } from '../lib/styles';
 import { hapticLight } from '../lib/utils/haptics';
+
+const styles = stylex.create({
+	button: {
+		// Sized past the 44px touch target with a negative margin, so the
+		// tappable area is a thumb's worth without the heading row growing
+		// around it.
+		marginBlock: -8,
+		display: 'inline-flex',
+		width: 44,
+		height: 44,
+		flexShrink: 0,
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderRadius: 9999,
+		transitionProperty: 'color, background-color',
+		transitionDuration: '0.15s',
+		transform: { default: null, ':active': 'scale(0.95)' },
+		pointerEvents: { default: null, ':disabled': 'none' },
+		opacity: { default: null, ':disabled': 0.4 },
+	},
+	watching: { color: colors.brand, backgroundColor: tint.brand10 },
+	idle: {
+		color: { default: colors.faint, [bp.hover]: { default: null, ':hover': colors.muted } },
+		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
+	},
+	icon: { width: 20, height: 20 },
+});
 
 /**
  * Follow one game, and hear about it whenever somebody's answer moves.
@@ -43,17 +72,9 @@ const WatchToggle = ({
 				hapticLight();
 				onChange(!watching);
 			}}
-			className={classNames(
-				// Sized past the 44px touch target with a negative margin, so the
-				// tappable area is a thumb's worth without the heading row growing
-				// around it.
-				'-my-2 inline-flex size-11 shrink-0 items-center justify-center rounded-full transition-colors',
-				'focus-visible:ring-brand/60 focus-visible:ring-2 focus-visible:outline-none',
-				'active:scale-[0.95] disabled:pointer-events-none disabled:opacity-40',
-				watching ? 'text-brand bg-brand/10' : 'text-faint hover:text-muted hover:bg-white/5'
-			)}
+			{...stylex.props(styles.button, focus.ring, watching ? styles.watching : styles.idle)}
 		>
-			<Icon className='size-5' aria-hidden='true' />
+			<Icon {...stylex.props(styles.icon)} aria-hidden='true' />
 		</button>
 	);
 };

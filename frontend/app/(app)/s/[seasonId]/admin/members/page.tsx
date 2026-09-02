@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { AppUser } from '@shared/types';
 import { counted } from '@shared/format';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
@@ -21,8 +21,27 @@ import LoadFailed from '../../../../../../components/LoadFailed';
 import Avatar from '../../../../../../components/Avatar';
 import Button from '../../../../../../components/Button';
 import StatusPill from '../../../../../../components/StatusPill';
-import { TextInput } from '../../../../../../components/Field';
-import { ListCard, ListEmpty, SectionHeading } from '../../../../../../components/Section';
+import { SearchInput } from '../../../../../../components/Field';
+import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../../../components/Section';
+import { colors } from '../../../../../tokens.stylex';
+import { utils } from '../../../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
+	heading: { marginBottom: 8, paddingInline: 4 },
+	/*
+	 * Wraps, because a squad row carries two buttons after the name and a phone
+	 * is 320px wide at its narrowest. Nothing shrinks: Demote and Remove keep
+	 * their labels and drop to a second line under the name rather than becoming
+	 * two icons nobody can tell apart.
+	 */
+	person: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingBlock: 12 },
+	/* Wide enough to force the buttons onto their own line rather than into a
+	   column one word wide. */
+	body: { minWidth: 160, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	name: { color: colors.ink, fontSize: 14, lineHeight: '20px' },
+	note: { color: colors.faint, marginTop: 12, paddingInline: 4, fontSize: 12, lineHeight: 1.625 },
+});
 
 const AdminMembersPage = () => {
 	const { seasonId, season, loading, error, retry, isAdmin } = useSeasonContext();
@@ -115,23 +134,16 @@ const AdminMembersPage = () => {
 			subtitle={`${season.memberUids.length} in the squad`}
 			backHref={`/s/${seasonId}/admin`}
 		>
-			<div className='space-y-6 p-4'>
-				<div className='relative'>
-					<MagnifyingGlassIcon
-						className='text-faint pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2'
-						aria-hidden='true'
-					/>
-					<TextInput
-						value={search}
-						onChange={e => setSearch(e.target.value)}
-						placeholder='Search by name'
-						className='pl-10'
-						type='search'
-					/>
-				</div>
+			<div {...stylex.props(styles.page)}>
+				<SearchInput
+					label='Search by name'
+					value={search}
+					onChange={e => setSearch(e.target.value)}
+					placeholder='Search by name'
+				/>
 
 				<section>
-					<SectionHeading className='mb-2 px-1'>In the squad ({members.length})</SectionHeading>
+					<SectionHeading sx={styles.heading}>In the squad ({members.length})</SectionHeading>
 
 					<ListCard>
 						{members.length === 0 && <ListEmpty>Nobody yet, add players from below.</ListEmpty>}
@@ -140,11 +152,11 @@ const AdminMembersPage = () => {
 							const isSeasonAdmin = season.adminUids.includes(user.uid);
 
 							return (
-								<div key={user.uid} className='flex items-center gap-3 py-3'>
+								<div key={user.uid} {...stylex.props(listRow, styles.person)}>
 									<Avatar displayName={user.displayName} photoURL={user.photoURL} />
 
-									<div className='min-w-0 flex-1'>
-										<p className='text-ink truncate text-sm'>{user.displayName}</p>
+									<div {...stylex.props(styles.body)}>
+										<p {...stylex.props(styles.name, utils.truncate)}>{user.displayName}</p>
 										{isSeasonAdmin && <StatusPill tone='brand'>Admin</StatusPill>}
 									</div>
 
@@ -182,7 +194,7 @@ const AdminMembersPage = () => {
 				</section>
 
 				<section>
-					<SectionHeading className='mb-2 px-1'>Everyone else ({others.length})</SectionHeading>
+					<SectionHeading sx={styles.heading}>Everyone else ({others.length})</SectionHeading>
 
 					<ListCard>
 						{others.length === 0 && (
@@ -192,11 +204,11 @@ const AdminMembersPage = () => {
 						)}
 
 						{others.map(user => (
-							<div key={user.uid} className='flex items-center gap-3 py-3'>
+							<div key={user.uid} {...stylex.props(listRow, styles.person)}>
 								<Avatar displayName={user.displayName} photoURL={user.photoURL} />
 
-								<div className='min-w-0 flex-1'>
-									<p className='text-ink truncate text-sm'>{user.displayName}</p>
+								<div {...stylex.props(styles.body)}>
+									<p {...stylex.props(styles.name, utils.truncate)}>{user.displayName}</p>
 								</div>
 
 								<Button
@@ -215,7 +227,7 @@ const AdminMembersPage = () => {
 						))}
 					</ListCard>
 
-					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
+					<p {...stylex.props(styles.note)}>
 						People appear here once they&apos;ve signed in at least once. Anyone not in the squad can still
 						put their hand up for individual games as an extra, but they only count towards the headcount
 						once you give them a spot on the game screen.

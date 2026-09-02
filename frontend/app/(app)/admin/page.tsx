@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import { useAuth } from '../../../lib/auth';
 import { useUsers } from '../../../hooks/useData';
 import { useWrite } from '../../../hooks/useWrite';
@@ -14,8 +14,20 @@ import Skeleton from '../../../components/Skeleton';
 import Avatar from '../../../components/Avatar';
 import Button from '../../../components/Button';
 import StatusPill from '../../../components/StatusPill';
-import { TextInput } from '../../../components/Field';
-import { ListCard, ListEmpty, SectionHeading } from '../../../components/Section';
+import { SearchInput } from '../../../components/Field';
+import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../components/Section';
+import { colors } from '../../tokens.stylex';
+import { utils } from '../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
+
+	heading: { marginBottom: 8, paddingInline: 4 },
+	person: { display: 'flex', alignItems: 'center', gap: 12, paddingBlock: 12 },
+	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	name: { color: colors.ink, fontSize: 14, lineHeight: '20px' },
+	note: { color: colors.faint, marginTop: 12, paddingInline: 4, fontSize: 12, lineHeight: 1.625 },
+});
 
 /**
  * App admins. The global role, distinct from the per-season one.
@@ -82,33 +94,26 @@ const AppAdminPage = () => {
 
 	return (
 		<PageShell title='App admins' subtitle={`${admins.length} with global rights`} backHref='/me'>
-			<div className='space-y-6 p-4'>
-				<div className='relative'>
-					<MagnifyingGlassIcon
-						className='text-faint pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2'
-						aria-hidden='true'
-					/>
-					<TextInput
-						value={search}
-						onChange={e => setSearch(e.target.value)}
-						placeholder='Search by name'
-						className='pl-10'
-						type='search'
-					/>
-				</div>
+			<div {...stylex.props(styles.page)}>
+				<SearchInput
+					label='Search by name'
+					value={search}
+					onChange={e => setSearch(e.target.value)}
+					placeholder='Search by name'
+				/>
 
 				<section>
-					<SectionHeading className='mb-2 px-1'>App admins ({admins.length})</SectionHeading>
+					<SectionHeading sx={styles.heading}>App admins ({admins.length})</SectionHeading>
 
 					<ListCard>
 						{admins.length === 0 && <ListEmpty>Nobody matches that search.</ListEmpty>}
 
 						{admins.map(candidate => (
-							<div key={candidate.uid} className='flex items-center gap-3 py-3'>
+							<div key={candidate.uid} {...stylex.props(listRow, styles.person)}>
 								<Avatar displayName={candidate.displayName} photoURL={candidate.photoURL} />
 
-								<div className='min-w-0 flex-1'>
-									<p className='text-ink truncate text-sm'>{candidate.displayName}</p>
+								<div {...stylex.props(styles.body)}>
+									<p {...stylex.props(styles.name, utils.truncate)}>{candidate.displayName}</p>
 									<StatusPill tone='brand'>App admin</StatusPill>
 								</div>
 
@@ -128,7 +133,7 @@ const AppAdminPage = () => {
 				</section>
 
 				<section>
-					<SectionHeading className='mb-2 px-1'>Everyone else ({others.length})</SectionHeading>
+					<SectionHeading sx={styles.heading}>Everyone else ({others.length})</SectionHeading>
 
 					<ListCard>
 						{others.length === 0 && (
@@ -138,11 +143,11 @@ const AppAdminPage = () => {
 						)}
 
 						{others.map(candidate => (
-							<div key={candidate.uid} className='flex items-center gap-3 py-3'>
+							<div key={candidate.uid} {...stylex.props(listRow, styles.person)}>
 								<Avatar displayName={candidate.displayName} photoURL={candidate.photoURL} />
 
-								<div className='min-w-0 flex-1'>
-									<p className='text-ink truncate text-sm'>{candidate.displayName}</p>
+								<div {...stylex.props(styles.body)}>
+									<p {...stylex.props(styles.name, utils.truncate)}>{candidate.displayName}</p>
 								</div>
 
 								<Button
@@ -156,7 +161,7 @@ const AppAdminPage = () => {
 						))}
 					</ListCard>
 
-					<p className='text-faint mt-3 px-1 text-xs leading-relaxed'>
+					<p {...stylex.props(styles.note)}>
 						App admins create and delete seasons and manage this list. Running a single season only needs a
 						season admin, set from that season&apos;s squad screen. Rights take effect within ten minutes,
 						when their app next refreshes its token.

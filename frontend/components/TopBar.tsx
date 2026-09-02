@@ -3,12 +3,116 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ChevronLeftIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import { useAuth } from '../lib/auth';
 import { useAppHistory } from './AppHistory';
 import Avatar from './Avatar';
 import { activeIndexFor, matchesHref } from './BottomNav';
 import type { NavItem } from './BottomNav';
-import { classNames } from '../lib/utils/reactHelper';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { surfaces, utils } from '../lib/styles';
+
+const styles = stylex.create({
+	/* The frosted panel, but only its bottom edge: the other three sit off screen. */
+	header: {
+		position: 'fixed',
+		insetInline: 0,
+		top: 0,
+		zIndex: 30,
+		borderTopWidth: 0,
+		borderInlineStartWidth: 0,
+		borderInlineEndWidth: 0,
+	},
+	inner: {
+		marginInline: 'auto',
+		display: 'flex',
+		height: 64,
+		maxWidth: 896,
+		alignItems: 'center',
+		gap: 12,
+		paddingInline: 12,
+	},
+
+	round: {
+		display: 'flex',
+		width: 40,
+		height: 40,
+		flexShrink: 0,
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderRadius: 9999,
+		transitionProperty: 'background-color, color',
+		transitionDuration: '0.2s',
+	},
+	back: {
+		color: { default: colors.muted, [bp.hover]: { default: null, ':hover': colors.ink } },
+		backgroundColor: { default: null, ':active': tint.white5 },
+		marginInlineStart: -4,
+	},
+	/* Held open above lg so the tabs don't slide sideways on a screen with no chevron. */
+	slot: {
+		marginInlineStart: -4,
+		display: { default: 'none', [bp.lg]: 'block' },
+		width: 40,
+		height: 40,
+		flexShrink: 0,
+	},
+
+	icon: { width: 24, height: 24 },
+
+	title: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	/* Fixed column once the tabs are up here, so a longer title can't move them. */
+	titleFixed: {
+		minWidth: 0,
+		width: { default: 'auto', [bp.lg]: 288 },
+		flexGrow: { default: 1, [bp.lg]: 0 },
+		flexShrink: { default: 1, [bp.lg]: 0 },
+		flexBasis: { default: '0%', [bp.lg]: 'auto' },
+	},
+	heading: {
+		color: colors.ink,
+		overflow: 'hidden',
+		textOverflow: 'ellipsis',
+		whiteSpace: 'nowrap',
+		fontSize: 16,
+		lineHeight: '24px',
+		fontWeight: 600,
+	},
+	subtitle: {
+		color: colors.faint,
+		overflow: 'hidden',
+		textOverflow: 'ellipsis',
+		whiteSpace: 'nowrap',
+		fontSize: 12,
+		lineHeight: '16px',
+	},
+
+	tabs: {
+		display: { default: 'none', [bp.lg]: 'flex' },
+		alignItems: 'center',
+		gap: 4,
+		flexGrow: 1,
+		flexShrink: 1,
+		flexBasis: '0%',
+	},
+	tab: {
+		borderRadius: 8,
+		paddingInline: 12,
+		paddingBlock: 8,
+		fontSize: 14,
+		lineHeight: '20px',
+		fontWeight: 500,
+		transitionProperty: 'background-color, color',
+		transitionDuration: '0.2s',
+	},
+	on: { backgroundColor: tint.brand15, color: colors.brand },
+	off: {
+		color: { default: colors.muted, [bp.hover]: { default: null, ':hover': colors.ink } },
+		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
+	},
+
+	avatar: { flexShrink: 0 },
+});
 
 const TopBar = ({
 	title,
@@ -40,8 +144,8 @@ const TopBar = ({
 	const adminIsActive = !!adminHref && matchesHref(pathname, adminHref);
 
 	return (
-		<header className='pt-safe glass fixed inset-x-0 top-0 z-30 border-x-0 border-t-0'>
-			<div className='mx-auto flex h-16 max-w-4xl items-center gap-3 px-3'>
+		<header {...stylex.props(utils.ptSafe, surfaces.glass, styles.header)}>
+			<div {...stylex.props(styles.inner)}>
 				{/* Drawn on both, because the tabs are not the way back. Desktop
 				    used to hide this on any screen carrying them, on the grounds
 				    that they were up here instead, and they are, but they lead
@@ -55,9 +159,9 @@ const TopBar = ({
 						type='button'
 						onClick={() => (canGoBack ? router.back() : router.push(backHref))}
 						aria-label='Back'
-						className='text-muted hover:text-ink -ml-1 flex size-10 shrink-0 items-center justify-center rounded-full active:bg-white/5'
+						{...stylex.props(styles.round, styles.back)}
 					>
-						<ChevronLeftIcon className='size-6' />
+						<ChevronLeftIcon {...stylex.props(styles.icon)} />
 					</button>
 				) : (
 					// A tab root has nowhere above it to go, and on a phone that is
@@ -65,14 +169,12 @@ const TopBar = ({
 					// tabs would sit a chevron's width further left on the three
 					// screens without one and jump sideways every time you left
 					// them.
-					navItems.length > 0 && <div className='-ml-1 hidden size-10 shrink-0 lg:block' aria-hidden='true' />
+					navItems.length > 0 && <div {...stylex.props(styles.slot)} aria-hidden='true' />
 				)}
 
-				{/* Fixed column once the tabs are up here, so a longer title can't
-				    move them either. */}
-				<div className={classNames('min-w-0 flex-1', navItems.length > 0 && 'lg:w-72 lg:flex-none')}>
-					<h1 className='text-ink truncate text-base font-semibold'>{title}</h1>
-					{subtitle && <p className='text-faint truncate text-xs'>{subtitle}</p>}
+				<div {...stylex.props(navItems.length > 0 ? styles.titleFixed : styles.title)}>
+					<h1 {...stylex.props(styles.heading)}>{title}</h1>
+					{subtitle && <p {...stylex.props(styles.subtitle)}>{subtitle}</p>}
 				</div>
 
 				{/* On desktop the bottom nav is hidden, so the tabs live up here.
@@ -81,7 +183,7 @@ const TopBar = ({
 				    on the right, the admin gear, a page action, eats into that
 				    slack instead of shoving the tabs sideways. */}
 				{navItems.length > 0 && (
-					<nav className='hidden items-center gap-1 lg:flex lg:flex-1'>
+					<nav {...stylex.props(styles.tabs)}>
 						{navItems.map((item, index) => {
 							const isActive = index === activeIndex;
 
@@ -90,12 +192,7 @@ const TopBar = ({
 									key={item.href}
 									href={item.href}
 									aria-current={isActive ? 'page' : undefined}
-									className={classNames(
-										'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-										isActive
-											? 'bg-brand/15 text-brand'
-											: 'text-muted hover:text-ink hover:bg-white/5'
-									)}
+									{...stylex.props(styles.tab, isActive ? styles.on : styles.off)}
 								>
 									{item.label}
 								</Link>
@@ -112,17 +209,14 @@ const TopBar = ({
 						href={adminHref}
 						aria-label='Season admin'
 						aria-current={adminIsActive ? 'page' : undefined}
-						className={classNames(
-							'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors',
-							adminIsActive ? 'bg-brand/15 text-brand' : 'text-muted hover:text-ink hover:bg-white/5'
-						)}
+						{...stylex.props(styles.round, adminIsActive ? styles.on : styles.off)}
 					>
-						<Cog6ToothIcon className='size-6' aria-hidden='true' />
+						<Cog6ToothIcon {...stylex.props(styles.icon)} aria-hidden='true' />
 					</Link>
 				)}
 
 				{user && (
-					<Link href='/me' aria-label='Your profile' className='shrink-0'>
+					<Link href='/me' aria-label='Your profile' {...stylex.props(styles.avatar)}>
 						<Avatar displayName={user.displayName} photoURL={user.photoURL} size='md' />
 					</Link>
 				)}
