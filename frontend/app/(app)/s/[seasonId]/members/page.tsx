@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
 	BanknotesIcon,
@@ -12,10 +13,12 @@ import {
 import { KIT_KIND_LABELS, groupKitByKind } from '@shared/kit';
 import { entryShare, feesFor } from '@shared/finances';
 import { byDisplayName, formatSek } from '@shared/format';
-import { availabilityGames, buildAvailability } from '@shared/availability';
+import type { AvailabilityMark } from '@shared/availability';
+import { availabilityGames, buildAvailability, seasonExtras } from '@shared/availability';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useKit, useUsersByUid } from '../../../../../hooks/useData';
 import { useSeasonResponses } from '../../../../../hooks/useSeasonResponses';
+import type { PersonRow } from '../../../../../lib/people';
 import { personRow } from '../../../../../lib/people';
 import SeasonShell from '../../../../../components/SeasonShell';
 import Skeleton from '../../../../../components/Skeleton';
@@ -24,7 +27,47 @@ import LoadFailed from '../../../../../components/LoadFailed';
 import Avatar from '../../../../../components/Avatar';
 import StatusPill from '../../../../../components/StatusPill';
 import AvailabilityDots, { AvailabilityLegend } from '../../../../../components/AvailabilityDots';
-import { ListCard } from '../../../../../components/Section';
+import { ListCard, ListEmpty, SectionHeading } from '../../../../../components/Section';
+
+/** Somebody on one of the two lists, and their season. */
+type Player = PersonRow & { availability: AvailabilityMark[] };
+
+/**
+ * One person on this screen: who they are, and their season under the name.
+ *
+ * The squad and the extras get the same row deliberately. Both lists answer the
+ * same question, who has been around this season, and the only differences are
+ * the heading over them and the pill an admin carries.
+ */
+const PlayerRow = ({
+	player,
+	timezone,
+	showAvailability,
+	pending,
+	trailing,
+}: {
+	player: Player;
+	timezone: string;
+	showAvailability: boolean;
+	pending: boolean;
+	trailing?: ReactNode;
+}) => (
+	<Link href={`/u/${player.uid}`} className='block py-3 transition-colors hover:bg-white/5'>
+		<div className='flex items-center gap-3'>
+			<Avatar displayName={player.displayName} photoURL={player.photoURL} />
+			<span className='text-ink flex-1 truncate text-sm'>{player.displayName}</span>
+			{trailing}
+		</div>
+
+		{/* Under the whole row rather than beside the name, so every strip gets
+		    the same width and therefore wraps at the same game. Beside the name it
+		    would be the admin pill deciding where one player's season broke and
+		    not another's. */}
+		{showAvailability && player.availability.length > 0 && (
+			<AvailabilityDots className='mt-2' marks={player.availability} timezone={timezone} pending={pending} />
+		)}
+	</Link>
+);
 
 const MembersPage = () => {
 	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
@@ -49,6 +92,20 @@ const MembersPage = () => {
 		if (!season) return [];
 
 		return season.memberUids
+			.map(uid => ({ ...personRow(usersByUid, uid), availability: buildAvailability(uid, dotted, responses) }))
+			.sort(byDisplayName);
+	}, [season, usersByUid, dotted, responses]);
+
+	// Nobody stores the extras, so they are whoever the season's answers say they
+	// are, and unlike the squad they cannot be drawn before that read lands. The
+	// squad is known first and the answers fill it in. Here the answers are the
+	// list, so the section arrives with them rather than sitting there empty:
+	// "nobody has guested this season" is a real answer, and this screen must not
+	// assert it before it knows.
+	const extras = useMemo(() => {
+		if (!season) return [];
+
+		return seasonExtras(season.memberUids, responses)
 			.map(uid => ({ ...personRow(usersByUid, uid), availability: buildAvailability(uid, dotted, responses) }))
 			.sort(byDisplayName);
 	}, [season, usersByUid, dotted, responses]);
@@ -165,8 +222,8 @@ const MembersPage = () => {
 	);
 
 	return (
-		<SeasonShell title='Club' subtitle={`${members.length} in ${season.name}`}>
-			{members.length === 0 ? (
+		<SeasonShell title='Club' subtitle={season.name}>
+			{members.length === 0 && extras.length === 0 ? (
 				<EmptyState
 					icon={<UsersIcon />}
 					title='No squad yet'
@@ -187,44 +244,70 @@ const MembersPage = () => {
 					{dotted.length > 0 &&
 						(answersError ? availabilityFailed : <AvailabilityLegend className='mb-2 px-1' />)}
 
-					<ListCard>
-						{members.map(member => (
-							<Link
-								key={member.uid}
-								href={`/u/${member.uid}`}
-								className='block py-3 transition-colors hover:bg-white/5'
-							>
-								<div className='flex items-center gap-3'>
-									<Avatar displayName={member.displayName} photoURL={member.photoURL} />
-									<span className='text-ink flex-1 truncate text-sm'>{member.displayName}</span>
-									{season.adminUids.includes(member.uid) && (
-										<StatusPill tone='brand'>Admin</StatusPill>
-									)}
-								</div>
+					<section>
+						<SectionHeading className='mb-2 px-1'>Squad ({members.length})</SectionHeading>
 
-								{/* Under the whole row rather than beside the name, so
-								    every strip gets the same width and therefore wraps
-								    at the same game. Beside the name it would be the
-								    admin pill deciding where one player's season broke
-								    and not another's. */}
-								{!answersError && member.availability.length > 0 && (
-									<AvailabilityDots
-										className='mt-2'
-										marks={member.availability}
+						<ListCard>
+							{/* Only reachable with extras below it, which is a real
+							    state a new season passes through: a game is up, an
+							    admin has added nobody, and the first person to answer
+							    is an extra by definition. */}
+							{members.length === 0 && <ListEmpty>Nobody in the squad yet.</ListEmpty>}
+
+							{members.map(member => (
+								<PlayerRow
+									key={member.uid}
+									player={member}
+									timezone={season.slot.timezone}
+									showAvailability={!answersError}
+									pending={answersLoading}
+									trailing={
+										season.adminUids.includes(member.uid) ? (
+											<StatusPill tone='brand'>Admin</StatusPill>
+										) : null
+									}
+								/>
+							))}
+						</ListCard>
+
+						{/* Managing the squad stays under the list it manages. */}
+						{manageLink && <div className='mt-4'>{manageLink}</div>}
+					</section>
+
+					{/* Below the squad, where extras sort on every other list of
+					    people in this app, and gone entirely when there are none: an
+					    empty Extras card on a season nobody has guested in answers a
+					    question nobody asked. */}
+					{extras.length > 0 && (
+						<section className='mt-6'>
+							<SectionHeading className='mb-2 px-1'>Extras ({extras.length})</SectionHeading>
+
+							{/* Says what put somebody here, since this is a list the
+							    app works out rather than one anybody keeps. It also
+							    accounts for the dots underneath, which are mostly grey
+							    on this half: an extra answers the odd game, not the
+							    season. */}
+							<p className='text-faint mb-2 px-1 text-xs'>
+								Not in the squad, but they have answered a game this season.
+							</p>
+
+							<ListCard>
+								{extras.map(extra => (
+									<PlayerRow
+										key={extra.uid}
+										player={extra}
 										timezone={season.slot.timezone}
+										showAvailability={!answersError}
 										pending={answersLoading}
 									/>
-								)}
-							</Link>
-						))}
-					</ListCard>
-
-					{/* Managing the squad stays under the list it manages. */}
-					{manageLink && <div className='mt-4'>{manageLink}</div>}
+								))}
+							</ListCard>
+						</section>
+					)}
 
 					<p className='text-faint mt-4 px-1 text-xs leading-relaxed'>
-						Anyone signed in who isn&apos;t on this list can still put their hand up for a game, they show
-						up as an extra.
+						Anyone signed in can put their hand up for a game without being in the squad. A season admin
+						gives them a spot game by game.
 					</p>
 				</div>
 			)}

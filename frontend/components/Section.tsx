@@ -12,9 +12,10 @@ import { classNames } from '../lib/utils/reactHelper';
  * Kept as three primitives rather than one `<ListSection title count empty>`
  * deliberately. Eight call sites would fit that exactly and four would not:
  * the kit register's headings are kind labels with no count, the games calendar
- * has no count either, and the squad screen has a card with no heading above it
- * at all. A component that eight of twelve callers can use is one the other
- * four route around, and then there are two ways to build a list again.
+ * has no count either, and the books draw their card from a component with the
+ * heading left to the screen around it. A component that eight of twelve callers
+ * can use is one the other four route around, and then there are two ways to
+ * build a list again.
  */
 
 /**

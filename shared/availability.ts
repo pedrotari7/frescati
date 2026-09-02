@@ -72,6 +72,36 @@ export const buildAvailability = (
 		availability: responses[game.id]?.[uid]?.status ?? 'unanswered',
 	}));
 
+/**
+ * Everybody who has answered a game this season without being in the squad.
+ *
+ * The squad is a list the app is handed. This is the other half of who has been
+ * around, and nothing stores it: an extra is any signed-in player who isn't a
+ * member, so the season's own answers are the only record they were ever here.
+ *
+ * Membership now, rather than the `role` snapshotted on each response. The two
+ * disagree in both directions, and this is the reading the rest of the app
+ * already takes. Removing somebody from the squad says out loud that every
+ * answer they have already given is recorded as an extra's, and somebody added
+ * to the squad on Wednesday belongs in the squad list rather than under it a
+ * second time.
+ *
+ * In the order they first turn up, which is oldest game first, so a caller that
+ * doesn't sort gets the same list twice running.
+ */
+export const seasonExtras = (memberUids: string[], responses: SeasonResponses): string[] => {
+	const members = new Set(memberUids);
+	const extras = new Set<string>();
+
+	for (const answers of Object.values(responses)) {
+		for (const uid of Object.keys(answers)) {
+			if (!members.has(uid)) extras.add(uid);
+		}
+	}
+
+	return [...extras];
+};
+
 export const tallyAvailability = (marks: Pick<AvailabilityMark, 'availability'>[]): AvailabilityTally => {
 	const tally: AvailabilityTally = { in: 0, out: 0, unanswered: 0 };
 

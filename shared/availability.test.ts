@@ -2,10 +2,11 @@ import {
 	availabilityGames,
 	buildAvailability,
 	describeAvailability,
+	seasonExtras,
 	tallyAvailability,
 	type SeasonResponses,
 } from './availability';
-import type { Game, GameResponse, GameStatus } from './types';
+import type { Game, GameResponse, GameStatus, PlayerRole } from './types';
 
 const game = (
 	id: string,
@@ -17,10 +18,10 @@ const game = (
 	status,
 });
 
-const response = (uid: string, status: 'in' | 'out'): GameResponse => ({
+const response = (uid: string, status: 'in' | 'out', role: PlayerRole = 'member'): GameResponse => ({
 	uid,
 	status,
-	role: 'member',
+	role,
 	respondedAt: '2026-08-30T09:00:00.000Z',
 	updatedAt: '2026-08-30T09:00:00.000Z',
 });
@@ -76,6 +77,42 @@ describe('buildAvailability', () => {
 
 	it('has nothing to draw for a season with no games yet', () => {
 		expect(buildAvailability('anna', [], {})).toEqual([]);
+	});
+});
+
+describe('seasonExtras', () => {
+	const ANSWERS: SeasonResponses = {
+		g1: { anna: response('anna', 'in'), kwame: response('kwame', 'in', 'extra') },
+		g2: { kwame: response('kwame', 'out', 'extra'), maja: response('maja', 'in', 'extra') },
+	};
+
+	it('is everybody who answered and is not in the squad', () => {
+		expect(seasonExtras(['anna', 'bo'], ANSWERS)).toEqual(['kwame', 'maja']);
+	});
+
+	it('names somebody once however many games they answered', () => {
+		expect(seasonExtras(['anna'], ANSWERS).filter(uid => uid === 'kwame')).toHaveLength(1);
+	});
+
+	// An Out is an answer, and an extra who said it was asked to fill in and
+	// turned it down. Leaving them out would make the list "who played" under a
+	// heading that says who is around.
+	it('counts an extra who only ever said no', () => {
+		expect(seasonExtras(['anna'], { g1: { greta: response('greta', 'out', 'extra') } })).toEqual(['greta']);
+	});
+
+	// `role` is snapshotted at write time, so a season is full of answers whose
+	// role disagrees with who is in the squad now. Membership is the tiebreak.
+	it('reads the squad now rather than the role on the answer', () => {
+		const answers: SeasonResponses = {
+			g1: { anna: response('anna', 'in'), kwame: response('kwame', 'in', 'extra') },
+		};
+
+		expect(seasonExtras(['kwame'], answers)).toEqual(['anna']);
+	});
+
+	it('has nobody to list for a season nobody has answered', () => {
+		expect(seasonExtras(['anna'], {})).toEqual([]);
 	});
 });
 
