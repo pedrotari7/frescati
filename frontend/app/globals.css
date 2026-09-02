@@ -1,6 +1,13 @@
 @import 'tailwindcss';
 
 /*
+ * Where the compiled StyleX rules land. Temporary: this sits alongside Tailwind
+ * only while the port is in flight, and it goes back to being the whole file
+ * once the last component is off `className`.
+ */
+@stylex;
+
+/*
  * Design tokens. The app is permanently dark, so there is one palette and no
  * `dark:` variants anywhere, components reference these names, never hex.
  */
