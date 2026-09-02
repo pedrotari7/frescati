@@ -2,13 +2,87 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { CheckIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { CheckIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { AppUser, KitItem } from '@shared/types';
-import { classNames } from '../lib/utils/reactHelper';
 import Avatar from './Avatar';
 import Button from './Button';
 import StatusPill from './StatusPill';
-import { CONTROL } from './Field';
+import { SearchInput } from './Field';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { animations, elevation, press, surfaces, utils } from '../lib/styles';
+
+const styles = stylex.create({
+	dialog: { position: 'relative', zIndex: 50 },
+	scrim: {
+		backgroundColor: tint.canvas80,
+		position: 'fixed',
+		inset: 0,
+		backdropFilter: 'blur(4px)',
+		WebkitBackdropFilter: 'blur(4px)',
+	},
+	positioner: {
+		position: 'fixed',
+		inset: 0,
+		display: 'flex',
+		alignItems: { default: 'flex-end', [bp.sm]: 'center' },
+		justifyContent: 'center',
+		padding: 16,
+	},
+	panel: {
+		display: 'flex',
+		maxHeight: '80vh',
+		width: '100%',
+		maxWidth: 384,
+		flexDirection: 'column',
+		borderRadius: 24,
+		padding: 20,
+	},
+	title: { color: colors.ink, fontSize: 18, lineHeight: '28px', fontWeight: 600 },
+	blurb: { color: colors.muted, marginTop: 4, fontSize: 14, lineHeight: '20px' },
+
+	field: { marginTop: 16 },
+
+	/* Scrolls inside the sheet rather than growing it past the viewport, a
+	   squad of twenty-six on a small phone. */
+	list: {
+		marginInline: -4,
+		marginTop: 12,
+		minHeight: 0,
+		flexGrow: 1,
+		flexBasis: '0%',
+		overflowY: 'auto',
+		paddingInline: 4,
+	},
+	none: { color: colors.faint, paddingBlock: 16, fontSize: 14, lineHeight: '20px' },
+	option: {
+		display: 'flex',
+		width: '100%',
+		alignItems: 'center',
+		gap: 12,
+		borderRadius: 12,
+		borderWidth: 0,
+		backgroundColor: 'transparent',
+		paddingInline: 8,
+		paddingBlock: 10,
+		textAlign: 'left',
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	holder: { opacity: 0.6 },
+	name: {
+		color: colors.ink,
+		minWidth: 0,
+		flexGrow: 1,
+		flexShrink: 1,
+		flexBasis: '0%',
+		fontSize: 14,
+		lineHeight: '20px',
+	},
+	check: { width: 12, height: 12 },
+
+	cancel: { marginTop: 16, flexShrink: 0 },
+});
 
 /**
  * Handing a piece of kit to somebody else.
@@ -51,38 +125,29 @@ const KitTransferSheet = ({
 	}, [squad, search]);
 
 	return (
-		<Dialog open={open && !!item} onClose={onClose} className='relative z-50'>
-			<div className='bg-canvas/80 fixed inset-0 backdrop-blur-sm' aria-hidden='true' />
+		<Dialog open={open && !!item} onClose={onClose} {...stylex.props(styles.dialog)}>
+			<div {...stylex.props(styles.scrim)} aria-hidden='true' />
 
-			<div className='fixed inset-0 flex items-end justify-center p-4 sm:items-center'>
-				<DialogPanel className='glass shadow-lift animate-rise mb-safe flex max-h-[80vh] w-full max-w-sm flex-col rounded-3xl p-5'>
-					<DialogTitle className='text-ink text-lg font-semibold'>Who has {item?.name}?</DialogTitle>
+			<div {...stylex.props(styles.positioner)}>
+				<DialogPanel
+					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, styles.panel)}
+				>
+					<DialogTitle {...stylex.props(styles.title)}>Who has {item?.name}?</DialogTitle>
 
-					<p className='text-muted mt-1 text-sm'>
+					<p {...stylex.props(styles.blurb)}>
 						Pick whoever is taking it home. Anyone in the squad can change this later.
 					</p>
 
-					<div className='relative mt-4'>
-						<MagnifyingGlassIcon
-							className='text-faint pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2'
-							aria-hidden='true'
-						/>
-						<input
-							value={search}
-							onChange={e => setSearch(e.target.value)}
-							placeholder='Search the squad'
-							type='search'
-							aria-label='Search the squad'
-							className={`${CONTROL} pl-10`}
-						/>
-					</div>
+					<SearchInput
+						label='Search the squad'
+						value={search}
+						onChange={e => setSearch(e.target.value)}
+						placeholder='Search the squad'
+						sx={styles.field}
+					/>
 
-					{/* Scrolls inside the sheet rather than growing it past the
-					    viewport, a squad of twenty-six on a small phone. */}
-					<ul className='-mx-1 mt-3 min-h-0 flex-1 overflow-y-auto px-1'>
-						{matches.length === 0 && (
-							<li className='text-faint py-4 text-sm'>Nobody matches that search.</li>
-						)}
+					<ul {...stylex.props(styles.list)}>
+						{matches.length === 0 && <li {...stylex.props(styles.none)}>Nobody matches that search.</li>}
 
 						{matches.map(member => {
 							const isHolder = member.uid === item?.holderUid;
@@ -96,18 +161,13 @@ const KitTransferSheet = ({
 											await onTransfer(member.uid);
 											onClose();
 										}}
-										className={classNames(
-											'flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors',
-											isHolder ? 'opacity-60' : 'hover:bg-white/5 active:bg-white/10'
-										)}
+										{...stylex.props(styles.option, isHolder ? styles.holder : press.wash)}
 									>
 										<Avatar displayName={member.displayName} photoURL={member.photoURL} size='sm' />
-										<span className='text-ink min-w-0 flex-1 truncate text-sm'>
-											{member.displayName}
-										</span>
+										<span {...stylex.props(styles.name, utils.truncate)}>{member.displayName}</span>
 										{isHolder && (
 											<StatusPill tone='brand'>
-												<CheckIcon className='size-3' aria-hidden='true' />
+												<CheckIcon {...stylex.props(styles.check)} aria-hidden='true' />
 												Has it
 											</StatusPill>
 										)}
@@ -117,7 +177,7 @@ const KitTransferSheet = ({
 						})}
 					</ul>
 
-					<Button variant='ghost' fullWidth onClick={onClose} className='mt-4 shrink-0'>
+					<Button variant='ghost' fullWidth onClick={onClose} sx={styles.cancel}>
 						Cancel
 					</Button>
 				</DialogPanel>

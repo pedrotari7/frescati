@@ -1,11 +1,11 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { useRespondIntent } from './useRespondIntent';
 
-const notify = jest.fn();
-const warn = jest.fn();
+const mockNotify = jest.fn();
+const mockWarn = jest.fn();
 
 jest.mock('../components/Toast', () => ({
-	useToast: () => ({ notify, warn }),
+	useToast: () => ({ notify: mockNotify, warn: mockWarn }),
 }));
 
 const setUrl = (search: string) => window.history.pushState(null, '', `/s/season-1/g/game-1${search}`);
@@ -55,7 +55,7 @@ describe('useRespondIntent', () => {
 
 		expect(window.location.search).toBe('');
 		await waitFor(() => expect(onRespond).toHaveBeenCalledWith('in'));
-		await waitFor(() => expect(notify).toHaveBeenCalledWith("You're in. See you there."));
+		await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("You're in. See you there."));
 	});
 
 	// The one thing the app must not tell somebody who is not in the headcount
@@ -69,7 +69,7 @@ describe('useRespondIntent', () => {
 
 		await waitFor(() => expect(onRespond).toHaveBeenCalledWith('in'));
 		await waitFor(() =>
-			expect(notify).toHaveBeenCalledWith("Thanks. An admin has to confirm your spot before you're in.")
+			expect(mockNotify).toHaveBeenCalledWith("Thanks. An admin has to confirm your spot before you're in.")
 		);
 	});
 
@@ -80,7 +80,7 @@ describe('useRespondIntent', () => {
 		renderHook(() => useRespondIntent({ ready: true, isOpen: true, onRespond }));
 
 		await waitFor(() => expect(onRespond).toHaveBeenCalledWith('out'));
-		await waitFor(() => expect(notify).toHaveBeenCalledWith("Thanks, you're marked as out."));
+		await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("Thanks, you're marked as out."));
 	});
 
 	it('warns instead of writing once answers have closed', async () => {
@@ -89,7 +89,7 @@ describe('useRespondIntent', () => {
 
 		renderHook(() => useRespondIntent({ ready: true, isOpen: false, onRespond }));
 
-		await waitFor(() => expect(warn).toHaveBeenCalledWith('Answers for this game have already closed.'));
+		await waitFor(() => expect(mockWarn).toHaveBeenCalledWith('Answers for this game have already closed.'));
 		expect(onRespond).not.toHaveBeenCalled();
 	});
 
@@ -100,7 +100,7 @@ describe('useRespondIntent', () => {
 		renderHook(() => useRespondIntent({ ready: true, isOpen: true, onRespond }));
 
 		await waitFor(() =>
-			expect(warn).toHaveBeenCalledWith("Couldn't save your answer. Open the game and try again.")
+			expect(mockWarn).toHaveBeenCalledWith("Couldn't save your answer. Open the game and try again.")
 		);
 	});
 

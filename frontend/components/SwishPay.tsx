@@ -1,10 +1,45 @@
 'use client';
 
 import { QRCodeSVG } from 'qrcode.react';
+import * as stylex from '@stylexjs/stylex';
 import { formatSek } from '@shared/format';
 import { swishAppUrl, toLocal } from '@shared/swish';
 import { useWrite } from '../hooks/useWrite';
 import Button from './Button';
+import { bp, colors } from '../app/tokens.stylex';
+import { surfaces } from '../lib/styles';
+
+const styles = stylex.create({
+	card: { display: 'flex', flexDirection: 'column', gap: 16, borderRadius: 16, padding: 20 },
+	title: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	blurb: { color: colors.faint, marginTop: 4, fontSize: 12, lineHeight: 1.625 },
+
+	codeRow: { display: 'flex', justifyContent: 'center' },
+	plate: { backgroundColor: 'white', width: '100%', maxWidth: 260, borderRadius: 12, padding: 12 },
+	code: { width: '100%', height: 'auto' },
+
+	facts: { fontSize: 12, lineHeight: '16px' },
+	fact: { display: 'flex', justifyContent: 'space-between', gap: 12, paddingBlock: 4 },
+	label: { color: colors.faint },
+	value: { color: colors.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 },
+
+	actions: { display: 'flex', gap: 12 },
+	open: {
+		color: colors.ink,
+		display: { default: 'none', [bp.coarse]: 'inline-flex' },
+		height: 44,
+		width: '100%',
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderRadius: 12,
+		fontSize: 14,
+		lineHeight: '20px',
+		transitionDuration: '0.15s',
+		transform: { default: null, ':active': 'scale(0.98)' },
+	},
+
+	footnote: { color: colors.faint, fontSize: 12, lineHeight: 1.625 },
+});
 
 /**
  * Paying, without anybody retyping a phone number at the side of a pitch.
@@ -32,10 +67,10 @@ const SwishPay = ({ payee, amount, message }: { payee: string; amount: number; m
 	const appUrl = swishAppUrl({ payee, amount, message });
 
 	return (
-		<section className='glass space-y-4 rounded-2xl p-5'>
+		<section {...stylex.props(surfaces.glass, styles.card)}>
 			<div>
-				<h2 className='text-ink font-semibold'>Pay with Swish</h2>
-				<p className='text-faint mt-1 text-xs leading-relaxed'>
+				<h2 {...stylex.props(styles.title)}>Pay with Swish</h2>
+				<p {...stylex.props(styles.blurb)}>
 					{formatSek(amount)} to {toLocal(payee)}. The amount and the reference are already in the code, so
 					there is nothing to type.
 				</p>
@@ -59,27 +94,27 @@ const SwishPay = ({ payee, amount, message }: { payee: string; amount: number; m
 			    46 of those 260 is a mark covering about 3% of the modules, well
 			    inside the 30% H recovers. Making it bigger looks better on a
 			    screen and is exactly the wrong trade at the side of a pitch. */}
-			<div className='flex justify-center'>
-				<div className='w-full max-w-[260px] rounded-xl bg-white p-3' data-testid='swish-qr'>
+			<div {...stylex.props(styles.codeRow)}>
+				<div {...stylex.props(styles.plate)} data-testid='swish-qr'>
 					<QRCodeSVG
 						value={appUrl}
 						size={260}
 						level='H'
 						marginSize={0}
-						className='h-auto w-full'
+						{...stylex.props(styles.code)}
 						imageSettings={{ src: '/qr-mark.svg', height: 46, width: 46, excavate: true }}
 					/>
 				</div>
 			</div>
 
-			<dl className='text-xs'>
-				<div className='flex justify-between gap-3 py-1'>
-					<dt className='text-faint'>Reference</dt>
-					<dd className='text-ink truncate font-medium'>{message}</dd>
+			<dl {...stylex.props(styles.facts)}>
+				<div {...stylex.props(styles.fact)}>
+					<dt {...stylex.props(styles.label)}>Reference</dt>
+					<dd {...stylex.props(styles.value)}>{message}</dd>
 				</div>
 			</dl>
 
-			<div className='flex gap-3'>
+			<div {...stylex.props(styles.actions)}>
 				{/* A plain `<a>`, not a `Button`: handing the link to the app needs
 				    real navigation, and an anchor nested inside a `<button>` is
 				    invalid HTML that browsers handle inconsistently. Shown only
@@ -88,11 +123,7 @@ const SwishPay = ({ payee, amount, message }: { payee: string; amount: number; m
 				    front of the QR code came for. `pointer: coarse` rather than
 				    sniffing the user agent, which is why this needs an e2e test at
 				    both viewports. */}
-				<a
-					href={appUrl}
-					data-testid='swish-open'
-					className='glass-card text-ink hover:text-ink hidden h-11 w-full items-center justify-center rounded-xl text-sm transition-all duration-150 active:scale-[0.98] pointer-coarse:inline-flex'
-				>
+				<a href={appUrl} data-testid='swish-open' {...stylex.props(surfaces.glassCard, styles.open)}>
 					Open Swish
 				</a>
 
@@ -107,7 +138,7 @@ const SwishPay = ({ payee, amount, message }: { payee: string; amount: number; m
 				</Button>
 			</div>
 
-			<p className='text-faint text-xs leading-relaxed'>
+			<p {...stylex.props(styles.footnote)}>
 				Paying does not tick anything off by itself. An admin marks it once the money has landed.
 			</p>
 		</section>

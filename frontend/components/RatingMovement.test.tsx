@@ -1,5 +1,13 @@
+import * as stylex from '@stylexjs/stylex';
 import { render, screen } from '@testing-library/react';
+import { colors } from '../app/tokens.stylex';
+import { stylesFor, stylesOf } from '../test/stylex';
 import RatingMovement from './RatingMovement';
+
+const expected = stylex.create({ gain: { color: colors.in }, loss: { color: colors.out } });
+
+/* A size of the caller's own, which has to beat the 12px the badge defaults to. */
+const caller = stylex.create({ smaller: { fontSize: 11 } });
 
 /**
  * The zero rule is the whole reason this component exists, the team sheet and
@@ -11,13 +19,13 @@ describe('RatingMovement', () => {
 	it('signs a gain and colours it', () => {
 		render(<RatingMovement delta={30} />);
 
-		expect(screen.getByText('+6')).toHaveClass('text-in');
+		expect(stylesOf(screen.getByText('+6'))).toEqual(expect.arrayContaining(stylesFor(expected.gain)));
 	});
 
 	it('colours a loss without adding a sign of its own', () => {
 		render(<RatingMovement delta={-30} />);
 
-		expect(screen.getByText('-6')).toHaveClass('text-out');
+		expect(stylesOf(screen.getByText('-6'))).toEqual(expect.arrayContaining(stylesFor(expected.loss)));
 	});
 
 	// A real game routinely moves somebody by less than a point on the displayed
@@ -41,9 +49,11 @@ describe('RatingMovement', () => {
 		expect(container).toBeEmptyDOMElement();
 	});
 
+	// One class per property, so the caller's size being on the element is the
+	// component's own size not being on it.
 	it('takes a caller-chosen size', () => {
-		render(<RatingMovement delta={30} className='text-[11px]' />);
+		render(<RatingMovement delta={30} sx={caller.smaller} />);
 
-		expect(screen.getByText('+6')).toHaveClass('text-[11px]');
+		expect(stylesOf(screen.getByText('+6'))).toEqual(expect.arrayContaining(stylesFor(caller.smaller)));
 	});
 });

@@ -11,26 +11,26 @@ import { SeasonProvider, useSeasonContext } from './SeasonProvider';
  * fail on its own.
  */
 
-const season = { season: null as Season | null, loading: true, error: null as Error | null, retry: jest.fn() };
-const games = { games: [] as Game[], loading: true, error: null as Error | null, retry: jest.fn() };
-const answers = {
+const mockSeason = { season: null as Season | null, loading: true, error: null as Error | null, retry: jest.fn() };
+const mockGames = { games: [] as Game[], loading: true, error: null as Error | null, retry: jest.fn() };
+const mockAnswers = {
 	myResponses: {} as Record<string, GameResponse>,
 	loading: true,
 	error: null as Error | null,
 	retry: jest.fn(),
 };
-const books = { dues: [] as Due[], loading: false, error: null as Error | null, retry: jest.fn() };
-const auth = { user: { uid: 'anna', isAppAdmin: false } as { uid: string; isAppAdmin: boolean } | null };
+const mockBooks = { dues: [] as Due[], loading: false, error: null as Error | null, retry: jest.fn() };
+const mockAuth = { user: { uid: 'anna', isAppAdmin: false } as { uid: string; isAppAdmin: boolean } | null };
 
 jest.mock('../hooks/useData', () => ({
-	useSeason: () => season,
-	useGames: () => games,
-	useDues: () => books,
+	useSeason: () => mockSeason,
+	useGames: () => mockGames,
+	useDues: () => mockBooks,
 }));
 
-jest.mock('../hooks/useMyResponses', () => ({ useMyResponses: () => answers }));
+jest.mock('../hooks/useMyResponses', () => ({ useMyResponses: () => mockAnswers }));
 
-jest.mock('../lib/auth', () => ({ useAuth: () => auth }));
+jest.mock('../lib/auth', () => ({ useAuth: () => mockAuth }));
 jest.mock('./SeasonScope', () => ({ useSeasonScope: () => ({ seasonId: null, remember: jest.fn() }) }));
 
 const Probe = () => {
@@ -55,32 +55,32 @@ const renderProvider = () =>
 const state = () => screen.getByRole('button').textContent;
 
 beforeEach(() => {
-	season.season = null;
-	season.loading = true;
-	season.error = null;
-	season.retry = jest.fn();
+	mockSeason.season = null;
+	mockSeason.loading = true;
+	mockSeason.error = null;
+	mockSeason.retry = jest.fn();
 
-	games.games = [];
-	games.loading = true;
-	games.error = null;
-	games.retry = jest.fn();
+	mockGames.games = [];
+	mockGames.loading = true;
+	mockGames.error = null;
+	mockGames.retry = jest.fn();
 
-	answers.myResponses = {};
-	answers.loading = true;
-	answers.error = null;
-	answers.retry = jest.fn();
+	mockAnswers.myResponses = {};
+	mockAnswers.loading = true;
+	mockAnswers.error = null;
+	mockAnswers.retry = jest.fn();
 
-	books.dues = [];
-	books.loading = false;
-	books.error = null;
-	books.retry = jest.fn();
+	mockBooks.dues = [];
+	mockBooks.loading = false;
+	mockBooks.error = null;
+	mockBooks.retry = jest.fn();
 
-	auth.user = { uid: 'anna', isAppAdmin: false };
+	mockAuth.user = { uid: 'anna', isAppAdmin: false };
 });
 
 describe('SeasonProvider', () => {
 	it('is loading while any listener still is', () => {
-		season.loading = false;
+		mockSeason.loading = false;
 		renderProvider();
 
 		expect(state()).toContain('loading');
@@ -90,28 +90,28 @@ describe('SeasonProvider', () => {
 	// while it is outstanding: a game the user answered draws as one they have
 	// not, and then corrects itself a frame later.
 	it('is loading while only the answers are outstanding', () => {
-		season.loading = false;
-		games.loading = false;
-		answers.loading = true;
+		mockSeason.loading = false;
+		mockGames.loading = false;
+		mockAnswers.loading = true;
 		renderProvider();
 
 		expect(state()).toContain('loading');
 	});
 
 	it('is ready once all three have landed', () => {
-		season.loading = false;
-		games.loading = false;
-		answers.loading = false;
+		mockSeason.loading = false;
+		mockGames.loading = false;
+		mockAnswers.loading = false;
 		renderProvider();
 
 		expect(state()).toContain('ready');
 	});
 
 	it('hands every screen the answers the signed-in user has given', () => {
-		season.loading = false;
-		games.loading = false;
-		answers.loading = false;
-		answers.myResponses = { 'game-1': { status: 'in' } as GameResponse };
+		mockSeason.loading = false;
+		mockGames.loading = false;
+		mockAnswers.loading = false;
+		mockAnswers.myResponses = { 'game-1': { status: 'in' } as GameResponse };
 		renderProvider();
 
 		expect(state()).toContain('in');
@@ -122,14 +122,14 @@ describe('SeasonProvider', () => {
 		// the provider has to surface whichever broke rather than only the
 		// season.
 		it('surfaces the season listener failing', () => {
-			season.error = new Error('season-denied');
+			mockSeason.error = new Error('season-denied');
 			renderProvider();
 
 			expect(state()).toContain('season-denied');
 		});
 
 		it('surfaces the games listener failing', () => {
-			games.error = new Error('games-denied');
+			mockGames.error = new Error('games-denied');
 			renderProvider();
 
 			expect(state()).toContain('games-denied');
@@ -138,7 +138,7 @@ describe('SeasonProvider', () => {
 		// Losing this one is the quiet failure: nothing is missing from the
 		// screen, every game just claims you never answered it.
 		it('surfaces the answers listener failing', () => {
-			answers.error = new Error('answers-denied');
+			mockAnswers.error = new Error('answers-denied');
 			renderProvider();
 
 			expect(state()).toContain('answers-denied');
@@ -148,25 +148,25 @@ describe('SeasonProvider', () => {
 		// was, and re-subscribing a healthy one costs a snapshot it was going to
 		// be handed anyway.
 		it('retries every listener together', () => {
-			season.error = new Error('offline');
+			mockSeason.error = new Error('offline');
 			renderProvider();
 
 			act(() => {
 				screen.getByRole('button').click();
 			});
 
-			expect(season.retry).toHaveBeenCalledTimes(1);
-			expect(games.retry).toHaveBeenCalledTimes(1);
-			expect(answers.retry).toHaveBeenCalledTimes(1);
-			expect(books.retry).toHaveBeenCalledTimes(1);
+			expect(mockSeason.retry).toHaveBeenCalledTimes(1);
+			expect(mockGames.retry).toHaveBeenCalledTimes(1);
+			expect(mockAnswers.retry).toHaveBeenCalledTimes(1);
+			expect(mockBooks.retry).toHaveBeenCalledTimes(1);
 		});
 	});
 
 	describe('who is looking', () => {
 		const withSeason = (overrides: Partial<Season>) => {
-			season.season = { id: 'season-1', memberUids: [], adminUids: [], ...overrides } as Season;
-			season.loading = false;
-			games.loading = false;
+			mockSeason.season = { id: 'season-1', memberUids: [], adminUids: [], ...overrides } as Season;
+			mockSeason.loading = false;
+			mockGames.loading = false;
 		};
 
 		it('reads a roster member as a member', () => {
@@ -215,15 +215,15 @@ describe('SeasonProvider', () => {
 			}) as Due;
 
 		const landed = (overrides: Partial<Season> = {}) => {
-			season.season = { id: 'season-1', memberUids: ['anna'], adminUids: [], ...overrides } as Season;
-			season.loading = false;
-			games.loading = false;
-			answers.loading = false;
+			mockSeason.season = { id: 'season-1', memberUids: ['anna'], adminUids: [], ...overrides } as Season;
+			mockSeason.loading = false;
+			mockGames.loading = false;
+			mockAnswers.loading = false;
 		};
 
 		it('locks the In button of somebody who owes, and says how much', () => {
 			landed();
-			books.dues = [charge(), charge({ id: 'game-2_anna', gameId: 'game-2' })];
+			mockBooks.dues = [charge(), charge({ id: 'game-2_anna', gameId: 'game-2' })];
 			renderProvider();
 
 			expect(state()).toContain('blocked locked-at-140-/s/season-1/finances');
@@ -231,7 +231,7 @@ describe('SeasonProvider', () => {
 
 		it('leaves somebody who has paid up alone', () => {
 			landed();
-			books.dues = [charge({ status: 'paid', settledAt: '2026-08-02T00:00:00.000Z', settledBy: 'bob' })];
+			mockBooks.dues = [charge({ status: 'paid', settledAt: '2026-08-02T00:00:00.000Z', settledBy: 'bob' })];
 			renderProvider();
 
 			expect(state()).toContain('clear unlocked');
@@ -242,7 +242,7 @@ describe('SeasonProvider', () => {
 		// admin who cannot sign up cannot mark the payment that would unlock them.
 		it('tells a season admin what they owe without locking them out', () => {
 			landed({ adminUids: ['anna'] });
-			books.dues = [charge()];
+			mockBooks.dues = [charge()];
 			renderProvider();
 
 			expect(state()).toContain('owing unlocked');
@@ -250,8 +250,8 @@ describe('SeasonProvider', () => {
 
 		it('exempts an app admin the same way', () => {
 			landed();
-			auth.user = { uid: 'anna', isAppAdmin: true };
-			books.dues = [charge()];
+			mockAuth.user = { uid: 'anna', isAppAdmin: true };
+			mockBooks.dues = [charge()];
 			renderProvider();
 
 			expect(state()).toContain('owing unlocked');
@@ -261,7 +261,7 @@ describe('SeasonProvider', () => {
 		// refuse, so the books are one of the four things `loading` covers.
 		it('waits for the books before claiming anybody is clear', () => {
 			landed();
-			books.loading = true;
+			mockBooks.loading = true;
 			renderProvider();
 
 			expect(state()).toContain('loading');
@@ -272,8 +272,8 @@ describe('SeasonProvider', () => {
 		// whole season and not a lock nobody can see the reason for.
 		it('stops claiming anybody is blocked when the books listener drops', () => {
 			landed();
-			books.dues = [charge()];
-			books.error = new Error('dues-denied');
+			mockBooks.dues = [charge()];
+			mockBooks.error = new Error('dues-denied');
 			renderProvider();
 
 			expect(state()).toContain('no-error');

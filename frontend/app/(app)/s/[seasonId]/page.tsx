@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { CalendarDaysIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import { groupGames } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
 import { useAuth } from '../../../../lib/auth';
@@ -19,6 +20,22 @@ import SeasonDebtNotice from '../../../../components/SeasonDebtNotice';
 import Button from '../../../../components/Button';
 import CalendarSubscribeSheet from '../../../../components/CalendarSubscribeSheet';
 import { SectionHeading } from '../../../../components/Section';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
+	calendar: { width: 16, height: 16 },
+	heading: { marginBottom: 12, paddingInline: 4 },
+	/* A column with gaps rather than `space-y`, which has no StyleX equivalent:
+	   there is no sibling selector to hang it on. */
+	rows: { display: 'flex', flexDirection: 'column', gap: 8 },
+	playedHead: {
+		marginBottom: 12,
+		display: 'flex',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		paddingInline: 4,
+	},
+});
 
 const SeasonHomePage = () => {
 	const { seasonId, season, games, myResponses, loading, error, retry, isAdmin, role, debt, debtLock } =
@@ -79,7 +96,7 @@ const SeasonHomePage = () => {
 	return (
 		<>
 			<SeasonShell title={season.name} subtitle={season.venue.name}>
-				<div className='space-y-6 p-4'>
+				<div {...stylex.props(styles.page)}>
 					{/* First on the screen, and above the card whose In button it
 					    explains. Not instead of the games: hiding the calendar
 					    collects nothing and takes away what somebody needs in order
@@ -112,7 +129,7 @@ const SeasonHomePage = () => {
 					)}
 
 					<Button variant='ghost' size='sm' onClick={() => setSubscribeOpen(true)}>
-						<CalendarIcon className='size-4' aria-hidden='true' />
+						<CalendarIcon {...stylex.props(styles.calendar)} aria-hidden='true' />
 						Subscribe to calendar
 					</Button>
 
@@ -123,8 +140,8 @@ const SeasonHomePage = () => {
 					    played. */}
 					{voting.length > 0 && (
 						<section>
-							<SectionHeading className='mb-3 px-1'>Man of the match</SectionHeading>
-							<div className='space-y-2'>
+							<SectionHeading sx={styles.heading}>Man of the match</SectionHeading>
+							<div {...stylex.props(styles.rows)}>
 								{voting.map(game => (
 									<GameRow
 										key={game.id}
@@ -150,7 +167,7 @@ const SeasonHomePage = () => {
 					    top of it. */}
 					{played.length > 0 && (
 						<section>
-							<div className='mb-3 flex items-center justify-between px-1'>
+							<div {...stylex.props(styles.playedHead)}>
 								<SectionHeading>Played ({played.length})</SectionHeading>
 								<Button variant='ghost' size='sm' onClick={() => setShowPast(!showPast)}>
 									{showPast ? 'Hide' : 'Show'}
@@ -158,7 +175,7 @@ const SeasonHomePage = () => {
 							</div>
 
 							{showPast && (
-								<div className='space-y-2'>
+								<div {...stylex.props(styles.rows)}>
 									{played.map(game => (
 										<GameRow
 											key={game.id}
@@ -178,12 +195,12 @@ const SeasonHomePage = () => {
 
 					{upcoming.length > 0 && (
 						<section>
-							<SectionHeading className='mb-3 px-1'>Coming up</SectionHeading>
+							<SectionHeading sx={styles.heading}>Coming up</SectionHeading>
 							{/* The only list here handed a bell. `voting` and `played` are
 							    finished by construction, the same fact `isWatchable` reads to
 							    refuse one, so a game already behind us would draw nothing with
 							    the props anyway. */}
-							<div className='space-y-2'>
+							<div {...stylex.props(styles.rows)}>
 								{upcoming.map(game => (
 									<GameRow
 										key={game.id}

@@ -16,8 +16,25 @@
 		"plugin:react/recommended",
 		"prettier"
 	],
-	"plugins": ["react", "jest", "@typescript-eslint"],
+	"plugins": ["react", "jest", "@typescript-eslint", "@stylexjs"],
 	"rules": {
+		"@stylexjs/valid-styles": [
+			"error",
+			{
+				"propLimits": {
+					"WebkitBackdropFilter": {
+						"limit": "string",
+						"reason": "Safari 17 and earlier only frost a panel behind the prefix, and every glass surface in the app is one"
+					}
+				}
+			}
+		],
+		"@stylexjs/valid-shorthands": "error",
+		"@stylexjs/no-conflicting-props": "error",
+		"@stylexjs/no-legacy-contextual-styles": "error",
+		"@stylexjs/no-lookahead-selectors": "error",
+		"@stylexjs/enforce-extension": "error",
+		"@stylexjs/no-unused": "error",
 		"react/react-in-jsx-scope": "off",
 		"react/prop-types": "off",
 		"react/display-name": "off",

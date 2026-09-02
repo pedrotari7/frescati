@@ -1,9 +1,9 @@
 import { renderHook } from '@testing-library/react';
 
-const push = jest.fn();
+const mockPush = jest.fn();
 
 jest.mock('next/navigation', () => ({
-	useRouter: () => ({ push }),
+	useRouter: () => ({ push: mockPush }),
 }));
 
 import { useNotificationRoute } from './useNotificationRoute';
@@ -41,7 +41,7 @@ const send = (data: unknown, port?: { postMessage: jest.Mock }) => {
 };
 
 beforeEach(() => {
-	push.mockClear();
+	mockPush.mockClear();
 	replace = jest.fn();
 	listeners = [];
 
@@ -72,7 +72,7 @@ describe('useNotificationRoute', () => {
 
 		send({ type: 'NAVIGATE', url: '/s/season-1/g/game-1' }, port);
 
-		expect(push).toHaveBeenCalledWith('/s/season-1/g/game-1');
+		expect(mockPush).toHaveBeenCalledWith('/s/season-1/g/game-1');
 		expect(port.postMessage).toHaveBeenCalledWith({ type: 'NAVIGATING' });
 	});
 
@@ -81,7 +81,7 @@ describe('useNotificationRoute', () => {
 
 		send({ type: 'NAVIGATE', url: '/s/season-1/g/game-1?respond=in' }, aPort());
 
-		expect(push).toHaveBeenCalledWith('/s/season-1/g/game-1?respond=in');
+		expect(mockPush).toHaveBeenCalledWith('/s/season-1/g/game-1?respond=in');
 	});
 
 	/**
@@ -98,7 +98,7 @@ describe('useNotificationRoute', () => {
 		send({ type: 'NAVIGATE', url: '/s/season-1/g/game-1?respond=in' }, aPort());
 
 		expect(replace).toHaveBeenCalledWith('https://frescati.test/s/season-1/g/game-1?respond=in');
-		expect(push).not.toHaveBeenCalled();
+		expect(mockPush).not.toHaveBeenCalled();
 	});
 
 	it('does nothing but answer when the window is already on that exact URL', () => {
@@ -109,7 +109,7 @@ describe('useNotificationRoute', () => {
 		send({ type: 'NAVIGATE', url: '/s/season-1/g/game-1' }, port);
 
 		expect(port.postMessage).toHaveBeenCalledWith({ type: 'NAVIGATING' });
-		expect(push).not.toHaveBeenCalled();
+		expect(mockPush).not.toHaveBeenCalled();
 		expect(replace).not.toHaveBeenCalled();
 	});
 
@@ -120,7 +120,7 @@ describe('useNotificationRoute', () => {
 		send({ type: 'NAVIGATE' }, aPort());
 		send(null, aPort());
 
-		expect(push).not.toHaveBeenCalled();
+		expect(mockPush).not.toHaveBeenCalled();
 	});
 
 	it('refuses an address off the origin', () => {
@@ -129,7 +129,7 @@ describe('useNotificationRoute', () => {
 
 		send({ type: 'NAVIGATE', url: 'https://elsewhere.test/s/season-1' }, port);
 
-		expect(push).not.toHaveBeenCalled();
+		expect(mockPush).not.toHaveBeenCalled();
 		expect(port.postMessage).not.toHaveBeenCalled();
 	});
 

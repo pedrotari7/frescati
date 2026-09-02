@@ -1,0 +1,22 @@
+# The browsers the client bundle is compiled and prefixed for.
+#
+# This is Next's own default list, the one it hands SWC, written down because
+# Babel does the compiling now and Babel does not know about it: `next/babel`
+# leaves `@babel/preset-env` to ask browserslist, and preset-env with no list to
+# find compiles for nothing in particular, which means ES5. That cost 1.4MB of
+# extra JavaScript across the bundle and put every `await` in the app through a
+# regenerator shim. Nothing in the port asked for it and no measurement of the
+# port is honest without it.
+#
+# Autoprefixer reads the same list, so the stylesheet is prefixed for the
+# browsers the JavaScript is built for rather than for browserslist's defaults.
+#
+# It lives at the repo root rather than in `frontend/` because the file a build
+# picks up depends on which directory it started in, and `pnpm --filter frontend
+# build`, a Vercel build and an editor plugin do not agree on that. See
+# `docs/stylex.md`.
+chrome 64
+edge 79
+firefox 67
+opera 51
+safari 12

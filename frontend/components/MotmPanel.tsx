@@ -1,6 +1,7 @@
 'use client';
 
 import { CheckCircleIcon, TrophyIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { AppUser, MotmVote, TournamentMotm, TournamentTeam } from '@shared/types';
 import { formatRelative } from '@shared/format';
 import { getMotmTurnout, isMotmVotingOpen } from '@shared/motm';
@@ -8,8 +9,110 @@ import Avatar from './Avatar';
 import StatusPill from './StatusPill';
 import TeamBadge from './TeamBadge';
 import { nameByUid } from '../lib/people';
-import { classNames } from '../lib/utils/reactHelper';
 import { hapticLight } from '../lib/utils/haptics';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { focus, surfaces, utils } from '../lib/styles';
+
+const styles = stylex.create({
+	card: { borderRadius: 24, padding: 20 },
+
+	head: { marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+	title: { display: 'flex', alignItems: 'center', gap: 8 },
+	trophy: { color: colors.pending, width: 20, height: 20, flexShrink: 0 },
+	heading: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	blurb: { color: colors.muted, marginBottom: 16, fontSize: 14, lineHeight: 1.625 },
+
+	/* One column on a phone, two once there is room. Twelve short rows in a
+	   single column is a lot of scrolling on a screen that is mostly names. */
+	ballot: {
+		marginTop: 12,
+		display: 'grid',
+		gap: 6,
+		gridTemplateColumns: { default: null, [bp.sm]: 'repeat(2, minmax(0, 1fr))' },
+	},
+	option: {
+		display: 'flex',
+		width: '100%',
+		alignItems: 'center',
+		gap: 10,
+		borderRadius: 12,
+		borderWidth: 0,
+		backgroundColor: 'transparent',
+		paddingInline: 10,
+		paddingBlock: 8,
+		textAlign: 'left',
+		transitionProperty: 'background-color, transform',
+		transitionDuration: '0.2s',
+	},
+
+	/*
+	 * Three states rather than two that overlap. Backing the winner is the
+	 * common case, and it used to put both class strings on one element and
+	 * leave Tailwind's output order to decide which ring showed, on the most
+	 * rewarding row on the screen. It gets its own treatment: the trophy's
+	 * wash, ringed in the colour of your own pick, so it says both.
+	 *
+	 * A shadow rather than a border, for the reason Tailwind's ring is one: the
+	 * row is already laid out, and a border would move its contents by a pixel.
+	 */
+	wonPicked: { backgroundColor: tint.pending15, boxShadow: `0 0 0 1px ${tint.brand40}` },
+	won: { backgroundColor: tint.pending10, boxShadow: `0 0 0 1px ${tint.pending30}` },
+	picked: { backgroundColor: tint.brand10, boxShadow: `0 0 0 1px ${tint.brand30}` },
+
+	/*
+	 * The hover tint, on the rows that have no wash of their own.
+	 *
+	 * Under Tailwind it was on every row, and hovering a row you had picked
+	 * turned it white, which read as un-picking it. It cannot be layered here
+	 * anyway: a later style in a `stylex.props` call replaces a property
+	 * outright, conditions and all, so a hover-only background would erase the
+	 * wash rather than sit on top of it. The states are exclusive, so the rows
+	 * that need telling apart are exactly the ones this is left to.
+	 */
+	hoverable: { backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } } },
+	press: { transform: { default: null, ':active': 'scale(0.99)' } },
+
+	name: {
+		color: colors.ink,
+		minWidth: 0,
+		flexGrow: 1,
+		flexShrink: 1,
+		flexBasis: '0%',
+		fontSize: 14,
+		lineHeight: '20px',
+	},
+	badge: { color: colors.pending, width: 16, height: 16, flexShrink: 0 },
+	mine: { color: colors.brand, width: 16, height: 16, flexShrink: 0 },
+	count: {
+		color: colors.muted,
+		flexShrink: 0,
+		fontSize: 12,
+		lineHeight: '16px',
+		fontWeight: 600,
+		fontVariantNumeric: 'tabular-nums',
+	},
+
+	footnote: { color: colors.faint, marginTop: 12, fontSize: 12, lineHeight: '16px' },
+
+	turnout: { marginTop: 16, borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: tint.white5, paddingTop: 12 },
+	summary: {
+		color: colors.muted,
+		fontSize: 12,
+		lineHeight: '16px',
+		fontWeight: 500,
+		fontVariantNumeric: 'tabular-nums',
+	},
+	faces: { marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 },
+	// Faded rather than hidden: the people still to answer are the reason
+	// anybody looks at this.
+	waiting: { opacity: 0.3 },
+
+	nobody: { color: colors.muted, marginBottom: 4, fontSize: 14, lineHeight: 1.625 },
+	result: { marginBottom: 4 },
+	winners: { color: colors.ink, fontSize: 18, lineHeight: 1.25, fontWeight: 700 },
+	shared: { color: colors.muted, fontSize: 14, lineHeight: '20px', fontWeight: 400 },
+	tally: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
+});
 
 /**
  * Man of the match: the vote while it is open, the result once it is decided.
@@ -81,12 +184,14 @@ const MotmPanel = ({
 		? candidates.filter(candidate => votesFor(candidate.uid) > 0).sort((a, b) => votesFor(b.uid) - votesFor(a.uid))
 		: candidates;
 
+	const live = open && canVote;
+
 	return (
-		<section className='glass rounded-3xl p-5'>
-			<div className='mb-1 flex items-center justify-between gap-2'>
-				<div className='flex items-center gap-2'>
-					<TrophyIcon className='text-pending size-5 shrink-0' aria-hidden='true' />
-					<h2 className='text-ink text-sm font-semibold'>Man of the match</h2>
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<div {...stylex.props(styles.head)}>
+				<div {...stylex.props(styles.title)}>
+					<TrophyIcon {...stylex.props(styles.trophy)} aria-hidden='true' />
+					<h2 {...stylex.props(styles.heading)}>Man of the match</h2>
 				</div>
 
 				{open ? (
@@ -103,7 +208,7 @@ const MotmPanel = ({
 			{motm ? (
 				<Decided motm={motm} name={name} votes={votes} />
 			) : (
-				<p className='text-muted mb-4 text-sm leading-relaxed'>
+				<p {...stylex.props(styles.blurb)}>
 					{canVote
 						? 'Who stood out? One vote each, and nobody sees the count until it closes.'
 						: 'The players are voting. The result appears here when it closes.'}
@@ -115,41 +220,35 @@ const MotmPanel = ({
 			    have an answer in them and reordered by it. Nothing at all when
 			    nobody voted: the line above has already said so. */}
 			{ordered.length > 0 && (
-				<ul className='mt-3 grid gap-1.5 sm:grid-cols-2'>
+				<ul {...stylex.props(styles.ballot)}>
 					{ordered.map(candidate => {
 						const picked = vote?.votedFor === candidate.uid;
 						const won = motm?.winners.includes(candidate.uid) ?? false;
 						const count = votesFor(candidate.uid);
+						const washed = won || picked;
 
 						return (
 							<li key={candidate.uid}>
 								<button
 									type='button'
-									disabled={!open || !canVote}
+									disabled={!live}
 									aria-pressed={picked}
 									onClick={() => {
 										hapticLight();
 										onVote(candidate.uid);
 									}}
-									className={classNames(
-										'flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors',
-										'focus-visible:ring-brand/60 focus-visible:ring-2 focus-visible:outline-none',
-										// Not a disabled control once the vote is over. It
-										// is a list again, and greying every name would
-										// read as something being unavailable rather than
-										// finished.
-										open && canVote && 'hover:bg-white/5 active:scale-[0.99]',
-										// Three states rather than two that overlap.
-										// Backing the winner is the common case, and it
-										// used to put both class strings on one element and
-										// leave Tailwind's output order to decide which
-										// ring showed, on the most rewarding row on the
-										// screen. It gets its own treatment: the trophy's
-										// wash, ringed in the colour of your own pick, so
-										// it says both.
-										won && picked && 'bg-pending/15 ring-brand/40 ring-1',
-										won && !picked && 'bg-pending/10 ring-pending/30 ring-1',
-										!won && picked && 'bg-brand/10 ring-brand/30 ring-1'
+									{...stylex.props(
+										styles.option,
+										focus.ring,
+										won && picked && styles.wonPicked,
+										won && !picked && styles.won,
+										!won && picked && styles.picked,
+										// Not a disabled control once the vote is over.
+										// It is a list again, and greying every name
+										// would read as something being unavailable
+										// rather than finished.
+										live && !washed && styles.hoverable,
+										live && styles.press
 									)}
 								>
 									<Avatar
@@ -157,22 +256,16 @@ const MotmPanel = ({
 										photoURL={usersByUid.get(candidate.uid)?.photoURL}
 										size='sm'
 									/>
-									<span className='text-ink min-w-0 flex-1 truncate text-sm'>
-										{name(candidate.uid)}
-									</span>
+									<span {...stylex.props(styles.name, utils.truncate)}>{name(candidate.uid)}</span>
 
-									{won && <TrophyIcon className='text-pending size-4 shrink-0' aria-hidden='true' />}
+									{won && <TrophyIcon {...stylex.props(styles.badge)} aria-hidden='true' />}
 									{picked && !motm && (
-										<CheckCircleIcon className='text-brand size-4 shrink-0' aria-hidden='true' />
+										<CheckCircleIcon {...stylex.props(styles.mine)} aria-hidden='true' />
 									)}
 
 									{/* Counts only exist once it is decided, and by then
 									    everybody still on the list has at least one. */}
-									{motm && (
-										<span className='text-muted shrink-0 text-xs font-semibold tabular-nums'>
-											{count}
-										</span>
-									)}
+									{motm && <span {...stylex.props(styles.count)}>{count}</span>}
 
 									<TeamBadge index={candidate.team} size='sm' />
 								</button>
@@ -184,8 +277,8 @@ const MotmPanel = ({
 
 			{open && <Turnout teams={teams} usersByUid={usersByUid} voterUids={voterUids} />}
 
-			{open && canVote && (
-				<p className='text-faint mt-3 text-xs'>
+			{live && (
+				<p {...stylex.props(styles.footnote)}>
 					{vote
 						? 'Tap another name to change your mind, or the same one to take it back.'
 						: 'You can change your mind until it closes.'}
@@ -237,10 +330,10 @@ const Turnout = ({
 				: `${voted.length} of ${total} voted`;
 
 	return (
-		<div className='mt-4 border-t border-white/5 pt-3'>
-			<p className='text-muted text-xs font-medium tabular-nums'>{summary}</p>
+		<div {...stylex.props(styles.turnout)}>
+			<p {...stylex.props(styles.summary)}>{summary}</p>
 
-			<ul className='mt-2 flex flex-wrap gap-1.5'>
+			<ul {...stylex.props(styles.faces)}>
 				{[...voted, ...pending].map(uid => {
 					const displayName = nameByUid(usersByUid, uid);
 					const hasVoted = answered.has(uid);
@@ -251,9 +344,7 @@ const Turnout = ({
 								displayName={displayName}
 								photoURL={usersByUid.get(uid)?.photoURL}
 								size='sm'
-								// Faded rather than hidden: the people still to answer
-								// are the reason anybody looks at this.
-								className={classNames(!hasVoted && 'opacity-30')}
+								sx={!hasVoted && styles.waiting}
 							/>
 						</li>
 					);
@@ -280,18 +371,18 @@ const Decided = ({
 	votes: Map<string, number>;
 }) => {
 	if (motm.winners.length === 0) {
-		return <p className='text-muted mb-1 text-sm leading-relaxed'>Nobody voted, so nobody got it this week.</p>;
+		return <p {...stylex.props(styles.nobody)}>Nobody voted, so nobody got it this week.</p>;
 	}
 
 	const [top] = motm.winners;
 
 	return (
-		<div className='mb-1'>
-			<p className='text-ink text-lg leading-tight font-bold'>
+		<div {...stylex.props(styles.result)}>
+			<p {...stylex.props(styles.winners)}>
 				{motm.winners.map(name).join(' & ')}
-				{motm.winners.length > 1 && <span className='text-muted text-sm font-normal'>, shared</span>}
+				{motm.winners.length > 1 && <span {...stylex.props(styles.shared)}>, shared</span>}
 			</p>
-			<p className='text-faint mt-0.5 text-xs'>
+			<p {...stylex.props(styles.tally)}>
 				{votes.get(top) ?? 0} of {[...votes.values()].reduce((total, count) => total + count, 0)} votes
 			</p>
 		</div>

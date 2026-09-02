@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import { ArrowDownTrayIcon, LinkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { Receipt } from '@shared/types';
 import {
 	RECEIPT_CONTENT_TYPES,
@@ -14,10 +15,76 @@ import {
 	receiptProblem,
 } from '@shared/receipts';
 import { formatCivilDate } from '@shared/format';
-import { classNames } from '../lib/utils/reactHelper';
 import Button from './Button';
 import { Field, TextInput } from './Field';
-import { ListCard, ListEmpty } from './Section';
+import { ListCard, ListEmpty, listRow } from './Section';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { surfaces, utils } from '../lib/styles';
+
+const styles = stylex.create({
+	zone: {
+		display: 'flex',
+		flexDirection: 'column',
+		gap: 12,
+		borderRadius: 16,
+		transitionProperty: 'background-color, outline-color',
+		transitionDuration: '0.15s',
+	},
+	/*
+	 * An outline rather than a border, so the area lights up without everything
+	 * inside it shifting by a pixel as the file comes over. It sits outside the
+	 * box, which is what the offset is for: the dashes clear the card's own edge
+	 * instead of tracing it.
+	 */
+	zoneOver: { backgroundColor: tint.brand5, outline: `2px dashed ${tint.brand60}`, outlineOffset: 4 },
+
+	row: { display: 'flex', alignItems: 'center', gap: 8, paddingBlock: 12 },
+	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	name: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 500 },
+	facts: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
+	icon: { width: 16, height: 16 },
+
+	form: { display: 'flex', flexDirection: 'column', gap: 16, borderRadius: 16, padding: 20 },
+	formTitle: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+
+	/*
+	 * The browser draws the button inside a file input, and `::file-selector-button`
+	 * is the only way to reach it. Tailwind spelled this `file:` and stacked the
+	 * hover as `hover:file:`, which lands on the input rather than the button, so
+	 * the nesting below is the same selector it always compiled to.
+	 */
+	picker: {
+		color: colors.muted,
+		width: '100%',
+		fontSize: 14,
+		lineHeight: '20px',
+		'::file-selector-button': {
+			color: colors.ink,
+			marginRight: 12,
+			cursor: 'pointer',
+			borderRadius: 8,
+			borderWidth: 0,
+			backgroundColor: { default: tint.white8, [bp.hover]: { default: null, ':hover': tint.white12 } },
+			paddingInline: 12,
+			paddingBlock: 8,
+			fontSize: 14,
+			lineHeight: '20px',
+		},
+	},
+	problem: { color: colors.out, fontSize: 14, lineHeight: '20px' },
+	chosen: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+	actions: { display: 'flex', gap: 12 },
+
+	/* Drawn only where there is a pointer that can drag. See `handleDrop`. */
+	hint: {
+		color: colors.faint,
+		display: { default: 'none', [bp.fine]: 'block' },
+		paddingInline: 4,
+		textAlign: 'center',
+		fontSize: 12,
+		lineHeight: '16px',
+	},
+});
 
 /**
  * The season's paperwork, and the two things anybody does with it.
@@ -179,12 +246,7 @@ const ReceiptList = ({
 
 	return (
 		<div
-			className={classNames(
-				'space-y-3 rounded-2xl transition-colors',
-				// An outline rather than a border, so the area lights up without
-				// everything inside it shifting by a pixel as the file comes over.
-				over && 'bg-brand/5 outline-brand/60 outline-2 outline-offset-4 outline-dashed'
-			)}
+			{...stylex.props(styles.zone, over && styles.zoneOver)}
 			onDragOver={handleDragOver}
 			onDragLeave={handleDragLeave}
 			onDrop={handleDrop}
@@ -194,10 +256,10 @@ const ReceiptList = ({
 					<ListEmpty>Nothing here yet.</ListEmpty>
 				) : (
 					receipts.map(receipt => (
-						<div key={receipt.id} className='flex items-center gap-2 py-3'>
-							<div className='min-w-0 flex-1'>
-								<p className='text-ink truncate text-sm font-medium'>{receipt.name}</p>
-								<p className='text-faint mt-0.5 text-xs'>
+						<div key={receipt.id} {...stylex.props(listRow, styles.row)}>
+							<div {...stylex.props(styles.body)}>
+								<p {...stylex.props(styles.name, utils.truncate)}>{receipt.name}</p>
+								<p {...stylex.props(styles.facts)}>
 									{receiptKindLabel(receipt.contentType)} · {formatFileSize(receipt.size)} ·{' '}
 									{formatCivilDate(receipt.uploadedAt.slice(0, 10))}
 								</p>
@@ -209,7 +271,7 @@ const ReceiptList = ({
 								aria-label={`Download ${receipt.name}`}
 								onClick={() => onDownload(receipt)}
 							>
-								<ArrowDownTrayIcon className='size-4' aria-hidden='true' />
+								<ArrowDownTrayIcon {...stylex.props(styles.icon)} aria-hidden='true' />
 							</Button>
 
 							<Button
@@ -218,7 +280,7 @@ const ReceiptList = ({
 								aria-label={`Copy a link to ${receipt.name}`}
 								onClick={() => onCopyLink(receipt)}
 							>
-								<LinkIcon className='size-4' aria-hidden='true' />
+								<LinkIcon {...stylex.props(styles.icon)} aria-hidden='true' />
 							</Button>
 
 							{canEdit && (
@@ -228,7 +290,7 @@ const ReceiptList = ({
 									aria-label={`Remove ${receipt.name}`}
 									onClick={() => onDelete(receipt)}
 								>
-									<TrashIcon className='size-4' aria-hidden='true' />
+									<TrashIcon {...stylex.props(styles.icon)} aria-hidden='true' />
 								</Button>
 							)}
 						</div>
@@ -239,8 +301,8 @@ const ReceiptList = ({
 			{canEdit && (
 				<>
 					{adding ? (
-						<section className='glass space-y-4 rounded-2xl p-5'>
-							<h3 className='text-ink font-semibold'>Add a receipt</h3>
+						<section {...stylex.props(surfaces.glass, styles.form)}>
+							<h3 {...stylex.props(styles.formTitle)}>Add a receipt</h3>
 
 							<Field
 								label='The file'
@@ -256,14 +318,14 @@ const ReceiptList = ({
 									accept={RECEIPT_CONTENT_TYPES.join(',')}
 									aria-label='Receipt file'
 									onChange={event => pick(event.target.files?.[0] ?? null)}
-									className='text-muted file:text-ink w-full text-sm file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-white/8 file:px-3 file:py-2 file:text-sm hover:file:bg-white/12'
+									{...stylex.props(styles.picker)}
 								/>
 							</Field>
 
-							{problem && <p className='text-out text-sm'>{problem}</p>}
+							{problem && <p {...stylex.props(styles.problem)}>{problem}</p>}
 
 							{file && !problem && (
-								<p className='text-faint text-xs'>
+								<p {...stylex.props(styles.chosen)}>
 									{receiptKindLabel(file.type)} · {formatFileSize(file.size)}
 								</p>
 							)}
@@ -283,7 +345,7 @@ const ReceiptList = ({
 								/>
 							</Field>
 
-							<div className='flex gap-3'>
+							<div {...stylex.props(styles.actions)}>
 								<Button variant='primary' fullWidth onClick={handleUpload} disabled={!valid}>
 									Upload it
 								</Button>
@@ -294,14 +356,12 @@ const ReceiptList = ({
 						</section>
 					) : (
 						<Button variant='secondary' fullWidth onClick={() => setAdding(true)}>
-							<PlusIcon className='size-4' aria-hidden='true' />
+							<PlusIcon {...stylex.props(styles.icon)} aria-hidden='true' />
 							Add a receipt
 						</Button>
 					)}
 
-					<p className='text-faint hidden px-1 text-center text-xs pointer-fine:block'>
-						{over ? 'Drop it here.' : 'Or drag a file in here.'}
-					</p>
+					<p {...stylex.props(styles.hint)}>{over ? 'Drop it here.' : 'Or drag a file in here.'}</p>
 				</>
 			)}
 		</div>

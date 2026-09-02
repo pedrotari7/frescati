@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRightStartOnRectangleIcon, BellIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import { signOutOfApp, useAuth } from '../../../lib/auth';
 import { buildLabel } from '../../../lib/build';
 import { checkPushSupport, disablePush, enablePush, isPushEnabled } from '../../../lib/push';
@@ -20,6 +21,76 @@ import PageShell from '../../../components/PageShell';
 import Avatar from '../../../components/Avatar';
 import Button from '../../../components/Button';
 import StatusPill from '../../../components/StatusPill';
+import { bp, colors, tint } from '../../tokens.stylex';
+import { surfaces, utils } from '../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16 },
+
+	profile: {
+		display: 'flex',
+		alignItems: 'center',
+		gap: 16,
+		borderRadius: 16,
+		padding: 20,
+		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	name: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	email: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+	pill: { marginTop: 6 },
+	chevron: { color: colors.faint, width: 20, height: 20, flexShrink: 0 },
+
+	card: { borderRadius: 16, padding: 20 },
+	cardTitle: { color: colors.ink, marginBottom: 4, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	/* No blurb under it, so the heading owns the gap the blurb would have. */
+	titleAlone: { marginBottom: 12 },
+	blurb: { color: colors.muted, marginBottom: 12, fontSize: 14, lineHeight: 1.625 },
+
+	bellRow: { marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 },
+	bell: { color: colors.muted, width: 20, height: 20 },
+	notifyBlurb: { color: colors.muted, marginBottom: 16, fontSize: 14, lineHeight: 1.625 },
+	install: { color: colors.pending, marginBottom: 16, fontSize: 14, lineHeight: '20px' },
+	unsupported: { color: colors.faint, marginBottom: 16, fontSize: 14, lineHeight: '20px' },
+	message: { color: colors.muted, marginTop: 12, fontSize: 12, lineHeight: '16px' },
+	/* The switches carry their own hairlines. This only draws the line above the
+	   first one, which is the join to the button over it. */
+	switches: {
+		marginTop: 16,
+		borderTopWidth: 1,
+		borderTopStyle: 'solid',
+		borderTopColor: tint.white5,
+		paddingTop: 4,
+	},
+
+	out: { width: 16, height: 16 },
+	build: { color: colors.faint, paddingTop: 4, textAlign: 'center', fontSize: 12, lineHeight: '16px' },
+});
+
+/**
+ * One of the screens that hangs off this one, with the sentence saying what it
+ * is for.
+ *
+ * A component rather than the six near-identical blocks the class-name version
+ * carried, where a heading, a blurb and a full-width button were kept in step
+ * by hand.
+ */
+const LinkCard = ({ title, blurb, label, href }: { title: string; blurb?: string; label: string; href: string }) => {
+	const router = useRouter();
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<h2 {...stylex.props(styles.cardTitle, !blurb && styles.titleAlone)}>{title}</h2>
+			{blurb && <p {...stylex.props(styles.blurb)}>{blurb}</p>}
+
+			<Button variant='secondary' fullWidth onClick={() => router.push(href)}>
+				{label}
+			</Button>
+		</section>
+	);
+};
 
 const MePage = () => {
 	const router = useRouter();
@@ -107,48 +178,45 @@ const MePage = () => {
 			navItems={seasonId ? seasonNavItems(seasonId) : undefined}
 			backHref={seasonId ? undefined : '/seasons'}
 		>
-			<div className='space-y-4 p-4'>
+			<div {...stylex.props(styles.page)}>
 				{/* The card is the way to your own player screen, the same tap as
 				    on your name anywhere else, rather than a row saying "Your
 				    record" that would only ever be about you. */}
-				<Link
-					href={`/u/${user.uid}`}
-					className='glass flex items-center gap-4 rounded-2xl p-5 transition-colors hover:bg-white/5'
-				>
+				<Link href={`/u/${user.uid}`} {...stylex.props(surfaces.glass, styles.profile)}>
 					<Avatar displayName={user.displayName} photoURL={user.photoURL} size='lg' />
-					<div className='min-w-0 flex-1'>
-						<p className='text-ink truncate font-semibold'>{user.displayName}</p>
-						<p className='text-faint truncate text-xs'>{user.email}</p>
+					<div {...stylex.props(styles.body)}>
+						<p {...stylex.props(styles.name, utils.truncate)}>{user.displayName}</p>
+						<p {...stylex.props(styles.email, utils.truncate)}>{user.email}</p>
 						{user.isAppAdmin && (
-							<StatusPill tone='brand' className='mt-1.5'>
+							<StatusPill tone='brand' sx={styles.pill}>
 								App admin
 							</StatusPill>
 						)}
 					</div>
-					<ChevronRightIcon className='text-faint size-5 shrink-0' aria-hidden='true' />
+					<ChevronRightIcon {...stylex.props(styles.chevron)} aria-hidden='true' />
 				</Link>
 
-				<section className='glass rounded-2xl p-5'>
-					<div className='mb-1 flex items-center gap-2'>
-						<BellIcon className='text-muted size-5' aria-hidden='true' />
-						<h2 className='text-ink font-semibold'>Notifications</h2>
+				<section {...stylex.props(surfaces.glass, styles.card)}>
+					<div {...stylex.props(styles.bellRow)}>
+						<BellIcon {...stylex.props(styles.bell)} aria-hidden='true' />
+						<h2 {...stylex.props(styles.cardTitle)}>Notifications</h2>
 					</div>
 
-					<p className='text-muted mb-4 text-sm leading-relaxed'>
+					<p {...stylex.props(styles.notifyBlurb)}>
 						Get a nudge when it&apos;s time to say whether you&apos;re playing, and a heads-up if a game is
 						short or called off.
 					</p>
 
 					{support === 'needs-install' && (
-						<p className='text-pending mb-4 text-sm'>
-							On iPhone and iPad, add Frescati to your home screen first. Safari only allows
-							notifications for installed apps.
+						<p {...stylex.props(styles.install)}>
+							On iPhone and iPad, add Frescati to your home screen first. Safari only allows notifications
+							for installed apps.
 							{prefs.emailFallback && ' Until then these go to your email instead.'}
 						</p>
 					)}
 
 					{support === 'unsupported' && (
-						<p className='text-faint mb-4 text-sm'>
+						<p {...stylex.props(styles.unsupported)}>
 							This browser doesn&apos;t support notifications.
 							{prefs.emailFallback && ' These go to your email instead.'}
 						</p>
@@ -166,11 +234,11 @@ const MePage = () => {
 							</Button>
 						))}
 
-					{message && <p className='text-muted mt-3 text-xs'>{message}</p>}
+					{message && <p {...stylex.props(styles.message)}>{message}</p>}
 
 					{/* Separate from the per-device switch above: these say which
 					    kinds you want at all, on every device you've registered. */}
-					<div className='mt-4 divide-y divide-white/5 border-t border-white/5 pt-1'>
+					<div {...stylex.props(styles.switches)}>
 						<Toggle
 							label='Reminders'
 							description="Before a game you haven't answered yet."
@@ -224,70 +292,46 @@ const MePage = () => {
 					</div>
 				</section>
 
-				<section className='glass rounded-2xl p-5'>
-					<h2 className='text-ink mb-3 font-semibold'>Seasons</h2>
-					<Button variant='secondary' fullWidth onClick={() => router.push('/seasons?browse=1')}>
-						Switch season
-					</Button>
-				</section>
+				<LinkCard title='Seasons' label='Switch season' href='/seasons?browse=1' />
 
 				{/* The only way into the app-admin screen. Hidden rather than
 				    shown-and-denied: nobody else has anything to do there. */}
 				{user.isAppAdmin && (
 					<>
-						<section className='glass rounded-2xl p-5'>
-							<h2 className='text-ink mb-1 font-semibold'>App admins</h2>
-							<p className='text-muted mb-3 text-sm leading-relaxed'>
-								Manage who can create seasons and promote other admins.
-							</p>
-							<Button variant='secondary' fullWidth onClick={() => router.push('/admin')}>
-								Manage app admins
-							</Button>
-						</section>
+						<LinkCard
+							title='App admins'
+							blurb='Manage who can create seasons and promote other admins.'
+							label='Manage app admins'
+							href='/admin'
+						/>
 
-						<section className='glass rounded-2xl p-5'>
-							<h2 className='text-ink mb-1 font-semibold'>Starting ratings</h2>
-							<p className='text-muted mb-3 text-sm leading-relaxed'>
-								Tell the balancer what a new player is worth before they have played, instead of
-								starting everybody on the group average.
-							</p>
-							<Button variant='secondary' fullWidth onClick={() => router.push('/admin/ratings')}>
-								Set starting ratings
-							</Button>
-						</section>
+						<LinkCard
+							title='Starting ratings'
+							blurb='Tell the balancer what a new player is worth before they have played, instead of starting everybody on the group average.'
+							label='Set starting ratings'
+							href='/admin/ratings'
+						/>
 
-						<section className='glass rounded-2xl p-5'>
-							<h2 className='text-ink mb-1 font-semibold'>Who gets notified</h2>
-							<p className='text-muted mb-3 text-sm leading-relaxed'>
-								Every account&apos;s notification settings, the devices they have registered, and who
-								never added the app to their home screen.
-							</p>
-							<Button variant='secondary' fullWidth onClick={() => router.push('/admin/notifications')}>
-								Notification status
-							</Button>
-						</section>
+						<LinkCard
+							title='Who gets notified'
+							blurb="Every account's notification settings, the devices they have registered, and who never added the app to their home screen."
+							label='Notification status'
+							href='/admin/notifications'
+						/>
 
-						<section className='glass rounded-2xl p-5'>
-							<h2 className='text-ink mb-1 font-semibold'>Activity</h2>
-							<p className='text-muted mb-3 text-sm leading-relaxed'>
-								When everybody last opened the app, so you can see who has quietly stopped turning up
-								before a season is planned around them.
-							</p>
-							<Button variant='secondary' fullWidth onClick={() => router.push('/admin/activity')}>
-								See who&apos;s still around
-							</Button>
-						</section>
+						<LinkCard
+							title='Activity'
+							blurb='When everybody last opened the app, so you can see who has quietly stopped turning up before a season is planned around them.'
+							label="See who's still around"
+							href='/admin/activity'
+						/>
 
-						<section className='glass rounded-2xl p-5'>
-							<h2 className='text-ink mb-1 font-semibold'>Debug</h2>
-							<p className='text-muted mb-3 text-sm leading-relaxed'>
-								Send each notification to your own devices, without staging the game state that would
-								normally trigger it, and break things on purpose to check error reporting is working.
-							</p>
-							<Button variant='secondary' fullWidth onClick={() => router.push('/debug')}>
-								Open debug
-							</Button>
-						</section>
+						<LinkCard
+							title='Debug'
+							blurb='Send each notification to your own devices, without staging the game state that would normally trigger it, and break things on purpose to check error reporting is working.'
+							label='Open debug'
+							href='/debug'
+						/>
 					</>
 				)}
 
@@ -299,7 +343,7 @@ const MePage = () => {
 						router.push('/');
 					}}
 				>
-					<ArrowRightStartOnRectangleIcon className='size-4' aria-hidden='true' />
+					<ArrowRightStartOnRectangleIcon {...stylex.props(styles.out)} aria-hidden='true' />
 					Sign out
 				</Button>
 
@@ -309,7 +353,7 @@ const MePage = () => {
 				    an admin-only version could never be asked of the person it is
 				    broken for. Faint and last. Nobody needs it until they are
 				    asked for it. */}
-				<p className='text-faint pt-1 text-center text-xs'>Build {buildLabel()}</p>
+				<p {...stylex.props(styles.build)}>Build {buildLabel()}</p>
 			</div>
 		</PageShell>
 	);

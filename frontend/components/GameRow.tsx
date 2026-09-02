@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import type { GameLifecycle } from '@shared/game';
 import { getExtraSpot, getFormat, getGameLifecycle, getHeadcountState, isWatchable } from '@shared/game';
 import { formatGameDate, formatGameTime } from '@shared/format';
 import { isMotmVotingOpen } from '@shared/motm';
-import { classNames } from '../lib/utils/reactHelper';
+import { colors } from '../app/tokens.stylex';
+import { surfaces } from '../lib/styles';
 import type { DebtLock } from './RespondControl';
 import RespondControl from './RespondControl';
 import type { PillTone } from './StatusPill';
@@ -48,6 +50,29 @@ const answerPill = (
 
 	return myResponse.status === 'in' ? { tone: 'in', label: "You're in" } : { tone: 'out', label: "You're out" };
 };
+
+const styles = stylex.create({
+	card: { borderRadius: 16, padding: 16 },
+	cancelled: { opacity: 0.55 },
+	past: { opacity: 0.7 },
+
+	head: { display: 'flex', alignItems: 'center', gap: 4 },
+	link: { display: 'flex', minWidth: 0, flexGrow: 1, flexBasis: '0%', alignItems: 'center', gap: 12 },
+	body: { minWidth: 0, flexGrow: 1, flexBasis: '0%' },
+
+	when: { display: 'flex', alignItems: 'center', gap: 8 },
+	date: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	time: { color: colors.faint, fontSize: 14, lineHeight: '20px', fontVariantNumeric: 'tabular-nums' },
+
+	pills: { marginTop: 6, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+	count: { fontSize: 12, lineHeight: '16px', fontWeight: 600 },
+	countOk: { color: colors.in },
+	countShort: { color: colors.pending },
+	format: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+
+	chevron: { color: colors.faint, width: 20, height: 20, flexShrink: 0 },
+	respond: { marginTop: 12 },
+});
 
 const GameRow = ({
 	game,
@@ -90,13 +115,19 @@ const GameRow = ({
 
 	return (
 		<div
-			className={classNames(
-				'glass-card rounded-2xl p-4',
-				lifecycle === 'cancelled' && 'opacity-55',
+			/* What an end-to-end test finds a game by. The class names are hashed
+			   and belong to the compiler, so a row is no longer something a
+			   selector can describe, and the two specs that pick a row out of a
+			   section by what is inside it need something to pick from. */
+			data-testid='game-row'
+			{...stylex.props(
+				surfaces.glassCard,
+				styles.card,
+				lifecycle === 'cancelled' && styles.cancelled,
 				// Faded because it is behind us, but not while the vote is out, or
 				// the one row on the screen still asking for something would be the
 				// quietest thing on it.
-				isPast && !voting && 'opacity-70'
+				isPast && !voting && styles.past
 			)}
 		>
 			{/* The bell is the row's second action, so it sits beside the link
@@ -104,34 +135,25 @@ const GameRow = ({
 			    the same reason the hero keeps its own outside the panel it draws.
 			    The chevron stays at the end of the link, because it is what says
 			    the row leads somewhere and the bell is not. */}
-			<div className='flex items-center gap-1'>
-				<Link href={href ?? `/s/${season.id}/g/${game.id}`} className='flex min-w-0 flex-1 items-center gap-3'>
-					<div className='min-w-0 flex-1'>
-						<div className='flex items-center gap-2'>
-							<span className='text-ink text-sm font-semibold'>
-								{formatGameDate(game.kickoff, timezone)}
-							</span>
-							<span className='text-faint text-sm tabular-nums'>
-								{formatGameTime(game.kickoff, timezone)}
-							</span>
+			<div {...stylex.props(styles.head)}>
+				<Link href={href ?? `/s/${season.id}/g/${game.id}`} {...stylex.props(styles.link)}>
+					<div {...stylex.props(styles.body)}>
+						<div {...stylex.props(styles.when)}>
+							<span {...stylex.props(styles.date)}>{formatGameDate(game.kickoff, timezone)}</span>
+							<span {...stylex.props(styles.time)}>{formatGameTime(game.kickoff, timezone)}</span>
 							{game.isOneOff && <StatusPill tone='extra'>One-off</StatusPill>}
 						</div>
 
-						<div className='mt-1.5 flex flex-wrap items-center gap-1.5'>
+						<div {...stylex.props(styles.pills)}>
 							{lifecycle === 'cancelled' ? (
 								<StatusPill tone='out'>Cancelled</StatusPill>
 							) : (
 								<>
-									<span
-										className={classNames(
-											'text-xs font-semibold',
-											atRisk ? 'text-pending' : 'text-in'
-										)}
-									>
+									<span {...stylex.props(styles.count, atRisk ? styles.countShort : styles.countOk)}>
 										{game.counts.playing} playing
 									</span>
 									{!atRisk && getFormat(game.counts.playing) && (
-										<span className='text-faint text-xs'>· {getFormat(game.counts.playing)}</span>
+										<span {...stylex.props(styles.format)}>· {getFormat(game.counts.playing)}</span>
 									)}
 									{atRisk && !isPast && <StatusPill tone='pending'>Short</StatusPill>}
 								</>
@@ -147,7 +169,7 @@ const GameRow = ({
 						</div>
 					</div>
 
-					<ChevronRightIcon className='text-faint size-5 shrink-0' aria-hidden='true' />
+					<ChevronRightIcon {...stylex.props(styles.chevron)} aria-hidden='true' />
 				</Link>
 
 				{onWatchChange && isWatchable(lifecycle) && (
@@ -156,7 +178,7 @@ const GameRow = ({
 			</div>
 
 			{lifecycle === 'open' && (
-				<div className='mt-3'>
+				<div {...stylex.props(styles.respond)}>
 					<RespondControl
 						response={myResponse}
 						onRespond={onRespond}

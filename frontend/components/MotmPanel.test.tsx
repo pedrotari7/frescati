@@ -1,6 +1,19 @@
+import * as stylex from '@stylexjs/stylex';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { AppUser, MotmVote, TournamentMotm } from '@shared/types';
+import { tint } from '../app/tokens.stylex';
+import { stylesFor, stylesOf } from '../test/stylex';
 import MotmPanel from './MotmPanel';
+
+/*
+ * The three rings a row can be drawn with. One property, so a row carries
+ * exactly one of them, which is the thing these tests are about.
+ */
+const expected = stylex.create({
+	wonPicked: { boxShadow: `0 0 0 1px ${tint.brand40}` },
+	won: { boxShadow: `0 0 0 1px ${tint.pending30}` },
+	picked: { boxShadow: `0 0 0 1px ${tint.brand30}` },
+});
 
 const user = (uid: string, displayName: string): AppUser =>
 	({ uid, displayName, photoURL: null }) as unknown as AppUser;
@@ -256,8 +269,8 @@ describe('MotmPanel', () => {
 
 			const winner = screen.getByRole('button', { name: /Zara/ });
 
-			expect(winner).toHaveClass('ring-brand/40');
-			expect(winner).not.toHaveClass('ring-pending/30');
+			expect(stylesOf(winner)).toEqual(expect.arrayContaining(stylesFor(expected.wonPicked)));
+			expect(stylesOf(winner)).not.toEqual(expect.arrayContaining(stylesFor(expected.won)));
 		});
 
 		// Your own pick is on the list whenever it lost too: it got your vote, so it
@@ -277,9 +290,11 @@ describe('MotmPanel', () => {
 
 			const winner = screen.getByRole('button', { name: /Zara/ });
 
-			expect(winner).toHaveClass('ring-pending/30');
-			expect(winner).not.toHaveClass('ring-brand/40');
-			expect(screen.getByRole('button', { name: /Anna/ })).toHaveClass('ring-brand/30');
+			expect(stylesOf(winner)).toEqual(expect.arrayContaining(stylesFor(expected.won)));
+			expect(stylesOf(winner)).not.toEqual(expect.arrayContaining(stylesFor(expected.wonPicked)));
+			expect(stylesOf(screen.getByRole('button', { name: /Anna/ }))).toEqual(
+				expect.arrayContaining(stylesFor(expected.picked))
+			);
 		});
 
 		// A window that has run out but hasn't been counted yet. The hour

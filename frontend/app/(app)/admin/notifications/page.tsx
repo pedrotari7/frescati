@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { AppUser, NotificationPrefs, PushDevice } from '@shared/types';
 import type { PushReach, ReachLevel } from '@shared/notifications';
 import { canEmail, getPushReach, getReachLevel, relevantPrefs } from '@shared/notifications';
@@ -18,8 +19,51 @@ import Avatar from '../../../../components/Avatar';
 import Button from '../../../../components/Button';
 import StatusPill from '../../../../components/StatusPill';
 import type { PillTone } from '../../../../components/StatusPill';
-import { TextInput } from '../../../../components/Field';
-import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Section';
+import { SearchInput } from '../../../../components/Field';
+import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../components/Section';
+import { colors } from '../../../tokens.stylex';
+import { surfaces, utils } from '../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
+
+	headline: { borderRadius: 16, padding: 20 },
+	/* Wraps, so Refresh drops under the count on a narrow phone rather than
+	   squeezing the number that is the answer. */
+	top: { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+	headlineBody: { minWidth: 0 },
+	count: { color: colors.ink, fontSize: 24, lineHeight: '32px', fontWeight: 600 },
+	total: { color: colors.faint, fontSize: 16, lineHeight: '24px', fontWeight: 400 },
+	caption: { color: colors.muted, marginTop: 2, fontSize: 14, lineHeight: '20px' },
+	refresh: { width: 16, height: 16 },
+	note: { color: colors.faint, marginTop: 12, fontSize: 12, lineHeight: 1.625 },
+	warning: { color: colors.pending, marginTop: 12, fontSize: 12, lineHeight: 1.625 },
+	failed: { color: colors.out, fontSize: 14, lineHeight: 1.625 },
+
+	skeletons: { display: 'flex', flexDirection: 'column', gap: 12 },
+	block: { height: 96 },
+
+	heading: { marginBottom: 8, paddingInline: 4 },
+	row: { display: 'flex', alignItems: 'flex-start', gap: 12, paddingBlock: 12 },
+	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	/* Wraps rather than truncating: the name and the admin pill after it both
+	   have to be readable on a phone. */
+	nameRow: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 4 },
+	name: { color: colors.ink, fontSize: 14, lineHeight: '20px' },
+	devices: {
+		color: colors.faint,
+		listStyleType: 'none',
+		margin: 0,
+		marginTop: 4,
+		padding: 0,
+		display: 'flex',
+		flexDirection: 'column',
+		gap: 2,
+		fontSize: 12,
+		lineHeight: '16px',
+	},
+	pills: { marginTop: 8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+});
 
 /**
  * Who the app can actually reach, and why it can't reach the rest.
@@ -175,26 +219,26 @@ const NotificationsAdminPage = () => {
 
 	return (
 		<PageShell title='Notifications' subtitle='Who the app can reach' backHref='/me'>
-			<div className='space-y-6 p-4'>
-				<section className='glass rounded-2xl p-5'>
-					<div className='flex flex-wrap items-start justify-between gap-3'>
-						<div className='min-w-0'>
-							<p className='text-ink text-2xl font-semibold'>
+			<div {...stylex.props(styles.page)}>
+				<section {...stylex.props(surfaces.glass, styles.headline)}>
+					<div {...stylex.props(styles.top)}>
+						<div {...stylex.props(styles.headlineBody)}>
+							<p {...stylex.props(styles.count)}>
 								{reached}
-								<span className='text-faint text-base font-normal'> of {rows.length}</span>
+								<span {...stylex.props(styles.total)}> of {rows.length}</span>
 							</p>
-							<p className='text-muted mt-0.5 text-sm'>can be reached, by push or by email</p>
+							<p {...stylex.props(styles.caption)}>can be reached, by push or by email</p>
 						</div>
 
 						<Button size='sm' variant='secondary' onClick={reload} disabled={devicesLoading}>
-							<ArrowPathIcon className='size-4' aria-hidden='true' />
+							<ArrowPathIcon {...stylex.props(styles.refresh)} aria-hidden='true' />
 							Refresh
 						</Button>
 					</div>
 
 					{/* Realtime everywhere else in the app, so the one screen
 					    that isn't should say so rather than quietly go stale. */}
-					<p className='text-faint mt-3 text-xs leading-relaxed'>
+					<p {...stylex.props(styles.note)}>
 						Preferences update live. Registered devices are read when this screen opens. Hit Refresh after
 						somebody turns notifications on.
 					</p>
@@ -202,7 +246,7 @@ const NotificationsAdminPage = () => {
 					{/* Every row would otherwise read as push-only with no hint
 					    that the fallback exists but was never set up. */}
 					{!devicesLoading && !error && !reach.emailConfigured && (
-						<p className='text-pending mt-3 text-xs leading-relaxed'>
+						<p {...stylex.props(styles.warning)}>
 							No email sender is configured, so nobody below gets the email fallback. See EMAIL_FROM and
 							APP_URL in the README.
 						</p>
@@ -210,31 +254,24 @@ const NotificationsAdminPage = () => {
 				</section>
 
 				{error && (
-					<p className='text-out text-sm leading-relaxed'>
+					<p {...stylex.props(styles.failed)}>
 						Couldn&apos;t load registered devices, so every row below reads as having none and as getting no
 						email either.
 					</p>
 				)}
 
-				<div className='relative'>
-					<MagnifyingGlassIcon
-						className='text-faint pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2'
-						aria-hidden='true'
-					/>
-					<TextInput
-						value={search}
-						onChange={e => setSearch(e.target.value)}
-						placeholder='Search by name'
-						className='pl-10'
-						type='search'
-					/>
-				</div>
+				<SearchInput
+					label='Search by name'
+					value={search}
+					onChange={e => setSearch(e.target.value)}
+					placeholder='Search by name'
+				/>
 
 				{loading ? (
-					<div className='space-y-3'>
-						<SkeletonBlock className='h-24' />
-						<SkeletonBlock className='h-24' />
-						<SkeletonBlock className='h-24' />
+					<div {...stylex.props(styles.skeletons)}>
+						<SkeletonBlock sx={styles.block} />
+						<SkeletonBlock sx={styles.block} />
+						<SkeletonBlock sx={styles.block} />
 					</div>
 				) : (
 					/* Worst first. This screen gets opened because somebody isn't
@@ -287,7 +324,7 @@ const buildRows = (users: AppUser[], { devices, addressed, emailConfigured }: No
 
 const Section = ({ title, rows, now, empty }: { title: string; rows: Row[]; now: Date; empty: string }) => (
 	<section>
-		<SectionHeading className='mb-2 px-1'>
+		<SectionHeading sx={styles.heading}>
 			{title} ({rows.length})
 		</SectionHeading>
 
@@ -310,12 +347,12 @@ const PlayerRow = ({ row: { user, devices, reach, byEmail, hasEmail }, now }: { 
 	const noEmail = whyNoEmail(user, hasEmail);
 
 	return (
-		<div className='flex items-start gap-3 py-3'>
+		<div {...stylex.props(listRow, styles.row)}>
 			<Avatar displayName={user.displayName} photoURL={user.photoURL} />
 
-			<div className='min-w-0 flex-1'>
-				<div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
-					<p className='text-ink truncate text-sm'>{user.displayName}</p>
+			<div {...stylex.props(styles.body)}>
+				<div {...stylex.props(styles.nameRow)}>
+					<p {...stylex.props(styles.name, utils.truncate)}>{user.displayName}</p>
 					{user.isAppAdmin && <StatusPill tone='brand'>App admin</StatusPill>}
 				</div>
 
@@ -324,7 +361,7 @@ const PlayerRow = ({ row: { user, devices, reach, byEmail, hasEmail }, now }: { 
 				    and the count is obvious from the list anyway. Nothing at all
 				    needs no line here, the "No device" pill below says it. */}
 				{devices.length > 0 && (
-					<ul className='text-faint mt-1 space-y-0.5 text-xs'>
+					<ul {...stylex.props(styles.devices)}>
 						{devices.map((device, index) => (
 							<li key={`${device.platform}-${device.registeredAt}-${index}`}>
 								{describeDevice(device)}
@@ -334,7 +371,7 @@ const PlayerRow = ({ row: { user, devices, reach, byEmail, hasEmail }, now }: { 
 					</ul>
 				)}
 
-				<div className='mt-2 flex flex-wrap items-center gap-1.5'>
+				<div {...stylex.props(styles.pills)}>
 					<StatusPill tone={REACH_TONE[reach]}>{REACH_LABEL[reach]}</StatusPill>
 
 					{/* Only where it changes the answer. Push reaching them

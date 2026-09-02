@@ -1,7 +1,22 @@
 import type { ReactNode } from 'react';
+import * as stylex from '@stylexjs/stylex';
+import type { StyleXStyles } from '@stylexjs/stylex';
 import { toDisplayMovement } from '@shared/leaderboard';
 import { signed } from '@shared/format';
-import { classNames } from '../lib/utils/reactHelper';
+import { colors } from '../app/tokens.stylex';
+
+const styles = stylex.create({
+	/*
+	 * The 12px is a default rather than a prop default, which is what
+	 * `className = 'text-xs'` was pretending to be: a caller passing its own size
+	 * used to replace this one only because it happened to come later in the
+	 * concatenated string. Here the later style genuinely wins, so `sx` overrides
+	 * it and a caller that passes nothing still gets 12px.
+	 */
+	movement: { fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: 12, lineHeight: '16px' },
+	up: { color: colors.in },
+	down: { color: colors.out },
+});
 
 /**
  * What one game did to somebody's rating.
@@ -29,12 +44,12 @@ import { classNames } from '../lib/utils/reactHelper';
  */
 const RatingMovement = ({
 	delta,
-	className = 'text-xs',
+	sx,
 	flat = null,
 }: {
 	/** Elo, not the displayed scale. `undefined` when the game has not been rated. */
 	delta: number | undefined;
-	className?: string;
+	sx?: StyleXStyles;
 	/** What to draw when the change rounds to nothing. */
 	flat?: ReactNode;
 }) => {
@@ -44,11 +59,7 @@ const RatingMovement = ({
 
 	if (shown === 0) return <>{flat}</>;
 
-	return (
-		<span className={classNames('font-semibold tabular-nums', shown > 0 ? 'text-in' : 'text-out', className)}>
-			{signed(shown)}
-		</span>
-	);
+	return <span {...stylex.props(styles.movement, shown > 0 ? styles.up : styles.down, sx)}>{signed(shown)}</span>;
 };
 
 export default RatingMovement;

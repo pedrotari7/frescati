@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { BanknotesIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { Due, DueStatus, Expense, Receipt } from '@shared/types';
 import type { PlayerLedger } from '@shared/finances';
 import {
@@ -48,6 +49,30 @@ import ExpenseList from '../../../../../components/ExpenseList';
 import ReceiptList from '../../../../../components/ReceiptList';
 import SwishPay from '../../../../../components/SwishPay';
 import { SectionHeading } from '../../../../../components/Section';
+import { colors } from '../../../../tokens.stylex';
+import { surfaces } from '../../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
+	/* Every section on this screen is a heading, a line of explanation and a
+	   list, stacked at the same rhythm. */
+	group: { display: 'flex', flexDirection: 'column', gap: 12 },
+
+	/* The px-1 lines the heading up with the text inside the cards below it,
+	   which have their own padding; without it the label hangs off to the left. */
+	head: { display: 'flex', alignItems: 'center', gap: 8, paddingInline: 4 },
+	heading: { paddingInline: 4 },
+	empty: { color: colors.faint, paddingInline: 4, fontSize: 14, lineHeight: '20px' },
+	note: { color: colors.faint, paddingInline: 4, fontSize: 12, lineHeight: 1.625 },
+
+	sweep: { display: 'flex', flexDirection: 'column', gap: 12, borderRadius: 16, padding: 20 },
+	sweepTitle: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	sweepNote: { color: colors.faint, marginTop: 4, fontSize: 12, lineHeight: 1.625 },
+	sweepCount: { color: colors.muted, fontSize: 14, lineHeight: '20px' },
+	/* Check and Raise side by side. Two full-width buttons stacked would put the
+	   destructive one under the thumb that just pressed the safe one. */
+	sweepActions: { display: 'flex', gap: 12 },
+});
 
 /**
  * How many of the people chased the chase got to.
@@ -292,8 +317,8 @@ const FinancesPage = () => {
 	};
 
 	const yourDues = (
-		<section className='space-y-3'>
-			<div className='flex items-center gap-2 px-1'>
+		<section {...stylex.props(styles.group)}>
+			<div {...stylex.props(styles.head)}>
 				<SectionHeading>What you owe</SectionHeading>
 				{mine.outstanding > 0 ? (
 					<StatusPill tone='out'>{formatSek(mine.outstanding)}</StatusPill>
@@ -303,7 +328,7 @@ const FinancesPage = () => {
 			</div>
 
 			{mine.dues.length === 0 ? (
-				<p className='text-faint px-1 text-sm'>
+				<p {...stylex.props(styles.empty)}>
 					{collecting
 						? 'Nothing has been charged to you yet.'
 						: 'This season is free to play. Nothing is being collected.'}
@@ -336,7 +361,7 @@ const FinancesPage = () => {
 			    the app has an incorrect format" it gives a malformed one, which
 			    reads as a broken app and cost a whole evening to work out. */}
 			{isAdmin && mine.outstanding > 0 && fees.swish && (
-				<p className='text-faint px-1 text-xs leading-relaxed'>
+				<p {...stylex.props(styles.note)}>
 					Swish will not let you pay your own number, and it says the link has an incorrect format rather than
 					saying that. If the number above is yours, the code is fine. Mark your own charge paid in the book
 					below instead.
@@ -344,7 +369,7 @@ const FinancesPage = () => {
 			)}
 
 			{mine.outstanding > 0 && !fees.swish && (
-				<p className='text-faint px-1 text-xs leading-relaxed'>
+				<p {...stylex.props(styles.note)}>
 					No Swish number is set for this season, so ask an admin where to send it. An admin can add one in
 					the season settings.
 				</p>
@@ -355,10 +380,10 @@ const FinancesPage = () => {
 	// An admin who has not set a fee has nothing to collect, so the sweep would
 	// find nothing and say so cryptically. Point at the settings instead.
 	const sweepPanel = isAdmin ? (
-		<section className='glass space-y-3 rounded-2xl p-5'>
+		<section {...stylex.props(surfaces.glass, styles.sweep)}>
 			<div>
-				<h2 className='text-ink font-semibold'>Raise the charges</h2>
-				<p className='text-faint mt-1 text-xs leading-relaxed'>
+				<h2 {...stylex.props(styles.sweepTitle)}>Raise the charges</h2>
+				<p {...stylex.props(styles.sweepNote)}>
 					{collecting
 						? `${formatSek(fees.total)} for the season, ${formatSek(share)} each across ${season.memberUids.length} members. ${formatSek(fees.perGame)} per game for an extra who turned up, and nobody is charged for a game they were marked absent from.`
 						: 'The season costs nothing and extras play free, so there is nothing to charge. Set the fees in the season settings first.'}
@@ -366,14 +391,14 @@ const FinancesPage = () => {
 			</div>
 
 			{missing !== null && (
-				<p className='text-muted text-sm'>
+				<p {...stylex.props(styles.sweepCount)}>
 					{missing === 0
 						? 'Every charge that should exist already does.'
 						: `${missing} ${missing === 1 ? 'charge is' : 'charges are'} missing.`}
 				</p>
 			)}
 
-			<div className='flex gap-3'>
+			<div {...stylex.props(styles.sweepActions)}>
 				<Button variant='secondary' fullWidth disabled={!collecting} onClick={() => sweep(false)}>
 					Check what is missing
 				</Button>
@@ -392,7 +417,7 @@ const FinancesPage = () => {
 
 	return (
 		<SeasonShell title='Finances' subtitle={season.name} backHref={`/s/${seasonId}/members`}>
-			<div className='space-y-6 p-4'>
+			<div {...stylex.props(styles.page)}>
 				{squad ? (
 					<>
 						<FinanceOverview summary={summary} memberCount={season.memberUids.length} />
@@ -403,15 +428,15 @@ const FinancesPage = () => {
 						    because it is the other half of the first one: you paid
 						    for a season, and this is the piece of paper that gets
 						    some of it back. */}
-						<section className='space-y-3'>
-							<div className='flex items-center gap-2 px-1'>
+						<section {...stylex.props(styles.group)}>
+							<div {...stylex.props(styles.head)}>
 								<SectionHeading>Receipts</SectionHeading>
 								{receipts.length > 0 && (
 									<StatusPill tone='neutral'>{counted(receipts.length, 'file')}</StatusPill>
 								)}
 							</div>
 
-							<p className='text-faint px-1 text-xs leading-relaxed'>
+							<p {...stylex.props(styles.note)}>
 								What to hand your employer if you claim friskv&aring;rdsbidrag. Downloading takes your
 								own copy. The link beside it opens this receipt for anybody in this season and for
 								nobody else, so it is safe to paste into the group chat.
@@ -427,8 +452,8 @@ const FinancesPage = () => {
 							/>
 						</section>
 
-						<section className='space-y-3'>
-							<SectionHeading className='px-1'>Who owes what</SectionHeading>
+						<section {...stylex.props(styles.group)}>
+							<SectionHeading sx={styles.heading}>Who owes what</SectionHeading>
 
 							{/* Over the list rather than under it. A season with
 							    enough people owing to be worth one press is a book
@@ -451,7 +476,7 @@ const FinancesPage = () => {
 											: `Remind all ${owing.length} who owe`}
 									</Button>
 
-									<p className='text-faint px-1 text-xs leading-relaxed'>
+									<p {...stylex.props(styles.note)}>
 										A reminder names one person&apos;s own amount and links to this page, and says
 										nothing about anybody else. There is no switch for it in their notification
 										settings; paying is what stops it.
@@ -471,7 +496,7 @@ const FinancesPage = () => {
 							/>
 
 							{!isAdmin && (
-								<p className='text-faint px-1 text-xs leading-relaxed'>
+								<p {...stylex.props(styles.note)}>
 									Only a season admin can mark a payment. Paying does not tick anything off by itself.
 								</p>
 							)}
@@ -490,8 +515,8 @@ const FinancesPage = () => {
 					</>
 				)}
 
-				<section className='space-y-3'>
-					<div className='flex items-center gap-2 px-1'>
+				<section {...stylex.props(styles.group)}>
+					<div {...stylex.props(styles.head)}>
 						<SectionHeading>What the money bought</SectionHeading>
 						{expenses.length > 0 && (
 							<StatusPill tone='neutral'>{formatSek(summary.extras.spent)}</StatusPill>

@@ -1,5 +1,10 @@
+import * as stylex from '@stylexjs/stylex';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { stylesFor, stylesOf } from '../test/stylex';
 import { Field, RangeInput, Select, TextInput } from './Field';
+
+/* The chevron is scenery, so a tap has to reach the control underneath it. */
+const expected = stylex.create({ untappable: { pointerEvents: 'none' } });
 
 describe('Field', () => {
 	it('labels its child control', () => {
@@ -71,7 +76,9 @@ describe('Select', () => {
 			</Select>
 		);
 
-		expect(container.querySelector('svg')).toHaveClass('pointer-events-none');
+		expect(stylesOf(container.querySelector('svg'))).toEqual(
+			expect.arrayContaining(stylesFor(expected.untappable))
+		);
 	});
 });
 

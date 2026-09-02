@@ -1,223 +1,147 @@
-@import 'tailwindcss';
+/*
+ * The whole stylesheet.
+ *
+ * Three things live here and nothing else: a base layer, the compiled StyleX
+ * rules, and the handful of rules that are about no element in particular.
+ * Everything that belongs to a component is a style object next to that
+ * component, and the palette is in `app/tokens.stylex.ts`.
+ */
 
 /*
- * Where the compiled StyleX rules land. Temporary: this sits alongside Tailwind
- * only while the port is in flight, and it goes back to being the whole file
- * once the last component is off `className`.
+ * The base layer, which `@import 'tailwindcss'` used to bring.
+ *
+ * It has to be written out, and it has to be right: every style object in the
+ * app was written on top of it. A control with no `borderWidth` is relying on
+ * the `border: 0` below to take the UA's box away, a list with no `listStyle`
+ * on the reset three rules down, and the whole app on `box-sizing`. This is
+ * Tailwind's preflight cut to the elements this app actually renders, which is
+ * why there is nothing here about `<abbr>`, `<fieldset>` or `<progress>`.
  */
+*,
+::before,
+::after,
+::backdrop,
+::file-selector-button {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	border: 0 solid;
+}
+
+html {
+	/* Landscape on iOS otherwise scales text up on its own. */
+	-webkit-text-size-adjust: 100%;
+	tab-size: 4;
+}
+
+/* A heading is a level, not a size. Every one in the app says its own. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-size: inherit;
+	font-weight: inherit;
+}
+
+a {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+ol,
+ul,
+menu {
+	list-style: none;
+}
+
+img,
+svg,
+video,
+canvas,
+object {
+	display: block;
+	vertical-align: middle;
+}
+
+img,
+video {
+	max-width: 100%;
+	height: auto;
+}
+
+table {
+	text-indent: 0;
+	border-color: inherit;
+	border-collapse: collapse;
+}
+
+/* Controls inherit the page's type and the dark palette, rather than the UA's
+   13px sans and white boxes. */
+button,
+input,
+select,
+optgroup,
+textarea,
+::file-selector-button {
+	font: inherit;
+	letter-spacing: inherit;
+	color: inherit;
+	background-color: transparent;
+	border-radius: 0;
+	opacity: 1;
+}
+
+/* Firefox draws placeholders at 54% opacity, which reads as a third text
+   colour next to the one `Field` actually asks for. */
+::placeholder {
+	opacity: 1;
+}
+
+::-webkit-search-decoration {
+	-webkit-appearance: none;
+}
+
+/* Firefox's keyboard ring, for anything that hasn't declared its own. */
+:-moz-focusring {
+	outline: auto;
+}
+
+/* `!important` so it outranks a StyleX `display`, which otherwise wins on
+   specificity and leaves a hidden element on the screen. */
+[hidden]:where(:not([hidden='until-found'])) {
+	display: none !important;
+}
+
+/* Where the compiled StyleX rules land: every style object in `app/`,
+   `components/`, `hooks/` and `lib/`, in one sheet, in priority order. */
 @stylex;
 
 /*
- * Design tokens. The app is permanently dark, so there is one palette and no
- * `dark:` variants anywhere, components reference these names, never hex.
- */
-@theme {
-	/* Surfaces, darkest to lightest. */
-	--color-canvas: #07080a;
-	--color-surface: #0f1115;
-	--color-raised: #171a20;
-	--color-line: #262b34;
-
-	/* Text. */
-	--color-ink: #f3f5f8;
-	--color-muted: #98a1b1;
-	--color-faint: #626b7a;
-
-	/* Brand: floodlit pitch green. */
-	--color-brand: #3ddc84;
-	--color-brand-strong: #1db954;
-	--color-brand-deep: #0b3d22;
-
-	/* Availability states. These carry meaning; don't reuse them decoratively. */
-	--color-in: #34d399;
-	--color-out: #fb7185;
-	--color-pending: #fbbf24;
-	--color-extra: #60a5fa;
-
-	/*
-	 * Bibs. A team's identity on the pitch, deliberately none of the four above,
-	 * a squad tinted the same green as "in" reads as a status, not a side.
-	 * Four is the ceiling, so there are four.
-	 */
-	--color-team-a: #22d3ee;
-	--color-team-b: #a78bfa;
-	--color-team-c: #fb923c;
-	--color-team-d: #e879f9;
-
-	--font-sans:
-		ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-
-	--shadow-glass: 0 8px 32px rgb(0 0 0 / 0.35);
-	--shadow-card: 0 4px 24px rgb(0 0 0 / 0.28);
-	--shadow-lift: 0 12px 32px rgb(0 0 0 / 0.45);
-
-	--animate-fade-in: fade-in 0.3s ease-out both;
-	--animate-rise: rise 0.35s ease-out both;
-	--animate-pop: pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-	--animate-shimmer: shimmer 1.6s infinite;
-}
-
-@keyframes fade-in {
-	from {
-		opacity: 0;
-	}
-	to {
-		opacity: 1;
-	}
-}
-
-@keyframes rise {
-	from {
-		opacity: 0;
-		transform: translateY(10px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-@keyframes pop {
-	0% {
-		transform: scale(0.85);
-		opacity: 0;
-	}
-	60% {
-		transform: scale(1.06);
-		opacity: 1;
-	}
-	100% {
-		transform: scale(1);
-	}
-}
-
-@keyframes shimmer {
-	100% {
-		transform: translateX(100%);
-	}
-}
-
-@layer base {
-	html {
-		background-color: var(--color-canvas);
-		color-scheme: dark;
-		/* Stop iOS bouncing the whole page when a list is scrolled to its end. */
-		overscroll-behavior-y: none;
-		-webkit-tap-highlight-color: transparent;
-	}
-
-	body {
-		background-color: var(--color-canvas);
-		color: var(--color-ink);
-		font-family: var(--font-sans);
-		min-height: 100dvh;
-	}
-
-	/* Inputs inherit the dark palette rather than the UA's white boxes. */
-	input,
-	select,
-	textarea,
-	button {
-		font: inherit;
-		color: inherit;
-	}
-
-	/* iOS zooms the viewport when a focused input is under 16px. */
-	input,
-	select,
-	textarea {
-		font-size: max(16px, 1rem);
-	}
-
-	::-webkit-scrollbar {
-		width: 6px;
-		height: 6px;
-	}
-
-	::-webkit-scrollbar-thumb {
-		background-color: rgb(255 255 255 / 0.14);
-		border-radius: 9999px;
-	}
-}
-
-@layer components {
-	.glass {
-		background-color: rgb(255 255 255 / 0.045);
-		backdrop-filter: blur(16px);
-		-webkit-backdrop-filter: blur(16px);
-		border: 1px solid rgb(255 255 255 / 0.08);
-	}
-
-	.glass-card {
-		background-color: rgb(255 255 255 / 0.035);
-		backdrop-filter: blur(12px);
-		-webkit-backdrop-filter: blur(12px);
-		border: 1px solid rgb(255 255 255 / 0.07);
-		transition:
-			background-color 0.2s ease,
-			border-color 0.2s ease,
-			transform 0.2s ease;
-	}
-
-	.glass-card:active {
-		transform: scale(0.99);
-	}
-
-	/*
-	 * Same frosted look as .glass, but opaque enough to read over. The bottom
-	 * nav sits on top of scrolling page content rather than a fixed backdrop,
-	 * so .glass's 4.5% tint let card text bleed through and collide with the
-	 * tab labels.
-	 */
-	.glass-nav {
-		background-color: rgb(15 17 21 / 0.92);
-		backdrop-filter: blur(16px);
-		-webkit-backdrop-filter: blur(16px);
-		border: 1px solid rgb(255 255 255 / 0.08);
-	}
-
-	@media (hover: hover) {
-		.glass-card:hover {
-			background-color: rgb(255 255 255 / 0.06);
-			border-color: rgb(255 255 255 / 0.14);
-		}
-	}
-
-}
-
-@utility no-scrollbar {
-	scrollbar-width: none;
-
-	&::-webkit-scrollbar {
-		display: none;
-	}
-}
-
-/*
- * The notch and the home indicator, for anything painting under them.
+ * The rules that belong to no element, so have no style object to live in.
  *
- * `@utility` rather than `@layer components`, which is where these started and
- * where they could not do their job: Tailwind opens with
- * `@layer theme, base, components, utilities`, so a `pb-20` on the same element
- * beat `.pb-safe` outright whatever the specificity, and the safe-area padding
- * on both bottom banners was dead code for as long as it had been written.
- *
- * That said, these still combine badly with another padding utility on the
- * same property, because now it is source order in one layer deciding rather
- * than the layer itself. Two paddings on one element is the mistake; where a
- * fixed offset has to clear the home indicator *as well*, say so in one value
- * with a `calc()` instead of stacking two classes and hoping.
+ * StyleX styles an element. A scrollbar on every scroller in the app, or a
+ * blanket ban on animation, is a rule about the document, and there is nowhere
+ * to hang it but here. Everything above is a StyleX rule that beats these on
+ * specificity, so none of them can reach past a component that has an opinion.
  */
-@utility pb-safe {
-	padding-bottom: env(safe-area-inset-bottom, 0px);
+
+/* iOS zooms the viewport when a focused input is under 16px. */
+input,
+select,
+textarea {
+	font-size: max(16px, 1rem);
 }
 
-@utility pt-safe {
-	padding-top: env(safe-area-inset-top, 0px);
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
 }
 
-@utility mb-safe {
-	margin-bottom: env(safe-area-inset-bottom, 0px);
+::-webkit-scrollbar-thumb {
+	background-color: rgb(255 255 255 / 0.14);
+	border-radius: 9999px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -227,32 +151,5 @@
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
-	}
-}
-
-/*
- * A 44px tap target around something deliberately drawn smaller.
- *
- * The scoreboard is the case this exists for: two steppers and two bibs have
- * to fit across a phone, so the buttons are 36px and cannot simply grow, but
- * they are filled in at the side of a pitch, by somebody with cold hands, and
- * 36px is under every guideline there is.
- *
- * Paints nothing and occupies no space. The pseudo-element collapses to the
- * element's centre and is then expanded by its own minimums, so it works
- * whatever size the thing it is on happens to be, and nothing around it moves.
- * `WatchToggle` solves the same problem with a negative margin, which only
- * works where the row has slack to give.
- */
-@utility tap-44 {
-	position: relative;
-
-	&::after {
-		content: '';
-		position: absolute;
-		inset: 50%;
-		min-width: 44px;
-		min-height: 44px;
-		transform: translate(-50%, -50%);
 	}
 }

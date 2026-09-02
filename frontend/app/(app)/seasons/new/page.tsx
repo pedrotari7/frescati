@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import * as stylex from '@stylexjs/stylex';
 import type { Weekday } from '@shared/types';
 import { weekdayName } from '@shared/format';
 import { parseCount } from '@shared/game';
@@ -13,6 +14,26 @@ import AppAdminOnly from '../../../../components/AppAdminOnly';
 import Button from '../../../../components/Button';
 import DatePicker from '../../../../components/DatePicker';
 import { Field, Select, TextInput } from '../../../../components/Field';
+import { colors } from '../../../tokens.stylex';
+import { surfaces } from '../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { padding: 16 },
+	form: { display: 'flex', flexDirection: 'column', gap: 16, borderRadius: 16, padding: 20 },
+
+	/*
+	 * Two across at every width, including the narrowest phone.
+	 *
+	 * These are the pairs that are read as one question, day and kick-off, start
+	 * and end, and stacking them puts the two halves of it on either side of a
+	 * scroll. The labels are one word and the controls are a time, a date and a
+	 * two-digit number, so the pair fits 320px with room left.
+	 */
+	pair: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 },
+
+	error: { color: colors.out, fontSize: 14, lineHeight: '20px' },
+	note: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+});
 
 /** The group plays in Stockholm; a per-season picker can come later if needed. */
 const TIMEZONE = 'Europe/Stockholm';
@@ -102,8 +123,8 @@ const NewSeasonPage = () => {
 
 	return (
 		<PageShell title='New season' backHref='/seasons'>
-			<div className='space-y-4 p-4'>
-				<section className='glass space-y-4 rounded-2xl p-5'>
+			<div {...stylex.props(styles.page)}>
+				<section {...stylex.props(surfaces.glass, styles.form)}>
 					<Field label='Name' hint="Something you'll recognise, e.g. 'Autumn 2026'.">
 						<TextInput
 							value={form.name}
@@ -126,7 +147,7 @@ const NewSeasonPage = () => {
 						/>
 					</Field>
 
-					<div className='grid grid-cols-2 gap-3'>
+					<div {...stylex.props(styles.pair)}>
 						<Field label='Day'>
 							<Select
 								value={form.weekday}
@@ -149,7 +170,7 @@ const NewSeasonPage = () => {
 						</Field>
 					</div>
 
-					<div className='grid grid-cols-2 gap-3'>
+					<div {...stylex.props(styles.pair)}>
 						<Field label='Starts'>
 							<DatePicker
 								value={form.startDate}
@@ -162,7 +183,7 @@ const NewSeasonPage = () => {
 						</Field>
 					</div>
 
-					<div className='grid grid-cols-2 gap-3'>
+					<div {...stylex.props(styles.pair)}>
 						<Field label='Minutes'>
 							<TextInput
 								type='number'
@@ -184,13 +205,13 @@ const NewSeasonPage = () => {
 						</Field>
 					</div>
 
-					{error && <p className='text-out text-sm'>{error}</p>}
+					{error && <p {...stylex.props(styles.error)}>{error}</p>}
 
 					<Button variant='primary' fullWidth disabled={!isValid} onClick={handleCreate}>
 						Create season
 					</Button>
 
-					<p className='text-faint text-xs'>
+					<p {...stylex.props(styles.note)}>
 						You&apos;ll be added as the first squad member and admin. Games get generated on the next
 						screen.
 					</p>

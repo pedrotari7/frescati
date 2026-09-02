@@ -3,7 +3,10 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
+import * as stylex from '@stylexjs/stylex';
 import Button from './Button';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { animations, elevation, surfaces, utils } from '../lib/styles';
 
 export interface ConfirmOptions {
 	title: string;
@@ -14,6 +17,30 @@ export interface ConfirmOptions {
 }
 
 type Ask = (options: ConfirmOptions) => Promise<boolean>;
+
+const styles = stylex.create({
+	dialog: { position: 'relative', zIndex: 50 },
+	scrim: {
+		backgroundColor: tint.canvas80,
+		position: 'fixed',
+		inset: 0,
+		backdropFilter: 'blur(4px)',
+		WebkitBackdropFilter: 'blur(4px)',
+	},
+	/* Sheet from the bottom on a phone, centred once there's room. */
+	positioner: {
+		position: 'fixed',
+		inset: 0,
+		display: 'flex',
+		alignItems: { default: 'flex-end', [bp.sm]: 'center' },
+		justifyContent: 'center',
+		padding: 16,
+	},
+	panel: { width: '100%', maxWidth: 384, borderRadius: 24, padding: 20 },
+	title: { color: colors.ink, fontSize: 18, lineHeight: '28px', fontWeight: 600 },
+	message: { color: colors.muted, marginTop: 8, fontSize: 14, lineHeight: 1.625 },
+	actions: { marginTop: 20, display: 'flex', gap: 12 },
+});
 
 // Defaults to "yes" so a component rendered outside the provider, only ever a
 // test, doesn't hang forever waiting on a dialog nobody is showing.
@@ -52,19 +79,18 @@ export const ConfirmProvider = ({ children }: { children: ReactNode }) => {
 		<ConfirmContext.Provider value={ask}>
 			{children}
 
-			<Dialog open={options !== null} onClose={() => close(false)} className='relative z-50'>
-				<div className='bg-canvas/80 fixed inset-0 backdrop-blur-sm' aria-hidden='true' />
+			<Dialog open={options !== null} onClose={() => close(false)} {...stylex.props(styles.dialog)}>
+				<div {...stylex.props(styles.scrim)} aria-hidden='true' />
 
-				{/* Sheet from the bottom on a phone, centred once there's room. */}
-				<div className='fixed inset-0 flex items-end justify-center p-4 sm:items-center'>
-					<DialogPanel className='glass shadow-lift animate-rise mb-safe w-full max-w-sm rounded-3xl p-5'>
-						<DialogTitle className='text-ink text-lg font-semibold'>{options?.title}</DialogTitle>
+				<div {...stylex.props(styles.positioner)}>
+					<DialogPanel
+						{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, styles.panel)}
+					>
+						<DialogTitle {...stylex.props(styles.title)}>{options?.title}</DialogTitle>
 
-						{options?.message && (
-							<p className='text-muted mt-2 text-sm leading-relaxed'>{options.message}</p>
-						)}
+						{options?.message && <p {...stylex.props(styles.message)}>{options.message}</p>}
 
-						<div className='mt-5 flex gap-3'>
+						<div {...stylex.props(styles.actions)}>
 							<Button variant='ghost' fullWidth onClick={() => close(false)}>
 								Cancel
 							</Button>

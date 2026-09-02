@@ -1,11 +1,16 @@
-import { createElement } from 'react';
+import * as stylex from '@stylexjs/stylex';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { bp } from '../app/tokens.stylex';
+import { stylesFor, stylesOf } from '../test/stylex';
 import SwishPay from './SwishPay';
 
-const warn = jest.fn();
+/* Out of the way until the thing looking at it is a finger. */
+const expected = stylex.create({ phoneOnly: { display: { default: 'none', [bp.coarse]: 'inline-flex' } } });
+
+const mockWarn = jest.fn();
 
 jest.mock('./Toast', () => ({
-	useToast: () => ({ notify: jest.fn(), warn }),
+	useToast: () => ({ notify: jest.fn(), warn: mockWarn }),
 }));
 
 const mockDrawn: string[] = [];
@@ -19,12 +24,15 @@ const mockDrawn: string[] = [];
 jest.mock('qrcode.react', () => {
 	const actual = jest.requireActual('qrcode.react');
 
+	// JSX rather than `createElement`, because a factory may not reach for a
+	// top-level import unless its name starts with `mock`, and the runtime this
+	// compiles to is one Babel imports for itself.
 	return {
 		...actual,
 		QRCodeSVG: (props: { value: string }) => {
 			mockDrawn.push(props.value);
 
-			return createElement(actual.QRCodeSVG, props);
+			return <actual.QRCodeSVG {...props} />;
 		},
 	};
 });
@@ -96,14 +104,17 @@ describe('SwishPay', () => {
 	});
 
 	/**
-	 * In the document at every width. The link is hidden by a `pointer: coarse`
-	 * media query, which jsdom cannot see at all, which is why `e2e/finances.spec.ts`
-	 * is the test that says a desktop is not offered it.
+	 * In the document at every width. The link is `display: none` until a
+	 * `pointer: coarse` query says otherwise, and jsdom resolves no media queries
+	 * at all, so what a test here can say is that the styling carries both halves.
+	 * `e2e/finances.spec.ts` is the test that says a desktop is not offered it.
 	 */
 	it('leaves the desktop half of that decision to the stylesheet', () => {
 		pay();
 
-		expect(screen.getByTestId('swish-open')).toHaveClass('hidden', 'pointer-coarse:inline-flex');
+		expect(stylesOf(screen.getByTestId('swish-open'))).toEqual(
+			expect.arrayContaining(stylesFor(expected.phoneOnly))
+		);
 	});
 
 	it('copies the number in the form somebody would type into their bank', async () => {
@@ -114,7 +125,7 @@ describe('SwishPay', () => {
 		});
 
 		expect(navigator.clipboard.writeText).toHaveBeenCalledWith('0701234567');
-		expect(warn).not.toHaveBeenCalled();
+		expect(mockWarn).not.toHaveBeenCalled();
 	});
 
 	it('says so when the clipboard refuses', async () => {
@@ -127,7 +138,7 @@ describe('SwishPay', () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Copy number' }));
 		});
 
-		expect(warn).toHaveBeenCalledWith("Couldn't copy the number.");
+		expect(mockWarn).toHaveBeenCalledWith("Couldn't copy the number.");
 	});
 
 	/** Paying is not reporting. Only an admin marks a charge settled. */

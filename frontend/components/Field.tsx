@@ -1,47 +1,150 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
-import { classNames } from '../lib/utils/reactHelper';
+import { ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
+import type { StyleXStyles } from '@stylexjs/stylex';
+import { colors, tint } from '../app/tokens.stylex';
 
-// Exported so other controls that don't fit `<input>`/`<select>`, DatePicker's
-// trigger button, for instance, still look like they belong on this form.
-export const CONTROL =
-	'w-full rounded-xl bg-white/5 px-3 h-12 text-ink ring-1 ring-inset ring-white/10 ' +
-	'placeholder:text-faint focus:ring-brand/50 focus:outline-none transition-shadow';
+const styles = stylex.create({
+	/*
+	 * Exported as `CONTROL` so other controls that don't fit `<input>`/`<select>`,
+	 * DatePicker's trigger button, still look like they belong on this form.
+	 *
+	 * The ring is an inset shadow, as everywhere else in the app, and the focus
+	 * state swaps its colour rather than adding a second ring, which is what
+	 * `focus:ring-brand/50` on top of `ring-white/10` actually did.
+	 */
+	control: {
+		width: '100%',
+		borderRadius: 12,
+		backgroundColor: tint.white5,
+		paddingInline: 12,
+		height: 48,
+		color: colors.ink,
+		boxShadow: { default: `inset 0 0 0 1px ${tint.white10}`, ':focus': `inset 0 0 0 1px ${tint.brand50}` },
+		outline: { default: null, ':focus': 'none' },
+		transitionProperty: 'box-shadow',
+		transitionDuration: '0.15s',
+		'::placeholder': { color: colors.faint },
+	},
+
+	label: { display: 'block' },
+	labelText: {
+		color: colors.muted,
+		marginBottom: 6,
+		display: 'block',
+		fontSize: 12,
+		lineHeight: '16px',
+		fontWeight: 600,
+		letterSpacing: '0.025em',
+		textTransform: 'uppercase',
+	},
+	hint: { color: colors.faint, marginTop: 6, display: 'block', fontSize: 12, lineHeight: '16px' },
+
+	selectWrap: { position: 'relative' },
+	select: { appearance: 'none', paddingRight: 40 },
+	chevron: {
+		color: colors.faint,
+		pointerEvents: 'none',
+		position: 'absolute',
+		top: '50%',
+		right: 12,
+		width: 20,
+		height: 20,
+		transform: 'translateY(-50%)',
+	},
+
+	searchWrap: { position: 'relative' },
+	search: { paddingLeft: 40 },
+	glass: {
+		color: colors.faint,
+		pointerEvents: 'none',
+		position: 'absolute',
+		top: '50%',
+		left: 12,
+		width: 20,
+		height: 20,
+		transform: 'translateY(-50%)',
+	},
+
+	rangeRow: { display: 'flex', alignItems: 'center', gap: 12 },
+	range: { accentColor: colors.brand, height: 44, minWidth: 0, flexGrow: 1, cursor: 'pointer' },
+	rangeValue: {
+		color: colors.muted,
+		width: 40,
+		flexShrink: 0,
+		textAlign: 'right',
+		fontSize: 14,
+		lineHeight: '20px',
+		fontVariantNumeric: 'tabular-nums',
+	},
+});
+
+/** The shared look of every control on a form. See `styles.control`. */
+export const CONTROL = styles.control;
 
 export const Field = ({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) => (
-	<label className='block'>
-		<span className='text-muted mb-1.5 block text-xs font-semibold tracking-wide uppercase'>{label}</span>
+	<label {...stylex.props(styles.label)}>
+		<span {...stylex.props(styles.labelText)}>{label}</span>
 		{children}
-		{hint && <span className='text-faint mt-1.5 block text-xs'>{hint}</span>}
+		{hint && <span {...stylex.props(styles.hint)}>{hint}</span>}
 	</label>
 );
 
-export const TextInput = ({ className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) => (
-	<input className={classNames(CONTROL, className)} {...rest} />
+export const TextInput = ({
+	sx,
+	...rest
+}: { sx?: StyleXStyles } & Omit<InputHTMLAttributes<HTMLInputElement>, 'className' | 'style'>) => (
+	<input {...stylex.props(styles.control, sx)} {...rest} />
 );
 
 /**
  * A dropdown that looks like one.
  *
- * `appearance-none` is what lets a `select` take the same `CONTROL` styling as
+ * `appearance: none` is what lets a `select` take the same control styling as
  * every text input on the form, and it strips the platform's own arrow with
  * it, so the chevron has to be put back. Without it these were eight controls
  * pixel-identical to a `TextInput`, with a stripe of reserved padding on the
  * right where the only thing saying "this opens a list" used to be.
  *
- * `pointer-events-none` so the icon is scenery: a tap that lands on it still
+ * `pointerEvents: none` so the icon is scenery: a tap that lands on it still
  * opens the select underneath.
  */
-export const Select = ({ className = '', children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) => (
-	<div className='relative'>
-		<select className={classNames(CONTROL, 'appearance-none pr-10', className)} {...rest}>
+export const Select = ({
+	sx,
+	children,
+	...rest
+}: { sx?: StyleXStyles } & Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className' | 'style'>) => (
+	<div {...stylex.props(styles.selectWrap)}>
+		<select {...stylex.props(styles.control, styles.select, sx)} {...rest}>
 			{children}
 		</select>
 
-		<ChevronDownIcon
-			className='text-faint pointer-events-none absolute top-1/2 right-3 size-5 -translate-y-1/2'
-			aria-hidden='true'
-		/>
+		<ChevronDownIcon {...stylex.props(styles.chevron)} aria-hidden='true' />
+	</div>
+);
+
+/**
+ * A search box, with the magnifier inside it.
+ *
+ * Inside rather than beside, so the field keeps the full width of a phone; the
+ * input's own left padding is what clears it, and `pointerEvents: none` makes
+ * the icon scenery, so a tap that lands on it still focuses the field. Same
+ * arrangement as `Select`'s chevron, mirrored.
+ *
+ * One component rather than the eleven lines repeated, which is what the four
+ * screens with a search box each carried. Every one of them wants the same
+ * thing: `type='search'`, so the phone keyboard offers a search key and the
+ * browser draws its own clear button, and a label, because a placeholder is not
+ * one.
+ */
+export const SearchInput = ({
+	label,
+	sx,
+	...rest
+}: { label: string; sx?: StyleXStyles } & Omit<InputHTMLAttributes<HTMLInputElement>, 'className' | 'style'>) => (
+	<div {...stylex.props(styles.searchWrap)}>
+		<MagnifyingGlassIcon {...stylex.props(styles.glass)} aria-hidden='true' />
+		<input type='search' aria-label={label} {...stylex.props(styles.control, styles.search, sx)} {...rest} />
 	</div>
 );
 
@@ -55,16 +158,11 @@ export const Select = ({ className = '', children, ...rest }: SelectHTMLAttribut
 export const RangeInput = ({
 	value,
 	valueLabel,
-	className = '',
+	sx,
 	...rest
-}: { valueLabel?: string } & InputHTMLAttributes<HTMLInputElement>) => (
-	<div className='flex items-center gap-3'>
-		<input
-			type='range'
-			value={value}
-			className={classNames('accent-brand h-11 min-w-0 flex-1 cursor-pointer', className)}
-			{...rest}
-		/>
-		<span className='text-muted w-10 shrink-0 text-right text-sm tabular-nums'>{valueLabel ?? value}</span>
+}: { valueLabel?: string; sx?: StyleXStyles } & Omit<InputHTMLAttributes<HTMLInputElement>, 'className' | 'style'>) => (
+	<div {...stylex.props(styles.rangeRow)}>
+		<input type='range' value={value} {...stylex.props(styles.range, sx)} {...rest} />
+		<span {...stylex.props(styles.rangeValue)}>{valueLabel ?? value}</span>
 	</div>
 );

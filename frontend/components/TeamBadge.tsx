@@ -1,6 +1,8 @@
 'use client';
 
-import { classNames } from '../lib/utils/reactHelper';
+import * as stylex from '@stylexjs/stylex';
+import type { StyleXStyles } from '@stylexjs/stylex';
+import { colors, tint } from '../app/tokens.stylex';
 
 /**
  * Bibs, in team order. Four is the ceiling, so four is all there is.
@@ -9,46 +11,80 @@ import { classNames } from '../lib/utils/reactHelper';
  * what the scoreboard shows against what the team sheet showed, so the two
  * drifting apart is the exact failure this is meant to prevent.
  */
+const palette = stylex.create({
+	aText: { color: colors.teamA },
+	bText: { color: colors.teamB },
+	cText: { color: colors.teamC },
+	dText: { color: colors.teamD },
+
+	/*
+	 * Was `ring-1 ring-team-a/40` on a card that already has the glass border,
+	 * so this is the line outside that one and it has to stay outside it. A
+	 * shadow rather than a second border, for the reason Tailwind's ring is one:
+	 * the card is already sized, and a border would move its contents by a pixel.
+	 */
+	aRing: { boxShadow: `0 0 0 1px ${tint.teamA40}` },
+	bRing: { boxShadow: `0 0 0 1px ${tint.teamB40}` },
+	cRing: { boxShadow: `0 0 0 1px ${tint.teamC40}` },
+	dRing: { boxShadow: `0 0 0 1px ${tint.teamD40}` },
+
+	aFill: { backgroundColor: colors.teamA },
+	bFill: { backgroundColor: colors.teamB },
+	cFill: { backgroundColor: colors.teamC },
+	dFill: { backgroundColor: colors.teamD },
+
+	aChip: { backgroundColor: tint.teamA15, color: colors.teamA },
+	bChip: { backgroundColor: tint.teamB15, color: colors.teamB },
+	cChip: { backgroundColor: tint.teamC15, color: colors.teamC },
+	dChip: { backgroundColor: tint.teamD15, color: colors.teamD },
+});
+
+/**
+ * A bib's faces, and the raw colour behind them.
+ *
+ * `colour` is the token itself rather than a style, because the one thing a
+ * style object cannot do is be combined with another into a single value: the
+ * scoreboard washes its card from one team's colour to the other's, which is
+ * one `linear-gradient`, not two backgrounds. `MatchScore` builds that from
+ * these two strings. Under Tailwind it was `from-team-a/12` and `to-team-b/12`,
+ * two classes that happened to compose because both set a gradient stop.
+ */
 const TEAM_STYLES = [
 	{
 		name: 'A',
-		text: 'text-team-a',
-		ring: 'ring-team-a/40',
-		bar: 'bg-team-a',
-		fill: 'bg-team-a',
-		chip: 'bg-team-a/15 text-team-a',
-		washFrom: 'from-team-a/12',
-		washTo: 'to-team-a/12',
+		colour: colors.teamA,
+		text: palette.aText,
+		ring: palette.aRing,
+		bar: palette.aFill,
+		fill: palette.aFill,
+		chip: palette.aChip,
 	},
 	{
 		name: 'B',
-		text: 'text-team-b',
-		ring: 'ring-team-b/40',
-		bar: 'bg-team-b',
-		fill: 'bg-team-b',
-		chip: 'bg-team-b/15 text-team-b',
-		washFrom: 'from-team-b/12',
-		washTo: 'to-team-b/12',
+		colour: colors.teamB,
+		text: palette.bText,
+		ring: palette.bRing,
+		bar: palette.bFill,
+		fill: palette.bFill,
+		chip: palette.bChip,
 	},
 	{
 		name: 'C',
-		text: 'text-team-c',
-		ring: 'ring-team-c/40',
-		bar: 'bg-team-c',
-		fill: 'bg-team-c',
-		chip: 'bg-team-c/15 text-team-c',
-		washFrom: 'from-team-c/12',
-		washTo: 'to-team-c/12',
+		colour: colors.teamC,
+		text: palette.cText,
+		ring: palette.cRing,
+		bar: palette.cFill,
+		fill: palette.cFill,
+		chip: palette.cChip,
 	},
 	{
 		name: 'D',
-		text: 'text-team-d',
-		ring: 'ring-team-d/40',
-		bar: 'bg-team-d',
-		fill: 'bg-team-d',
-		chip: 'bg-team-d/15 text-team-d',
-		washFrom: 'from-team-d/12',
-		washTo: 'to-team-d/12',
+		colour: colors.teamD,
+		text: palette.dText,
+		ring: palette.dRing,
+		bar: palette.dFill,
+		fill: palette.dFill,
+		chip: palette.dChip,
 	},
 ];
 
@@ -57,10 +93,20 @@ export const teamName = (index: number): string => TEAM_STYLES[index]?.name ?? `
 /** Falls back to the first bib rather than to nothing. `MAX_TEAMS` is 4, so this is unreachable. */
 export const teamStyle = (index: number) => TEAM_STYLES[index] ?? TEAM_STYLES[0];
 
-const SIZES = {
-	sm: 'size-7 rounded-lg text-sm',
-	md: 'size-9 rounded-xl text-lg',
-};
+const styles = stylex.create({
+	badge: {
+		color: colors.canvas,
+		display: 'inline-flex',
+		flexShrink: 0,
+		alignItems: 'center',
+		justifyContent: 'center',
+		fontWeight: 900,
+	},
+	sm: { width: 28, height: 28, borderRadius: 8, fontSize: 14, lineHeight: '20px' },
+	md: { width: 36, height: 36, borderRadius: 12, fontSize: 18, lineHeight: '28px' },
+});
+
+const SIZES = { sm: styles.sm, md: styles.md };
 
 /**
  * A team's identity, as one solid block of its colour.
@@ -72,25 +118,8 @@ const SIZES = {
  * that costs a rating. So the same block appears on the team sheet, on the
  * fixture and in the table, and it is the loudest thing in each of them.
  */
-const TeamBadge = ({
-	index,
-	size = 'sm',
-	className,
-}: {
-	index: number;
-	size?: keyof typeof SIZES;
-	className?: string;
-}) => (
-	<span
-		className={classNames(
-			'text-canvas inline-flex shrink-0 items-center justify-center font-black',
-			SIZES[size],
-			teamStyle(index).fill,
-			className
-		)}
-	>
-		{teamName(index)}
-	</span>
+const TeamBadge = ({ index, size = 'sm', sx }: { index: number; size?: keyof typeof SIZES; sx?: StyleXStyles }) => (
+	<span {...stylex.props(styles.badge, SIZES[size], teamStyle(index).fill, sx)}>{teamName(index)}</span>
 );
 
 export default TeamBadge;

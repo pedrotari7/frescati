@@ -1,4 +1,38 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
+import { cloneElement, isValidElement } from 'react';
+import * as stylex from '@stylexjs/stylex';
+import { colors } from '../app/tokens.stylex';
+import { animations } from '../lib/styles';
+
+const styles = stylex.create({
+	root: {
+		display: 'flex',
+		flexDirection: 'column',
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingInline: 24,
+		paddingBlock: 64,
+		textAlign: 'center',
+	},
+	iconWrap: { color: colors.faint, marginBottom: 16 },
+	icon: { width: 48, height: 48 },
+	title: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	message: { color: colors.muted, marginTop: 8, maxWidth: 320, fontSize: 14, lineHeight: 1.625 },
+	action: { marginTop: 24 },
+});
+
+/**
+ * Sizes the icon by handing it a style rather than by reaching down at it.
+ *
+ * This used to be `[&>svg]:size-12` on the wrapper. StyleX has no way to write
+ * that: it only ever styles the element the class is on, so a rule about
+ * somebody else's child is not something it can express, by design rather than
+ * by omission. Every caller passes a bare Heroicon with no size of its own, so
+ * the size has to reach the icon somehow, and cloning it is the one route that
+ * leaves all ten call sites alone.
+ */
+const sizedIcon = (icon: ReactNode): ReactNode =>
+	isValidElement(icon) ? cloneElement(icon as ReactElement<object>, stylex.props(styles.icon)) : icon;
 
 const EmptyState = ({
 	icon,
@@ -11,11 +45,11 @@ const EmptyState = ({
 	message?: string;
 	action?: ReactNode;
 }) => (
-	<div className='animate-fade-in flex flex-col items-center justify-center px-6 py-16 text-center'>
-		{icon && <div className='text-faint mb-4 [&>svg]:size-12'>{icon}</div>}
-		<p className='text-ink text-base font-semibold'>{title}</p>
-		{message && <p className='text-muted mt-2 max-w-xs text-sm leading-relaxed'>{message}</p>}
-		{action && <div className='mt-6'>{action}</div>}
+	<div {...stylex.props(styles.root, animations.fadeIn)}>
+		{icon && <div {...stylex.props(styles.iconWrap)}>{sizedIcon(icon)}</div>}
+		<p {...stylex.props(styles.title)}>{title}</p>
+		{message && <p {...stylex.props(styles.message)}>{message}</p>}
+		{action && <div {...stylex.props(styles.action)}>{action}</div>}
 	</div>
 );
 

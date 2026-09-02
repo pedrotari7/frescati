@@ -1,7 +1,9 @@
+import * as stylex from '@stylexjs/stylex';
+import type { StyleXStyles } from '@stylexjs/stylex';
 import type { Availability, AvailabilityMark } from '@shared/availability';
 import { AVAILABILITY_LABELS, describeAvailability, tallyAvailability } from '@shared/availability';
 import { formatGameDate } from '@shared/format';
-import { classNames } from '../lib/utils/reactHelper';
+import { colors, tint } from '../app/tokens.stylex';
 
 /**
  * The three answers, as three colours.
@@ -11,17 +13,35 @@ import { classNames } from '../lib/utils/reactHelper';
  * except against the key, so a colour changed in one place and not the other
  * does not look broken, it looks like an answer nobody gave.
  *
- * `unanswered` is white at low opacity rather than `bg-faint`, which is a text
- * colour and at six pixels reads as a third answer rather than the absence of
- * one. It has to be visible, though: the dot is what holds the game's place in
- * the row, and a strip that skipped the games nobody answered would put a
- * different week under the same column on every line.
+ * `unanswered` is white at low opacity rather than the faint text colour, which
+ * at six pixels reads as a third answer rather than the absence of one. It has
+ * to be visible, though: the dot is what holds the game's place in the row, and
+ * a strip that skipped the games nobody answered would put a different week
+ * under the same column on every line.
  */
-const DOTS: Record<Availability, string> = {
-	in: 'bg-in',
-	out: 'bg-out',
-	unanswered: 'bg-white/15',
-};
+const DOTS = stylex.create({
+	in: { backgroundColor: colors.in },
+	out: { backgroundColor: colors.out },
+	unanswered: { backgroundColor: tint.white15 },
+});
+
+const styles = stylex.create({
+	strip: { display: 'flex', flexWrap: 'wrap', gap: 4 },
+	dot: { width: 6, height: 6, borderRadius: 9999 },
+	loading: { backgroundColor: tint.white5 },
+
+	legend: {
+		color: colors.faint,
+		display: 'flex',
+		flexWrap: 'wrap',
+		alignItems: 'center',
+		columnGap: 12,
+		rowGap: 4,
+		fontSize: 12,
+		lineHeight: '16px',
+	},
+	key: { display: 'flex', alignItems: 'center', gap: 6 },
+});
 
 /** In, out, then the ones nobody answered, which is how the strip is read. */
 const LEGEND: Availability[] = ['in', 'out', 'unanswered'];
@@ -44,19 +64,19 @@ const AvailabilityDots = ({
 	marks,
 	timezone,
 	pending = false,
-	className,
+	sx,
 }: {
 	marks: AvailabilityMark[];
 	timezone: string;
 	pending?: boolean;
-	className?: string;
+	sx?: StyleXStyles;
 }) => (
 	<span
 		// One label for the strip rather than one per dot: thirty of those is a
 		// screen reader reading out a season nobody asked for.
 		role='img'
 		aria-label={pending ? 'Availability, still loading' : describeAvailability(tallyAvailability(marks))}
-		className={classNames('flex flex-wrap gap-1', className)}
+		{...stylex.props(styles.strip, sx)}
 	>
 		{marks.map(mark => (
 			<span
@@ -66,19 +86,19 @@ const AvailabilityDots = ({
 						? undefined
 						: `${formatGameDate(mark.kickoff, timezone)} · ${AVAILABILITY_LABELS[mark.availability]}`
 				}
-				className={classNames('size-1.5 rounded-full', pending ? 'bg-white/5' : DOTS[mark.availability])}
+				{...stylex.props(styles.dot, pending ? styles.loading : DOTS[mark.availability])}
 			/>
 		))}
 	</span>
 );
 
 /** What the colours mean, and what one dot is. */
-export const AvailabilityLegend = ({ className }: { className?: string }) => (
-	<div className={classNames('text-faint flex flex-wrap items-center gap-x-3 gap-y-1 text-xs', className)}>
+export const AvailabilityLegend = ({ sx }: { sx?: StyleXStyles }) => (
+	<div {...stylex.props(styles.legend, sx)}>
 		<span>One dot a game, oldest first</span>
 		{LEGEND.map(availability => (
-			<span key={availability} className='flex items-center gap-1.5'>
-				<span className={classNames('size-1.5 rounded-full', DOTS[availability])} aria-hidden='true' />
+			<span key={availability} {...stylex.props(styles.key)}>
+				<span {...stylex.props(styles.dot, DOTS[availability])} aria-hidden='true' />
 				{AVAILABILITY_LABELS[availability]}
 			</span>
 		))}

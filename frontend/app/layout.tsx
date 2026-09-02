@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import * as stylex from '@stylexjs/stylex';
 import './globals.css';
+import { colors, fonts } from './tokens.stylex';
 import { AuthProvider } from '../lib/auth';
 import ErrorBoundary from '../components/ErrorBoundary';
 import ToastProvider from '../components/Toast';
@@ -31,8 +33,8 @@ export const viewport: Viewport = {
 	themeColor: '#07080a',
 	width: 'device-width',
 	initialScale: 1,
-	// Lets the app paint under the notch and home indicator; `.pb-safe` and
-	// friends in globals.css put the padding back where it matters.
+	// Lets the app paint under the notch and home indicator; `utils.pbSafe` and
+	// friends in `lib/styles.ts` put the padding back where it matters.
 	viewportFit: 'cover',
 };
 
@@ -59,15 +61,44 @@ const CORS_PRECONNECT = [
 	'https://firestore.googleapis.com',
 ];
 
+/*
+ * The two elements the app is drawn on.
+ *
+ * These were `@layer base` rules in `globals.css`, which is where they had to
+ * be while the palette was a set of hand-written CSS variables. It isn't any
+ * more: the names are hashed out of `tokens.stylex.ts`, so a stylesheet cannot
+ * spell them, and the only way to reach a token is from a style object. Both
+ * elements are rendered right here, so they get one.
+ *
+ * `html` carries the canvas colour as well, because the page is shorter than
+ * the viewport on a few screens and overscroll on iOS shows whatever is behind
+ * the body.
+ */
+const styles = stylex.create({
+	html: {
+		backgroundColor: colors.canvas,
+		colorScheme: 'dark',
+		/* Stop iOS bouncing the whole page when a list is scrolled to its end. */
+		overscrollBehaviorY: 'none',
+		WebkitTapHighlightColor: 'transparent',
+	},
+	body: {
+		backgroundColor: colors.canvas,
+		color: colors.ink,
+		fontFamily: fonts.sans,
+		minHeight: '100dvh',
+	},
+});
+
 const RootLayout = ({ children }: { children: ReactNode }) => (
-	<html lang='en'>
+	<html lang='en' {...stylex.props(styles.html)}>
 		<head>
 			{CORS_PRECONNECT.map(origin => (
 				<link key={origin} rel='preconnect' href={origin} crossOrigin='anonymous' />
 			))}
 			<link rel='preconnect' href='https://www.google.com' />
 		</head>
-		<body suppressHydrationWarning>
+		<body suppressHydrationWarning {...stylex.props(styles.body)}>
 			<ErrorBoundary>
 				<AuthProvider>
 					<ToastProvider>

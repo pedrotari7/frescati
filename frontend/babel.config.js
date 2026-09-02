@@ -12,7 +12,17 @@ const path = require('path');
  * Nothing here reaches the backend or `shared/`, both of which are compiled by
  * tsc and never see Babel.
  */
-const dev = process.env.NODE_ENV !== 'production';
+/*
+ * The dev server only, rather than everything that is not a production build.
+ *
+ * `dev` adds a readable class per style entry (`Button__styles.primary`) beside
+ * each hashed one, which is worth having in front of the element inspector and
+ * nowhere else. A jest test reads class lists back to compare two states, and
+ * under `dev` every entry there comes out twice, once as a name that belongs to
+ * the file that wrote it, which is exactly the coupling `test/stylex.ts` exists
+ * to avoid.
+ */
+const dev = process.env.NODE_ENV === 'development';
 
 module.exports = {
 	presets: ['next/babel'],
@@ -22,8 +32,8 @@ module.exports = {
 			{
 				/**
 				 * Readable class names and a `data-style-src` pointing at the line
-				 * that wrote them. Off in production, where the hashed names are
-				 * the point.
+				 * that wrote them. See above for why that is the dev server
+				 * alone rather than every build that is not production.
 				 */
 				dev,
 				/**
@@ -40,11 +50,17 @@ module.exports = {
 					'@shared/*': [path.join(__dirname, '../shared/*')],
 				},
 				/**
-				 * Variable and class hashes are derived from a file's path. Rooting
-				 * that at the repo rather than at `frontend/` keeps the hashes
-				 * stable whoever runs the build and from wherever, which matters
-				 * because `app/tokens.stylex.ts` names variables that the
-				 * hand-written CSS in `globals.css` also refers to.
+				 * How the compiler follows an import to the file that declared a
+				 * token. Without it a component importing `colors` from
+				 * `app/tokens.stylex.ts` is a value StyleX cannot resolve, and it
+				 * says so rather than guessing.
+				 *
+				 * Variable and class hashes are derived from that file's path taken
+				 * relative to `rootDir`, and two separate compiles have to agree on
+				 * them: the Babel pass webpack runs over the app, and the second
+				 * pass the PostCSS plugin runs to collect the CSS. Anchoring both on
+				 * this file's own directory keeps the names independent of whose
+				 * machine the build is on and which directory it started in.
 				 */
 				unstable_moduleResolution: {
 					type: 'commonJS',

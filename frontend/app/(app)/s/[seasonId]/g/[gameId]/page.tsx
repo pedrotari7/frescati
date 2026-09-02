@@ -3,6 +3,7 @@
 import { use, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon, TrophyIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import { canReportAbsence, getExtraSpot, getFormat, getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
@@ -28,6 +29,49 @@ import RespondControl from '../../../../../../components/RespondControl';
 import RosterList from '../../../../../../components/RosterList';
 import StatusPill from '../../../../../../components/StatusPill';
 import WatchToggle from '../../../../../../components/WatchToggle';
+import { colors } from '../../../../../tokens.stylex';
+import { surfaces } from '../../../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
+	card: { borderRadius: 24, padding: 20 },
+
+	/* The pills wrap; the bell does not. See the comment at the call site. */
+	top: { marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+	pills: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+	when: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+
+	where: {
+		color: colors.muted,
+		marginBottom: 16,
+		display: 'flex',
+		alignItems: 'center',
+		gap: 6,
+		fontSize: 14,
+		lineHeight: '20px',
+	},
+	pin: { width: 16, height: 16, flexShrink: 0 },
+	note: { color: colors.muted, marginBottom: 16, fontSize: 14, lineHeight: '20px' },
+	off: { color: colors.out, marginTop: 20, fontSize: 14, lineHeight: '20px' },
+	respond: { marginTop: 20 },
+
+	teams: { display: 'block', borderRadius: 16, padding: 16 },
+	teamsRow: { display: 'flex', alignItems: 'center', gap: 12 },
+	trophy: { color: colors.brand, width: 20, height: 20, flexShrink: 0 },
+	teamsBody: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	teamsTitle: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	format: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+	chevron: { color: colors.faint, width: 16, height: 16, flexShrink: 0 },
+
+	rosterHead: {
+		color: colors.ink,
+		marginBottom: 12,
+		paddingInline: 4,
+		fontSize: 16,
+		lineHeight: '24px',
+		fontWeight: 600,
+	},
+});
 
 const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
 	const { gameId } = use(params);
@@ -124,8 +168,8 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 			subtitle={`${formatGameTime(game.kickoff, timezone)} · ${game.venue.name}`}
 			backHref={`/s/${seasonId}`}
 		>
-			<div className='space-y-6 p-4'>
-				<section className='glass rounded-3xl p-5'>
+			<div {...stylex.props(styles.page)}>
+				<section {...stylex.props(surfaces.glass, styles.card)}>
 					{/* The pills wrap on a narrow phone; the bell stays pinned to the
 					    top-right of the card rather than wrapping with them. It sits
 					    here, on the game itself, because that is what it follows,
@@ -133,9 +177,9 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 					    listed in. `isWatchable` is shared with the trigger, so it can
 					    never be drawn on a game nothing would arrive about, nor
 					    hidden on one that is still sending. */}
-					<div className='mb-4 flex items-center justify-between gap-2'>
-						<div className='flex flex-wrap items-center gap-2'>
-							<span className='text-faint text-xs'>{formatRelative(game.kickoff)}</span>
+					<div {...stylex.props(styles.top)}>
+						<div {...stylex.props(styles.pills)}>
+							<span {...stylex.props(styles.when)}>{formatRelative(game.kickoff)}</span>
 							{game.isOneOff && <StatusPill tone='extra'>One-off</StatusPill>}
 							{lifecycle === 'cancelled' && <StatusPill tone='out'>Cancelled</StatusPill>}
 							{lifecycle === 'locked' && <StatusPill tone='neutral'>Answers closed</StatusPill>}
@@ -148,19 +192,19 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 						)}
 					</div>
 
-					<p className='text-muted mb-4 flex items-center gap-1.5 text-sm'>
-						<MapPinIcon className='size-4 shrink-0' aria-hidden='true' />
+					<p {...stylex.props(styles.where)}>
+						<MapPinIcon {...stylex.props(styles.pin)} aria-hidden='true' />
 						{game.venue.address ? `${game.venue.name} · ${game.venue.address}` : game.venue.name}
 					</p>
 
-					{game.note && <p className='text-muted mb-4 text-sm'>{game.note}</p>}
+					{game.note && <p {...stylex.props(styles.note)}>{game.note}</p>}
 
 					<HeadcountBar game={game} season={season} />
 
 					{lifecycle === 'cancelled' ? (
-						<p className='text-out mt-5 text-sm'>{game.cancelledReason || 'This game is off.'}</p>
+						<p {...stylex.props(styles.off)}>{game.cancelledReason || 'This game is off.'}</p>
 					) : (
-						<div className='mt-5'>
+						<div {...stylex.props(styles.respond)}>
 							<RespondControl
 								response={myResponses[gameId]}
 								onRespond={status => respond(gameId, status)}
@@ -195,20 +239,23 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 				)}
 
 				{lifecycle !== 'cancelled' && game.counts.playing >= MIN_TOURNAMENT_PLAYERS && (
-					<Link href={`/s/${seasonId}/g/${gameId}/tournament`} className='glass-card block rounded-2xl p-4'>
-						<div className='flex items-center gap-3'>
-							<TrophyIcon className='text-brand size-5 shrink-0' aria-hidden='true' />
-							<div className='min-w-0 flex-1'>
-								<p className='text-ink text-sm font-semibold'>Teams</p>
-								<p className='text-faint text-xs'>{getFormat(game.counts.playing)}</p>
+					<Link
+						href={`/s/${seasonId}/g/${gameId}/tournament`}
+						{...stylex.props(surfaces.glassCard, styles.teams)}
+					>
+						<div {...stylex.props(styles.teamsRow)}>
+							<TrophyIcon {...stylex.props(styles.trophy)} aria-hidden='true' />
+							<div {...stylex.props(styles.teamsBody)}>
+								<p {...stylex.props(styles.teamsTitle)}>Teams</p>
+								<p {...stylex.props(styles.format)}>{getFormat(game.counts.playing)}</p>
 							</div>
-							<ChevronRightIcon className='text-faint size-4 shrink-0' aria-hidden='true' />
+							<ChevronRightIcon {...stylex.props(styles.chevron)} aria-hidden='true' />
 						</div>
 					</Link>
 				)}
 
 				<div>
-					<h2 className='text-ink mb-3 px-1 font-semibold'>Who&apos;s playing</h2>
+					<h2 {...stylex.props(styles.rosterHead)}>Who&apos;s playing</h2>
 
 					<RosterList
 						memberUids={season.memberUids}

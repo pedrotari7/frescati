@@ -11,11 +11,11 @@ const answered = (status: ResponseStatus, overrides: Partial<GameResponse> = {})
 	...overrides,
 });
 
-const notify = jest.fn();
-const warn = jest.fn();
+const mockNotify = jest.fn();
+const mockWarn = jest.fn();
 
 jest.mock('./Toast', () => ({
-	useToast: () => ({ notify, warn }),
+	useToast: () => ({ notify: mockNotify, warn: mockWarn }),
 }));
 
 describe('RespondControl', () => {
@@ -182,7 +182,7 @@ describe('RespondControl', () => {
 			fireEvent.click(screen.getByRole('button', { name: /I'm in/ }));
 		});
 
-		expect(warn).toHaveBeenCalledWith("Couldn't save your answer. Try again in a moment.");
+		expect(mockWarn).toHaveBeenCalledWith("Couldn't save your answer. Try again in a moment.");
 		expect(screen.getByRole('button', { name: /I'm in/ })).toHaveTextContent("I'm in");
 
 		(console.error as jest.Mock).mockRestore();
@@ -198,7 +198,7 @@ describe('RespondControl', () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Clear answer' }));
 		});
 
-		expect(warn).toHaveBeenCalledWith("Couldn't save your answer. Try again in a moment.");
+		expect(mockWarn).toHaveBeenCalledWith("Couldn't save your answer. Try again in a moment.");
 		expect(screen.getByRole('button', { name: 'Clear answer' })).toBeEnabled();
 
 		(console.error as jest.Mock).mockRestore();

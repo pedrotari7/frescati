@@ -3,10 +3,10 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 
-let pathname = '/u/anna';
+let mockPathname = '/u/anna';
 
 jest.mock('next/navigation', () => ({
-	usePathname: () => pathname,
+	usePathname: () => mockPathname,
 	useRouter: () => ({ push: mockPush, back: mockBack }),
 }));
 
@@ -21,7 +21,7 @@ import TopBar from './TopBar';
  * together, which a mocked `useAppHistory` would assert about nothing.
  */
 const open = (start: string) => {
-	pathname = start;
+	mockPathname = start;
 	window.history.pushState({}, '', start);
 
 	// A fresh element every time: React bails out of re-rendering the very same
@@ -38,7 +38,7 @@ const open = (start: string) => {
 		push: (path: string) =>
 			act(() => {
 				window.history.pushState({}, '', path);
-				pathname = path;
+				mockPathname = path;
 				rerender(tree());
 			}),
 		back: () => fireEvent.click(screen.getByRole('button', { name: 'Back' })),

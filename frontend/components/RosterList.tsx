@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import * as stylex from '@stylexjs/stylex';
 import type { AppUser, GameResponse } from '@shared/types';
 import { isAbsent, isConfirmed, sortResponses } from '@shared/game';
 import { personRow } from '../lib/people';
@@ -8,7 +9,45 @@ import Avatar from './Avatar';
 import StatusPill from './StatusPill';
 import Button from './Button';
 import { useConfirm } from './ConfirmDialog';
-import { classNames } from '../lib/utils/reactHelper';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { text, utils } from '../lib/styles';
+
+const styles = stylex.create({
+	sections: { display: 'flex', flexDirection: 'column', gap: 20 },
+
+	head: { marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, paddingInline: 4 },
+	note: { color: colors.faint, marginBottom: 4, paddingInline: 4, fontSize: 12, lineHeight: '16px' },
+
+	row: {
+		/* The line between two people, drawn on the lower of them. `divide-y`,
+		   which StyleX cannot express from the container. */
+		borderTopWidth: { default: 1, ':first-child': 0 },
+		borderTopStyle: 'solid',
+		borderTopColor: tint.white5,
+		display: 'flex',
+		alignItems: 'center',
+		gap: 12,
+		paddingBlock: 8,
+		paddingRight: 4,
+	},
+	person: {
+		display: 'flex',
+		minWidth: 0,
+		flexGrow: 1,
+		flexShrink: 1,
+		flexBasis: '0%',
+		alignItems: 'center',
+		gap: 12,
+		borderRadius: 12,
+		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
+		paddingInline: 4,
+		paddingBlock: 4,
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	name: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%', fontSize: 14, lineHeight: '20px' },
+	struck: { textDecorationLine: 'line-through' },
+});
 
 export interface RosterEntry {
 	uid: string;
@@ -71,20 +110,18 @@ const Row = ({
 	struck?: boolean;
 	trailing?: React.ReactNode;
 }) => (
-	<div className='flex items-center gap-3 py-2 pr-1'>
+	<div {...stylex.props(styles.row)}>
 		{/* Only the name is the link, not the whole row: an admin's Drop button
 		    sits in `trailing`, and a <button> inside an <a> is invalid and breaks
 		    keyboard navigation. */}
-		<Link
-			href={`/u/${entry.uid}`}
-			className='flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 transition-colors hover:bg-white/5'
-		>
+		<Link href={`/u/${entry.uid}`} {...stylex.props(styles.person)}>
 			<Avatar displayName={entry.displayName} photoURL={entry.photoURL} size='sm' />
 			<span
-				className={classNames(
-					'min-w-0 flex-1 truncate text-sm',
-					tone === 'out' || tone === 'pending' ? 'text-muted' : 'text-ink',
-					struck && 'line-through'
+				{...stylex.props(
+					styles.name,
+					utils.truncate,
+					tone === 'out' || tone === 'pending' ? text.muted : text.ink,
+					struck && styles.struck
 				)}
 			>
 				{entry.displayName}
@@ -113,12 +150,12 @@ const Section = ({
 
 	return (
 		<section>
-			<div className='mb-1 flex items-center gap-2 px-1'>
-				<h3 className='text-faint text-xs font-semibold tracking-wider uppercase'>{title}</h3>
+			<div {...stylex.props(styles.head)}>
+				<h3 {...stylex.props(text.sectionHeading)}>{title}</h3>
 				<StatusPill tone={tone}>{entries.length}</StatusPill>
 			</div>
-			{note && <p className='text-faint mb-1 px-1 text-xs'>{note}</p>}
-			<div className='divide-y divide-white/5'>
+			{note && <p {...stylex.props(styles.note)}>{note}</p>}
+			<div>
 				{entries.map(entry => (
 					<Row key={entry.uid} entry={entry} tone={tone} struck={struck} trailing={renderTrailing?.(entry)} />
 				))}
@@ -190,7 +227,7 @@ const RosterList = ({
 		) : null;
 
 	return (
-		<div className='space-y-5'>
+		<div {...stylex.props(styles.sections)}>
 			<Section title='Squad in' tone='in' entries={playing} renderTrailing={noShowButton} />
 
 			<Section

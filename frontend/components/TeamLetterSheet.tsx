@@ -2,12 +2,81 @@
 
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { CheckIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { AppUser, TournamentTeam } from '@shared/types';
 import { displayNameOf } from '../lib/people';
-import { classNames } from '../lib/utils/reactHelper';
 import Button from './Button';
 import StatusPill from './StatusPill';
 import TeamBadge, { teamName } from './TeamBadge';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { animations, elevation, press, surfaces, utils } from '../lib/styles';
+
+const styles = stylex.create({
+	dialog: { position: 'relative', zIndex: 50 },
+	scrim: {
+		backgroundColor: tint.canvas80,
+		position: 'fixed',
+		inset: 0,
+		backdropFilter: 'blur(4px)',
+		WebkitBackdropFilter: 'blur(4px)',
+	},
+	/* Bottom of the screen on a phone, where a thumb is. Centred once there is
+	   room for it, which is the same shape every sheet in the app takes. */
+	positioner: {
+		position: 'fixed',
+		inset: 0,
+		display: 'flex',
+		alignItems: { default: 'flex-end', [bp.sm]: 'center' },
+		justifyContent: 'center',
+		padding: 16,
+	},
+	panel: {
+		display: 'flex',
+		maxHeight: '80vh',
+		width: '100%',
+		maxWidth: 384,
+		flexDirection: 'column',
+		borderRadius: 24,
+		padding: 20,
+	},
+	title: { color: colors.ink, fontSize: 18, lineHeight: '28px', fontWeight: 600 },
+	blurb: { color: colors.muted, marginTop: 4, fontSize: 14, lineHeight: '20px' },
+
+	/* Bleeds into the panel's padding so a pressed row reaches its edge, and
+	   scrolls on its own so the Cancel button stays put with four teams. */
+	list: {
+		marginInline: -4,
+		marginTop: 16,
+		display: 'flex',
+		minHeight: 0,
+		flexGrow: 1,
+		flexBasis: '0%',
+		flexDirection: 'column',
+		gap: 4,
+		overflowY: 'auto',
+		paddingInline: 4,
+	},
+	option: {
+		display: 'flex',
+		width: '100%',
+		alignItems: 'center',
+		gap: 12,
+		borderRadius: 12,
+		borderWidth: 0,
+		backgroundColor: 'transparent',
+		paddingInline: 8,
+		paddingBlock: 10,
+		textAlign: 'left',
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	current: { opacity: 0.6 },
+	optionBody: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	letter: { color: colors.ink, display: 'block', fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	swaps: { color: colors.faint, display: 'block', fontSize: 12, lineHeight: '16px' },
+	check: { width: 12, height: 12 },
+	cancel: { marginTop: 12, flexShrink: 0 },
+});
 
 /**
  * Which letter this squad should have.
@@ -49,21 +118,23 @@ const TeamLetterSheet = ({
 	};
 
 	return (
-		<Dialog open={open && !!team} onClose={onClose} className='relative z-50'>
-			<div className='bg-canvas/80 fixed inset-0 backdrop-blur-sm' aria-hidden='true' />
+		<Dialog open={open && !!team} onClose={onClose} {...stylex.props(styles.dialog)}>
+			<div {...stylex.props(styles.scrim)} aria-hidden='true' />
 
-			<div className='fixed inset-0 flex items-end justify-center p-4 sm:items-center'>
-				<DialogPanel className='glass shadow-lift animate-rise mb-safe flex max-h-[80vh] w-full max-w-sm flex-col rounded-3xl p-5'>
-					<DialogTitle className='text-ink text-lg font-semibold'>
+			<div {...stylex.props(styles.positioner)}>
+				<DialogPanel
+					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, styles.panel)}
+				>
+					<DialogTitle {...stylex.props(styles.title)}>
 						Which team is {team ? nameFew(team) : ''}?
 					</DialogTitle>
 
-					<p className='text-muted mt-1 text-sm'>
+					<p {...stylex.props(styles.blurb)}>
 						The first two teams kick off, so this is how you start with a side that is ready. They swap
 						letters. Nobody changes team.
 					</p>
 
-					<ul className='-mx-1 mt-4 min-h-0 flex-1 space-y-1 overflow-y-auto px-1'>
+					<ul {...stylex.props(styles.list)}>
 						{teams.map(candidate => {
 							const isCurrent = candidate.index === team?.index;
 
@@ -76,23 +147,20 @@ const TeamLetterSheet = ({
 											await onSwap(candidate.index);
 											onClose();
 										}}
-										className={classNames(
-											'flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors',
-											isCurrent ? 'opacity-60' : 'hover:bg-white/5 active:bg-white/10'
-										)}
+										{...stylex.props(styles.option, isCurrent ? styles.current : press.wash)}
 									>
 										<TeamBadge index={candidate.index} size='md' />
-										<span className='min-w-0 flex-1'>
-											<span className='text-ink block text-sm font-semibold'>
+										<span {...stylex.props(styles.optionBody)}>
+											<span {...stylex.props(styles.letter)}>
 												Team {teamName(candidate.index)}
 											</span>
-											<span className='text-faint block truncate text-xs'>
+											<span {...stylex.props(styles.swaps, utils.truncate)}>
 												{isCurrent ? 'Where they are now' : `Swaps with ${nameFew(candidate)}`}
 											</span>
 										</span>
 										{isCurrent && (
 											<StatusPill tone='brand'>
-												<CheckIcon className='size-3' aria-hidden='true' />
+												<CheckIcon {...stylex.props(styles.check)} aria-hidden='true' />
 												Now
 											</StatusPill>
 										)}
@@ -102,7 +170,7 @@ const TeamLetterSheet = ({
 						})}
 					</ul>
 
-					<Button variant='ghost' fullWidth onClick={onClose} className='mt-3 shrink-0'>
+					<Button variant='ghost' fullWidth onClick={onClose} sx={styles.cancel}>
 						Cancel
 					</Button>
 				</DialogPanel>

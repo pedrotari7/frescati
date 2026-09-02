@@ -1,5 +1,11 @@
+import * as stylex from '@stylexjs/stylex';
 import { render, screen } from '@testing-library/react';
+import { colors } from '../app/tokens.stylex';
+import { stylesFor, stylesOf } from '../test/stylex';
 import TeamBadge, { teamName, teamStyle } from './TeamBadge';
+
+/* B's bib, as a fill rather than as ink. */
+const expected = stylex.create({ filled: { backgroundColor: colors.teamB } });
 
 describe('teamName', () => {
 	it('names the first four teams A through D', () => {
@@ -33,6 +39,6 @@ describe('TeamBadge', () => {
 	it('fills the badge with the team colour rather than tinting the letter', () => {
 		render(<TeamBadge index={1} />);
 
-		expect(screen.getByText('B')).toHaveClass('bg-team-b');
+		expect(stylesOf(screen.getByText('B'))).toEqual(expect.arrayContaining(stylesFor(expected.filled)));
 	});
 });

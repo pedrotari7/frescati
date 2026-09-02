@@ -10,6 +10,7 @@ import {
 	ShoppingBagIcon,
 	UsersIcon,
 } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import { KIT_KIND_LABELS, groupKitByKind } from '@shared/kit';
 import { entryShare, feesFor } from '@shared/finances';
 import { byDisplayName, formatSek } from '@shared/format';
@@ -27,7 +28,109 @@ import LoadFailed from '../../../../../components/LoadFailed';
 import Avatar from '../../../../../components/Avatar';
 import StatusPill from '../../../../../components/StatusPill';
 import AvailabilityDots, { AvailabilityLegend } from '../../../../../components/AvailabilityDots';
-import { ListCard, ListEmpty, SectionHeading } from '../../../../../components/Section';
+import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../../components/Section';
+import { bp, colors, tint } from '../../../../tokens.stylex';
+import { surfaces, utils } from '../../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { padding: 16 },
+
+	links: { marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 12 },
+	link: {
+		display: 'flex',
+		alignItems: 'center',
+		gap: 12,
+		borderRadius: 16,
+		padding: 16,
+		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
+	},
+	linkIcon: { color: colors.brand, width: 20, height: 20, flexShrink: 0 },
+	linkBody: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	linkTitle: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	linkNote: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+	chevron: { color: colors.faint, width: 16, height: 16, flexShrink: 0 },
+
+	manage: {
+		color: colors.ink,
+		display: 'flex',
+		height: 44,
+		width: '100%',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 8,
+		borderRadius: 12,
+		paddingInline: 16,
+		fontSize: 14,
+		lineHeight: '20px',
+		transitionProperty: 'transform, background-color, border-color',
+		transitionDuration: '0.15s',
+		transform: { default: null, ':active': 'scale(0.98)' },
+	},
+	cog: { width: 16, height: 16 },
+	manageWrap: { marginTop: 16 },
+
+	failed: {
+		marginBottom: 8,
+		display: 'flex',
+		flexWrap: 'wrap',
+		alignItems: 'center',
+		columnGap: 8,
+		rowGap: 4,
+		paddingInline: 4,
+		fontSize: 12,
+		lineHeight: '16px',
+	},
+	failedText: { color: colors.muted },
+	retry: {
+		appearance: 'none',
+		borderWidth: 0,
+		backgroundColor: 'transparent',
+		padding: 0,
+		color: colors.brand,
+		fontFamily: 'inherit',
+		fontSize: 'inherit',
+		fontWeight: 600,
+		cursor: 'pointer',
+	},
+
+	legend: { marginBottom: 8, paddingInline: 4 },
+	heading: { marginBottom: 8, paddingInline: 4 },
+	extras: { marginTop: 24 },
+
+	row: {
+		display: 'block',
+		paddingBlock: 12,
+		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	person: { display: 'flex', alignItems: 'center', gap: 12 },
+	name: { color: colors.ink, flexGrow: 1, flexShrink: 1, flexBasis: '0%', fontSize: 14, lineHeight: '20px' },
+	dots: { marginTop: 8 },
+
+	blurb: { color: colors.faint, marginBottom: 8, paddingInline: 4, fontSize: 12, lineHeight: '16px' },
+	note: { color: colors.faint, marginTop: 16, paddingInline: 4, fontSize: 12, lineHeight: 1.625 },
+});
+
+/**
+ * One of the two things on this screen that is somewhere to go rather than
+ * something to read: kit and the books.
+ *
+ * A component rather than the pair of identical blocks, which differed only in
+ * the icon, the word and the line underneath.
+ */
+const NavCard = ({ href, icon, title, note }: { href: string; icon: ReactNode; title: string; note: ReactNode }) => (
+	<Link href={href} {...stylex.props(surfaces.glassCard, styles.link)}>
+		{icon}
+
+		<div {...stylex.props(styles.linkBody)}>
+			<p {...stylex.props(styles.linkTitle)}>{title}</p>
+			<p {...stylex.props(styles.linkNote)}>{note}</p>
+		</div>
+
+		<ChevronRightIcon {...stylex.props(styles.chevron)} aria-hidden='true' />
+	</Link>
+);
 
 /** Somebody on one of the two lists, and their season. */
 type Player = PersonRow & { availability: AvailabilityMark[] };
@@ -52,10 +155,10 @@ const PlayerRow = ({
 	pending: boolean;
 	trailing?: ReactNode;
 }) => (
-	<Link href={`/u/${player.uid}`} className='block py-3 transition-colors hover:bg-white/5'>
-		<div className='flex items-center gap-3'>
+	<Link href={`/u/${player.uid}`} {...stylex.props(listRow, styles.row)}>
+		<div {...stylex.props(styles.person)}>
 			<Avatar displayName={player.displayName} photoURL={player.photoURL} />
-			<span className='text-ink flex-1 truncate text-sm'>{player.displayName}</span>
+			<span {...stylex.props(styles.name, utils.truncate)}>{player.displayName}</span>
 			{trailing}
 		</div>
 
@@ -64,7 +167,7 @@ const PlayerRow = ({
 		    would be the admin pill deciding where one player's season broke and
 		    not another's. */}
 		{showAvailability && player.availability.length > 0 && (
-			<AvailabilityDots className='mt-2' marks={player.availability} timezone={timezone} pending={pending} />
+			<AvailabilityDots sx={styles.dots} marks={player.availability} timezone={timezone} pending={pending} />
 		)}
 	</Link>
 );
@@ -150,25 +253,20 @@ const MembersPage = () => {
 	// underneath meant scrolling past every one of them to find the two things on
 	// this screen that are somewhere to go rather than something to read.
 	const kitLink = (
-		<Link
+		<NavCard
 			href={`/s/${seasonId}/kit`}
-			className='glass-card flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-white/5'
-		>
-			<ShoppingBagIcon className='text-brand size-5 shrink-0' aria-hidden='true' />
-			<div className='min-w-0 flex-1'>
-				<p className='text-ink text-sm font-semibold'>Kit</p>
-				{/* Which kinds, not how many of each, "1 vests" is the sort of
-				    thing a count can't say. The screen itself has the detail. */}
-				<p className='text-faint text-xs'>
-					{kit.length === 0
-						? 'Nothing listed yet'
-						: groupKitByKind(kit)
-								.map(group => KIT_KIND_LABELS[group.kind])
-								.join(' · ')}
-				</p>
-			</div>
-			<ChevronRightIcon className='text-faint size-4 shrink-0' aria-hidden='true' />
-		</Link>
+			icon={<ShoppingBagIcon {...stylex.props(styles.linkIcon)} aria-hidden='true' />}
+			title='Kit'
+			// Which kinds, not how many of each, "1 vests" is the sort of thing a
+			// count can't say. The screen itself has the detail.
+			note={
+				kit.length === 0
+					? 'Nothing listed yet'
+					: groupKitByKind(kit)
+							.map(group => KIT_KIND_LABELS[group.kind])
+							.join(' · ')
+			}
+		/>
 	);
 
 	// The summary line is what each person owes rather than a balance, because a
@@ -176,21 +274,16 @@ const MembersPage = () => {
 	// otherwise read it, and an extra is not allowed to anyway. A member's share is
 	// the bill divided by the squad, so it moves when somebody joins or leaves.
 	const financesLink = (
-		<Link
+		<NavCard
 			href={`/s/${seasonId}/finances`}
-			className='glass-card flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-white/5'
-		>
-			<BanknotesIcon className='text-brand size-5 shrink-0' aria-hidden='true' />
-			<div className='min-w-0 flex-1'>
-				<p className='text-ink text-sm font-semibold'>Finances</p>
-				<p className='text-faint text-xs'>
-					{fees.total === 0 && fees.perGame === 0
-						? 'Nothing is being collected'
-						: `${formatSek(entryShare(fees.total, season.memberUids.length))} each, ${formatSek(fees.perGame)} a game as an extra`}
-				</p>
-			</div>
-			<ChevronRightIcon className='text-faint size-4 shrink-0' aria-hidden='true' />
-		</Link>
+			icon={<BanknotesIcon {...stylex.props(styles.linkIcon)} aria-hidden='true' />}
+			title='Finances'
+			note={
+				fees.total === 0 && fees.perGame === 0
+					? 'Nothing is being collected'
+					: `${formatSek(entryShare(fees.total, season.memberUids.length))} each, ${formatSek(fees.perGame)} a game as an extra`
+			}
+		/>
 	);
 
 	// In the body rather than the top bar: an admin-only control up there appears
@@ -199,11 +292,8 @@ const MembersPage = () => {
 	// Styled as a link rather than wrapping a <Button>, since a <button> inside
 	// an <a> is invalid and breaks keyboard nav.
 	const manageLink = isAdmin ? (
-		<Link
-			href={`/s/${seasonId}/admin/members`}
-			className='glass-card text-ink flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm transition-all duration-150 active:scale-[0.98]'
-		>
-			<Cog6ToothIcon className='size-4' aria-hidden='true' />
+		<Link href={`/s/${seasonId}/admin/members`} {...stylex.props(surfaces.glassCard, styles.manage)}>
+			<Cog6ToothIcon {...stylex.props(styles.cog)} aria-hidden='true' />
 			Manage squad
 		</Link>
 	) : null;
@@ -213,9 +303,9 @@ const MembersPage = () => {
 	// season nobody has answered anything in and a read that never landed are
 	// the same picture, and only one of them is worth pressing something about.
 	const availabilityFailed = (
-		<div className='mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-xs'>
-			<span className='text-muted'>Couldn&apos;t load who has been playing.</span>
-			<button type='button' onClick={retryAnswers} className='text-brand font-semibold'>
+		<div {...stylex.props(styles.failed)}>
+			<span {...stylex.props(styles.failedText)}>Couldn&apos;t load who has been playing.</span>
+			<button type='button' onClick={retryAnswers} {...stylex.props(styles.retry)}>
 				Try again
 			</button>
 		</div>
@@ -235,17 +325,17 @@ const MembersPage = () => {
 					action={manageLink}
 				/>
 			) : (
-				<div className='p-4'>
-					<div className='mb-4 space-y-3'>
+				<div {...stylex.props(styles.page)}>
+					<div {...stylex.props(styles.links)}>
 						{kitLink}
 						{financesLink}
 					</div>
 
 					{dotted.length > 0 &&
-						(answersError ? availabilityFailed : <AvailabilityLegend className='mb-2 px-1' />)}
+						(answersError ? availabilityFailed : <AvailabilityLegend sx={styles.legend} />)}
 
 					<section>
-						<SectionHeading className='mb-2 px-1'>Squad ({members.length})</SectionHeading>
+						<SectionHeading sx={styles.heading}>Squad ({members.length})</SectionHeading>
 
 						<ListCard>
 							{/* Only reachable with extras below it, which is a real
@@ -271,7 +361,7 @@ const MembersPage = () => {
 						</ListCard>
 
 						{/* Managing the squad stays under the list it manages. */}
-						{manageLink && <div className='mt-4'>{manageLink}</div>}
+						{manageLink && <div {...stylex.props(styles.manageWrap)}>{manageLink}</div>}
 					</section>
 
 					{/* Below the squad, where extras sort on every other list of
@@ -279,15 +369,15 @@ const MembersPage = () => {
 					    empty Extras card on a season nobody has guested in answers a
 					    question nobody asked. */}
 					{extras.length > 0 && (
-						<section className='mt-6'>
-							<SectionHeading className='mb-2 px-1'>Extras ({extras.length})</SectionHeading>
+						<section {...stylex.props(styles.extras)}>
+							<SectionHeading sx={styles.heading}>Extras ({extras.length})</SectionHeading>
 
 							{/* Says what put somebody here, since this is a list the
 							    app works out rather than one anybody keeps. It also
 							    accounts for the dots underneath, which are mostly grey
 							    on this half: an extra answers the odd game, not the
 							    season. */}
-							<p className='text-faint mb-2 px-1 text-xs'>
+							<p {...stylex.props(styles.blurb)}>
 								Not in the squad, but they have answered a game this season.
 							</p>
 
@@ -305,7 +395,7 @@ const MembersPage = () => {
 						</section>
 					)}
 
-					<p className='text-faint mt-4 px-1 text-xs leading-relaxed'>
+					<p {...stylex.props(styles.note)}>
 						Anyone signed in can put their hand up for a game without being in the squad. A season admin
 						gives them a spot game by game.
 					</p>

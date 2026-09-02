@@ -128,6 +128,13 @@ export const tint = stylex.defineConsts({
 
 export const fonts = stylex.defineVars({
 	sans: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
+	/*
+	 * For the handful of things that are strings rather than words: a calendar
+	 * URL to copy, a Swish number to type in, a script name. Named here rather
+	 * than repeated at four call sites, and named at all rather than left to the
+	 * browser's `<code>` default, which is 13px next to 14px prose.
+	 */
+	mono: 'ui-monospace, SFMono-Regular, Menlo, monospace',
 });
 
 export const shadows = stylex.defineVars({
@@ -161,5 +168,11 @@ export const bp = stylex.defineConsts({
 	hover: '@media (hover: hover)',
 	/** The inverse, for the one control that only makes sense on a phone. */
 	coarse: '@media (pointer: coarse)',
+	/**
+	 * A pointer you can drag with. Narrower than `hover` on purpose: this is for
+	 * the one line that advertises dropping a file, and a phone that cannot drag
+	 * should not be told to.
+	 */
+	fine: '@media (pointer: fine)',
 	reducedMotion: '@media (prefers-reduced-motion: reduce)',
 });

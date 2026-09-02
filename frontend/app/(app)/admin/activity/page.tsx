@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { AppUser } from '@shared/types';
 import type { VisitRecency } from '@shared/visit';
 import { DORMANT_DAYS, byLastSeen, visitRecency } from '@shared/visit';
@@ -14,8 +14,42 @@ import AppAdminOnly from '../../../../components/AppAdminOnly';
 import Skeleton from '../../../../components/Skeleton';
 import Avatar from '../../../../components/Avatar';
 import StatusPill from '../../../../components/StatusPill';
-import { TextInput } from '../../../../components/Field';
-import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Section';
+import { SearchInput } from '../../../../components/Field';
+import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../components/Section';
+import { bp, colors, tint } from '../../../tokens.stylex';
+import { surfaces, utils } from '../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
+
+	headline: { borderRadius: 16, padding: 20 },
+	/* The count is the answer, so it is the biggest thing on the screen. The
+	   total beside it is context and drops back to body size. */
+	count: { color: colors.ink, fontSize: 24, lineHeight: '32px', fontWeight: 600 },
+	total: { color: colors.faint, fontSize: 16, lineHeight: '24px', fontWeight: 400 },
+	caption: { color: colors.muted, marginTop: 2, fontSize: 14, lineHeight: '20px' },
+	warning: { color: colors.pending, marginTop: 12, fontSize: 12, lineHeight: 1.625 },
+
+	heading: { marginBottom: 8, paddingInline: 4 },
+	note: { color: colors.faint, paddingInline: 4, fontSize: 12, lineHeight: 1.625 },
+
+	row: {
+		display: 'flex',
+		alignItems: 'center',
+		gap: 12,
+		paddingBlock: 12,
+		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
+		transitionProperty: 'background-color',
+		transitionDuration: '0.2s',
+	},
+	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	/* Wraps rather than truncating, so a long name and the admin pill after it
+	   are both readable on a phone. */
+	nameRow: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 4 },
+	name: { color: colors.ink, fontSize: 14, lineHeight: '20px' },
+	joined: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
+	seen: { color: colors.muted, flexShrink: 0, textAlign: 'right', fontSize: 12, lineHeight: '16px' },
+});
 
 /**
  * Who is still around.
@@ -111,35 +145,28 @@ const ActivityAdminPage = () => {
 
 	return (
 		<PageShell title='Activity' subtitle='Who is still around' backHref='/me'>
-			<div className='space-y-6 p-4'>
-				<section className='glass rounded-2xl p-5'>
-					<p className='text-ink text-2xl font-semibold'>
+			<div {...stylex.props(styles.page)}>
+				<section {...stylex.props(surfaces.glass, styles.headline)}>
+					<p {...stylex.props(styles.count)}>
 						{active}
-						<span className='text-faint text-base font-normal'> of {users.length}</span>
+						<span {...stylex.props(styles.total)}> of {users.length}</span>
 					</p>
-					<p className='text-muted mt-0.5 text-sm'>opened the app this week</p>
+					<p {...stylex.props(styles.caption)}>opened the app this week</p>
 
 					{missing > 0 && (
-						<p className='text-pending mt-3 text-xs leading-relaxed'>
+						<p {...stylex.props(styles.warning)}>
 							{missing === 1 ? 'One person has' : `${missing} people have`} not opened it in over{' '}
 							{DORMANT_DAYS / 7} weeks. They will not see a reminder however it is sent.
 						</p>
 					)}
 				</section>
 
-				<div className='relative'>
-					<MagnifyingGlassIcon
-						className='text-faint pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2'
-						aria-hidden='true'
-					/>
-					<TextInput
-						value={search}
-						onChange={e => setSearch(e.target.value)}
-						placeholder='Search by name'
-						className='pl-10'
-						type='search'
-					/>
-				</div>
+				<SearchInput
+					label='Search by name'
+					value={search}
+					onChange={e => setSearch(e.target.value)}
+					placeholder='Search by name'
+				/>
 
 				{SECTIONS.filter(({ key, whenEmpty }) => whenEmpty !== 'hide' || buckets[key].length > 0).map(
 					({ key, title, blurb }) => (
@@ -154,10 +181,10 @@ const ActivityAdminPage = () => {
 					)
 				)}
 
-				<p className='text-faint px-1 text-xs leading-relaxed'>
-					Counted on arrival, the app being opened, and every time it comes back to the foreground
-					afterwards. Never on a timer, so a phone with it installed and forgotten in a pocket does not keep
-					somebody looking active. A long session shows the time it started rather than the time it ended.
+				<p {...stylex.props(styles.note)}>
+					Counted on arrival, the app being opened, and every time it comes back to the foreground afterwards.
+					Never on a timer, so a phone with it installed and forgotten in a pocket does not keep somebody
+					looking active. A long session shows the time it started rather than the time it ended.
 				</p>
 			</div>
 		</PageShell>
@@ -178,7 +205,7 @@ const Section = ({
 	searched: boolean;
 }) => (
 	<section>
-		<SectionHeading className='mb-2 px-1'>
+		<SectionHeading sx={styles.heading}>
 			{title} ({players.length})
 		</SectionHeading>
 
@@ -198,24 +225,22 @@ const Section = ({
  * roster to reach it.
  */
 const PlayerRow = ({ player, now }: { player: AppUser; now: Date }) => (
-	<Link href={`/u/${player.uid}`} className='flex items-center gap-3 py-3 transition-colors hover:bg-white/5'>
+	<Link href={`/u/${player.uid}`} {...stylex.props(listRow, styles.row)}>
 		<Avatar displayName={player.displayName} photoURL={player.photoURL} />
 
-		<div className='min-w-0 flex-1'>
-			<div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
-				<p className='text-ink truncate text-sm'>{player.displayName}</p>
+		<div {...stylex.props(styles.body)}>
+			<div {...stylex.props(styles.nameRow)}>
+				<p {...stylex.props(styles.name, utils.truncate)}>{player.displayName}</p>
 				{player.isAppAdmin && <StatusPill tone='brand'>App admin</StatusPill>}
 			</div>
 
 			{/* How long they have had an account is what separates a newcomer who
 			    signed in once from a regular who has drifted off, the same
 			    "never opened it" means opposite things for the two. */}
-			{player.createdAt && (
-				<p className='text-faint mt-0.5 text-xs'>Joined {formatRelative(player.createdAt, now)}</p>
-			)}
+			{player.createdAt && <p {...stylex.props(styles.joined)}>Joined {formatRelative(player.createdAt, now)}</p>}
 		</div>
 
-		<span className='text-muted shrink-0 text-right text-xs'>
+		<span {...stylex.props(styles.seen)}>
 			{player.lastSeenAt ? formatRelative(player.lastSeenAt, now) : 'Never'}
 		</span>
 	</Link>

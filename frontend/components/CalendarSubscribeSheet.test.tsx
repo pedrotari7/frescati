@@ -1,17 +1,17 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import CalendarSubscribeSheet from './CalendarSubscribeSheet';
 
-const notify = jest.fn();
-const warn = jest.fn();
+const mockNotify = jest.fn();
+const mockWarn = jest.fn();
 
 jest.mock('./Toast', () => ({
-	useToast: () => ({ notify, warn }),
+	useToast: () => ({ notify: mockNotify, warn: mockWarn }),
 }));
 
-const getCalendarLink = jest.fn();
+const mockGetCalendarLink = jest.fn();
 
 jest.mock('../lib/db/calendar', () => ({
-	getCalendarLink: (...args: unknown[]) => getCalendarLink(...args),
+	getCalendarLink: (...args: unknown[]) => mockGetCalendarLink(...args),
 	rotateCalendarToken: jest.fn(),
 }));
 
@@ -20,7 +20,7 @@ const URL_ = 'https://frescati.example/calendarFeed?token=abc';
 describe('CalendarSubscribeSheet', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
-		getCalendarLink.mockResolvedValue(URL_);
+		mockGetCalendarLink.mockResolvedValue(URL_);
 		Object.assign(navigator, { clipboard: { writeText: jest.fn() } });
 	});
 
@@ -35,8 +35,8 @@ describe('CalendarSubscribeSheet', () => {
 		});
 
 		expect(navigator.clipboard.writeText).toHaveBeenCalledWith(URL_);
-		expect(notify).toHaveBeenCalledWith('Link copied');
-		expect(warn).not.toHaveBeenCalled();
+		expect(mockNotify).toHaveBeenCalledWith('Link copied');
+		expect(mockWarn).not.toHaveBeenCalled();
 	});
 
 	// Copy is this dialog's primary action. A silently-swallowed rejection
@@ -53,7 +53,7 @@ describe('CalendarSubscribeSheet', () => {
 			screen.getByRole('button', { name: 'Copy link' }).click();
 		});
 
-		expect(warn).toHaveBeenCalledWith("Couldn't copy the link.");
-		expect(notify).not.toHaveBeenCalled();
+		expect(mockWarn).toHaveBeenCalledWith("Couldn't copy the link.");
+		expect(mockNotify).not.toHaveBeenCalled();
 	});
 });

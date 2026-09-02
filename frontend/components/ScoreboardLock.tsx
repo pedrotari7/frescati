@@ -1,8 +1,39 @@
 'use client';
 
 import { LockClosedIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import Button from './Button';
 import { useConfirm } from './ConfirmDialog';
+import { colors, tint } from '../app/tokens.stylex';
+
+const styles = stylex.create({
+	correcting: {
+		borderWidth: 1,
+		borderStyle: 'solid',
+		borderColor: tint.pending25,
+		backgroundColor: tint.pending8,
+		marginBottom: 12,
+		borderRadius: 16,
+		padding: 12,
+	},
+	head: { display: 'flex', alignItems: 'center', gap: 8 },
+	headIcon: { color: colors.pending, width: 16, height: 16, flexShrink: 0 },
+	title: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	body: { color: colors.muted, marginTop: 8, fontSize: 12, lineHeight: 1.625 },
+	action: { marginTop: 12 },
+
+	locked: { marginBottom: 12 },
+	lockedLine: {
+		color: colors.faint,
+		display: 'flex',
+		alignItems: 'flex-start',
+		gap: 6,
+		fontSize: 12,
+		lineHeight: 1.625,
+	},
+	lockIcon: { marginTop: 2, width: 14, height: 14, flexShrink: 0 },
+	buttonIcon: { width: 16, height: 16 },
+});
 
 /**
  * The way in and out of a confirmed game's scoreboard.
@@ -31,17 +62,17 @@ const ScoreboardLock = ({ correcting, onChange }: { correcting: boolean; onChang
 
 	if (correcting) {
 		return (
-			<div className='border-pending/25 bg-pending/8 mb-3 rounded-2xl border p-3'>
-				<div className='flex items-center gap-2'>
-					<PencilSquareIcon className='text-pending size-4 shrink-0' aria-hidden='true' />
-					<h3 className='text-ink text-sm font-semibold'>Correcting a confirmed score</h3>
+			<div {...stylex.props(styles.correcting)}>
+				<div {...stylex.props(styles.head)}>
+					<PencilSquareIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
+					<h3 {...stylex.props(styles.title)}>Correcting a confirmed score</h3>
 				</div>
 
-				<p className='text-muted mt-2 text-xs leading-relaxed'>
+				<p {...stylex.props(styles.body)}>
 					Every change from here works the ratings out again: this game, and every game played since.
 				</p>
 
-				<Button size='sm' variant='secondary' className='mt-3' onClick={() => onChange(false)}>
+				<Button size='sm' variant='secondary' sx={styles.action} onClick={() => onChange(false)}>
 					Done
 				</Button>
 			</div>
@@ -49,16 +80,16 @@ const ScoreboardLock = ({ correcting, onChange }: { correcting: boolean; onChang
 	}
 
 	return (
-		<div className='mb-3'>
-			<p className='text-faint flex items-start gap-1.5 text-xs leading-relaxed'>
-				<LockClosedIcon className='mt-0.5 size-3.5 shrink-0' aria-hidden='true' />
+		<div {...stylex.props(styles.locked)}>
+			<p {...stylex.props(styles.lockedLine)}>
+				<LockClosedIcon {...stylex.props(styles.lockIcon)} aria-hidden='true' />
 				<span>The game is confirmed, so the score is settled. It can still be put right.</span>
 			</p>
 
 			<Button
 				size='sm'
 				variant='secondary'
-				className='mt-3'
+				sx={styles.action}
 				onClick={async () => {
 					const ok = await confirm({
 						title: 'Correct a confirmed score?',
@@ -70,7 +101,7 @@ const ScoreboardLock = ({ correcting, onChange }: { correcting: boolean; onChang
 					if (ok) onChange(true);
 				}}
 			>
-				<PencilSquareIcon className='size-4' aria-hidden='true' />
+				<PencilSquareIcon {...stylex.props(styles.buttonIcon)} aria-hidden='true' />
 				Correct a score
 			</Button>
 		</div>

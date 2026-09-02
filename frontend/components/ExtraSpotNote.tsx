@@ -1,8 +1,35 @@
 import { CheckBadgeIcon, ClockIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { GameResponse } from '@shared/types';
 import type { GameLifecycle } from '@shared/game';
 import { getExtraSpot } from '@shared/game';
-import { classNames } from '../lib/utils/reactHelper';
+import { colors, tint } from '../app/tokens.stylex';
+
+const styles = stylex.create({
+	strip: {
+		marginTop: 12,
+		display: 'flex',
+		alignItems: 'flex-start',
+		gap: 10,
+		borderRadius: 16,
+		borderWidth: 1,
+		borderStyle: 'solid',
+		paddingInline: 12,
+		paddingBlock: 10,
+	},
+	waiting: { borderColor: tint.pending25, backgroundColor: tint.pending8 },
+	confirmed: { borderColor: tint.in25, backgroundColor: tint.in8 },
+
+	icon: { marginTop: 2, width: 16, height: 16, flexShrink: 0 },
+	iconWaiting: { color: colors.pending },
+	iconConfirmed: { color: colors.in },
+
+	text: { minWidth: 0, flexGrow: 1, fontSize: 12, lineHeight: '16px' },
+	lead: { color: colors.ink, fontWeight: 600 },
+	rest: { color: colors.faint },
+
+	note: { color: colors.extra, marginTop: 12, textAlign: 'center', fontSize: 12, lineHeight: '16px' },
+});
 
 /**
  * What an extra is told about their own spot, under the buttons they tapped.
@@ -47,20 +74,15 @@ const ExtraSpotNote = ({
 		// the colour and the words stay legible against the tint, and this card
 		// already speaks that language a few pixels further up.
 		return (
-			<div
-				className={classNames(
-					'mt-3 flex items-start gap-2.5 rounded-2xl border px-3 py-2.5',
-					pending ? 'border-pending/25 bg-pending/8' : 'border-in/25 bg-in/8'
-				)}
-			>
+			<div {...stylex.props(styles.strip, pending ? styles.waiting : styles.confirmed)}>
 				<Icon
-					className={classNames('mt-0.5 size-4 shrink-0', pending ? 'text-pending' : 'text-in')}
+					{...stylex.props(styles.icon, pending ? styles.iconWaiting : styles.iconConfirmed)}
 					aria-hidden='true'
 				/>
 
-				<p className='min-w-0 flex-1 text-xs'>
-					<span className='text-ink font-semibold'>{pending ? 'Waiting on a spot.' : "You're in."}</span>
-					<span className='text-faint'>
+				<p {...stylex.props(styles.text)}>
+					<span {...stylex.props(styles.lead)}>{pending ? 'Waiting on a spot.' : "You're in."}</span>
+					<span {...stylex.props(styles.rest)}>
 						{pending
 							? " You're down as an extra, an admin confirms your spot before you count towards the headcount."
 							: ' An admin confirmed your spot, so you count towards the headcount.'}
@@ -76,7 +98,7 @@ const ExtraSpotNote = ({
 	if (!isExtra || lifecycle !== 'open') return null;
 
 	return (
-		<p className='text-extra mt-3 text-center text-xs'>
+		<p {...stylex.props(styles.note)}>
 			You&apos;re not in the squad for this season, so you&apos;ll be listed as an extra, an admin confirms your
 			spot before you count towards the headcount.
 		</p>

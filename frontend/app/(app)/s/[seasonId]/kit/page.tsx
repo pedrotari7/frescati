@@ -8,6 +8,7 @@ import {
 	ShoppingBagIcon,
 	TrashIcon,
 } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { KitItem, KitKind } from '@shared/types';
 import { KIT_KINDS, KIT_KIND_LABELS, findStrandedKit, groupKitByKind } from '@shared/kit';
 import { getGameLifecycle } from '@shared/game';
@@ -31,7 +32,83 @@ import GameKit from '../../../../../components/GameKit';
 import KitTransferSheet from '../../../../../components/KitTransferSheet';
 import KitRenameSheet from '../../../../../components/KitRenameSheet';
 import { Field, Select, TextInput } from '../../../../../components/Field';
-import { ListCard, SectionHeading } from '../../../../../components/Section';
+import { ListCard, listRow, SectionHeading } from '../../../../../components/Section';
+import { colors, tint } from '../../../../tokens.stylex';
+import { press, surfaces, utils } from '../../../../../lib/styles';
+
+const styles = stylex.create({
+	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
+
+	addCard: { display: 'flex', flexDirection: 'column', gap: 16, borderRadius: 16, padding: 20 },
+	addTitle: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	/* Add and Cancel side by side, both full width. Neither is destructive, and
+	   the panel is only ever open because somebody meant to open it. */
+	actions: { display: 'flex', gap: 12 },
+	plus: { width: 16, height: 16 },
+
+	nextHead: { marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8, paddingInline: 4 },
+	off: { color: colors.faint, paddingInline: 4, fontSize: 14, lineHeight: '20px' },
+
+	stranded: {
+		borderWidth: 1,
+		borderStyle: 'solid',
+		borderColor: tint.pending25,
+		backgroundColor: tint.pending8,
+		borderRadius: 16,
+		padding: 16,
+	},
+	strandedHead: { display: 'flex', alignItems: 'center', gap: 8 },
+	warn: { color: colors.pending, width: 16, height: 16, flexShrink: 0 },
+	strandedTitle: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
+	strandedBody: { color: colors.muted, marginTop: 8, fontSize: 12, lineHeight: 1.625 },
+
+	groups: { display: 'flex', flexDirection: 'column', gap: 16 },
+	heading: { marginBottom: 8, paddingInline: 4 },
+
+	row: { display: 'flex', alignItems: 'center', gap: 12, paddingBlock: 12 },
+	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+
+	/* The negative margins pull the tap target out over the row's own padding,
+	   so the name reads as text sitting where it always did and the thing you
+	   press is bigger than the word. `press.wash` carries the hover and the
+	   press; it has to, since a `:hover` under a media query outranks a bare
+	   `:active`. */
+	rename: {
+		appearance: 'none',
+		borderWidth: 0,
+		color: colors.ink,
+		marginInline: -6,
+		marginBlock: -4,
+		display: 'flex',
+		maxWidth: '100%',
+		alignItems: 'center',
+		gap: 6,
+		borderRadius: 8,
+		paddingInline: 6,
+		paddingBlock: 4,
+		fontFamily: 'inherit',
+		fontSize: 14,
+		lineHeight: '20px',
+		fontWeight: 500,
+		cursor: 'pointer',
+		transitionProperty: 'background-color',
+		transitionDuration: '0.15s',
+	},
+	pencil: { color: colors.faint, width: 14, height: 14, flexShrink: 0 },
+	name: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 500 },
+	holder: {
+		color: colors.faint,
+		marginTop: 2,
+		display: 'flex',
+		alignItems: 'center',
+		gap: 6,
+		fontSize: 12,
+		lineHeight: '16px',
+	},
+	trash: { width: 16, height: 16 },
+
+	note: { color: colors.faint, paddingInline: 4, fontSize: 12, lineHeight: 1.625 },
+});
 
 /**
  * The register: what the group owns, and who has it right now.
@@ -153,8 +230,8 @@ const KitPage = () => {
 
 	const addPanel = isAdmin ? (
 		adding ? (
-			<section className='glass space-y-4 rounded-2xl p-5'>
-				<h2 className='text-ink font-semibold'>Add to the kit list</h2>
+			<section {...stylex.props(surfaces.glass, styles.addCard)}>
+				<h2 {...stylex.props(styles.addTitle)}>Add to the kit list</h2>
 
 				<Field label='What is it'>
 					<TextInput
@@ -192,7 +269,7 @@ const KitPage = () => {
 					</Select>
 				</Field>
 
-				<div className='flex gap-3'>
+				<div {...stylex.props(styles.actions)}>
 					<Button
 						variant='primary'
 						fullWidth
@@ -208,7 +285,7 @@ const KitPage = () => {
 			</section>
 		) : (
 			<Button variant='secondary' fullWidth onClick={() => setAdding(true)}>
-				<PlusIcon className='size-4' aria-hidden='true' />
+				<PlusIcon {...stylex.props(styles.plus)} aria-hidden='true' />
 				Add kit
 			</Button>
 		)
@@ -217,7 +294,7 @@ const KitPage = () => {
 	return (
 		<>
 			<SeasonShell title='Kit' subtitle={season.name} backHref={`/s/${seasonId}/members`}>
-				<div className='space-y-6 p-4'>
+				<div {...stylex.props(styles.page)}>
 					{kit.length === 0 ? (
 						<EmptyState
 							icon={<ShoppingBagIcon />}
@@ -236,7 +313,7 @@ const KitPage = () => {
 							    bag. They open it before a game. */}
 							{nextGame && (
 								<section>
-									<div className='mb-2 flex items-center gap-2 px-1'>
+									<div {...stylex.props(styles.nextHead)}>
 										<SectionHeading>
 											{formatGameDate(nextGame.kickoff, season.slot.timezone)}
 										</SectionHeading>
@@ -251,7 +328,7 @@ const KitPage = () => {
 									    the one whose whole job is the ball, was the
 									    one that didn't. */}
 									{nextLifecycle === 'cancelled' ? (
-										<p className='text-faint px-1 text-sm'>
+										<p {...stylex.props(styles.off)}>
 											This game is off, so there is nothing to bring to it.
 										</p>
 									) : (
@@ -266,17 +343,12 @@ const KitPage = () => {
 							)}
 
 							{stranded.length > 0 && (
-								<section className='border-pending/25 bg-pending/8 rounded-2xl border p-4'>
-									<div className='flex items-center gap-2'>
-										<ExclamationTriangleIcon
-											className='text-pending size-4 shrink-0'
-											aria-hidden='true'
-										/>
-										<h2 className='text-ink text-sm font-semibold'>
-											Held by somebody who has left
-										</h2>
+								<section {...stylex.props(styles.stranded)}>
+									<div {...stylex.props(styles.strandedHead)}>
+										<ExclamationTriangleIcon {...stylex.props(styles.warn)} aria-hidden='true' />
+										<h2 {...stylex.props(styles.strandedTitle)}>Held by somebody who has left</h2>
 									</div>
-									<p className='text-muted mt-2 text-xs leading-relaxed'>
+									<p {...stylex.props(styles.strandedBody)}>
 										{stranded.map(item => item.name).join(', ')}, the person holding{' '}
 										{stranded.length > 1 ? 'these' : 'this'} is no longer in the squad. Nothing has
 										been guessed on your behalf; hand {stranded.length > 1 ? 'them' : 'it'} on below
@@ -285,10 +357,10 @@ const KitPage = () => {
 								</section>
 							)}
 
-							<section className='space-y-4'>
+							<section {...stylex.props(styles.groups)}>
 								{groupKitByKind(kit).map(group => (
 									<div key={group.kind}>
-										<SectionHeading className='mb-2 px-1'>
+										<SectionHeading sx={styles.heading}>
 											{KIT_KIND_LABELS[group.kind]}
 										</SectionHeading>
 
@@ -298,13 +370,13 @@ const KitPage = () => {
 												const inSquad = season.memberUids.includes(item.holderUid);
 
 												return (
-													<div key={item.id} className='flex items-center gap-3 py-3'>
+													<div key={item.id} {...stylex.props(listRow, styles.row)}>
 														<Avatar
 															displayName={holder?.displayName ?? '?'}
 															photoURL={holder?.photoURL ?? null}
 														/>
 
-														<div className='min-w-0 flex-1'>
+														<div {...stylex.props(styles.body)}>
 															{/* The name is its own control for an
 															    admin rather than a third button on
 															    the row: this row already carries two
@@ -315,20 +387,22 @@ const KitPage = () => {
 																	type='button'
 																	onClick={() => setRenaming(item)}
 																	aria-label={`Rename ${item.name}`}
-																	className='text-ink -mx-1.5 -my-1 flex max-w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-sm font-medium hover:bg-white/5 active:bg-white/10'
+																	{...stylex.props(styles.rename, press.wash)}
 																>
-																	<span className='truncate'>{item.name}</span>
+																	<span {...stylex.props(utils.truncate)}>
+																		{item.name}
+																	</span>
 																	<PencilSquareIcon
-																		className='text-faint size-3.5 shrink-0'
+																		{...stylex.props(styles.pencil)}
 																		aria-hidden='true'
 																	/>
 																</button>
 															) : (
-																<p className='text-ink truncate text-sm font-medium'>
+																<p {...stylex.props(styles.name, utils.truncate)}>
 																	{item.name}
 																</p>
 															)}
-															<p className='text-faint mt-0.5 flex items-center gap-1.5 truncate text-xs'>
+															<p {...stylex.props(styles.holder, utils.truncate)}>
 																{displayNameOf(holder)}
 																{!inSquad && (
 																	<StatusPill tone='pending'>
@@ -355,7 +429,10 @@ const KitPage = () => {
 																aria-label={`Remove ${item.name}`}
 																onClick={() => handleDelete(item)}
 															>
-																<TrashIcon className='size-4' aria-hidden='true' />
+																<TrashIcon
+																	{...stylex.props(styles.trash)}
+																	aria-hidden='true'
+																/>
 															</Button>
 														)}
 													</div>
@@ -368,7 +445,7 @@ const KitPage = () => {
 
 							{addPanel}
 
-							<p className='text-faint px-1 text-xs leading-relaxed'>
+							<p {...stylex.props(styles.note)}>
 								Anyone in the squad can hand a piece of kit on, no need to find an admin. A game is
 								flagged when nobody bringing a ball or the vests has said they&apos;re playing.
 							</p>

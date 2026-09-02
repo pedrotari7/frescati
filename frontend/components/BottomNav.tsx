@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { CalendarDaysIcon, TrophyIcon, UserCircleIcon, UsersIcon } from '@heroicons/react/24/outline';
-import { classNames } from '../lib/utils/reactHelper';
+import * as stylex from '@stylexjs/stylex';
+import { bp, colors, tint } from '../app/tokens.stylex';
+import { elevation, surfaces, utils } from '../lib/styles';
 import { hapticLight } from '../lib/utils/haptics';
 
 export interface NavItem {
@@ -80,6 +82,58 @@ export const activeIndexFor = (items: NavItem[], pathname: string, sectionHrefs:
 	return best;
 };
 
+const styles = stylex.create({
+	/* The tabs move into the top bar on a desktop, so the bar itself goes. */
+	bar: { position: 'fixed', insetInline: 0, bottom: 0, zIndex: 30, display: { default: 'block', [bp.lg]: 'none' } },
+	frame: {
+		position: 'relative',
+		marginInline: 8,
+		marginBottom: 8,
+		display: 'flex',
+		height: 64,
+		alignItems: 'stretch',
+		borderRadius: 16,
+		paddingInline: 4,
+	},
+
+	indicator: {
+		backgroundColor: tint.brand15,
+		boxShadow: `0 0 0 1px ${tint.brand25}`,
+		position: 'absolute',
+		top: 8,
+		bottom: 8,
+		borderRadius: 12,
+		transitionProperty: 'left, width',
+		transitionDuration: '0.3s',
+		transitionTimingFunction: 'ease-out',
+	},
+
+	tab: {
+		position: 'relative',
+		zIndex: 10,
+		display: 'flex',
+		flexGrow: 1,
+		flexBasis: '0%',
+		flexDirection: 'column',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 4,
+		borderRadius: 12,
+		transitionProperty: 'color',
+		transitionDuration: '0.2s',
+	},
+	tabOn: { color: colors.brand },
+	tabOff: { color: { default: colors.faint, ':active': colors.muted } },
+
+	icon: { width: 24, height: 24 },
+	label: { fontSize: 10, lineHeight: '14px', fontWeight: 500 },
+});
+
+/** Measured, so the pill lines up whatever the labels are. */
+const pill = stylex.create({
+	at: (left: number, width: number) => ({ left, width }),
+});
+
 const BottomNav = ({ items, sectionHrefs }: { items: NavItem[]; sectionHrefs?: string[] }) => {
 	const pathname = usePathname();
 	const activeIndex = activeIndexFor(items, pathname, sectionHrefs);
@@ -102,12 +156,11 @@ const BottomNav = ({ items, sectionHrefs }: { items: NavItem[]; sectionHrefs?: s
 	}, [activeIndex, items.length]);
 
 	return (
-		<nav className='pb-safe fixed inset-x-0 bottom-0 z-30 lg:hidden'>
-			<div className='glass-nav shadow-glass relative mx-2 mb-2 flex h-16 items-stretch rounded-2xl px-1'>
+		<nav {...stylex.props(utils.pbSafe, styles.bar)}>
+			<div {...stylex.props(surfaces.glassNav, elevation.glass, styles.frame)}>
 				{indicator && (
 					<div
-						className='bg-brand/15 ring-brand/25 absolute inset-y-2 rounded-xl ring-1 transition-all duration-300 ease-out'
-						style={{ left: indicator.left, width: indicator.width }}
+						{...stylex.props(styles.indicator, pill.at(indicator.left, indicator.width))}
 						aria-hidden='true'
 					/>
 				)}
@@ -125,13 +178,10 @@ const BottomNav = ({ items, sectionHrefs }: { items: NavItem[]; sectionHrefs?: s
 							}}
 							onClick={hapticLight}
 							aria-current={isActive ? 'page' : undefined}
-							className={classNames(
-								'relative z-10 flex flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors',
-								isActive ? 'text-brand' : 'text-faint active:text-muted'
-							)}
+							{...stylex.props(styles.tab, isActive ? styles.tabOn : styles.tabOff)}
 						>
-							<Icon className='size-6' aria-hidden='true' />
-							<span className='text-[10px] font-medium'>{item.label}</span>
+							<Icon {...stylex.props(styles.icon)} aria-hidden='true' />
+							<span {...stylex.props(styles.label)}>{item.label}</span>
 						</Link>
 					);
 				})}

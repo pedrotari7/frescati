@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { BanknotesIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import type { Season } from '@shared/types';
 import type { SwishPayment } from '@shared/swish';
 import { swishAppUrl, toAlias, toInternational, toLocal } from '@shared/swish';
@@ -11,8 +12,38 @@ import { useWrite } from '../hooks/useWrite';
 import Button from './Button';
 import SwishPay from './SwishPay';
 import { Field, TextInput } from './Field';
+import { colors, fonts } from '../app/tokens.stylex';
+import { surfaces, text } from '../lib/styles';
 
 const NOTHING: SwishPayment = { payee: '', amount: 0, message: '' };
+
+const styles = stylex.create({
+	card: { borderRadius: 16, padding: 20 },
+	head: { marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 },
+	headIcon: { color: colors.muted, width: 20, height: 20 },
+	title: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	blurb: { color: colors.muted, marginBottom: 16, fontSize: 14, lineHeight: 1.625 },
+	warning: { color: colors.pending, marginBottom: 20, fontSize: 12, lineHeight: 1.625 },
+
+	fields: { display: 'flex', flexDirection: 'column', gap: 16 },
+
+	heading: { marginTop: 24, marginBottom: 8 },
+	facts: { display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 },
+	factLabel: { color: colors.faint },
+	link: {
+		color: colors.ink,
+		marginTop: 2,
+		fontFamily: fonts.mono,
+		overflowWrap: 'break-word',
+		wordBreak: 'break-all',
+	},
+	numberRow: { display: 'flex', justifyContent: 'space-between', gap: 12 },
+	numbers: { color: colors.ink, fontWeight: 500 },
+	copy: { marginTop: 12 },
+	preview: { marginTop: 16 },
+
+	none: { color: colors.faint, marginTop: 24, fontSize: 12, lineHeight: 1.625 },
+});
 
 /**
  * Everything the panel takes off the season, worked out in one place.
@@ -88,23 +119,23 @@ const PaymentTriggers = ({ season, displayName }: { season: Season | null; displ
 	const link = payable ? swishAppUrl(payment) : null;
 
 	return (
-		<section className='glass rounded-2xl p-5'>
-			<div className='mb-1 flex items-center gap-2'>
-				<BanknotesIcon className='text-muted size-5' aria-hidden='true' />
-				<h2 className='text-ink font-semibold'>Take a payment on purpose</h2>
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<div {...stylex.props(styles.head)}>
+				<BanknotesIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
+				<h2 {...stylex.props(styles.title)}>Take a payment on purpose</h2>
 			</div>
 
-			<p className='text-muted mb-4 text-sm leading-relaxed'>
+			<p {...stylex.props(styles.blurb)}>
 				The same panel a player sees when they owe money, built from the season you picked above, with no charge
 				raised against anybody. Scan it with the phone you want to test. Nothing here writes to the books.
 			</p>
 
-			<p className='text-pending mb-5 text-xs leading-relaxed'>
+			<p {...stylex.props(styles.warning)}>
 				The code is live. Nothing moves until somebody confirms the payment in their own Swish app. If they do,
 				that is a real payment to a real number, and no charge in this app is marked against it.
 			</p>
 
-			<div className='space-y-4'>
+			<div {...stylex.props(styles.fields)}>
 				<Field
 					label='Swish number'
 					hint={
@@ -161,24 +192,22 @@ const PaymentTriggers = ({ season, displayName }: { season: Season | null; displ
 
 			{link ? (
 				<>
-					<h3 className='text-faint mt-6 mb-2 text-xs font-semibold tracking-wider uppercase'>
-						What Swish is handed
-					</h3>
+					<h3 {...stylex.props(text.sectionHeading, styles.heading)}>What Swish is handed</h3>
 
 					{/* What a player is never shown. The link itself, so a code that
 					    will not scan can be read rather than guessed at, and every form
 					    of the number, because an admin who typed +46 70 123 45 67 into
 					    the season settings has to come out of all of them correctly and
 					    only the last one goes into the link. */}
-					<dl className='space-y-2 text-xs'>
+					<dl {...stylex.props(styles.facts)}>
 						<div>
-							<dt className='text-faint'>Link, in the code and behind the button</dt>
-							<dd className='text-ink mt-0.5 font-mono break-all'>{link}</dd>
+							<dt {...stylex.props(styles.factLabel)}>Link, in the code and behind the button</dt>
+							<dd {...stylex.props(styles.link)}>{link}</dd>
 						</div>
 
-						<div className='flex justify-between gap-3'>
-							<dt className='text-faint'>Number, every form</dt>
-							<dd className='text-ink font-medium'>
+						<div {...stylex.props(styles.numberRow)}>
+							<dt {...stylex.props(styles.factLabel)}>Number, every form</dt>
+							<dd {...stylex.props(styles.numbers)}>
 								{toLocal(payment.payee)} · {toInternational(payment.payee)} · {toAlias(payment.payee)}
 							</dd>
 						</div>
@@ -187,7 +216,7 @@ const PaymentTriggers = ({ season, displayName }: { season: Season | null; displ
 					<Button
 						size='sm'
 						variant='secondary'
-						className='mt-3'
+						sx={styles.copy}
 						onClick={() => write(() => navigator.clipboard.writeText(link), "Couldn't copy the link.")}
 					>
 						Copy link
@@ -197,12 +226,12 @@ const PaymentTriggers = ({ season, displayName }: { season: Season | null; displ
 					    shown is then a change to what this screen proves, which is the
 					    same reason the push panel renders the payload the function sent
 					    back rather than one composed here. */}
-					<div className='mt-4'>
+					<div {...stylex.props(styles.preview)}>
 						<SwishPay payee={payment.payee} amount={payment.amount} message={payment.message} />
 					</div>
 				</>
 			) : (
-				<p className='text-faint mt-6 text-xs leading-relaxed'>
+				<p {...stylex.props(styles.none)}>
 					Set a number and an amount above zero and the code is drawn here. Swish refuses a link missing
 					either, and a code that fails for that reason looks exactly like one whose format is wrong.
 				</p>

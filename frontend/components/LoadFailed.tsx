@@ -1,7 +1,27 @@
 'use client';
 
 import { ArrowPathIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import Button from './Button';
+import { colors } from '../app/tokens.stylex';
+import { animations } from '../lib/styles';
+
+const styles = stylex.create({
+	root: {
+		display: 'flex',
+		flexDirection: 'column',
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingInline: 24,
+		paddingBlock: 64,
+		textAlign: 'center',
+	},
+	icon: { color: colors.pending, marginBottom: 16, width: 48, height: 48 },
+	title: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	message: { color: colors.muted, marginTop: 8, maxWidth: 320, fontSize: 14, lineHeight: 1.625 },
+	retry: { marginTop: 24 },
+	retryIcon: { width: 16, height: 16 },
+});
 
 /**
  * What a screen draws when the listener behind it failed.
@@ -17,17 +37,17 @@ import Button from './Button';
  * "this season", "the teams", never the collection it came out of.
  */
 const LoadFailed = ({ what, onRetry }: { what: string; onRetry?: () => void }) => (
-	<div className='animate-fade-in flex flex-col items-center justify-center px-6 py-16 text-center'>
-		<ExclamationTriangleIcon className='text-pending mb-4 size-12' aria-hidden='true' />
+	<div {...stylex.props(styles.root, animations.fadeIn)}>
+		<ExclamationTriangleIcon {...stylex.props(styles.icon)} aria-hidden='true' />
 
-		<p className='text-ink text-base font-semibold'>Couldn&apos;t load {what}</p>
-		<p className='text-muted mt-2 max-w-xs text-sm leading-relaxed'>
+		<p {...stylex.props(styles.title)}>Couldn&apos;t load {what}</p>
+		<p {...stylex.props(styles.message)}>
 			That is usually the connection rather than anything you did. Nothing has been lost.
 		</p>
 
 		{onRetry && (
-			<Button variant='secondary' className='mt-6' onClick={onRetry}>
-				<ArrowPathIcon className='size-4' aria-hidden='true' />
+			<Button variant='secondary' sx={styles.retry} onClick={onRetry}>
+				<ArrowPathIcon {...stylex.props(styles.retryIcon)} aria-hidden='true' />
 				Try again
 			</Button>
 		)}

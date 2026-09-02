@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { CalendarDaysIcon, PlusIcon } from '@heroicons/react/24/outline';
+import * as stylex from '@stylexjs/stylex';
 import { SEASON_STATUS_LABELS } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
 import { useSeasons } from '../../../hooks/useData';
@@ -13,6 +14,21 @@ import Skeleton from '../../../components/Skeleton';
 import EmptyState from '../../../components/EmptyState';
 import StatusPill from '../../../components/StatusPill';
 import Button from '../../../components/Button';
+import { colors } from '../../tokens.stylex';
+import { surfaces, utils } from '../../../lib/styles';
+
+const styles = stylex.create({
+	/* A column with gaps rather than `space-y`, which StyleX has no sibling
+	   selector for. The New season button is the last child, so it takes the
+	   same gap the cards do. */
+	list: { display: 'flex', flexDirection: 'column', gap: 12, padding: 16 },
+	card: { display: 'block', borderRadius: 16, padding: 16 },
+	row: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+	body: { minWidth: 0 },
+	name: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	where: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
+	plus: { width: 16, height: 16 },
+});
 
 const SeasonsPage = () => {
 	const router = useRouter();
@@ -56,24 +72,24 @@ const SeasonsPage = () => {
 					action={
 						user?.isAppAdmin ? (
 							<Button variant='primary' onClick={() => router.push('/seasons/new')}>
-								<PlusIcon className='size-4' />
+								<PlusIcon {...stylex.props(styles.plus)} />
 								New season
 							</Button>
 						) : undefined
 					}
 				/>
 			) : (
-				<div className='space-y-3 p-4'>
+				<div {...stylex.props(styles.list)}>
 					{seasons.map(season => (
 						<Link
 							key={season.id}
 							href={`/s/${season.id}`}
-							className='glass-card block rounded-2xl p-4 transition-transform'
+							{...stylex.props(surfaces.glassCard, styles.card)}
 						>
-							<div className='flex items-center justify-between gap-3'>
-								<div className='min-w-0'>
-									<p className='text-ink truncate font-semibold'>{season.name}</p>
-									<p className='text-faint mt-0.5 text-xs'>
+							<div {...stylex.props(styles.row)}>
+								<div {...stylex.props(styles.body)}>
+									<p {...stylex.props(styles.name, utils.truncate)}>{season.name}</p>
+									<p {...stylex.props(styles.where)}>
 										{season.venue.name} · {season.memberUids.length} in the squad
 									</p>
 								</div>
@@ -87,7 +103,7 @@ const SeasonsPage = () => {
 
 					{user?.isAppAdmin && (
 						<Button variant='secondary' fullWidth onClick={() => router.push('/seasons/new')}>
-							<PlusIcon className='size-4' />
+							<PlusIcon {...stylex.props(styles.plus)} />
 							New season
 						</Button>
 					)}
