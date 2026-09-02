@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react';
 import { ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import type { AppUser, NotificationPrefs, PushDevice } from '@shared/types';
-import type { PushReach } from '@shared/notifications';
-import { canEmail, getPushReach, relevantPrefs } from '@shared/notifications';
+import type { PushReach, ReachLevel } from '@shared/notifications';
+import { canEmail, getPushReach, getReachLevel, relevantPrefs } from '@shared/notifications';
 import { describeDevice, platformLabel } from '@shared/device';
 import { formatRelative } from '@shared/format';
 import { useAuth } from '../../../../lib/auth';
@@ -34,6 +34,12 @@ import { ListCard, ListEmpty, SectionHeading } from '../../../../components/Sect
  * no longer necessarily unreachable, and this screen has to say which it is,
  * "gets the emails" and "hears nothing" want completely different conversations.
  *
+ * Which is also why the list is in three parts rather than two. Reachable
+ * answered "can we get a message to them at all", so somebody who only ever
+ * gets an email sat in the same list as somebody whose phone buzzes, and there
+ * are far more of the first than the second. `getReachLevel` is the split, and
+ * the group at the bottom is the one nobody has to read.
+ *
  * Preferences and the install signal live on the profile and arrive live with
  * everything else. Devices and addresses come from a callable, because push
  * tokens and email addresses are both unreadable from the client on purpose,
@@ -52,6 +58,31 @@ const REACH_LABEL: Record<PushReach, string> = {
 	partly: 'Some kinds off',
 	muted: 'All kinds off',
 	noDevice: 'No device',
+};
+
+/**
+ * The three lists, worst first.
+ *
+ * `all` is last because it is the one an admin never has to read. Everything
+ * the app sends arrives, and the only thing to do with those rows is scroll
+ * past them. Splitting it out is what makes the two above it worth opening.
+ */
+const LEVELS: ReachLevel[] = ['none', 'some', 'all'];
+
+const LEVEL_TITLE: Record<ReachLevel, string> = {
+	none: 'Nothing gets through',
+	some: 'Reachable, with gaps',
+	all: 'Getting everything',
+};
+
+/**
+ * What each list says when it is empty. Each answers its own heading rather
+ * than restating the screen three times over.
+ */
+const LEVEL_EMPTY: Record<ReachLevel, string> = {
+	none: 'Everyone can be reached.',
+	some: 'Nobody has a gap.',
+	all: 'Nobody is getting everything.',
 };
 
 /**
@@ -94,6 +125,21 @@ const summariseInstall = (user: AppUser, now: Date): { label: string; tone: Pill
 		: { label: `${platformLabel(client.platform)} · browser tab`, tone: 'neutral' };
 };
 
+/**
+ * Why the fallback didn't carry it, on a row push isn't reaching.
+ *
+ * Only asked on a `noDevice` row, because nowhere else does the answer change
+ * anything. Push reaching them means the fallback never fires, and somebody who
+ * muted every kind is not waiting on a channel. `null` is the third case, no
+ * sender configured at all, which the banner at the top of the screen already
+ * says once instead of on every row.
+ */
+const whyNoEmail = (user: AppUser, hasEmail: boolean): string | null => {
+	if (user.notificationPrefs?.emailFallback === false) return `${PREF_LABEL.emailFallback} off`;
+
+	return hasEmail ? null : 'No email address';
+};
+
 const NotificationsAdminPage = () => {
 	const { user } = useAuth();
 	const isAppAdmin = user?.isAppAdmin === true;
@@ -111,12 +157,10 @@ const NotificationsAdminPage = () => {
 	// The headline counts everybody, the lists only what was searched for. A
 	// total that moved as you typed would be a different number every keystroke
 	// and would stop being the answer to "how many of us are reachable".
-	const reached = rows.filter(isReached).length;
+	const reached = rows.filter(row => levelOf(row) !== 'none').length;
 
 	const term = search.trim().toLowerCase();
 	const visible = term ? rows.filter(row => (row.user.displayName ?? '').toLowerCase().includes(term)) : rows;
-	const reachable = visible.filter(isReached);
-	const unreachable = visible.filter(row => !isReached(row));
 
 	if (!isAppAdmin) {
 		return (
@@ -193,22 +237,18 @@ const NotificationsAdminPage = () => {
 						<SkeletonBlock className='h-24' />
 					</div>
 				) : (
-					<>
-						{/* The actionable half first. This screen gets opened
-						    because somebody isn't getting their reminders. */}
+					/* Worst first. This screen gets opened because somebody isn't
+					   getting their reminders, and the people it has nothing to
+					   say about belong at the bottom. */
+					LEVELS.map(level => (
 						<Section
-							title='Nothing gets through'
-							rows={unreachable}
+							key={level}
+							title={LEVEL_TITLE[level]}
+							rows={visible.filter(row => levelOf(row) === level)}
 							now={now}
-							empty={term ? 'Nobody matches that search.' : 'Everyone is reachable.'}
+							empty={term ? 'Nobody matches that search.' : LEVEL_EMPTY[level]}
 						/>
-						<Section
-							title='Reachable'
-							rows={reachable}
-							now={now}
-							empty={term ? 'Nobody matches that search.' : 'Nobody is reachable yet.'}
-						/>
-					</>
+					))
 				)}
 			</div>
 		</PageShell>
@@ -221,20 +261,16 @@ interface Row {
 	reach: PushReach;
 	/** Whether the fallback would carry what push can't. */
 	byEmail: boolean;
+	/** Whether there is an address at all, one of the two reasons it wouldn't. */
+	hasEmail: boolean;
 }
 
-/**
- * Something still gets through. A partial opt-out is still a way to reach them,
- * and so is the email fallback, but only where push is failing for want of a
- * device. Somebody who muted a kind outright is not rescued by a channel that
- * only ever carries the kinds they left switched on.
- */
-const isReached = (row: Row): boolean =>
-	row.reach === 'reachable' || row.reach === 'partly' || (row.reach === 'noDevice' && row.byEmail);
+const levelOf = ({ reach, byEmail }: Row): ReachLevel => getReachLevel({ reach, byEmail });
 
 const buildRows = (users: AppUser[], { devices, addressed, emailConfigured }: NotificationReach): Row[] =>
 	users.map(candidate => {
 		const registered = devices[candidate.uid] ?? [];
+		const hasEmail = addressed.has(candidate.uid);
 
 		return {
 			user: candidate,
@@ -244,9 +280,8 @@ const buildRows = (users: AppUser[], { devices, addressed, emailConfigured }: No
 				devices: registered.length,
 				isAppAdmin: candidate.isAppAdmin === true,
 			}),
-			byEmail:
-				emailConfigured &&
-				canEmail({ prefs: candidate.notificationPrefs, hasEmail: addressed.has(candidate.uid) }),
+			byEmail: emailConfigured && canEmail({ prefs: candidate.notificationPrefs, hasEmail }),
+			hasEmail,
 		};
 	});
 
@@ -266,12 +301,13 @@ const Section = ({ title, rows, now, empty }: { title: string; rows: Row[]; now:
 	</section>
 );
 
-const PlayerRow = ({ row: { user, devices, reach, byEmail }, now }: { row: Row; now: Date }) => {
+const PlayerRow = ({ row: { user, devices, reach, byEmail, hasEmail }, now }: { row: Row; now: Date }) => {
 	const install = summariseInstall(user, now);
 	const prefs = relevantPrefs(user.isAppAdmin === true);
 	// Absent means opted in, the same way the backend reads it. Never show a
 	// profile that predates a preference as having switched it off.
 	const off = prefs.filter(key => user.notificationPrefs?.[key] === false);
+	const noEmail = whyNoEmail(user, hasEmail);
 
 	return (
 		<div className='flex items-start gap-3 py-3'>
@@ -305,6 +341,12 @@ const PlayerRow = ({ row: { user, devices, reach, byEmail }, now }: { row: Row; 
 					    already means the fallback never fires, so saying they
 					    also have an address would be noise on every row. */}
 					{reach === 'noDevice' && byEmail && <StatusPill tone='in'>Emailed instead</StatusPill>}
+
+					{/* The same row when the fallback didn't carry it. Somebody
+					    with a perfectly good address can sit under "Nothing gets
+					    through", and the screen used to say "No device" and
+					    leave an admin with nothing to tell them. */}
+					{reach === 'noDevice' && !byEmail && noEmail && <StatusPill tone='out'>{noEmail}</StatusPill>}
 
 					<StatusPill tone={install.tone}>{install.label}</StatusPill>
 

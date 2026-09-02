@@ -9,6 +9,7 @@ import {
 	buildNewPlayerPush,
 	canEmail,
 	getPushReach,
+	getReachLevel,
 	normaliseNotificationPrefs,
 	relevantPrefs,
 } from './notifications';
@@ -428,6 +429,27 @@ describe('canEmail', () => {
 	// is opted in, not silently switched off.
 	it('treats a missing preference as opted in', () => {
 		expect(canEmail({ hasEmail: true })).toBe(true);
+	});
+});
+
+describe('getReachLevel', () => {
+	it('separates a covered account from one that is only partly reached', () => {
+		expect(getReachLevel({ reach: 'reachable', byEmail: true })).toBe('all');
+		expect(getReachLevel({ reach: 'partly', byEmail: true })).toBe('some');
+	});
+
+	// Push is the channel that arrives while there is still time to say yes, so
+	// an address standing in for a device is a gap rather than full coverage.
+	it('counts the email fallback as reaching them, but not as everything', () => {
+		expect(getReachLevel({ reach: 'noDevice', byEmail: true })).toBe('some');
+		expect(getReachLevel({ reach: 'noDevice', byEmail: false })).toBe('none');
+	});
+
+	// The fallback picks how a kind travels. It cannot carry one that was
+	// switched off, so an address is no rescue for somebody who muted the lot.
+	it('leaves somebody who muted every kind unreached, address or not', () => {
+		expect(getReachLevel({ reach: 'muted', byEmail: true })).toBe('none');
+		expect(getReachLevel({ reach: 'muted', byEmail: false })).toBe('none');
 	});
 });
 

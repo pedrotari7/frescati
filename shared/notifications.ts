@@ -227,6 +227,27 @@ export const canEmail = ({ prefs, hasEmail }: { prefs?: NotificationPrefs; hasEm
 	hasEmail && prefs?.emailFallback !== false;
 
 /**
+ * How much of what the app sends arrives, once both channels are in.
+ *
+ * `getPushReach` answers for push alone and `canEmail` for the fallback, and
+ * neither is the question an admin has. Theirs is whether there is anything to
+ * do about this person, which has three answers and not two: nothing arrives at
+ * all, some of it does, or they are covered and can be scrolled past.
+ *
+ * `muted` stays `none` even with a working address. The fallback carries
+ * whichever kinds are still switched on, so it cannot route around somebody who
+ * switched all of them off. It only picks how those kinds travel.
+ */
+export type ReachLevel = 'all' | 'some' | 'none';
+
+export const getReachLevel = ({ reach, byEmail }: { reach: PushReach; byEmail: boolean }): ReachLevel => {
+	if (reach === 'reachable') return 'all';
+	if (reach === 'partly') return 'some';
+
+	return reach === 'noDevice' && byEmail ? 'some' : 'none';
+};
+
+/**
  * Exactly the five switches, whatever came in.
  *
  * Every writer used to spread the stored map forward: `{ ...defaults,
