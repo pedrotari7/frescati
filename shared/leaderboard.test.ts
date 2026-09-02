@@ -187,6 +187,78 @@ describe('getSeasonTable', () => {
 		expect(table.map(row => row.position)).toEqual([0, 1, 2]);
 	});
 
+	// The default, spelled out: three appearances and two wins beats one
+	// appearance and one win, whatever the rating column says about either.
+	it('puts more wins above a better rating when ordering on wins', () => {
+		const table = getSeasonTable(
+			[
+				entry('g1', 's1', { a: 0, b: 1 }, { a: 1000, b: 1000 }, { a: 1005, b: 995 }),
+				entry('g2', 's1', { a: 0, c: 1 }, { a: 1005, c: 1000 }, { a: 1010, c: 990 }),
+				entry('g3', 's1', { b: 0 }, { b: 995 }, { b: 1035 }),
+			],
+			's1'
+		);
+
+		// b gained far more than a, and is still second on one win to a's two.
+		expect(table.map(row => row.uid)).toEqual(['a', 'b', 'c']);
+		expect(table.map(row => row.movement)).toEqual([10, 35, -10]);
+	});
+
+	it('orders on rating movement, then on wins', () => {
+		const table = getSeasonTable(
+			[
+				entry('g1', 's1', { a: 0, b: 1 }, { a: 1000, b: 1000 }, { a: 1005, b: 995 }),
+				entry('g2', 's1', { a: 0, c: 1 }, { a: 1005, c: 1000 }, { a: 1010, c: 990 }),
+				entry('g3', 's1', { b: 0 }, { b: 995 }, { b: 1035 }),
+			],
+			's1',
+			'rating'
+		);
+
+		// The same three rows as above, with b's 35 now ahead of a's 10.
+		expect(table.map(row => row.uid)).toEqual(['b', 'a', 'c']);
+		expect(table.map(row => row.position)).toEqual([0, 1, 2]);
+	});
+
+	it('orders on appearances, then on wins', () => {
+		const table = getSeasonTable(
+			[
+				entry('g1', 's1', { a: 1, b: 0, c: 0 }, { a: 1000, b: 1000, c: 1000 }, { a: 990, b: 1010, c: 1010 }),
+				entry('g2', 's1', { a: 1, b: 0 }, { a: 990, b: 1010 }, { a: 985, b: 1015 }),
+				entry('g3', 's1', { a: 1 }, { a: 985 }, { a: 980 }),
+			],
+			's1',
+			'played'
+		);
+
+		// a turned up three times and lost the lot, which is what this order asks.
+		expect(table.map(row => row.uid)).toEqual(['a', 'b', 'c']);
+		expect(table.map(row => row.appearances)).toEqual([3, 2, 1]);
+	});
+
+	// Otherwise a season three games old draws everybody who played twice as one
+	// block, in whatever order the ledger happened to arrive in.
+	it('separates two players level on appearances by wins, then by movement', () => {
+		const table = getSeasonTable(
+			[entry('g1', 's1', { a: 0, b: 1, c: 1 }, { a: 1000, b: 1000, c: 1000 }, { a: 1020, b: 995, c: 990 })],
+			's1',
+			'played'
+		);
+
+		expect(table.map(row => row.uid)).toEqual(['a', 'b', 'c']);
+		expect(table.map(row => row.position)).toEqual([0, 1, 2]);
+	});
+
+	it('shares a position between rows level on every key the sort compares', () => {
+		const table = getSeasonTable(
+			[entry('g1', 's1', { a: 0, b: 0 }, { a: 1000, b: 1000 }, { a: 1010, b: 1010 })],
+			's1',
+			'played'
+		);
+
+		expect(table.map(row => row.position)).toEqual([0, 0]);
+	});
+
 	it('survives a ledger entry written before positions existed', () => {
 		const legacy = { ...entry('g1', 's1', {}, { a: 1000 }, { a: 1010 }) };
 		delete (legacy as Partial<RatingLedgerEntry>).positions;

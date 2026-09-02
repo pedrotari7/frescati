@@ -85,20 +85,61 @@ export interface SeasonRow {
 	position: number;
 }
 
+/** Which of a row's three numbers the season table is ordered on. */
+export type SeasonSort = 'won' | 'rating' | 'played';
+
+/**
+ * What each sort compares, most significant first, all of them bigger first.
+ *
+ * All three fall through to the other columns rather than stopping at the one
+ * they are named after. A season is a handful of games, so a column on its own
+ * is mostly ties: three games in, everybody has played one, two or three, and
+ * `played` alone would draw those three numbers with an arbitrary order inside
+ * each of them and call it a table.
+ */
+const SEASON_SORT_KEYS: Record<SeasonSort, (row: SeasonRow) => number[]> = {
+	won: row => [row.wins, row.movement],
+	rating: row => [row.movement, row.wins],
+	played: row => [row.appearances, row.wins, row.movement],
+};
+
+/** Bigger first, key by key. Zero only when the rows genuinely tie. */
+const compareSeasonRows = (sort: SeasonSort, a: SeasonRow, b: SeasonRow): number => {
+	const keys = SEASON_SORT_KEYS[sort];
+	const [left, right] = [keys(a), keys(b)];
+
+	for (let index = 0; index < left.length; index++) {
+		if (left[index] !== right[index]) return right[index] - left[index];
+	}
+
+	return 0;
+};
+
 /**
  * The season table, from that season's ledger entries.
  *
- * Ordered on games won, then rating movement, deliberately not on rating
- * itself. The all-time ladder already answers "who is best"; this one answers
- * "who had a good season", and somebody who turned up every week and kept
- * winning belongs at the top of it even if they started strong.
+ * Ordered on games won by default, then rating movement, deliberately not on
+ * rating itself. The all-time ladder already answers "who is best"; this one
+ * answers "who had a good season", and somebody who turned up every week and
+ * kept winning belongs at the top of it even if they started strong.
+ *
+ * `sort` swaps which of the three numbers leads, because that default is an
+ * opinion and not everybody shares it. Wins put the player who turned up six
+ * times and won three above the one who turned up once and won it. That is the
+ * point of the column, and it is also the thing somebody hunting for the in-form
+ * player is arguing with. The other two orders are the same rows read a
+ * different way round, never a different set of rows.
  *
  * Which is also why each row carries its last few results: the order says how
  * the season went overall and says nothing about where it is going, and the
  * player two places below who has won the last four is the more interesting
  * fact on the screen.
  */
-export const getSeasonTable = (entries: RatingLedgerEntry[], seasonId: string): SeasonRow[] => {
+export const getSeasonTable = (
+	entries: RatingLedgerEntry[],
+	seasonId: string,
+	sort: SeasonSort = 'won'
+): SeasonRow[] => {
 	const rows = new Map<string, SeasonRow>();
 
 	// Kickoff order, and the game id after it so two games kicking off at once
@@ -135,17 +176,15 @@ export const getSeasonTable = (entries: RatingLedgerEntry[], seasonId: string): 
 		}
 	}
 
-	const ordered = [...rows.values()].sort(
-		(a, b) => b.wins - a.wins || b.movement - a.movement || (a.uid < b.uid ? -1 : 1)
-	);
+	const ordered = [...rows.values()].sort((a, b) => compareSeasonRows(sort, a, b) || (a.uid < b.uid ? -1 : 1));
 
 	let position = 0;
 
 	return ordered.map((row, index) => {
-		const previous = ordered[index - 1];
-		// Both sort keys, not just wins. Two players level on wins but apart on
-		// movement are in a real, meaningful order, not a tie.
-		if (index > 0 && (previous.wins !== row.wins || previous.movement !== row.movement)) position = index;
+		// Every key the sort compared, not just the column it is named after. Two
+		// players level on wins but apart on movement are in a real, meaningful
+		// order, not a tie, and the same goes for two level on appearances.
+		if (index > 0 && compareSeasonRows(sort, ordered[index - 1], row) !== 0) position = index;
 
 		return { ...row, position };
 	});

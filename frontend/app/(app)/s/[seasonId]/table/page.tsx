@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { TrophyIcon } from '@heroicons/react/24/outline';
 import { getRatingLadder, getSeasonTable, toDisplayMovement } from '@shared/leaderboard';
-import type { SeasonResult } from '@shared/leaderboard';
+import type { SeasonResult, SeasonSort } from '@shared/leaderboard';
 import { toDisplayRating } from '@shared/rating';
 import { counted, formatGameDate, placeLabel, signed } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
@@ -20,6 +20,29 @@ import StatusPill from '../../../../../components/StatusPill';
 import { classNames } from '../../../../../lib/utils/reactHelper';
 
 type Tab = 'season' | 'all-time';
+
+/**
+ * The three ways to read a season, in the order the control offers them, the
+ * default first. `getSeasonTable` carries the argument for why that one leads.
+ */
+const SORTS: { key: SeasonSort; label: string }[] = [
+	{ key: 'won', label: 'Won' },
+	{ key: 'rating', label: 'Rating' },
+	{ key: 'played', label: 'Played' },
+];
+
+/**
+ * What each order means, said under the table it drew.
+ *
+ * A sentence per sort rather than one for all three, because the numbers on a
+ * row never move, only their order does. Somebody who missed which column is
+ * leading has nothing else on the screen to tell the three tables apart.
+ */
+const SORT_NOTES: Record<SeasonSort, string> = {
+	won: 'Ordered on games won, then on how much rating you gained, who had a good season, rather than who is best.',
+	rating: 'Ordered on rating gained, then on games won. How far the season moved you, where beating a stronger side counts for more than beating a weaker one.',
+	played: 'Ordered on games played, then on games won. Who turned up, rather than how it went once they were there.',
+};
 
 /**
  * The last few games, oldest on the left, the way a form guide reads.
@@ -59,8 +82,9 @@ const LeaderboardPage = () => {
 	const { users, usersByUid } = useUsersByUid();
 	const { user } = useAuth();
 	const [tab, setTab] = useState<Tab>('season');
+	const [sort, setSort] = useState<SeasonSort>('won');
 
-	const seasonTable = useMemo(() => getSeasonTable(entries, seasonId), [entries, seasonId]);
+	const seasonTable = useMemo(() => getSeasonTable(entries, seasonId, sort), [entries, seasonId, sort]);
 	const ladder = useMemo(() => getRatingLadder(users), [users]);
 
 	if (loading || ledgerLoading) {
@@ -122,6 +146,45 @@ const LeaderboardPage = () => {
 						</button>
 					))}
 				</div>
+
+				{/* Over the season table only, which is the one with three
+				    numbers to choose between. The all-time ladder is the rating
+				    ladder by definition, and it has no wins column to offer
+				    anyway. Smaller and rounder than the toggle above it, and grey
+				    rather than green when it is on, so two rows of buttons don't
+				    read as two sets of tabs. */}
+				{tab === 'season' && (
+					<div className='flex items-center gap-2 px-1'>
+						<span id='season-sort-label' className='text-faint text-xs font-semibold'>
+							Sort
+						</span>
+
+						<div
+							className='glass flex gap-1 rounded-full p-1'
+							role='group'
+							aria-labelledby='season-sort-label'
+						>
+							{SORTS.map(({ key, label }) => (
+								<button
+									key={key}
+									type='button'
+									aria-pressed={sort === key}
+									onClick={() => setSort(key)}
+									// h-9 because it is a thumb, not a pointer. The text
+									// is small to keep this behind the toggle above it.
+									// The target it sits in is not.
+									className={classNames(
+										'focus-visible:ring-brand/60 h-9 rounded-full px-3 text-xs font-semibold transition-colors',
+										'focus-visible:ring-2 focus-visible:outline-none',
+										sort === key ? 'text-ink bg-white/12' : 'text-muted hover:text-ink'
+									)}
+								>
+									{label}
+								</button>
+							))}
+						</div>
+					</div>
+				)}
 
 				{rows.length === 0 ? (
 					<EmptyState
@@ -189,7 +252,7 @@ const LeaderboardPage = () => {
 
 				<p className='text-faint px-1 text-xs'>
 					{tab === 'season'
-						? 'Ordered on games won, then on how much rating you gained, who had a good season, rather than who is best. The dots are the last five games, oldest first, and a filled one is a win. The number reads the whole season and rounds once, so adding up the per game changes on a profile can land a point or two either side of it.'
+						? `${SORT_NOTES[sort]} The dots are the last five games, oldest first, and a filled one is a win. The number reads the whole season and rounds once, so adding up the per game changes on a profile can land a point or two either side of it.`
 						: 'Your rating follows you across every season. It moves on how your team did against how it was expected to, so beating a stronger side is worth more, and beating them comfortably more again.'}
 				</p>
 			</div>
