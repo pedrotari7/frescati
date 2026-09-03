@@ -1,18 +1,23 @@
-const babelConfig = require('./babel.config');
+const rsOptions = require('./stylex.config');
 
 /**
- * The Babel plugin rewrites `stylex.create` calls into class names but does not
- * emit any CSS. This plugin is the other half: it re-parses every source file
- * below, collects the styles it finds and expands the `@stylex;` directive in
- * `app/globals.css` into the one stylesheet Next serves.
+ * The compiler in `next.config.js` rewrites `stylex.create` calls into class
+ * names but emits no CSS. This plugin is the other half: it re-parses every
+ * source file below, collects the styles it finds and expands the `@stylex;`
+ * directive in `app/globals.css` into the one stylesheet Next serves.
  *
  * That means the `include` globs are load-bearing. A component outside them
  * compiles to class names that no rule ever defines, which renders as an
  * unstyled element rather than as an error.
+ *
+ * This is a second pass over the same files, which the bundler plugin can avoid
+ * by extracting the CSS itself into a stylesheet of its own. That was measured
+ * and not taken: see "One stylesheet, and what the second pass costs" in
+ * `docs/stylex.md`.
  */
 module.exports = {
 	plugins: {
-		'@stylexjs/postcss-plugin': {
+		'@stylexswc/postcss-plugin': {
 			include: [
 				'app/**/*.{js,jsx,ts,tsx}',
 				'components/**/*.{js,jsx,ts,tsx}',
@@ -26,11 +31,7 @@ module.exports = {
 			 * test fixture.
 			 */
 			exclude: ['**/*.test.{js,jsx,ts,tsx}'],
-			babelConfig: {
-				babelrc: false,
-				parserOpts: { plugins: ['typescript', 'jsx'] },
-				plugins: babelConfig.plugins,
-			},
+			rsOptions,
 			/**
 			 * Off deliberately.
 			 *

@@ -1,5 +1,7 @@
 const path = require('path');
 const { withSentryConfig } = require('@sentry/nextjs');
+const stylexPlugin = require('@stylexswc/nextjs-plugin');
+const stylexOptions = require('./stylex.config');
 
 /** Where the browser posts violations. See `app/api/csp-report/route.ts`. */
 const CSP_REPORT_PATH = '/api/csp-report';
@@ -209,7 +211,23 @@ const nextConfig = {
  */
 const hasUploadCredentials = Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.VERCEL);
 
-module.exports = withSentryConfig(nextConfig, {
+/**
+ * StyleX, compiled by SWC.
+ *
+ * The styles are compiled at build time, and StyleX's own compiler is a Babel
+ * plugin. A Babel config in the project root turns SWC off for the app's whole
+ * source, which is what this app did until this plugin replaced it: the same
+ * transform written in Rust, running inside the SWC pipeline Next already uses.
+ * The stylesheet it emits is byte for byte the one Babel emitted, hashed class
+ * names included, and the build takes less than half as long. `docs/stylex.md`
+ * has the measurement.
+ *
+ * `extractCSS: false` because the PostCSS plugin owns extraction. Both read
+ * `stylex.config.js`, which is the point of that file.
+ */
+const withStyleX = stylexPlugin({ rsOptions: stylexOptions, extractCSS: false });
+
+module.exports = withSentryConfig(withStyleX(nextConfig), {
 	org: process.env.SENTRY_ORG,
 	project: process.env.SENTRY_PROJECT,
 	authToken: process.env.SENTRY_AUTH_TOKEN,
