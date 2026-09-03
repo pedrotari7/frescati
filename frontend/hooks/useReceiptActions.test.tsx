@@ -46,7 +46,7 @@ const receipt: Receipt = {
 	uploadedAt: '2026-03-12T10:00:00.000Z',
 };
 
-const writeText = vi.fn<Promise<void>, [string]>();
+const writeText = vi.fn<(text: string) => Promise<void>>();
 
 beforeEach(() => {
 	vi.clearAllMocks();
