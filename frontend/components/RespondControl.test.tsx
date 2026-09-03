@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { GameResponse, ResponseStatus } from '@shared/types';
 import RespondControl from './RespondControl';
+import type { Mock } from 'vitest';
 
 const answered = (status: ResponseStatus, overrides: Partial<GameResponse> = {}): GameResponse => ({
 	uid: 'me',
@@ -11,18 +12,18 @@ const answered = (status: ResponseStatus, overrides: Partial<GameResponse> = {})
 	...overrides,
 });
 
-const mockNotify = jest.fn();
-const mockWarn = jest.fn();
+const mockNotify = vi.fn();
+const mockWarn = vi.fn();
 
-jest.mock('./Toast', () => ({
+vi.mock('./Toast', () => ({
 	useToast: () => ({ notify: mockNotify, warn: mockWarn }),
 }));
 
 describe('RespondControl', () => {
-	beforeEach(() => jest.clearAllMocks());
+	beforeEach(() => vi.clearAllMocks());
 
 	it('says which answer is yours in words, not only in colour', () => {
-		render(<RespondControl response={answered('in')} onRespond={jest.fn()} onClear={jest.fn()} />);
+		render(<RespondControl response={answered('in')} onRespond={vi.fn()} onClear={vi.fn()} />);
 
 		expect(screen.getByRole('button', { name: /You're in/ })).toHaveAttribute('aria-pressed', 'true');
 		expect(screen.getByRole('button', { name: /Can't make it/ })).toHaveAttribute('aria-pressed', 'false');
@@ -34,7 +35,7 @@ describe('RespondControl', () => {
 	// contradict it.
 	it('does not tell an extra still waiting on a spot that they are in', () => {
 		render(
-			<RespondControl response={answered('in', { role: 'extra' })} onRespond={jest.fn()} onClear={jest.fn()} />
+			<RespondControl response={answered('in', { role: 'extra' })} onRespond={vi.fn()} onClear={vi.fn()} />
 		);
 
 		expect(screen.getByRole('button', { name: /I'm in/ })).toHaveAttribute('aria-pressed', 'true');
@@ -45,8 +46,8 @@ describe('RespondControl', () => {
 		render(
 			<RespondControl
 				response={answered('in', { role: 'extra', confirmOverride: true })}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -54,9 +55,9 @@ describe('RespondControl', () => {
 	});
 
 	it('answers in when tapped with no existing response', async () => {
-		const onRespond = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
 
-		render(<RespondControl response={undefined} onRespond={onRespond} onClear={jest.fn()} />);
+		render(<RespondControl response={undefined} onRespond={onRespond} onClear={vi.fn()} />);
 
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: /I'm in/ }));
@@ -68,8 +69,8 @@ describe('RespondControl', () => {
 	// The tap the whole redesign is about. It reads as "am I in?", and it used
 	// to answer by taking the player out.
 	it('writes nothing when the answer already given is tapped again', async () => {
-		const onRespond = jest.fn().mockResolvedValue(undefined);
-		const onClear = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
+		const onClear = vi.fn().mockResolvedValue(undefined);
 
 		render(<RespondControl response={answered('in')} onRespond={onRespond} onClear={onClear} />);
 
@@ -83,9 +84,9 @@ describe('RespondControl', () => {
 	});
 
 	it('withdraws the answer through a button that says so', async () => {
-		const onClear = jest.fn().mockResolvedValue(undefined);
+		const onClear = vi.fn().mockResolvedValue(undefined);
 
-		render(<RespondControl response={answered('out')} onRespond={jest.fn()} onClear={onClear} />);
+		render(<RespondControl response={answered('out')} onRespond={vi.fn()} onClear={onClear} />);
 
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Clear answer' }));
@@ -95,7 +96,7 @@ describe('RespondControl', () => {
 	});
 
 	it('offers nothing to withdraw until there is an answer', () => {
-		render(<RespondControl response={undefined} onRespond={jest.fn()} onClear={jest.fn()} />);
+		render(<RespondControl response={undefined} onRespond={vi.fn()} onClear={vi.fn()} />);
 
 		expect(screen.queryByRole('button', { name: 'Clear answer' })).not.toBeInTheDocument();
 		expect(screen.getByText(/You haven't answered yet/)).toBeInTheDocument();
@@ -103,14 +104,14 @@ describe('RespondControl', () => {
 
 	// The row above a small control already carries a "No answer" pill.
 	it('leaves the unanswered note to the row it sits in when small', () => {
-		render(<RespondControl response={undefined} onRespond={jest.fn()} onClear={jest.fn()} size='sm' />);
+		render(<RespondControl response={undefined} onRespond={vi.fn()} onClear={vi.fn()} size='sm' />);
 
 		expect(screen.queryByText(/You haven't answered yet/)).not.toBeInTheDocument();
 	});
 
 	it('switches straight from out to in', async () => {
-		const onRespond = jest.fn().mockResolvedValue(undefined);
-		const onClear = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
+		const onClear = vi.fn().mockResolvedValue(undefined);
 
 		render(<RespondControl response={answered('out')} onRespond={onRespond} onClear={onClear} />);
 
@@ -123,9 +124,9 @@ describe('RespondControl', () => {
 	});
 
 	it('does nothing while disabled, and stops offering a withdrawal', async () => {
-		const onRespond = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
 
-		render(<RespondControl response={answered('in')} onRespond={onRespond} onClear={jest.fn()} disabled />);
+		render(<RespondControl response={answered('in')} onRespond={onRespond} onClear={vi.fn()} disabled />);
 
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: /Can't make it/ }));
@@ -138,14 +139,14 @@ describe('RespondControl', () => {
 
 	it('refuses a second tap while the first write is still in flight', async () => {
 		let settle: () => void = () => {};
-		const onRespond = jest.fn().mockImplementation(
+		const onRespond = vi.fn().mockImplementation(
 			() =>
 				new Promise<void>(resolve => {
 					settle = resolve;
 				})
 		);
 
-		render(<RespondControl response={answered('out')} onRespond={onRespond} onClear={jest.fn()} />);
+		render(<RespondControl response={answered('out')} onRespond={onRespond} onClear={vi.fn()} />);
 
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: /I'm in/ }));
@@ -173,10 +174,10 @@ describe('RespondControl', () => {
 	});
 
 	it('warns when the write fails, and clears the pending state either way', async () => {
-		const onRespond = jest.fn().mockRejectedValue(new Error('offline'));
-		jest.spyOn(console, 'error').mockImplementation(() => {});
+		const onRespond = vi.fn().mockRejectedValue(new Error('offline'));
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 
-		render(<RespondControl response={undefined} onRespond={onRespond} onClear={jest.fn()} />);
+		render(<RespondControl response={undefined} onRespond={onRespond} onClear={vi.fn()} />);
 
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: /I'm in/ }));
@@ -185,14 +186,14 @@ describe('RespondControl', () => {
 		expect(mockWarn).toHaveBeenCalledWith("Couldn't save your answer. Try again in a moment.");
 		expect(screen.getByRole('button', { name: /I'm in/ })).toHaveTextContent("I'm in");
 
-		(console.error as jest.Mock).mockRestore();
+		(console.error as Mock).mockRestore();
 	});
 
 	it('warns when a withdrawal fails too', async () => {
-		const onClear = jest.fn().mockRejectedValue(new Error('offline'));
-		jest.spyOn(console, 'error').mockImplementation(() => {});
+		const onClear = vi.fn().mockRejectedValue(new Error('offline'));
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 
-		render(<RespondControl response={answered('in')} onRespond={jest.fn()} onClear={onClear} />);
+		render(<RespondControl response={answered('in')} onRespond={vi.fn()} onClear={onClear} />);
 
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Clear answer' }));
@@ -201,17 +202,17 @@ describe('RespondControl', () => {
 		expect(mockWarn).toHaveBeenCalledWith("Couldn't save your answer. Try again in a moment.");
 		expect(screen.getByRole('button', { name: 'Clear answer' })).toBeEnabled();
 
-		(console.error as jest.Mock).mockRestore();
+		(console.error as Mock).mockRestore();
 	});
 
 	describe('when they owe the season money', () => {
 		const debtLock = { outstanding: 140, href: '/s/s1/finances' };
 
 		it('holds the In half and leaves saying you cannot make it alone', async () => {
-			const onRespond = jest.fn().mockResolvedValue(undefined);
+			const onRespond = vi.fn().mockResolvedValue(undefined);
 
 			render(
-				<RespondControl response={undefined} onRespond={onRespond} onClear={jest.fn()} debtLock={debtLock} />
+				<RespondControl response={undefined} onRespond={onRespond} onClear={vi.fn()} debtLock={debtLock} />
 			);
 
 			expect(screen.getByRole('button', { name: /I'm in/ })).toBeDisabled();
@@ -225,10 +226,10 @@ describe('RespondControl', () => {
 		});
 
 		it('writes nothing if the held half is tapped anyway', async () => {
-			const onRespond = jest.fn().mockResolvedValue(undefined);
+			const onRespond = vi.fn().mockResolvedValue(undefined);
 
 			render(
-				<RespondControl response={undefined} onRespond={onRespond} onClear={jest.fn()} debtLock={debtLock} />
+				<RespondControl response={undefined} onRespond={onRespond} onClear={vi.fn()} debtLock={debtLock} />
 			);
 
 			await act(async () => {
@@ -242,7 +243,7 @@ describe('RespondControl', () => {
 		// this replaces the unanswered note rather than stacking under it.
 		it('says what is owed and where to settle it, instead of the unanswered note', () => {
 			render(
-				<RespondControl response={undefined} onRespond={jest.fn()} onClear={jest.fn()} debtLock={debtLock} />
+				<RespondControl response={undefined} onRespond={vi.fn()} onClear={vi.fn()} debtLock={debtLock} />
 			);
 
 			expect(screen.getByText(/You owe 140 kr/)).toBeInTheDocument();
@@ -256,8 +257,8 @@ describe('RespondControl', () => {
 			render(
 				<RespondControl
 					response={undefined}
-					onRespond={jest.fn()}
-					onClear={jest.fn()}
+					onRespond={vi.fn()}
+					onClear={vi.fn()}
 					debtLock={debtLock}
 					size='sm'
 				/>
@@ -272,8 +273,8 @@ describe('RespondControl', () => {
 			render(
 				<RespondControl
 					response={answered('in')}
-					onRespond={jest.fn()}
-					onClear={jest.fn()}
+					onRespond={vi.fn()}
+					onClear={vi.fn()}
 					debtLock={debtLock}
 				/>
 			);
@@ -283,10 +284,10 @@ describe('RespondControl', () => {
 		});
 
 		it('still lets them take that In back', async () => {
-			const onClear = jest.fn().mockResolvedValue(undefined);
+			const onClear = vi.fn().mockResolvedValue(undefined);
 
 			render(
-				<RespondControl response={answered('in')} onRespond={jest.fn()} onClear={onClear} debtLock={debtLock} />
+				<RespondControl response={answered('in')} onRespond={vi.fn()} onClear={onClear} debtLock={debtLock} />
 			);
 
 			await act(async () => {
@@ -301,8 +302,8 @@ describe('RespondControl', () => {
 			render(
 				<RespondControl
 					response={answered('out')}
-					onRespond={jest.fn()}
-					onClear={jest.fn()}
+					onRespond={vi.fn()}
+					onClear={vi.fn()}
 					debtLock={debtLock}
 				/>
 			);
@@ -317,8 +318,8 @@ describe('RespondControl', () => {
 			render(
 				<RespondControl
 					response={undefined}
-					onRespond={jest.fn()}
-					onClear={jest.fn()}
+					onRespond={vi.fn()}
+					onClear={vi.fn()}
 					debtLock={debtLock}
 					disabled
 				/>

@@ -1,10 +1,10 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { useRespondIntent } from './useRespondIntent';
 
-const mockNotify = jest.fn();
-const mockWarn = jest.fn();
+const mockNotify = vi.fn();
+const mockWarn = vi.fn();
 
-jest.mock('../components/Toast', () => ({
+vi.mock('../components/Toast', () => ({
 	useToast: () => ({ notify: mockNotify, warn: mockWarn }),
 }));
 
@@ -12,18 +12,18 @@ const setUrl = (search: string) => window.history.pushState(null, '', `/s/season
 
 describe('useRespondIntent', () => {
 	beforeEach(() => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		setUrl('');
-		jest.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 	});
 
 	afterEach(() => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	});
 
 	it('does nothing while the season has not loaded yet', () => {
 		setUrl('?respond=in');
-		const onRespond = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
 
 		renderHook(() => useRespondIntent({ ready: false, isOpen: true, onRespond }));
 
@@ -31,7 +31,7 @@ describe('useRespondIntent', () => {
 	});
 
 	it('does nothing when there is no respond intent in the URL', () => {
-		const onRespond = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
 
 		renderHook(() => useRespondIntent({ ready: true, isOpen: true, onRespond }));
 
@@ -40,7 +40,7 @@ describe('useRespondIntent', () => {
 
 	it('ignores a respond value that is not a real response status', () => {
 		setUrl('?respond=maybe');
-		const onRespond = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
 
 		renderHook(() => useRespondIntent({ ready: true, isOpen: true, onRespond }));
 
@@ -49,7 +49,7 @@ describe('useRespondIntent', () => {
 
 	it('answers in on behalf of the notification tap and strips the param', async () => {
 		setUrl('?respond=in');
-		const onRespond = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
 
 		renderHook(() => useRespondIntent({ ready: true, isOpen: true, onRespond }));
 
@@ -63,7 +63,7 @@ describe('useRespondIntent', () => {
 	// are waiting on an admin.
 	it('does not promise an extra a game they have not been given a spot in', async () => {
 		setUrl('?respond=in');
-		const onRespond = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
 
 		renderHook(() => useRespondIntent({ ready: true, isOpen: true, pendingSpot: true, onRespond }));
 
@@ -75,7 +75,7 @@ describe('useRespondIntent', () => {
 
 	it('answers out on behalf of the notification tap', async () => {
 		setUrl('?respond=out');
-		const onRespond = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
 
 		renderHook(() => useRespondIntent({ ready: true, isOpen: true, onRespond }));
 
@@ -85,7 +85,7 @@ describe('useRespondIntent', () => {
 
 	it('warns instead of writing once answers have closed', async () => {
 		setUrl('?respond=in');
-		const onRespond = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
 
 		renderHook(() => useRespondIntent({ ready: true, isOpen: false, onRespond }));
 
@@ -95,7 +95,7 @@ describe('useRespondIntent', () => {
 
 	it('warns when the write itself fails', async () => {
 		setUrl('?respond=in');
-		const onRespond = jest.fn().mockRejectedValue(new Error('offline'));
+		const onRespond = vi.fn().mockRejectedValue(new Error('offline'));
 
 		renderHook(() => useRespondIntent({ ready: true, isOpen: true, onRespond }));
 
@@ -106,7 +106,7 @@ describe('useRespondIntent', () => {
 
 	it('only ever handles the intent once', async () => {
 		setUrl('?respond=in');
-		const onRespond = jest.fn().mockResolvedValue(undefined);
+		const onRespond = vi.fn().mockResolvedValue(undefined);
 
 		const { rerender } = renderHook(props => useRespondIntent(props), {
 			initialProps: { ready: true, isOpen: true, onRespond },

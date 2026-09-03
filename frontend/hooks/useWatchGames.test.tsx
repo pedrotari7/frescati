@@ -1,14 +1,14 @@
 import { act, renderHook } from '@testing-library/react';
 
-const mockWatchGame = jest.fn().mockResolvedValue(undefined);
-const mockUnwatchGame = jest.fn().mockResolvedValue(undefined);
-const mockSubscribe = jest.fn();
+const mockWatchGame = vi.fn().mockResolvedValue(undefined);
+const mockUnwatchGame = vi.fn().mockResolvedValue(undefined);
+const mockSubscribe = vi.fn();
 const mockAuth = { user: { uid: 'anna' } as { uid: string } | null };
 
 /** The last `onChange` handed to the subscription, so a test can deliver one. */
 let deliver: ((gameIds: Set<string>) => void) | null = null;
 
-jest.mock('../lib/db/watchers', () => ({
+vi.mock('../lib/db/watchers', () => ({
 	watchGame: (...args: unknown[]) => mockWatchGame(...args),
 	unwatchGame: (...args: unknown[]) => mockUnwatchGame(...args),
 	subscribeToMyWatching: (uid: string, onChange: (gameIds: Set<string>) => void, onError: (e: Error) => void) => {
@@ -18,12 +18,12 @@ jest.mock('../lib/db/watchers', () => ({
 	},
 }));
 
-jest.mock('../lib/auth', () => ({ useAuth: () => mockAuth }));
+vi.mock('../lib/auth', () => ({ useAuth: () => mockAuth }));
 
 import { useWatchGames } from './useWatchGames';
 
 beforeEach(() => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 	deliver = null;
 	mockAuth.user = { uid: 'anna' };
 	mockSubscribe.mockReturnValue(() => {});

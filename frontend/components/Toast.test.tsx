@@ -65,7 +65,7 @@ describe('ToastProvider', () => {
 	});
 
 	it('auto-dismisses a toast after its display window', () => {
-		jest.useFakeTimers();
+		vi.useFakeTimers();
 
 		render(
 			<ToastProvider>
@@ -79,11 +79,11 @@ describe('ToastProvider', () => {
 		expect(screen.getByText('Saved')).toBeInTheDocument();
 
 		act(() => {
-			jest.advanceTimersByTime(4500);
+			vi.advanceTimersByTime(4500);
 		});
 		expect(screen.queryByText('Saved')).not.toBeInTheDocument();
 
-		jest.useRealTimers();
+		vi.useRealTimers();
 	});
 
 	it('keeps only the most recent three toasts visible', () => {
@@ -107,7 +107,7 @@ describe('dismissing', () => {
 	// The tap used to remove the toast and leave its timeout running, to fire
 	// into an empty list a few seconds later.
 	it('cancels the timer when a toast is tapped away', () => {
-		jest.useFakeTimers();
+		vi.useFakeTimers();
 
 		try {
 			render(
@@ -125,14 +125,14 @@ describe('dismissing', () => {
 			});
 
 			expect(screen.queryByText('Saved')).not.toBeInTheDocument();
-			expect(jest.getTimerCount()).toBe(0);
+			expect(vi.getTimerCount()).toBe(0);
 		} finally {
-			jest.useRealTimers();
+			vi.useRealTimers();
 		}
 	});
 
 	it('drops its pending timers on unmount', () => {
-		jest.useFakeTimers();
+		vi.useFakeTimers();
 
 		try {
 			const { unmount } = render(
@@ -145,13 +145,13 @@ describe('dismissing', () => {
 				fireEvent.click(screen.getByText('notify'));
 			});
 
-			expect(jest.getTimerCount()).toBe(1);
+			expect(vi.getTimerCount()).toBe(1);
 
 			unmount();
 
-			expect(jest.getTimerCount()).toBe(0);
+			expect(vi.getTimerCount()).toBe(0);
 		} finally {
-			jest.useRealTimers();
+			vi.useRealTimers();
 		}
 	});
 });

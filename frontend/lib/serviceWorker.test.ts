@@ -17,6 +17,7 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import type { Mock } from 'vitest';
 
 const ORIGIN = 'https://frescati.test';
 
@@ -118,8 +119,8 @@ class FakeMessageChannel {
  * JS has died, looks from in here.
  */
 class FakeClient {
-	readonly focus = jest.fn(async () => this);
-	readonly navigate = jest.fn(async (url: string) => {
+	readonly focus = vi.fn(async () => this);
+	readonly navigate = vi.fn(async (url: string) => {
 		this.url = url;
 		return this;
 	});
@@ -141,8 +142,8 @@ interface Harness {
 	fetchListener: (event: unknown) => void;
 	activateListener: (event: unknown) => void;
 	caches: ReturnType<typeof createCaches>;
-	fetchMock: jest.Mock;
-	openWindow: jest.Mock;
+	fetchMock: Mock;
+	openWindow: Mock;
 	/** Runs the fetch handler and returns what it answered, or `null`. */
 	handle: (request: FakeRequest) => Promise<FakeResponse | null>;
 	/** Runs the notificationclick handler to completion. */
@@ -154,8 +155,8 @@ const load = ({ clients = [] as FakeClient[] } = {}): Harness => {
 	const listeners = new Map<string, (event: unknown) => void>();
 	const caches = createCaches();
 
-	const fetchMock = jest.fn(async (request: FakeRequest) => new FakeResponse(request.url));
-	const openWindow = jest.fn(async () => undefined);
+	const fetchMock = vi.fn(async (request: FakeRequest) => new FakeResponse(request.url));
+	const openWindow = vi.fn(async () => undefined);
 
 	const self = {
 		addEventListener: (type: string, handler: (event: unknown) => void) => listeners.set(type, handler),

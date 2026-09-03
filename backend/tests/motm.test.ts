@@ -65,12 +65,12 @@ beforeEach(async () => {
 	await clearAuth();
 });
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => vi.restoreAllMocks());
 
 describe('opening the vote', () => {
 	it('opens it when a game is confirmed, and asks everybody who played', async () => {
 		await setUpGame();
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await confirm();
 
@@ -88,7 +88,7 @@ describe('opening the vote', () => {
 	it('tells an app admin who did not play that it is open', async () => {
 		await setUpGame();
 		await writeUser(APP_ADMIN, { isAppAdmin: true });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await confirm();
 
@@ -100,7 +100,7 @@ describe('opening the vote', () => {
 	it('names an app admin who played once rather than twice', async () => {
 		await setUpGame();
 		await writeUser('p1', { isAppAdmin: true });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await confirm();
 
@@ -110,7 +110,7 @@ describe('opening the vote', () => {
 	// The game page is a headcount for a game that has already been played.
 	it('points people at the team sheet, where the vote is', async () => {
 		await setUpGame();
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await confirm();
 
@@ -123,7 +123,7 @@ describe('opening the vote', () => {
 		await writeSeason(SEASON_ID, { memberUids: EVERYONE, adminUids: [ADMIN] });
 		await writeGame(SEASON_ID, GAME_ID);
 		await writeMatch(SEASON_ID, GAME_ID, { order: 0, teamA: 0, teamB: 1, scoreA: 2, scoreB: 1 });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await expect(confirm()).rejects.toMatchObject({ code: 'failed-precondition' });
 
@@ -146,7 +146,7 @@ describe('opening the vote', () => {
 		await getDb()
 			.doc(`seasons/${SEASON_ID}/games/${GAME_ID}`)
 			.update({ resultFinalisedAt: FieldValue.delete(), status: 'scheduled' });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await confirm();
 
@@ -355,7 +355,7 @@ describe('closing the vote', () => {
 		await expireTheVote();
 
 		const finalise = await import('../src/lib/finalise');
-		const replaySpy = jest.spyOn(finalise, 'requestRatingReplay');
+		const replaySpy = vi.spyOn(finalise, 'requestRatingReplay');
 
 		await closeMotmVoting.run({} as never);
 
@@ -371,7 +371,7 @@ describe('closing the vote', () => {
 		await expireTheVote();
 
 		const motm = await import('../src/lib/motm');
-		jest.spyOn(motm, 'closeMotmVote').mockRejectedValueOnce(new Error('nope'));
+		vi.spyOn(motm, 'closeMotmVote').mockRejectedValueOnce(new Error('nope'));
 
 		await expect(closeMotmVoting.run({} as never)).resolves.toBeUndefined();
 
@@ -398,7 +398,7 @@ describe('announcing the result', () => {
 	// result into a reward for having answered.
 	it('tells everybody who played, whether or not they voted', async () => {
 		await voteAndExpire([['p1', 'p5']]);
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await closeMotmVoting.run({} as never);
 
@@ -413,7 +413,7 @@ describe('announcing the result', () => {
 	it('tells an app admin who did not play', async () => {
 		await writeUser(APP_ADMIN, { isAppAdmin: true });
 		await voteAndExpire([['p1', 'p5']]);
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await closeMotmVoting.run({} as never);
 
@@ -429,7 +429,7 @@ describe('announcing the result', () => {
 			['p2', 'p5'],
 			['p3', 'p1'],
 		]);
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await closeMotmVoting.run({} as never);
 
@@ -445,7 +445,7 @@ describe('announcing the result', () => {
 			['p1', 'p5'],
 			['p2', 'p6'],
 		]);
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await closeMotmVoting.run({} as never);
 
@@ -456,7 +456,7 @@ describe('announcing the result', () => {
 	// tapping the ask did, and where the totals now are.
 	it('points at the team sheet, where the totals are', async () => {
 		await voteAndExpire([['p1', 'p5']]);
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await closeMotmVoting.run({} as never);
 
@@ -467,7 +467,7 @@ describe('announcing the result', () => {
 	// happened, but "nobody voted" is not news anybody needs a phone to buzz for.
 	it('says nothing when nobody voted', async () => {
 		await voteAndExpire([]);
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await closeMotmVoting.run({} as never);
 
@@ -484,7 +484,7 @@ describe('announcing the result', () => {
 		await voteAndExpire([['p1', 'p5']]);
 
 		const before = (await readUser('p5'))!.rating!.elo;
-		jest.spyOn(push, 'sendGamePush').mockRejectedValueOnce(new Error('fcm is having a day'));
+		vi.spyOn(push, 'sendGamePush').mockRejectedValueOnce(new Error('fcm is having a day'));
 
 		await expect(closeMotmVoting.run({} as never)).resolves.toBeUndefined();
 

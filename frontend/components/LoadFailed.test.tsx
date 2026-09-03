@@ -15,7 +15,7 @@ describe('LoadFailed', () => {
 	});
 
 	it('calls onRetry when the button is pressed', async () => {
-		const onRetry = jest.fn();
+		const onRetry = vi.fn();
 		render(<LoadFailed what='the teams' onRetry={onRetry} />);
 
 		await act(async () => {

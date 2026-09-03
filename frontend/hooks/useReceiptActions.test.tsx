@@ -15,24 +15,25 @@ import type { Receipt } from '@shared/types';
  */
 
 /**
- * Named with the `mock` prefix and declared as functions, because `jest.mock`
- * factories are hoisted above every `const` in this file. The jest.fn()s below
+ * Named with the `mock` prefix and declared as functions, because `vi.mock`
+ * factories are hoisted above every `const` in this file. The vi.fn()s below
  * are only reached when the hook renders, which is long afterwards.
  */
 function mockUseToast() {
 	return { notify: mockNotify, warn: mockWarn };
 }
 
-jest.mock('../lib/db/receipts', () => ({ fetchReceipt: jest.fn() }));
-jest.mock('../lib/utils/download', () => ({ saveBlob: jest.fn() }));
-jest.mock('../components/Toast', () => ({ useToast: mockUseToast }));
+vi.mock('../lib/db/receipts', () => ({ fetchReceipt: vi.fn() }));
+vi.mock('../lib/utils/download', () => ({ saveBlob: vi.fn() }));
+vi.mock('../components/Toast', () => ({ useToast: mockUseToast }));
 
 import { fetchReceipt } from '../lib/db/receipts';
 import { saveBlob } from '../lib/utils/download';
 import { useReceiptActions } from './useReceiptActions';
+import type { Mock } from 'vitest';
 
-const mockNotify = jest.fn();
-const mockWarn = jest.fn();
+const mockNotify = vi.fn();
+const mockWarn = vi.fn();
 
 const SEASON = 'season-1';
 
@@ -45,21 +46,21 @@ const receipt: Receipt = {
 	uploadedAt: '2026-03-12T10:00:00.000Z',
 };
 
-const writeText = jest.fn<Promise<void>, [string]>();
+const writeText = vi.fn<Promise<void>, [string]>();
 
 beforeEach(() => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 	writeText.mockResolvedValue(undefined);
 
 	Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
 
 	// `useWrite` logs a failed action as well as reporting it. Worth having in
 	// the app, not worth having in the test output.
-	jest.spyOn(console, 'error').mockImplementation(() => {});
+	vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => {
-	jest.restoreAllMocks();
+	vi.restoreAllMocks();
 });
 
 const actions = () => renderHook(() => useReceiptActions(SEASON)).result;
@@ -67,7 +68,7 @@ const actions = () => renderHook(() => useReceiptActions(SEASON)).result;
 describe('downloading one', () => {
 	it('saves the bytes under the name an admin typed', async () => {
 		const blob = new Blob(['%PDF']);
-		(fetchReceipt as jest.Mock).mockResolvedValue(blob);
+		(fetchReceipt as Mock).mockResolvedValue(blob);
 
 		const { current } = actions();
 		await act(() => current.download(receipt));
@@ -79,7 +80,7 @@ describe('downloading one', () => {
 	// A rejected fetch is a rule saying no or a phone with no signal, and either
 	// way the tap looks like nothing happened at all.
 	it('says so when the file will not come down', async () => {
-		(fetchReceipt as jest.Mock).mockRejectedValue(new Error('permission-denied'));
+		(fetchReceipt as Mock).mockRejectedValue(new Error('permission-denied'));
 
 		const { current } = actions();
 		await act(() => current.download(receipt));

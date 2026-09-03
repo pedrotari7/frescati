@@ -7,7 +7,7 @@ describe('haptics', () => {
 	});
 
 	it('vibrates with a short pattern for a light tap', () => {
-		const vibrate = jest.fn();
+		const vibrate = vi.fn();
 		Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true });
 
 		hapticLight();
@@ -16,7 +16,7 @@ describe('haptics', () => {
 	});
 
 	it('vibrates longer for a medium tap', () => {
-		const vibrate = jest.fn();
+		const vibrate = vi.fn();
 		Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true });
 
 		hapticMedium();
@@ -25,7 +25,7 @@ describe('haptics', () => {
 	});
 
 	it('vibrates a pattern for success', () => {
-		const vibrate = jest.fn();
+		const vibrate = vi.fn();
 		Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true });
 
 		hapticSuccess();

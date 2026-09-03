@@ -1,16 +1,16 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
-const mockPush = jest.fn();
-const mockBack = jest.fn();
+const mockPush = vi.fn();
+const mockBack = vi.fn();
 
 let mockPathname = '/u/anna';
 
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
 	usePathname: () => mockPathname,
 	useRouter: () => ({ push: mockPush, back: mockBack }),
 }));
 
-jest.mock('../lib/auth', () => ({ useAuth: () => ({ user: null }) }));
+vi.mock('../lib/auth', () => ({ useAuth: () => ({ user: null }) }));
 
 import { AppHistoryProvider } from './AppHistory';
 import TopBar from './TopBar';
@@ -45,7 +45,7 @@ const open = (start: string) => {
 	};
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 describe('TopBar', () => {
 	// The screen's declared parent is the only answer available to a game opened

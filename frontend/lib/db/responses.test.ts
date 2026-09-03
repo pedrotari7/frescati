@@ -1,16 +1,16 @@
-const mockGetDocs = jest.fn();
+const mockGetDocs = vi.fn();
 
-jest.mock('firebase/firestore', () => ({
+vi.mock('firebase/firestore', () => ({
 	getDocs: (...args: unknown[]) => mockGetDocs(...args),
-	onSnapshot: jest.fn(),
-	deleteDoc: jest.fn(),
-	deleteField: jest.fn(),
-	getDoc: jest.fn(),
-	setDoc: jest.fn(),
-	updateDoc: jest.fn(),
+	onSnapshot: vi.fn(),
+	deleteDoc: vi.fn(),
+	deleteField: vi.fn(),
+	getDoc: vi.fn(),
+	setDoc: vi.fn(),
+	updateDoc: vi.fn(),
 }));
 
-jest.mock('./paths', () => ({
+vi.mock('./paths', () => ({
 	responseDoc: () => ({}),
 	responsesCol: (_seasonId: string, gameId: string) => ({ gameId }),
 }));
@@ -46,7 +46,7 @@ const held = () => {
 };
 
 beforeEach(() => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 });
 
 describe('fetchSeasonResponses', () => {

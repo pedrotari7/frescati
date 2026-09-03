@@ -2,10 +2,10 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { Season } from '@shared/types';
 import PaymentTriggers from './PaymentTriggers';
 
-const mockWarn = jest.fn();
+const mockWarn = vi.fn();
 
-jest.mock('./Toast', () => ({
-	useToast: () => ({ notify: jest.fn(), warn: mockWarn }),
+vi.mock('./Toast', () => ({
+	useToast: () => ({ notify: vi.fn(), warn: mockWarn }),
 }));
 
 const aSeason = (overrides: Partial<Season> = {}): Season =>
@@ -26,8 +26,8 @@ const field = (label: string) => screen.getByLabelText(new RegExp(`^${label}`), 
 
 describe('PaymentTriggers', () => {
 	beforeEach(() => {
-		jest.clearAllMocks();
-		Object.assign(navigator, { clipboard: { writeText: jest.fn().mockResolvedValue(undefined) } });
+		vi.clearAllMocks();
+		Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
 	});
 
 	/**

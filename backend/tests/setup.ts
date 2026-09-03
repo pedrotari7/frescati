@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+
 /**
  * Runs before any test file is required, so `lib/firebase`'s `initializeApp()`,
  * and every `getFirestore()`/`getAuth()` call downstream of it, picks up
@@ -18,8 +20,8 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOS
  * `setupFilesAfterEnv`. By then the snapshot has already captured the real
  * methods.
  *
- * A plain assignment, not `jest.spyOn`: several test files call
- * `jest.restoreAllMocks()` in their own `afterEach` for their own spies, and
+ * A plain assignment, not `vi.spyOn`: several test files call
+ * `vi.restoreAllMocks()` in their own `afterEach` for their own spies, and
  * that would revert a spied console method too, which `UNPATCHED_CONSOLE`
  * would keep calling through to for the rest of the file, reopening the
  * leak. `restoreAllMocks`/`resetAllMocks` don't touch a mock that was never
@@ -29,5 +31,5 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOS
  * useful than noisy.
  */
 for (const method of ['debug', 'info', 'log', 'warn'] as const) {
-	console[method] = jest.fn();
+	console[method] = vi.fn();
 }

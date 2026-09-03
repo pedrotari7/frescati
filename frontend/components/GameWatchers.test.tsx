@@ -12,7 +12,7 @@ const USERS = new Map([
 ]);
 
 const renderWatchers = (props: Partial<React.ComponentProps<typeof GameWatchers>> = {}) =>
-	render(<GameWatchers uids={[]} usersByUid={USERS} loading={false} error={null} onReload={jest.fn()} {...props} />);
+	render(<GameWatchers uids={[]} usersByUid={USERS} loading={false} error={null} onReload={vi.fn()} {...props} />);
 
 describe('GameWatchers', () => {
 	it('names everyone following the game', () => {
@@ -65,7 +65,7 @@ describe('GameWatchers', () => {
 
 		expect(screen.queryByText('(0)')).not.toBeInTheDocument();
 
-		rerender(<GameWatchers uids={[]} usersByUid={USERS} loading={false} error={null} onReload={jest.fn()} />);
+		rerender(<GameWatchers uids={[]} usersByUid={USERS} loading={false} error={null} onReload={vi.fn()} />);
 
 		expect(screen.getByText('(0)')).toBeInTheDocument();
 	});
@@ -73,7 +73,7 @@ describe('GameWatchers', () => {
 	// The one thing this card can't do is update itself: the rule that keeps
 	// watchers private is what rules out a listener, so the refresh has to work.
 	it('reloads on request, and not while it already is', async () => {
-		const onReload = jest.fn();
+		const onReload = vi.fn();
 		const { rerender } = renderWatchers({ onReload });
 
 		await act(async () => {

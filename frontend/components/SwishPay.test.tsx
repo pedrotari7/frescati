@@ -1,4 +1,5 @@
 import * as stylex from '@stylexjs/stylex';
+import type * as QRCode from 'qrcode.react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { bp } from '../app/tokens.stylex';
 import { stylesFor, stylesOf } from '../test/stylex';
@@ -7,10 +8,10 @@ import SwishPay from './SwishPay';
 /* Out of the way until the thing looking at it is a finger. */
 const expected = stylex.create({ phoneOnly: { display: { default: 'none', [bp.coarse]: 'inline-flex' } } });
 
-const mockWarn = jest.fn();
+const mockWarn = vi.fn();
 
-jest.mock('./Toast', () => ({
-	useToast: () => ({ notify: jest.fn(), warn: mockWarn }),
+vi.mock('./Toast', () => ({
+	useToast: () => ({ notify: vi.fn(), warn: mockWarn }),
 }));
 
 const mockDrawn: string[] = [];
@@ -21,12 +22,12 @@ const mockDrawn: string[] = [];
  * question here, so a stub would leave the one assertion that matters untestable
  * and the paths test below asserting nothing.
  */
-jest.mock('qrcode.react', () => {
-	const actual = jest.requireActual('qrcode.react');
+vi.mock('qrcode.react', async () => {
+	const actual = await vi.importActual<typeof QRCode>('qrcode.react');
 
-	// JSX rather than `createElement`, because a factory may not reach for a
-	// top-level import unless its name starts with `mock`, and the runtime this
-	// compiles to is one Babel imports for itself.
+	// JSX rather than `createElement`, because a factory is hoisted above the
+	// imports and may not reach for one, and the runtime this compiles to is one
+	// the compiler imports for itself.
 	return {
 		...actual,
 		QRCodeSVG: (props: { value: string }) => {
@@ -41,9 +42,9 @@ const pay = () => render(<SwishPay payee='0701234567' amount={1736} message='Fal
 
 describe('SwishPay', () => {
 	beforeEach(() => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		mockDrawn.length = 0;
-		Object.assign(navigator, { clipboard: { writeText: jest.fn().mockResolvedValue(undefined) } });
+		Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
 	});
 
 	it('says what is being paid, to whom, and what it will be marked against', () => {
@@ -129,8 +130,8 @@ describe('SwishPay', () => {
 	});
 
 	it('says so when the clipboard refuses', async () => {
-		jest.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));
-		jest.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 
 		pay();
 

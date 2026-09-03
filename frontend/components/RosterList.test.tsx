@@ -166,7 +166,7 @@ describe('RosterList', () => {
 	});
 
 	it('lets an admin give an unconfirmed extra a spot', async () => {
-		const onToggleExtra = jest.fn().mockResolvedValue(undefined);
+		const onToggleExtra = vi.fn().mockResolvedValue(undefined);
 
 		render(
 			<RosterList
@@ -211,7 +211,7 @@ describe('RosterList', () => {
 				memberUids={['alice']}
 				responses={[response({ uid: 'alice', status: 'in', role: 'member' })]}
 				usersByUid={usersByUid}
-				onToggleAbsent={jest.fn()}
+				onToggleAbsent={vi.fn()}
 			/>
 		);
 
@@ -219,7 +219,7 @@ describe('RosterList', () => {
 	});
 
 	it('lets an admin report a no-show, and take it back', async () => {
-		const onToggleAbsent = jest.fn().mockResolvedValue(undefined);
+		const onToggleAbsent = vi.fn().mockResolvedValue(undefined);
 
 		const { rerender } = render(
 			<ConfirmProvider>
@@ -261,7 +261,7 @@ describe('RosterList', () => {
 	// The whole reason the dialog exists: this button sits at the end of every
 	// row in the squad, and a mistap used to be an accusation.
 	it('writes nothing until the dialog agrees, and names who it is about', async () => {
-		const onToggleAbsent = jest.fn().mockResolvedValue(undefined);
+		const onToggleAbsent = vi.fn().mockResolvedValue(undefined);
 
 		render(
 			<ConfirmProvider>
@@ -288,7 +288,7 @@ describe('RosterList', () => {
 	// Past kick-off the row asks one question rather than showing two buttons in
 	// the width of a phone, for a confirmed extra, whether they turned up.
 	it('replaces the extras controls with the no-show one once the game is on', async () => {
-		const onToggleAbsent = jest.fn().mockResolvedValue(undefined);
+		const onToggleAbsent = vi.fn().mockResolvedValue(undefined);
 
 		render(
 			<ConfirmProvider>
@@ -298,7 +298,7 @@ describe('RosterList', () => {
 					usersByUid={usersByUid}
 					canManageExtras
 					canReportAbsence
-					onToggleExtra={jest.fn()}
+					onToggleExtra={vi.fn()}
 					onToggleAbsent={onToggleAbsent}
 				/>
 			</ConfirmProvider>
@@ -317,7 +317,7 @@ describe('RosterList', () => {
 	// also what tells them apart from a confirmed extra on a screen an admin is
 	// counting heads from.
 	it('keeps offering a spot to an unconfirmed extra once the game is on', async () => {
-		const onToggleExtra = jest.fn().mockResolvedValue(undefined);
+		const onToggleExtra = vi.fn().mockResolvedValue(undefined);
 
 		render(
 			<RosterList
@@ -327,7 +327,7 @@ describe('RosterList', () => {
 				canManageExtras
 				canReportAbsence
 				onToggleExtra={onToggleExtra}
-				onToggleAbsent={jest.fn()}
+				onToggleAbsent={vi.fn()}
 			/>
 		);
 
@@ -341,7 +341,7 @@ describe('RosterList', () => {
 	});
 
 	it('lets an admin drop an already-confirmed extra', async () => {
-		const onToggleExtra = jest.fn().mockResolvedValue(undefined);
+		const onToggleExtra = vi.fn().mockResolvedValue(undefined);
 
 		render(
 			<RosterList

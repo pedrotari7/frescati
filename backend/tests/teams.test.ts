@@ -1,4 +1,4 @@
-jest.mock('../src/lib/rebuild', () => ({ runTeamRebuild: jest.fn().mockResolvedValue(undefined) }));
+vi.mock('../src/lib/rebuild', () => ({ runTeamRebuild: vi.fn().mockResolvedValue(undefined) }));
 
 import { logger } from 'firebase-functions';
 import { getFunctions } from 'firebase-admin/functions';
@@ -7,6 +7,7 @@ import { enqueueTeamRebuild, invalidateTeams, TEAM_REBUILD_QUEUE } from '../src/
 import * as sentry from '../src/lib/sentry';
 import { REGION } from '../src/lib/firebase';
 import { clearAuth, clearFirestore, getDb, writeGame, writeSeason } from './helpers';
+import type { Mock, MockedFunction } from 'vitest';
 
 /**
  * How a rebuild gets queued, the half of the tournament wiring that no other
@@ -33,7 +34,7 @@ const SEASON_ID = 'season-1';
 const GAME_ID = 'game-1';
 const task = { seasonId: SEASON_ID, gameId: GAME_ID, generation: 4 };
 
-const rebuild = runTeamRebuild as jest.MockedFunction<typeof runTeamRebuild>;
+const rebuild = runTeamRebuild as MockedFunction<typeof runTeamRebuild>;
 
 /** Swapped in for whichever branch a test wants, and put back afterwards. */
 const setEmulated = (emulated: boolean): (() => void) => {
@@ -50,17 +51,17 @@ const setEmulated = (emulated: boolean): (() => void) => {
 
 /** A stand-in for the Cloud Tasks queue, and the enqueue call it received. */
 const stubQueue = (behaviour: { rejectsWith?: Error } = {}) => {
-	const enqueue = jest.fn(async () => {
+	const enqueue = vi.fn(async () => {
 		if (behaviour.rejectsWith) throw behaviour.rejectsWith;
 	});
-	const taskQueue = jest.fn(() => ({ enqueue }));
+	const taskQueue = vi.fn(() => ({ enqueue }));
 
-	(getFunctions as jest.Mock).mockReturnValue({ taskQueue });
+	(getFunctions as Mock).mockReturnValue({ taskQueue });
 
 	return { taskQueue, enqueue };
 };
 
-jest.mock('firebase-admin/functions', () => ({ getFunctions: jest.fn() }));
+vi.mock('firebase-admin/functions', () => ({ getFunctions: vi.fn() }));
 
 beforeEach(() => {
 	rebuild.mockClear();
@@ -72,11 +73,11 @@ describe('queueing a rebuild locally, where Cloud Tasks does not exist', () => {
 
 	beforeEach(() => {
 		restore = setEmulated(true);
-		jest.useFakeTimers();
+		vi.useFakeTimers();
 	});
 
 	afterEach(() => {
-		jest.useRealTimers();
+		vi.useRealTimers();
 		restore();
 	});
 
@@ -86,7 +87,7 @@ describe('queueing a rebuild locally, where Cloud Tasks does not exist', () => {
 		// Nothing yet: the whole point is to collapse a burst of answers.
 		expect(rebuild).not.toHaveBeenCalled();
 
-		await jest.advanceTimersByTimeAsync(2000);
+		await vi.advanceTimersByTimeAsync(2000);
 
 		expect(rebuild).toHaveBeenCalledWith(task);
 	});
@@ -95,7 +96,7 @@ describe('queueing a rebuild locally, where Cloud Tasks does not exist', () => {
 		const { taskQueue } = stubQueue();
 
 		await enqueueTeamRebuild(task);
-		await jest.advanceTimersByTimeAsync(2000);
+		await vi.advanceTimersByTimeAsync(2000);
 
 		expect(taskQueue).not.toHaveBeenCalled();
 	});
@@ -108,18 +109,18 @@ describe('queueing a rebuild locally, where Cloud Tasks does not exist', () => {
 		await enqueueTeamRebuild({ ...task, generation: 2 });
 		await enqueueTeamRebuild({ ...task, generation: 3 });
 
-		await jest.advanceTimersByTimeAsync(2000);
+		await vi.advanceTimersByTimeAsync(2000);
 
 		expect(rebuild).toHaveBeenCalledTimes(3);
 		expect(rebuild).toHaveBeenLastCalledWith({ ...task, generation: 3 });
 	});
 
 	it('logs a failed rebuild with a readable stack rather than an empty object', async () => {
-		const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+		const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
 		rebuild.mockRejectedValueOnce(new Error('optimizer blew up'));
 
 		await enqueueTeamRebuild(task);
-		await jest.advanceTimersByTimeAsync(2000);
+		await vi.advanceTimersByTimeAsync(2000);
 
 		// `{ error }` alone serialises an Error as `{}`, which is how a real bug
 		// in here once spent a while looking like an empty warning.
@@ -130,23 +131,27 @@ describe('queueing a rebuild locally, where Cloud Tasks does not exist', () => {
 	});
 
 	it('logs something thrown that was never an Error as-is', async () => {
-		const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+		const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
 		// No `.stack` to reach for. Passing it through beats logging `undefined`,
 		// which is the same empty warning by another route.
 		rebuild.mockRejectedValueOnce('optimizer blew up');
 
 		await enqueueTeamRebuild(task);
-		await jest.advanceTimersByTimeAsync(2000);
+		await vi.advanceTimersByTimeAsync(2000);
 
 		expect(warn).toHaveBeenCalledWith('Local team rebuild failed', { ...task, error: 'optimizer blew up' });
 	});
 
 	it('does not let a failed rebuild reject into the trigger that queued it', async () => {
 		rebuild.mockRejectedValueOnce(new Error('optimizer blew up'));
-		jest.spyOn(logger, 'warn').mockImplementation(() => {});
+		vi.spyOn(logger, 'warn').mockImplementation(() => {});
 
 		await expect(enqueueTeamRebuild(task)).resolves.toBeUndefined();
-		await expect(jest.advanceTimersByTimeAsync(2000)).resolves.toBeUndefined();
+		// Advancing the timers is what runs the rejected rebuild, so awaiting it
+		// is the assertion: a rejection that was not swallowed fails the test
+		// here rather than turning up later as an unhandled one. What the call
+		// itself resolves to is the runner's business, not this test's.
+		await vi.advanceTimersByTimeAsync(2000);
 	});
 });
 
@@ -183,7 +188,7 @@ describe('queueing a rebuild as deployed', () => {
 		// the response trigger that queued it and take `counts` down with it. A
 		// lineup that rebuilds late is a nuisance; a headcount that stops
 		// updating is the app not working.
-		const report = jest.spyOn(sentry, 'reportError').mockImplementation(() => {});
+		const report = vi.spyOn(sentry, 'reportError').mockImplementation(() => {});
 		const refused = new Error('PERMISSION_DENIED');
 		stubQueue({ rejectsWith: refused });
 

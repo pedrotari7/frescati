@@ -23,14 +23,15 @@ import type { SeasonResponses } from '@shared/availability';
  * checks that it does.
  */
 
-jest.mock('../lib/db/responses', () => ({ fetchSeasonResponses: jest.fn() }));
-jest.mock('../lib/sentry', () => ({ captureError: jest.fn() }));
+vi.mock('../lib/db/responses', () => ({ fetchSeasonResponses: vi.fn() }));
+vi.mock('../lib/sentry', () => ({ captureError: vi.fn() }));
 
 import { fetchSeasonResponses } from '../lib/db/responses';
 import { captureError } from '../lib/sentry';
 import { useSeasonResponses } from './useSeasonResponses';
+import type { MockedFunction } from 'vitest';
 
-const fetched = fetchSeasonResponses as jest.MockedFunction<typeof fetchSeasonResponses>;
+const fetched = fetchSeasonResponses as MockedFunction<typeof fetchSeasonResponses>;
 
 const SEASON = 'season-1';
 
@@ -41,7 +42,7 @@ const answers: SeasonResponses = {
 };
 
 beforeEach(() => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 	fetched.mockResolvedValue(answers);
 });
 

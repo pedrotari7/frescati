@@ -14,6 +14,7 @@ import {
 	writeSeason,
 	writeUser,
 } from './helpers';
+import type { Mock } from 'vitest';
 
 /**
  * The three repairs that write against live data rather than reconstructing a
@@ -35,7 +36,7 @@ const context = ({ dryRun = false, args = [] as string[] } = {}): ScriptContext 
 	args,
 });
 
-const output = (): string => (console.log as jest.Mock).mock.calls.map(call => call.map(String).join(' ')).join('\n');
+const output = (): string => (console.log as Mock).mock.calls.map(call => call.map(String).join(' ')).join('\n');
 
 const exists = async (path: string): Promise<boolean> => (await getDb().doc(path).get()).exists;
 

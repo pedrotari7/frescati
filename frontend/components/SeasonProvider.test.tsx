@@ -11,27 +11,27 @@ import { SeasonProvider, useSeasonContext } from './SeasonProvider';
  * fail on its own.
  */
 
-const mockSeason = { season: null as Season | null, loading: true, error: null as Error | null, retry: jest.fn() };
-const mockGames = { games: [] as Game[], loading: true, error: null as Error | null, retry: jest.fn() };
+const mockSeason = { season: null as Season | null, loading: true, error: null as Error | null, retry: vi.fn() };
+const mockGames = { games: [] as Game[], loading: true, error: null as Error | null, retry: vi.fn() };
 const mockAnswers = {
 	myResponses: {} as Record<string, GameResponse>,
 	loading: true,
 	error: null as Error | null,
-	retry: jest.fn(),
+	retry: vi.fn(),
 };
-const mockBooks = { dues: [] as Due[], loading: false, error: null as Error | null, retry: jest.fn() };
+const mockBooks = { dues: [] as Due[], loading: false, error: null as Error | null, retry: vi.fn() };
 const mockAuth = { user: { uid: 'anna', isAppAdmin: false } as { uid: string; isAppAdmin: boolean } | null };
 
-jest.mock('../hooks/useData', () => ({
+vi.mock('../hooks/useData', () => ({
 	useSeason: () => mockSeason,
 	useGames: () => mockGames,
 	useDues: () => mockBooks,
 }));
 
-jest.mock('../hooks/useMyResponses', () => ({ useMyResponses: () => mockAnswers }));
+vi.mock('../hooks/useMyResponses', () => ({ useMyResponses: () => mockAnswers }));
 
-jest.mock('../lib/auth', () => ({ useAuth: () => mockAuth }));
-jest.mock('./SeasonScope', () => ({ useSeasonScope: () => ({ seasonId: null, remember: jest.fn() }) }));
+vi.mock('../lib/auth', () => ({ useAuth: () => mockAuth }));
+vi.mock('./SeasonScope', () => ({ useSeasonScope: () => ({ seasonId: null, remember: vi.fn() }) }));
 
 const Probe = () => {
 	const { loading, error, retry, isMember, isAdmin, role, myResponses, debt, debtLock } = useSeasonContext();
@@ -58,22 +58,22 @@ beforeEach(() => {
 	mockSeason.season = null;
 	mockSeason.loading = true;
 	mockSeason.error = null;
-	mockSeason.retry = jest.fn();
+	mockSeason.retry = vi.fn();
 
 	mockGames.games = [];
 	mockGames.loading = true;
 	mockGames.error = null;
-	mockGames.retry = jest.fn();
+	mockGames.retry = vi.fn();
 
 	mockAnswers.myResponses = {};
 	mockAnswers.loading = true;
 	mockAnswers.error = null;
-	mockAnswers.retry = jest.fn();
+	mockAnswers.retry = vi.fn();
 
 	mockBooks.dues = [];
 	mockBooks.loading = false;
 	mockBooks.error = null;
-	mockBooks.retry = jest.fn();
+	mockBooks.retry = vi.fn();
 
 	mockAuth.user = { uid: 'anna', isAppAdmin: false };
 });

@@ -8,8 +8,8 @@ const teams: TournamentTeam[] = [
 	{ index: 2, uids: ['bruno', 'lena'] },
 ];
 
-const onMove = jest.fn();
-const onClose = jest.fn();
+const onMove = vi.fn();
+const onClose = vi.fn();
 
 // Headless UI settles its own transition state a microtask after mount, so an
 // unflushed render logs an act warning from inside the library on every test.
@@ -32,7 +32,7 @@ const draw = async (currentIndex = 0, squads = teams) => {
 const teamButton = (letter: string) => screen.getByRole('button', { name: new RegExp(`Team ${letter}`) });
 
 describe('PlayerTeamSheet', () => {
-	beforeEach(() => jest.clearAllMocks());
+	beforeEach(() => vi.clearAllMocks());
 
 	it('asks about the player by name', async () => {
 		await draw();

@@ -56,9 +56,9 @@ beforeEach(async () => {
 	await clearAuth();
 });
 
-// `jest.spyOn` reuses the same mock across calls on an already-spied method, so
+// `vi.spyOn` reuses the same mock across calls on an already-spied method, so
 // without this its call count would keep accumulating across tests in this file.
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => vi.restoreAllMocks());
 
 describe('finaliseTournament', () => {
 	it('rejects when nobody is signed in', async () => {
@@ -303,7 +303,7 @@ describe('onMatchWrite', () => {
 	it('does nothing for a match under a game that is not yet confirmed', async () => {
 		await setUpGame();
 		await writeGameMatches([[2, 1]]);
-		const replaySpy = jest.spyOn(finalise, 'requestRatingReplay');
+		const replaySpy = vi.spyOn(finalise, 'requestRatingReplay');
 
 		await onMatchWrite.run(paramsEvent({ seasonId: SEASON_ID, gameId: GAME_ID, order: '0' }));
 

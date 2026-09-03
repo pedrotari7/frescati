@@ -11,8 +11,8 @@ const item = (name: string): KitItem => ({
 	updatedAt: '2026-08-01T00:00:00.000Z',
 });
 
-const onRename = jest.fn();
-const onClose = jest.fn();
+const onRename = vi.fn();
+const onClose = vi.fn();
 
 // Headless UI settles its own transition state a microtask after mount, so an
 // unflushed render logs an act warning from inside the library on every test.
@@ -27,7 +27,7 @@ const field = () => screen.getByLabelText('Name');
 const save = () => screen.getByRole('button', { name: 'Save' });
 
 describe('KitRenameSheet', () => {
-	beforeEach(() => jest.clearAllMocks());
+	beforeEach(() => vi.clearAllMocks());
 
 	it('opens on the name it already has', async () => {
 		await draw();

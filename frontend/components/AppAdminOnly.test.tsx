@@ -1,20 +1,20 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 
-const mockPush = jest.fn();
+const mockPush = vi.fn();
 
 // Rendered whole rather than shallow, because the way back this asserts on
 // lives in `PageShell`'s `TopBar` rather than in the component under test,
 // and it is a button calling `router.push`, not a link.
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
 	usePathname: () => '/admin',
 	useRouter: () => ({ push: mockPush }),
 }));
 
-jest.mock('../lib/auth', () => ({ useAuth: () => ({ user: null }) }));
+vi.mock('../lib/auth', () => ({ useAuth: () => ({ user: null }) }));
 
 import AppAdminOnly from './AppAdminOnly';
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 describe('AppAdminOnly', () => {
 	it('says why there is nothing here', () => {

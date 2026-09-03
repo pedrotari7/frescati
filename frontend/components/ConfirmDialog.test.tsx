@@ -19,7 +19,7 @@ const Trigger = ({ onResult }: { onResult: (value: boolean) => void }) => {
 
 describe('useConfirm', () => {
 	it('defaults to resolving true outside a provider, so a test never hangs on a dialog nobody shows', async () => {
-		const onResult = jest.fn();
+		const onResult = vi.fn();
 
 		render(<Trigger onResult={onResult} />);
 
@@ -35,7 +35,7 @@ describe('ConfirmProvider', () => {
 	it('shows the title and message once asked', () => {
 		render(
 			<ConfirmProvider>
-				<Trigger onResult={jest.fn()} />
+				<Trigger onResult={vi.fn()} />
 			</ConfirmProvider>
 		);
 
@@ -46,7 +46,7 @@ describe('ConfirmProvider', () => {
 	});
 
 	it('resolves false and closes the dialog on cancel', async () => {
-		const onResult = jest.fn();
+		const onResult = vi.fn();
 
 		render(
 			<ConfirmProvider>
@@ -65,7 +65,7 @@ describe('ConfirmProvider', () => {
 	});
 
 	it('resolves true and closes the dialog on confirm', async () => {
-		const onResult = jest.fn();
+		const onResult = vi.fn();
 
 		render(
 			<ConfirmProvider>

@@ -11,6 +11,7 @@ import {
 	writeTeams,
 	writeUser,
 } from './helpers';
+import type { Mock } from 'vitest';
 
 /**
  * The only way to say "re-rate everything" from outside a trigger.
@@ -40,7 +41,7 @@ const context = ({ args = [] as string[], dryRun = false } = {}): ScriptContext 
 	args,
 });
 
-const output = (): string => (console.log as jest.Mock).mock.calls.map(call => call.map(String).join(' ')).join('\n');
+const output = (): string => (console.log as Mock).mock.calls.map(call => call.map(String).join(' ')).join('\n');
 
 const rating = (elo: number) => ({ elo, games: 10, updatedAt: '2026-08-01T00:00:00.000Z' });
 

@@ -1,33 +1,33 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import CalendarSubscribeSheet from './CalendarSubscribeSheet';
 
-const mockNotify = jest.fn();
-const mockWarn = jest.fn();
+const mockNotify = vi.fn();
+const mockWarn = vi.fn();
 
-jest.mock('./Toast', () => ({
+vi.mock('./Toast', () => ({
 	useToast: () => ({ notify: mockNotify, warn: mockWarn }),
 }));
 
-const mockGetCalendarLink = jest.fn();
+const mockGetCalendarLink = vi.fn();
 
-jest.mock('../lib/db/calendar', () => ({
+vi.mock('../lib/db/calendar', () => ({
 	getCalendarLink: (...args: unknown[]) => mockGetCalendarLink(...args),
-	rotateCalendarToken: jest.fn(),
+	rotateCalendarToken: vi.fn(),
 }));
 
 const URL_ = 'https://frescati.example/calendarFeed?token=abc';
 
 describe('CalendarSubscribeSheet', () => {
 	beforeEach(() => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		mockGetCalendarLink.mockResolvedValue(URL_);
-		Object.assign(navigator, { clipboard: { writeText: jest.fn() } });
+		Object.assign(navigator, { clipboard: { writeText: vi.fn() } });
 	});
 
 	it('copies the link and toasts success when the clipboard write succeeds', async () => {
-		jest.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+		vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
 
-		render(<CalendarSubscribeSheet seasonId='season-1' open onClose={jest.fn()} />);
+		render(<CalendarSubscribeSheet seasonId='season-1' open onClose={vi.fn()} />);
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument());
 
 		await act(async () => {
@@ -43,10 +43,10 @@ describe('CalendarSubscribeSheet', () => {
 	// (permission denied, an insecure context, an older WebView) must not leave
 	// the button looking like nothing happened.
 	it('toasts an error instead of doing nothing when the clipboard write is rejected', async () => {
-		jest.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));
-		jest.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 
-		render(<CalendarSubscribeSheet seasonId='season-1' open onClose={jest.fn()} />);
+		render(<CalendarSubscribeSheet seasonId='season-1' open onClose={vi.fn()} />);
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument());
 
 		await act(async () => {

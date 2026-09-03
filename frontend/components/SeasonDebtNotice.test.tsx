@@ -3,8 +3,8 @@ import type { Due, Game, Season } from '@shared/types';
 import type { DebtStanding } from '@shared/finances';
 import SeasonDebtNotice from './SeasonDebtNotice';
 
-jest.mock('./Toast', () => ({
-	useToast: () => ({ notify: jest.fn(), warn: jest.fn() }),
+vi.mock('./Toast', () => ({
+	useToast: () => ({ notify: vi.fn(), warn: vi.fn() }),
 }));
 
 const season = (overrides: Partial<Season> = {}): Season =>

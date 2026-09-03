@@ -150,21 +150,41 @@ const securityHeaders = [
 	{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
 ];
 
+/**
+ * The repository the commit below belongs to, as `owner/name`.
+ *
+ * Vercel names the connected repository in `VERCEL_GIT_REPO_OWNER` and
+ * `VERCEL_GIT_REPO_SLUG`, and says which host it came from in
+ * `VERCEL_GIT_PROVIDER`. Only GitHub is mapped: a GitLab or Bitbucket commit
+ * lives at a different path, this repo is on neither, and a link built out of
+ * a guess is worse than no link. Anything else, a fork hosted elsewhere or a
+ * build with no Vercel project behind it, gets `''` and the plain sha the app
+ * already showed.
+ */
+const buildRepo = () => {
+	const { VERCEL_GIT_PROVIDER: provider, VERCEL_GIT_REPO_OWNER: owner, VERCEL_GIT_REPO_SLUG: slug } = process.env;
+
+	if (provider !== 'github' || !owner || !slug) return '';
+
+	return `${owner}/${slug}`;
+};
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 	/**
-	 * Which commit this bundle was built from, inlined so the running app can
-	 * say so out loud. See `lib/build.ts`.
+	 * Which commit this bundle was built from, and where to go and read it,
+	 * inlined so the running app can say so out loud. See `lib/build.ts`.
 	 *
-	 * Vercel sets `VERCEL_GIT_COMMIT_SHA` on every build. It also exposes a
-	 * `NEXT_PUBLIC_`-prefixed copy, but only when the project has "automatically
-	 * expose System Environment Variables" switched on, a dashboard setting
-	 * nothing in this repo records or can check. Mapping it here means the
-	 * feature works from a fresh clone and a fresh Vercel project, and it is
-	 * `''` anywhere else, which is exactly what a local build should say.
+	 * Vercel sets both on every build. It also exposes `NEXT_PUBLIC_`-prefixed
+	 * copies, but only when the project has "automatically expose System
+	 * Environment Variables" switched on, a dashboard setting nothing in this
+	 * repo records or can check. Mapping them here means the feature works from
+	 * a fresh clone and a fresh Vercel project, and both are `''` anywhere
+	 * else, which is exactly what a local build should say.
 	 */
 	env: {
 		NEXT_PUBLIC_BUILD_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? '',
+		NEXT_PUBLIC_BUILD_REPO: buildRepo(),
 	},
 	// `shared/` lives outside this package, so Next has to be told it may compile
 	// files from the repo root.

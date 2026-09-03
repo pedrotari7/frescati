@@ -1,14 +1,14 @@
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
 
-const mockOnSnapshot = jest.fn();
+const mockOnSnapshot = vi.fn();
 
-jest.mock('firebase/firestore', () => ({
+vi.mock('firebase/firestore', () => ({
 	onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
-	deleteDoc: jest.fn(),
-	setDoc: jest.fn(),
+	deleteDoc: vi.fn(),
+	setDoc: vi.fn(),
 }));
 
-jest.mock('./paths', () => ({
+vi.mock('./paths', () => ({
 	motmVoteDoc: () => ({}),
 	tournamentMotmDoc: () => ({}),
 	tournamentMotmVotersDoc: () => ({}),
@@ -32,14 +32,14 @@ const emit = (value: unknown) => {
 };
 
 beforeEach(() => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 	mockOnSnapshot.mockReturnValue(() => {});
 });
 
 describe('subscribeToMotmVoters', () => {
 	it('reports the uids while the vote is open', () => {
-		const onChange = jest.fn();
-		subscribeToMotmVoters('s1', 'g1', onChange, jest.fn());
+		const onChange = vi.fn();
+		subscribeToMotmVoters('s1', 'g1', onChange, vi.fn());
 
 		emit(snapshot({ uids: ['anna', 'marco'] }));
 
@@ -49,8 +49,8 @@ describe('subscribeToMotmVoters', () => {
 	// Absent covers both ends of it: nobody has answered yet, and a vote that has
 	// been counted, whose turnout is in the published totals instead.
 	it('reports nobody when the document is not there', () => {
-		const onChange = jest.fn();
-		subscribeToMotmVoters('s1', 'g1', onChange, jest.fn());
+		const onChange = vi.fn();
+		subscribeToMotmVoters('s1', 'g1', onChange, vi.fn());
 
 		emit(snapshot(null));
 
@@ -58,14 +58,14 @@ describe('subscribeToMotmVoters', () => {
 	});
 
 	it('hands back the same empty array every time, so a re-render is not a change', () => {
-		const first = jest.fn();
-		subscribeToMotmVoters('s1', 'g1', first, jest.fn());
+		const first = vi.fn();
+		subscribeToMotmVoters('s1', 'g1', first, vi.fn());
 		emit(snapshot(null));
 
 		mockOnSnapshot.mockClear();
 
-		const second = jest.fn();
-		subscribeToMotmVoters('s1', 'g1', second, jest.fn());
+		const second = vi.fn();
+		subscribeToMotmVoters('s1', 'g1', second, vi.fn());
 		emit(snapshot(null));
 
 		expect(first.mock.calls[0][0]).toBe(second.mock.calls[0][0]);
@@ -74,8 +74,8 @@ describe('subscribeToMotmVoters', () => {
 
 describe('subscribeToMotm', () => {
 	it('reports the counted vote once it exists', () => {
-		const onChange = jest.fn();
-		subscribeToMotm('s1', 'g1', onChange, jest.fn());
+		const onChange = vi.fn();
+		subscribeToMotm('s1', 'g1', onChange, vi.fn());
 
 		emit(snapshot({ counts: [{ uid: 'anna', votes: 3 }] }));
 
@@ -84,8 +84,8 @@ describe('subscribeToMotm', () => {
 
 	// null covers a game nobody confirmed as well as one still being voted on.
 	it('reports null while the vote is still open', () => {
-		const onChange = jest.fn();
-		subscribeToMotm('s1', 'g1', onChange, jest.fn());
+		const onChange = vi.fn();
+		subscribeToMotm('s1', 'g1', onChange, vi.fn());
 
 		emit(snapshot(null));
 

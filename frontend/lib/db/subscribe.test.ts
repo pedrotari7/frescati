@@ -1,8 +1,8 @@
 import type { DocumentReference, Query, QueryDocumentSnapshot } from 'firebase/firestore';
 
-const mockOnSnapshot = jest.fn();
+const mockOnSnapshot = vi.fn();
 
-jest.mock('firebase/firestore', () => ({
+vi.mock('firebase/firestore', () => ({
 	onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
 }));
 
@@ -38,14 +38,14 @@ const ref = {} as DocumentReference;
 const query = {} as Query;
 
 beforeEach(() => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 	mockOnSnapshot.mockReturnValue(unsubscribe);
 });
 
 describe('subscribeToDoc', () => {
 	it('maps a document that is there', () => {
-		const onChange = jest.fn();
-		subscribeToDoc(ref, snapshot => snapshot.data() as { name: string }, onChange, jest.fn());
+		const onChange = vi.fn();
+		subscribeToDoc(ref, snapshot => snapshot.data() as { name: string }, onChange, vi.fn());
 
 		capture().onNext(docSnapshot({ name: 'Anna' }));
 
@@ -54,8 +54,8 @@ describe('subscribeToDoc', () => {
 
 	// The third state. A missing document is an answer, not a failure.
 	it('reports null for a document that is not there', () => {
-		const onChange = jest.fn();
-		subscribeToDoc(ref, snapshot => snapshot.data(), onChange, jest.fn());
+		const onChange = vi.fn();
+		subscribeToDoc(ref, snapshot => snapshot.data(), onChange, vi.fn());
 
 		capture().onNext(docSnapshot(null));
 
@@ -66,8 +66,8 @@ describe('subscribeToDoc', () => {
 	// never runs on an absent document. If that ever stops being true the mappers
 	// start dereferencing undefined.
 	it('never runs the mapper on an absent document', () => {
-		const toModel = jest.fn();
-		subscribeToDoc(ref, toModel, jest.fn(), jest.fn());
+		const toModel = vi.fn();
+		subscribeToDoc(ref, toModel, vi.fn(), vi.fn());
 
 		capture().onNext(docSnapshot(null));
 
@@ -75,9 +75,9 @@ describe('subscribeToDoc', () => {
 	});
 
 	it('passes the error straight through', () => {
-		const onError = jest.fn();
+		const onError = vi.fn();
 		const failure = new Error('permission-denied');
-		subscribeToDoc(ref, snapshot => snapshot.data(), jest.fn(), onError);
+		subscribeToDoc(ref, snapshot => snapshot.data(), vi.fn(), onError);
 
 		capture().onError(failure);
 
@@ -85,14 +85,14 @@ describe('subscribeToDoc', () => {
 	});
 
 	it('hands back the unsubscribe Firestore returned', () => {
-		expect(subscribeToDoc(ref, snapshot => snapshot.data(), jest.fn(), jest.fn())).toBe(unsubscribe);
+		expect(subscribeToDoc(ref, snapshot => snapshot.data(), vi.fn(), vi.fn())).toBe(unsubscribe);
 	});
 });
 
 describe('subscribeToCollection', () => {
 	it('gives the mapper every document at once', () => {
-		const onChange = jest.fn();
-		subscribeToCollection(query, docs => docs.map(doc => doc.id), onChange, jest.fn());
+		const onChange = vi.fn();
+		subscribeToCollection(query, docs => docs.map(doc => doc.id), onChange, vi.fn());
 
 		capture().onNext({ docs: [{ id: 'a' }, { id: 'b' }] });
 
@@ -102,8 +102,8 @@ describe('subscribeToCollection', () => {
 	// Taking the whole array rather than mapping one at a time is what lets the
 	// callers that must sort, profiles, kit, do it inside the subscription.
 	it('lets the mapper reorder what came back', () => {
-		const onChange = jest.fn();
-		subscribeToCollection(query, docs => [...docs].map(doc => doc.id).sort(), onChange, jest.fn());
+		const onChange = vi.fn();
+		subscribeToCollection(query, docs => [...docs].map(doc => doc.id).sort(), onChange, vi.fn());
 
 		capture().onNext({ docs: [{ id: 'b' }, { id: 'a' }] });
 
@@ -111,8 +111,8 @@ describe('subscribeToCollection', () => {
 	});
 
 	it('reports an empty collection as an empty list', () => {
-		const onChange = jest.fn();
-		subscribeToCollection(query, asData<{ x: number }>(), onChange, jest.fn());
+		const onChange = vi.fn();
+		subscribeToCollection(query, asData<{ x: number }>(), onChange, vi.fn());
 
 		capture().onNext({ docs: [] });
 
@@ -120,9 +120,9 @@ describe('subscribeToCollection', () => {
 	});
 
 	it('passes the error straight through', () => {
-		const onError = jest.fn();
+		const onError = vi.fn();
 		const failure = new Error('permission-denied');
-		subscribeToCollection(query, asData(), jest.fn(), onError);
+		subscribeToCollection(query, asData(), vi.fn(), onError);
 
 		capture().onError(failure);
 

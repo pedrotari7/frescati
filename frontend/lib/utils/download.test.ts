@@ -1,11 +1,11 @@
 import { saveBlob } from './download';
 
 describe('saveBlob', () => {
-	const createObjectURL = jest.fn(() => 'blob:frescati/1');
-	const revokeObjectURL = jest.fn();
+	const createObjectURL = vi.fn(() => 'blob:frescati/1');
+	const revokeObjectURL = vi.fn();
 
 	beforeEach(() => {
-		jest.useFakeTimers();
+		vi.useFakeTimers();
 		createObjectURL.mockClear();
 		revokeObjectURL.mockClear();
 
@@ -15,12 +15,12 @@ describe('saveBlob', () => {
 	});
 
 	afterEach(() => {
-		jest.useRealTimers();
+		vi.useRealTimers();
 	});
 
 	it('clicks an anchor carrying the download name', () => {
 		const clicked: HTMLAnchorElement[] = [];
-		const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+		const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
 			this: HTMLAnchorElement
 		) {
 			clicked.push(this);
@@ -38,14 +38,14 @@ describe('saveBlob', () => {
 	// Left in the tree it is a stray anchor per download; revoked in the same
 	// task Safari cancels the download it has not read yet.
 	it('takes the anchor back out and lets the blob go a moment later', () => {
-		const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+		const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
 		saveBlob(new Blob(['x']), 'kvitto.pdf');
 
 		expect(document.querySelector('a')).toBeNull();
 		expect(revokeObjectURL).not.toHaveBeenCalled();
 
-		jest.runAllTimers();
+		vi.runAllTimers();
 
 		expect(revokeObjectURL).toHaveBeenCalledWith('blob:frescati/1');
 

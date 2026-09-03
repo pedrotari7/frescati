@@ -48,8 +48,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -66,8 +66,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -81,8 +81,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -99,8 +99,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={response({ status: 'in' })}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -118,8 +118,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={response({ status: 'in' })}
 				now={past}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -138,8 +138,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={response({ status: 'in', role: 'extra' })}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -155,8 +155,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={response({ status: 'in', role: 'extra', confirmOverride: true })}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -173,8 +173,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={response({ status: 'in', role: 'extra' })}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -189,8 +189,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -207,8 +207,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={past}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -223,8 +223,8 @@ describe('GameRow', () => {
 				myResponse={undefined}
 				href='/s/season-1/g/game-1/tournament'
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -242,8 +242,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={afterwards}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -260,8 +260,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={afterwards}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -276,8 +276,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -287,7 +287,7 @@ describe('GameRow', () => {
 	// Following a game no longer costs a trip to its own screen: every row on
 	// the calendar carries the same bell the next-game card does.
 	it('offers the bell on a game still to come, and toggles it', () => {
-		const onWatchChange = jest.fn();
+		const onWatchChange = vi.fn();
 
 		render(
 			<GameRow
@@ -295,8 +295,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 				onWatchChange={onWatchChange}
 			/>
 		);
@@ -314,9 +314,9 @@ describe('GameRow', () => {
 				myResponse={undefined}
 				watching
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
-				onWatchChange={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
+				onWatchChange={vi.fn()}
 			/>
 		);
 
@@ -332,9 +332,9 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
-				onWatchChange={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
+				onWatchChange={vi.fn()}
 			/>
 		);
 
@@ -348,9 +348,9 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
-				onWatchChange={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
+				onWatchChange={vi.fn()}
 			/>
 		);
 
@@ -366,9 +366,9 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={new Date('2026-09-01T19:00:00.000Z')}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
-				onWatchChange={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
+				onWatchChange={vi.fn()}
 			/>
 		);
 
@@ -384,8 +384,8 @@ describe('GameRow', () => {
 				season={season}
 				myResponse={undefined}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
