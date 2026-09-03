@@ -10,6 +10,15 @@ allowBuilds:
   # it warns on every install, and on that platform it would leave every stack
   # trace in Sentry minified, which is most of the value on a phone.
   '@sentry/cli': true
+  # Pulled in as a peer of the Rust StyleX compiler, and nothing here calls it.
+  # That transform ships as its own native binary; @swc/core is only reached
+  # for `swcPlugins`, which this repo does not use. Its postinstall loads the
+  # platform binding and returns, which is all it does on any platform this
+  # repo builds on, and only falls back to fetching @swc/wasm through npm
+  # where no binding exists. Allowed rather than left blocked because blocked
+  # it warns on every install, and a warning nobody can act on is one
+  # everybody stops reading.
+  '@swc/core': true
   esbuild: true
   protobufjs: true
   re2: true
