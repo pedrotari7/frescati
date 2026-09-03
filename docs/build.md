@@ -50,7 +50,9 @@ The two `next/*` modules are reached by alias rather than by rewriting 21 files 
 
 So none of what `docs/stylex.md` measured Babel costing is paid here, and one long-standing wart gets better rather than worse. The unit tests compile StyleX with Babel while the build compiles it with Rust, which is the divergence that whole "Trusting a compiler that is not Meta's" section exists to guard against. Under Vite the tests and the build could finally run one compiler.
 
-`pnpm check:stylex vite` runs the same orphan check against `frontend/dist`. It reports **437 class names worn, every one among the 513 the stylesheet defines**, against 476 for the Next build. The gap is prerendering. Next's server bundle carries classes for markup no browser ever builds.
+`pnpm check:stylex vite` runs the same orphan check against `frontend/dist`. It reports **452 class names worn, every one among the 513 the stylesheet defines**, against 502 for the Next build. The gap is prerendering. Next's server bundle carries classes for markup no browser ever builds.
+
+Getting it to read the second build took two fixes, and the second one is the interesting half. See "What the check was actually doing" below.
 
 ## What it measures
 
@@ -135,6 +137,20 @@ That is wrong, and quietly. A component that suspends on its first render has it
 `next start` serves `frontend/public` from where it sits, so a file written into it after the build is served. `vite build` copies that directory into `dist` and `vite preview` serves the copy. `pnpm seed` writes `public/dev-users.json` **after** the build, deliberately, so the port was serving the previous run's cast. That is 30 specs failing at the sign-in switcher. `scripts/e2e-stack.sh` re-copies after the seed.
 
 Neither bug is exotic and both are invisible to a typecheck, a lint, a unit test and a build. This is the argument for the e2e suite existing, restated by a change that had nothing to do with it.
+
+## What the check was actually doing
+
+`scripts/check-stylex-classes.mjs` reads every StyleX class the built app wears and asserts the stylesheet defines it. Pointing it at a second bundler broke it twice, and neither break was in the part being pointed.
+
+**It only matched double-quoted strings.** Rolldown writes template literals, so the check found 35 files carrying compiled StyleX and not one class name in them. That is the shape of a total failure, and it reported it rather than passing, because of the floor that refuses to report a reading too small to be this app. That floor is the only reason this was visible at all.
+
+**Then it passed locally and failed on CI over the same commit,** which is the one worth writing down. Two separate things were wrong.
+
+A regex cannot read string literals. Quotes only pair with their own kind, and a minified bundle is full of apostrophes sitting inside template literals. One of those opens a match that runs to the next apostrophe and swallows whatever is in between, class names included. Which names survived depended on what the bundler happened to put in the chunk. So the check now scans rather than matches, tracking the opening quote and skipping escapes.
+
+And the `$$css` file filter had quietly stopped doing its job. It exists to keep Firebase's `xmlhttp` out of the answer, a real string that is exactly the shape of a class name, and it worked because webpack kept Firebase in chunks of its own. Rolldown merges them, so a file carrying compiled StyleX now carries the transport too. What separates them is not the name but the position. Compiled StyleX is always an object value, `{kzqmXN:'xh8yej3', …}`, where `xmlhttp` is an argument. The check requires a `:` before the literal now.
+
+Both fixes make it stricter and more complete on **both** builds. It found 476 names in the Next build before and finds 502 now, which means the old regex had been losing real names in the app that ships, silently, for as long as it has existed. Confirmed still able to fail. Delete `enableFontSizePxToRem` from `frontend/stylex.config.js`, rebuild, and it names ten orphans, `xboafo0` among them, which is the exact bug `docs/stylex.md` wrote it for.
 
 ## The other thing that was tried
 

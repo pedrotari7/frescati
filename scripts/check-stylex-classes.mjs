@@ -131,20 +131,63 @@ for (const path of stylesheets) {
  * copy, and every name in it was put there by a compiled object in the server
  * bundle, which is read here.
  */
-/*
- * A string literal, in any of the three ways a minifier writes one.
+/**
+ * Every string literal in a file, read the way a parser would rather than the
+ * way a pattern would.
  *
- * It used to read double quotes alone, which was true of every bundle this
- * repo had. Rolldown, which is what Vite 8 builds with, writes them as template
- * literals instead: `` `xh8yej3` ``. The check found 35 files carrying compiled
- * StyleX and not one class name in them, which is the shape of a total failure
- * and was in fact the shape of a regex.
+ * This was a regex over the three kinds of quote, and a regex cannot do this
+ * job. Quotes only pair with their own kind, and a bundle is full of
+ * apostrophes sitting inside template literals: one of those opens a match that
+ * runs to the next apostrophe, swallowing whatever code is in between along
+ * with any class names in it. Which names survive then depends on what the
+ * bundler happened to put in the chunk, so the check passed on one machine and
+ * failed on CI over the same commit.
  *
- * It reported that rather than passing, because of the floor a few lines below.
- * That is the only reason this was caught at all, and it is worth remembering
- * the next time a check like this looks over-engineered.
+ * So this scans. It tracks the quote that opened the string and skips escapes,
+ * which is enough to end every literal where it actually ends. It still knows
+ * nothing about regex literals or comments, and does not need to: a stray match
+ * there has to also be shaped like a class name and sit where a value sits.
  */
-const LITERAL = /"([^"\\\n]*)"|'([^'\\\n]*)'|`([^`\\\n$]*)`/g;
+/** Whether the character at `at` is a backslash escaping the next one. */
+const isEscape = (text, at) => text[at] === '\\';
+
+function* literals(text) {
+	for (let index = 0; index < text.length; index++) {
+		const quote = text[index];
+		if (quote !== '"' && quote !== "'" && quote !== '`') continue;
+
+		const start = index + 1;
+		let end = start;
+
+		while (end < text.length && text[end] !== quote) end += isEscape(text, end) ? 2 : 1;
+		if (end >= text.length) return;
+
+		yield { value: text.slice(start, end), opensAt: index };
+		index = end;
+	}
+}
+
+/**
+ * Whether a literal is sitting where a compiled StyleX class name sits, which
+ * is as the value of an object property.
+ *
+ * This is what keeps Firebase's `xmlhttp` out of the answer. It is a real
+ * string, seven characters, `x` and six more from the same alphabet, so it is
+ * the exact shape of a class name and no test of the name itself can reject it.
+ * What it is not is a property value: it is an argument, `T(t, 'TYPE',
+ * 'xmlhttp')`. Compiled StyleX is always `{kzqmXN:'xh8yej3', …}`.
+ *
+ * The `$$css` file filter used to be enough for this, because webpack kept
+ * Firebase in chunks of its own. Rolldown merges them, so a file carrying
+ * compiled StyleX carries the transport as well, and the filter that was doing
+ * this work quietly stopped.
+ */
+const isPropertyValue = (text, opensAt) => {
+	let before = opensAt - 1;
+	while (before >= 0 && /\s/.test(text[before])) before--;
+
+	return text[before] === ':';
+};
 
 const referenced = new Map();
 const output = stack.output(built).flatMap(dir => filesUnder(dir, ['.js']));
@@ -155,10 +198,10 @@ for (const path of output) {
 	if (!text.includes('$$css')) continue;
 	compiledFiles++;
 
-	for (const match of text.matchAll(LITERAL)) {
-		const literal = match[1] ?? match[2] ?? match[3] ?? '';
+	for (const { value, opensAt } of literals(text)) {
+		if (!isPropertyValue(text, opensAt)) continue;
 
-		for (const token of literal.split(' ')) {
+		for (const token of value.split(' ')) {
 			if (CLASS.test(token) && !variables.has(token) && !referenced.has(token)) {
 				referenced.set(token, relative(built, path));
 			}
