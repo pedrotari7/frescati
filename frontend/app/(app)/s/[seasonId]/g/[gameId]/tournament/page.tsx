@@ -77,10 +77,26 @@ const styles = stylex.create({
 
 	/* An icon and a sentence about it, the icon holding its line at the top
 	   rather than centring against three wrapped lines of text. */
-	noteRow: { color: colors.muted, marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 14 },
-	warnRow: { color: colors.pending, marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 14 },
+	noteRow: {
+		color: colors.muted,
+		marginTop: 12,
+		display: 'flex',
+		alignItems: 'flex-start',
+		gap: 6,
+		fontSize: 14,
+		lineHeight: '20px',
+	},
+	warnRow: {
+		color: colors.pending,
+		marginTop: 12,
+		display: 'flex',
+		alignItems: 'flex-start',
+		gap: 6,
+		fontSize: 14,
+		lineHeight: '20px',
+	},
 	noteIcon: { marginTop: 2, width: 16, height: 16, flexShrink: 0 },
-	note: { color: colors.muted, marginTop: 12, fontSize: 14 },
+	note: { color: colors.muted, marginTop: 12, fontSize: 14, lineHeight: '20px' },
 	hint: { color: colors.faint, marginTop: 8, fontSize: 12, lineHeight: '16px' },
 	buttonIcon: { width: 16, height: 16 },
 	reshuffle: { marginTop: 16 },
@@ -109,7 +125,15 @@ const styles = stylex.create({
 		borderTopStyle: 'solid',
 		borderTopColor: tint.white5,
 	},
-	personName: { color: colors.ink, minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%', fontSize: 14 },
+	personName: {
+		color: colors.ink,
+		minWidth: 0,
+		flexGrow: 1,
+		flexShrink: 1,
+		flexBasis: '0%',
+		fontSize: 14,
+		lineHeight: '20px',
+	},
 
 	scoreHead: { marginBottom: 12, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
 	fixtures: { display: 'flex', flexDirection: 'column', gap: 8 },

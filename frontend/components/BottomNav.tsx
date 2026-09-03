@@ -126,7 +126,10 @@ const styles = stylex.create({
 	tabOff: { color: { default: colors.faint, ':active': colors.muted } },
 
 	icon: { width: 24, height: 24 },
-	label: { fontSize: 10, lineHeight: '14px', fontWeight: 500 },
+	/* No line height, because `text-[10px]` set none either and the label took
+	   the document's 1.5. Pinning one here left every tab label a pixel tighter
+	   than the rest of the app's small type. */
+	label: { fontSize: 10, fontWeight: 500 },
 });
 
 /** Measured, so the pill lines up whatever the labels are. */

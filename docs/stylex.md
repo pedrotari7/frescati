@@ -27,7 +27,7 @@ It is not the cost any more. `@stylexswc/nextjs-plugin` is the same transform wr
 | --------------------------- | ---------------- | ---------------- | -------------- |
 | `next build`, wall          | 27.9s            | 1:09.0           | 30.9s          |
 | the compile step alone      | 16.1s            | 54.0s            | 16.5s          |
-| CSS served                  | 51,431 B         | 39,137 B         | 39,137 B       |
+| CSS served                  | 51,431 B         | 39,099 B         | 39,099 B       |
 | First Load JS shared by all | 172 kB           | 179 kB           | 171 kB         |
 | all static JS emitted       | 3,116,022 B      | 3,448,197 B      | 3,176,833 B    |
 
@@ -39,7 +39,7 @@ Against `main` the whole account is now three seconds of build time and 61 kB of
 
 `@stylexswc/nextjs-plugin` is a community project. It tracks the official releases and says out loud which one it is compatible with, currently the 0.19 the app is on, but it is a second implementation of a compiler whose entire job is to produce exactly the right string.
 
-What makes it safe to lean on is that the claim is checkable, and it checks out exactly. The stylesheet the Rust compiler emits is byte for byte the stylesheet Babel emitted: 39,137 bytes, the same rules in the same order, the same hashed class names, down to the same content hash in the filename Next serves it under. Two independent implementations agreeing to the byte is the whole contract. `pnpm test:e2e` then drove the app itself, at both viewports, against a real seeded database.
+What makes it safe to lean on is that the claim is checkable, and it checks out exactly. The stylesheet the Rust compiler emits is byte for byte the stylesheet Babel emitted: the same size, the same rules in the same order, the same hashed class names, down to the same content hash in the filename Next serves it under. Two independent implementations agreeing to the byte is the whole contract. `pnpm test:e2e` then drove the app itself, at both viewports, against a real seeded database.
 
 What that does not cover is a future release of either side drifting. The check is cheap and worth repeating whenever one of them moves: build, and diff `.next/static/css/*.css` against the sheet before the upgrade. If the filename hash still matches, nothing moved.
 
@@ -78,13 +78,25 @@ Babel is gone and the trap with it, so the file has one job left rather than two
 
 ## `flex-1` is not `flexBasis: 0`
 
-The port's one real bug, and the shape of it is worth writing down because the translation looked exact.
+One of the port's two real bugs, and the shape of it is worth writing down because the translation looked exact.
 
 Tailwind's `flex-1` is `flex: 1 1 0%`, and it was on 62 elements. Written out as properties that reads as `flexGrow: 1, flexBasis: 0`, which is what the port did in 48 places. Those are not the same declaration. A percentage flex basis against a container whose main size is indefinite falls back to the item's own content; a length of 0 is simply 0. Every horizontal case in the app is inside something with a definite width, so 47 of them behaved identically.
 
 The one that did not was the dev user switcher: a dialog capped at `80dvh` but sized by its content, so its height is indefinite, so the scrolling list of accounts had no free space to grow into and rendered as nothing at all. Every end-to-end spec failed, all 30 of them, because signing in is the first thing each one does and the person to sign in as was a button with no height.
 
 Jest never saw it and could not have: jsdom has no layout, so a test can read the class list back and confirm the property is set, and the property was set. `pnpm test:e2e` in a real browser is the only thing in this repo that could have caught it, and it caught it immediately.
+
+## The preflight line that did not come across
+
+The other real bug, and the opposite shape to `flex-1`. Nothing was translated wrong. One line was never translated at all.
+
+Tailwind's preflight opens with `html { line-height: 1.5 }`, and the base layer in `globals.css` is that preflight cut down to the elements this app renders. The cut took that line with it. Nothing broke, because no element has no line height. The browser falls back to `normal`, which is around 1.2 for this stack, so everything that named no line height of its own came out about a fifth tighter than it had been.
+
+Most of the app was immune. A `text-sm` carries a line height as well as a size, and the port wrote both out. What it left exposed is the 15 places whose size came from an arbitrary value, `text-[10px]` and `text-[11px]`, which Tailwind gives no line height at all: the tab labels in the bottom nav, the standings header, the chips and rating movements on a team card, the small caps under a stat on a profile. That is the smallest type in the app, and where losing a fifth of a line shows most.
+
+This is the kind of bug a port produces and a test does not catch. Every component is slightly wrong in the same direction, which reads as a different typeface rather than as a missing rule, and nothing in the repo can ask. jsdom resolves no stylesheet, so a jest test reads the class list back and never learns what line height it means. The end-to-end specs read text and click it, and text set tighter is still text.
+
+What found it is worth keeping. Take each type property off every element in the diff, resolve it the way the cascade would have on both branches, and compare the two sequences file by file. The same pass turned up nine style objects across five files that had dropped the line height a named `text-*` was setting for them, a line in `RespondControl` that had picked up its neighbour's relaxed leading, and the tab label pinned to a line height Tailwind had left it to inherit. It is a script rather than a suite, and porting a stylesheet is the one occasion that earns writing one.
 
 ## What it did to the tests
 

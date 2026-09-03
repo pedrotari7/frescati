@@ -23,7 +23,14 @@ const styles = stylex.create({
 	blurb: { color: colors.muted, marginTop: 4, fontSize: 14, lineHeight: 1.625 },
 
 	dues: { display: 'flex', flexDirection: 'column', gap: 6 },
-	due: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, fontSize: 14 },
+	due: {
+		display: 'flex',
+		alignItems: 'baseline',
+		justifyContent: 'space-between',
+		gap: 12,
+		fontSize: 14,
+		lineHeight: '20px',
+	},
 	dueLabel: { color: colors.muted, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
 	dueNote: { color: colors.faint },
 	dueAmount: { color: colors.ink, flexShrink: 0, fontWeight: 600, fontVariantNumeric: 'tabular-nums' },
@@ -42,7 +49,15 @@ const styles = stylex.create({
 		transitionProperty: 'background-color',
 		transitionDuration: '0.2s',
 	},
-	moreLabel: { color: colors.brand, minWidth: 0, flexGrow: 1, flexBasis: '0%', fontSize: 14, fontWeight: 600 },
+	moreLabel: {
+		color: colors.brand,
+		minWidth: 0,
+		flexGrow: 1,
+		flexBasis: '0%',
+		fontSize: 14,
+		lineHeight: '20px',
+		fontWeight: 600,
+	},
 	moreIcon: { color: colors.faint, width: 16, height: 16, flexShrink: 0 },
 });
 

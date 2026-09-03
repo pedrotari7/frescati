@@ -29,6 +29,14 @@
 }
 
 html {
+	/*
+	 * Preflight's, and the one line of it easiest to lose, because losing it
+	 * fails nothing outright. Every element that names no line height of its own
+	 * inherits this. Without it the browser's `normal` applies, around 1.2 on
+	 * this stack, and the tab labels, the small caps and the rating chips all
+	 * set a fifth tighter than they did on Tailwind.
+	 */
+	line-height: 1.5;
 	/* Landscape on iOS otherwise scales text up on its own. */
 	-webkit-text-size-adjust: 100%;
 	tab-size: 4;

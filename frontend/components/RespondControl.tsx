@@ -133,6 +133,10 @@ const styles = stylex.create({
 	},
 
 	note: { color: colors.faint, marginTop: 8, textAlign: 'center', fontSize: 12, lineHeight: 1.625 },
+	/* `note` on a 12px line's default leading rather than the relaxed one. This
+	   is a single line where the debt notice above it runs to three, and relaxed
+	   leading on one line is only a taller box. */
+	unanswered: { color: colors.faint, marginTop: 8, textAlign: 'center', fontSize: 12, lineHeight: '16px' },
 	settle: { color: colors.brand, fontWeight: 600 },
 });
 
@@ -338,7 +342,7 @@ const RespondControl = ({
 			    answer" pill two lines above this, and saying it twice in one card
 			    is worse than saying it once. */}
 			{!status && !disabled && !debtLock && large && (
-				<p {...stylex.props(styles.note)}>You haven&apos;t answered yet.</p>
+				<p {...stylex.props(styles.unanswered)}>You haven&apos;t answered yet.</p>
 			)}
 		</div>
 	);
