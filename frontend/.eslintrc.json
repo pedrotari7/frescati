@@ -16,7 +16,12 @@
 		"plugin:react/recommended",
 		"prettier"
 	],
-	"plugins": ["react", "jest", "@typescript-eslint", "@stylexjs"],
+	"plugins": [
+		"react",
+		"jest",
+		"@typescript-eslint",
+		"@stylexjs"
+	],
 	"rules": {
 		"@stylexjs/valid-styles": [
 			"error",
@@ -40,7 +45,13 @@
 		"react/display-name": "off",
 		"react-hooks/rules-of-hooks": "error",
 		"react-hooks/exhaustive-deps": "warn",
-		"@typescript-eslint/no-unused-vars": ["error", { "varsIgnorePattern": "^_", "argsIgnorePattern": "^_" }],
+		"@typescript-eslint/no-unused-vars": [
+			"error",
+			{
+				"varsIgnorePattern": "^_",
+				"argsIgnorePattern": "^_"
+			}
+		],
 		"@typescript-eslint/no-non-null-assertion": "off",
 		"@typescript-eslint/no-explicit-any": "warn",
 		"@typescript-eslint/consistent-type-imports": "error",
@@ -48,15 +59,31 @@
 	},
 	"overrides": [
 		{
-			"files": ["*.config.js", "*.config.ts", "next.config.js"],
-			"env": { "node": true },
+			"files": [
+				"*.config.js",
+				"*.config.ts",
+				"next.config.js",
+				"vite/*.mjs",
+				"vite/stylexPlugin.ts"
+			],
+			"env": {
+				"node": true
+			},
 			"rules": {
 				"@typescript-eslint/no-require-imports": "off"
 			}
 		}
 	],
 	"settings": {
-		"react": { "version": "detect" }
+		"react": {
+			"version": "detect"
+		}
 	},
-	"ignorePatterns": ["node_modules/", ".next/", "public/sw.js", "next-env.d.ts"]
+	"ignorePatterns": [
+		"node_modules/",
+		".next/",
+		"dist/",
+		"public/sw.js",
+		"next-env.d.ts"
+	]
 }

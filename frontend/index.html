@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+	The document, which `app/layout.tsx` used to generate.
+
+	Everything here was an export or a JSX node in that file: the `metadata`
+	object, the `viewport` object, and the four preconnect hints. Next turned
+	those into HTML on every build. Nothing does now, so they are written out,
+	and the cost of that is that they can drift from the app they describe with
+	nothing to notice. See `docs/build.md`.
+-->
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#07080a" />
+
+		<title>Frescati</title>
+		<meta name="description" content="Who's playing on Saturday?" />
+		<meta name="application-name" content="Frescati" />
+		<meta name="format-detection" content="telephone=no" />
+
+		<link rel="manifest" href="/manifest.json" />
+		<link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Frescati" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<!--
+			The origins a cold start cannot draw anything without. The reasoning is
+			in `app/layout.tsx` and has not changed: none of these is discoverable
+			from the HTML, a Firebase SDK reaches for each after hydration, and the
+			split by request mode is because a preconnected socket is only reused
+			by requests whose credentials mode matches the hint.
+		-->
+		<link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin="anonymous" />
+		<link rel="preconnect" href="https://firebaseappcheck.googleapis.com" crossorigin="anonymous" />
+		<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin="anonymous" />
+		<link rel="preconnect" href="https://www.google.com" />
+
+		<!--
+			The canvas, before any stylesheet has loaded.
+
+			`app/layout.tsx` put this on the `html` element with a StyleX object
+			reading `colors.canvas`, and a prerendered document arrived with the
+			class already on it. This one arrives empty and painted by the browser,
+			so without this the app flashes white on every cold load, on a phone,
+			on the app that is deliberately and permanently dark.
+
+			So the hex is written twice, here and in `app/tokens.stylex.ts`, which
+			is the thing the styling rules in CLAUDE.md exist to prevent. There is
+			no way to reach a token from a document that no build step renders.
+			`vite/Root.tsx` puts the real token-backed classes on as soon as it
+			mounts; this only has to survive until then.
+		-->
+		<style>
+			:root {
+				color-scheme: dark;
+				background-color: #07080a;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/vite/main.tsx"></script>
+	</body>
+</html>
