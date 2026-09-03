@@ -1,0 +1,130 @@
+name: preview-domain
+
+# Puts each pull request's preview on a subdomain of the apex domain instead of
+# leaving it on the .vercel.app hostname Vercel generates.
+#
+# The reason is Firebase rather than tidiness. Auth's authorized domains and the
+# reCAPTCHA key behind App Check both match a listed domain and its subdomains,
+# at dot boundaries only, so a single entry for the apex covers every branch
+# there will ever be. A generated preview hostname is one label with the
+# project, branch and team names glued together by hyphens, so the only pattern
+# that matches it is "vercel.app" itself, and allowing that would let anything
+# deployed to Vercel mint App Check tokens for this project.
+#
+# Vercel does this by itself on Pro, through a preview deployment suffix. This
+# is the Hobby version: one branch-linked domain per pull request, added when it
+# opens and removed when it closes, so the project's domain list does not fill
+# up with branches that are gone.
+
+on:
+    pull_request:
+        types: [opened, reopened, closed]
+        branches: [main]
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+    cancel-in-progress: false
+
+jobs:
+    domain:
+        # Skipped rather than failed where the variable is unset, so a fresh
+        # clone with no domain of its own is quiet instead of red. Forks are
+        # skipped because `gitForkProtection` stops them deploying at all, so
+        # the domain would point at nothing.
+        if: >-
+            vars.PREVIEW_APEX_DOMAIN != '' &&
+            github.event.pull_request.head.repo.full_name == github.repository
+        runs-on: ubuntu-latest
+        env:
+            TOKEN: ${{ secrets.VERCEL_TOKEN }}
+            PROJECT: ${{ secrets.VERCEL_PROJECT_ID }}
+            TEAM: ${{ secrets.VERCEL_ORG_ID }}
+        steps:
+            - name: Work out the hostname
+              id: host
+              env:
+                  BRANCH: ${{ github.event.pull_request.head.ref }}
+                  APEX: ${{ vars.PREVIEW_APEX_DOMAIN }}
+              run: |
+                  # A DNS label is lowercase letters, digits and hyphens, at most
+                  # 63 of them, and may not start or end with one. Branch names
+                  # are none of that, "feat/thing_two" above all, so every other
+                  # character collapses to a hyphen. The second trim is for a
+                  # name long enough that the cut lands on one.
+                  slug=$(printf '%s' "$BRANCH" \
+                    | tr '[:upper:]' '[:lower:]' \
+                    | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' \
+                    | cut -c1-63 \
+                    | sed -E 's/-+$//')
+
+                  if [ -z "$slug" ]; then
+                      echo "Branch '$BRANCH' holds no usable DNS label." >&2
+                      exit 1
+                  fi
+
+                  echo "host=$slug.$APEX" >> "$GITHUB_OUTPUT"
+
+            - name: Add the domain
+              if: github.event.action != 'closed'
+              env:
+                  HOST: ${{ steps.host.outputs.host }}
+                  BRANCH: ${{ github.event.pull_request.head.ref }}
+              run: |
+                  # Retried because Vercel refuses a branch its Git connection
+                  # has not caught up with yet, as `git_branch_not_found`, and
+                  # this runs seconds after the branch is pushed.
+                  for attempt in 1 2 3; do
+                      code=$(curl -sS -o body.json -w '%{http_code}' -X POST \
+                        "https://api.vercel.com/v10/projects/$PROJECT/domains?teamId=$TEAM" \
+                        -H "Authorization: Bearer $TOKEN" \
+                        -H 'Content-Type: application/json' \
+                        -d "$(jq -n --arg n "$HOST" --arg b "$BRANCH" '{name:$n,gitBranch:$b}')")
+
+                      if [ "${code#2}" != "$code" ]; then
+                          echo "Preview: https://$HOST" >> "$GITHUB_STEP_SUMMARY"
+                          exit 0
+                      fi
+
+                      # 409 is a domain the project already holds, which is
+                      # what a reopen looks like. Waiting will not change it.
+                      if [ "$code" = "409" ]; then
+                          break
+                      fi
+
+                      # Spelled out rather than as `[ ... ] && sleep 5`, which
+                      # ends a loop body on a non-zero status and leans on a
+                      # corner of `set -e` to not take the whole step down.
+                      if [ "$attempt" != "3" ]; then
+                          sleep 5
+                      fi
+                  done
+
+                  # Already ours counts as done, whatever the POST made of it.
+                  # Anything else does not.
+                  existing=$(curl -sS -o /dev/null -w '%{http_code}' \
+                    "https://api.vercel.com/v9/projects/$PROJECT/domains/$HOST?teamId=$TEAM" \
+                    -H "Authorization: Bearer $TOKEN")
+
+                  if [ "$existing" = "200" ]; then
+                      echo "Preview: https://$HOST" >> "$GITHUB_STEP_SUMMARY"
+                      exit 0
+                  fi
+
+                  cat body.json >&2
+                  exit 1
+
+            - name: Remove the domain
+              if: github.event.action == 'closed'
+              env:
+                  HOST: ${{ steps.host.outputs.host }}
+              run: |
+                  code=$(curl -sS -o body.json -w '%{http_code}' -X DELETE \
+                    "https://api.vercel.com/v9/projects/$PROJECT/domains/$HOST?teamId=$TEAM" \
+                    -H "Authorization: Bearer $TOKEN")
+
+                  # 404 is a pull request that never had one, or a second close.
+                  # Neither leaves anything to clean up.
+                  case "$code" in
+                      2*|404) exit 0 ;;
+                      *) cat body.json >&2; exit 1 ;;
+                  esac
