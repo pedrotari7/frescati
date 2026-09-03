@@ -47,10 +47,38 @@ cd "$ROOT"
 STATUS="${TMPDIR:-/tmp}/frescati-e2e-frontend-build"
 : > "$STATUS"
 
+# Which of the two frontends the suite runs against.
+#
+# `next` is the app that ships. `vite` is the port in `frontend/vite/`, built
+# from the same components by a different bundler and routed by React Router
+# instead of the file tree. The specs know nothing about either: they open URLs
+# and click things, which is exactly what makes them the evidence that the port
+# behaves like the app. `E2E_STACK=vite pnpm test:e2e` is the whole difference.
+# See `docs/build.md`.
+STACK="${E2E_STACK:-next}"
+
+if [ "$STACK" = vite ]; then
+	BUILD_FRONTEND='pnpm --filter frontend build:vite'
+	# `cp` first, and it is not a detail.
+	#
+	# `next start` serves `frontend/public` from where it sits, so a file written
+	# into it after the build is served. `vite build` copies that directory into
+	# `dist` and `vite preview` serves the copy, so anything written afterwards
+	# is not. The seed writes `public/dev-users.json`, and it runs after the
+	# build here on purpose, which leaves the port serving the previous run's
+	# cast: 30 specs failing on a "Switch seeded user" button that is looking at
+	# stale users. Re-copying after the seed is the whole fix. See
+	# `docs/build.md`.
+	SERVE_FRONTEND='cp -R frontend/public/. frontend/dist/ && pnpm --filter frontend preview:vite'
+else
+	BUILD_FRONTEND='pnpm --filter frontend build'
+	SERVE_FRONTEND='pnpm --filter frontend start'
+fi
+
 # `NEXT_PUBLIC_*` is inlined at build time, so the emulator flag has to be set
 # here and not on the server below.
 (
-	if NEXT_PUBLIC_USE_EMULATORS=1 pnpm --filter frontend build; then
+	if NEXT_PUBLIC_USE_EMULATORS=1 $BUILD_FRONTEND; then
 		printf 'ok' > "$STATUS"
 	else
 		printf 'failed' > "$STATUS"
@@ -68,7 +96,7 @@ serve=$(cat <<SHELL
 while [ ! -s "$STATUS" ]; do sleep 0.5; done &&
 [ "\$(cat "$STATUS")" = ok ] &&
 pnpm seed &&
-pnpm --filter frontend start
+$SERVE_FRONTEND
 SHELL
 )
 

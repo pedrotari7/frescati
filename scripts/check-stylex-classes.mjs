@@ -32,7 +32,45 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const built = join(root, 'frontend', '.next');
+
+/**
+ * Which build to read, because there are two of them.
+ *
+ * `pnpm check:stylex` reads the Next build, which is the app that ships and the
+ * default for that reason. `pnpm check:stylex vite` reads the port in
+ * `frontend/dist`. The check matters more there, not less: that build compiles
+ * StyleX with `@stylexswc/rs-compiler` called directly from a Vite plugin,
+ * which is a fourth caller of `frontend/stylex.config.js` and so a fourth
+ * chance for two compilers to disagree about a hash. See `docs/build.md`.
+ */
+const STACKS = {
+	next: {
+		dir: join(root, 'frontend', '.next'),
+		// Next writes the stylesheet and the chunks to separate trees, and the
+		// server bundle carries the classes the prerendered HTML wears.
+		stylesheets: dir => [join(dir, 'static', 'css')],
+		output: dir => [join(dir, 'static'), join(dir, 'server')],
+		rebuild: 'pnpm --filter frontend build',
+	},
+	vite: {
+		dir: join(root, 'frontend', 'dist'),
+		// One directory for both, and no server bundle to read: nothing is
+		// prerendered, so every class the app wears is worn by a browser.
+		stylesheets: dir => [join(dir, 'assets')],
+		output: dir => [join(dir, 'assets')],
+		rebuild: 'pnpm --filter frontend build:vite',
+	},
+};
+
+const stackName = process.argv[2] ?? 'next';
+const stack = STACKS[stackName];
+
+if (!stack) {
+	console.error(`Unknown build "${stackName}". Expected one of: ${Object.keys(STACKS).join(', ')}.`);
+	process.exit(1);
+}
+
+const built = stack.dir;
 
 /** Every file under `dir` with one of these extensions, depth first. */
 const filesUnder = (dir, extensions) => {
@@ -57,9 +95,9 @@ const filesUnder = (dir, extensions) => {
  */
 const CLASS = /^x[0-9a-z]{4,12}$/;
 
-const stylesheets = filesUnder(join(built, 'static', 'css'), ['.css']);
+const stylesheets = stack.stylesheets(built).flatMap(dir => filesUnder(dir, ['.css']));
 if (stylesheets.length === 0) {
-	console.error(`No stylesheet under ${relative(root, built)}. Run \`pnpm --filter frontend build\` first.`);
+	console.error(`No stylesheet under ${relative(root, built)}. Run \`${stack.rebuild}\` first.`);
 	process.exit(1);
 }
 
@@ -93,8 +131,23 @@ for (const path of stylesheets) {
  * copy, and every name in it was put there by a compiled object in the server
  * bundle, which is read here.
  */
+/*
+ * A string literal, in any of the three ways a minifier writes one.
+ *
+ * It used to read double quotes alone, which was true of every bundle this
+ * repo had. Rolldown, which is what Vite 8 builds with, writes them as template
+ * literals instead: `` `xh8yej3` ``. The check found 35 files carrying compiled
+ * StyleX and not one class name in them, which is the shape of a total failure
+ * and was in fact the shape of a regex.
+ *
+ * It reported that rather than passing, because of the floor a few lines below.
+ * That is the only reason this was caught at all, and it is worth remembering
+ * the next time a check like this looks over-engineered.
+ */
+const LITERAL = /"([^"\\\n]*)"|'([^'\\\n]*)'|`([^`\\\n$]*)`/g;
+
 const referenced = new Map();
-const output = [...filesUnder(join(built, 'static'), ['.js']), ...filesUnder(join(built, 'server'), ['.js'])];
+const output = stack.output(built).flatMap(dir => filesUnder(dir, ['.js']));
 
 let compiledFiles = 0;
 for (const path of output) {
@@ -102,7 +155,9 @@ for (const path of output) {
 	if (!text.includes('$$css')) continue;
 	compiledFiles++;
 
-	for (const [, literal] of text.matchAll(/"([^"\\\n]*)"/g)) {
+	for (const match of text.matchAll(LITERAL)) {
+		const literal = match[1] ?? match[2] ?? match[3] ?? '';
+
 		for (const token of literal.split(' ')) {
 			if (CLASS.test(token) && !variables.has(token) && !referenced.has(token)) {
 				referenced.set(token, relative(built, path));

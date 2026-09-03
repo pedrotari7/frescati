@@ -107,7 +107,10 @@ importers:
         version: 2.2.0(react@19.2.6)
       '@sentry/nextjs':
         specifier: 10.69.0
-        version: 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@15.5.21(@babel/core@8.0.1)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23))
+        version: 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@15.5.21(@babel/core@8.0.1)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23))
+      '@sentry/react':
+        specifier: ^10.73.0
+        version: 10.73.0(react@19.2.6)
       '@stylexjs/stylex':
         specifier: ^0.19.0
         version: 0.19.0
@@ -135,6 +138,9 @@ importers:
       react-dom:
         specifier: 19.2.6
         version: 19.2.6(react@19.2.6)
+      react-router:
+        specifier: ^8.3.1
+        version: 8.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       react-swipeable:
         specifier: 7.0.2
         version: 7.0.2(react@19.2.6)
@@ -156,6 +162,9 @@ importers:
         version: 0.18.6(@swc/core@1.16.1(@swc/helpers@0.5.23))(next@15.5.21(@babel/core@8.0.1)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
       '@stylexswc/postcss-plugin':
         specifier: ^0.18.6
+        version: 0.18.6(@swc/core@1.16.1(@swc/helpers@0.5.23))
+      '@stylexswc/rs-compiler':
+        specifier: 0.18.6
         version: 0.18.6(@swc/core@1.16.1(@swc/helpers@0.5.23))
       '@testing-library/jest-dom':
         specifier: 6.9.1
@@ -220,6 +229,9 @@ importers:
       jsdom:
         specifier: ^30.0.1
         version: 30.0.1
+      lightningcss:
+        specifier: ^1.33.0
+        version: 1.33.0
       postcss:
         specifier: 8.5.23
         version: 8.5.23
@@ -1848,8 +1860,16 @@ packages:
     resolution: {integrity: sha512-e/u1Abj0zRPwR/deGZAP3GOULrsx67/XXnM5Skniqs4uxTsdNtPek1Nef0tpxwaQJYxwh6pWdhswLPPbbPOgBQ==}
     engines: {node: '>=18'}
 
+  '@sentry/browser-utils@10.73.0':
+    resolution: {integrity: sha512-qQygxJZ+RV779+iL1+lrJ4f4sZLgbgW0/JWPNp0YlcEAE62yCsdKbqoTEjB/EugdS4mSjBMX0chZC6rblu2Ycw==}
+    engines: {node: '>=18'}
+
   '@sentry/browser@10.69.0':
     resolution: {integrity: sha512-8391tnm96YbR7b8SYfEA/NEIZuyb2r3SZrtAT0bhZtjlujcYWjo7gugQvk8sWLU9cAa/euD00eJoIoJvNfpd7Q==}
+    engines: {node: '>=18'}
+
+  '@sentry/browser@10.73.0':
+    resolution: {integrity: sha512-HqTe1S5RrWLufhX2LaFP3yNoMxfNDroh120bq1zdGHZfFDBMJQ0CDXxHO+L4UJfQ5dWdCCzWbXIAiZuWGa/DFQ==}
     engines: {node: '>=18'}
 
   '@sentry/bundler-plugin-core@5.3.0':
@@ -1932,8 +1952,16 @@ packages:
     resolution: {integrity: sha512-ozhCTDqg89oB4XmWfAwuHshABpvT7AkRpaPnogopPfMAaI61G1t8EKCJ4W7aum8JSBonlfyjPCyW5oYZFm0KvA==}
     engines: {node: '>=18'}
 
+  '@sentry/core@10.73.0':
+    resolution: {integrity: sha512-FLO1UgH19RyasVpofu612WCOgb2nEH0dZy+R72d7p65XU9i0wxlMKm3+sgfwKmiSJp1Qhilaaxs4Jg6BbiM5HA==}
+    engines: {node: '>=18'}
+
   '@sentry/feedback@10.69.0':
     resolution: {integrity: sha512-qrGz5Qaw93/IhMjlFN6uIaXeHwgHDaKGa6FkTAP6PonpkvSbGGqan6xfsENxzj9HUVoli1lZ6tMRDnt2qtSPhg==}
+    engines: {node: '>=18'}
+
+  '@sentry/feedback@10.73.0':
+    resolution: {integrity: sha512-D6nSngX+e46Mae2/oh2bxBvxNK1z2NERbuMAhB5sx9x4xMBWIyGnYYTECehvEqV9+AqGAgxxhOZoYIG3AmRwww==}
     engines: {node: '>=18'}
 
   '@sentry/nextjs@10.69.0':
@@ -2014,12 +2042,26 @@ packages:
     peerDependencies:
       react: ^16.14.0 || 17.x || 18.x || 19.x
 
+  '@sentry/react@10.73.0':
+    resolution: {integrity: sha512-wJrzS98ddPvhGS/MKNHZyE8X7ecd4KwKdz7fHino2qkqBBrF4cxWr+q/uLTIk5PYWMkeJ4oKMjHAjOqmzGR4tg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      react: ^16.14.0 || 17.x || 18.x || 19.x
+
   '@sentry/replay-canvas@10.69.0':
     resolution: {integrity: sha512-VF6nXvSninHcc7dC1Zme0RjkC7VgRMCixs6jKaQX5zTNeqTW3dZGSefSOVv+ZteRi3hJvVORq985VjUC9Z/0+A==}
     engines: {node: '>=18'}
 
+  '@sentry/replay-canvas@10.73.0':
+    resolution: {integrity: sha512-sxa2lKkHPfF/j5xFpW7gocthWXRqyoHz8KCPy6yGc8plT477nl57iGSKhQDYsx1Ny10TLjs7YkIuPP1GY/Ax2Q==}
+    engines: {node: '>=18'}
+
   '@sentry/replay@10.69.0':
     resolution: {integrity: sha512-uRhmNhtFGPOlM0iniVmWKAX3KVXI0le41yYK/iKdPjinT9jA3ZrmykO/Fv1v/KI5znOtwa9D6eHRnDTTMRxFrg==}
+    engines: {node: '>=18'}
+
+  '@sentry/replay@10.73.0':
+    resolution: {integrity: sha512-nN2wjN/Y0J5BOJV5hqRHUEBfxwUsipp1PKjcDHh6Fpxnrtfldu3Y99E8cQInseo5heFdzEvrOHBBrqWZXOHVKQ==}
     engines: {node: '>=18'}
 
   '@sentry/server-utils@10.69.0':
@@ -3412,6 +3454,9 @@ packages:
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
+
+  cookie-es@3.1.1:
+    resolution: {integrity: sha512-UaXxwISYJPTr9hwQxMFYZ7kNhSXboMXP+Z3TRX6f1/NyaGPfuNUZOWP1pUEb75B2HjfklIYLVRfWiFZJyC6Npg==}
 
   cookie-signature@1.0.7:
     resolution: {integrity: sha512-NXdYc3dLr47pBkpUCHtKSwIOQXLVn8dZEuywboCOJY/osA0wFSLlSawr3KN8qXJEyX66FcONTH8EIlVuK0yyFA==}
@@ -5857,10 +5902,6 @@ packages:
     resolution: {integrity: sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==}
     engines: {node: '>=8.6'}
 
-  picomatch@4.0.5:
-    resolution: {integrity: sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==}
-    engines: {node: '>=12'}
-
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
@@ -6087,6 +6128,16 @@ packages:
 
   react-is@18.3.1:
     resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
+
+  react-router@8.3.1:
+    resolution: {integrity: sha512-TEOpiO2g0TJHEOJeRVv4amUFun9v1npCKszvcquNvzETUtJ8udV86ah5eFoHT7g26bsBvT6EiIhqulR8eDF++A==}
+    engines: {node: '>=22.22.0'}
+    peerDependencies:
+      react: '>=19.2.7'
+      react-dom: '>=19.2.7'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
 
   react-stately@3.49.0:
     resolution: {integrity: sha512-13iNq2KzBrRAzxRc+n53hgROfIistiYY/sPtIhCw1qUB7/kmo+X1xEU2uiS5zcCIrc55AUPwoHqOIIpKWSwB9A==}
@@ -9025,6 +9076,11 @@ snapshots:
       '@sentry/conventions': 0.16.0
       '@sentry/core': 10.69.0
 
+  '@sentry/browser-utils@10.73.0':
+    dependencies:
+      '@sentry/conventions': 0.16.0
+      '@sentry/core': 10.73.0
+
   '@sentry/browser@10.69.0':
     dependencies:
       '@sentry/browser-utils': 10.69.0
@@ -9033,6 +9089,15 @@ snapshots:
       '@sentry/feedback': 10.69.0
       '@sentry/replay': 10.69.0
       '@sentry/replay-canvas': 10.69.0
+
+  '@sentry/browser@10.73.0':
+    dependencies:
+      '@sentry/browser-utils': 10.73.0
+      '@sentry/conventions': 0.16.0
+      '@sentry/core': 10.73.0
+      '@sentry/feedback': 10.73.0
+      '@sentry/replay': 10.73.0
+      '@sentry/replay-canvas': 10.73.0
 
   '@sentry/bundler-plugin-core@5.3.0':
     dependencies:
@@ -9047,7 +9112,7 @@ snapshots:
       - encoding
       - supports-color
 
-  '@sentry/bundler-plugins@10.69.0(rollup@4.62.4)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23))':
+  '@sentry/bundler-plugins@10.69.0(rollup@4.62.4)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23))':
     dependencies:
       '@babel/core': 7.29.7
       '@sentry/cli': 2.58.6
@@ -9058,7 +9123,7 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       rollup: 4.62.4
-      webpack: 5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23)
+      webpack: 5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -9117,11 +9182,19 @@ snapshots:
     dependencies:
       '@sentry/conventions': 0.16.0
 
+  '@sentry/core@10.73.0':
+    dependencies:
+      '@sentry/conventions': 0.16.0
+
   '@sentry/feedback@10.69.0':
     dependencies:
       '@sentry/core': 10.69.0
 
-  '@sentry/nextjs@10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@15.5.21(@babel/core@8.0.1)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23))':
+  '@sentry/feedback@10.73.0':
+    dependencies:
+      '@sentry/core': 10.73.0
+
+  '@sentry/nextjs@10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@15.5.21(@babel/core@8.0.1)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23))':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@rollup/plugin-commonjs': 28.0.1(rollup@4.62.4)
@@ -9134,7 +9207,7 @@ snapshots:
       '@sentry/react': 10.69.0(react@19.2.6)
       '@sentry/server-utils': 10.69.0
       '@sentry/vercel-edge': 10.69.0
-      '@sentry/webpack-plugin': 5.4.0(rollup@4.62.4)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23))
+      '@sentry/webpack-plugin': 5.4.0(rollup@4.62.4)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23))
       next: 15.5.21(@babel/core@8.0.1)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       rollup: 4.62.4
       stacktrace-parser: 0.1.11
@@ -9226,15 +9299,32 @@ snapshots:
       '@sentry/core': 10.69.0
       react: 19.2.6
 
+  '@sentry/react@10.73.0(react@19.2.6)':
+    dependencies:
+      '@sentry/browser': 10.73.0
+      '@sentry/conventions': 0.16.0
+      '@sentry/core': 10.73.0
+      react: 19.2.6
+
   '@sentry/replay-canvas@10.69.0':
     dependencies:
       '@sentry/core': 10.69.0
       '@sentry/replay': 10.69.0
 
+  '@sentry/replay-canvas@10.73.0':
+    dependencies:
+      '@sentry/core': 10.73.0
+      '@sentry/replay': 10.73.0
+
   '@sentry/replay@10.69.0':
     dependencies:
       '@sentry/browser-utils': 10.69.0
       '@sentry/core': 10.69.0
+
+  '@sentry/replay@10.73.0':
+    dependencies:
+      '@sentry/browser-utils': 10.73.0
+      '@sentry/core': 10.73.0
 
   '@sentry/server-utils@10.69.0':
     dependencies:
@@ -9261,10 +9351,10 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       '@sentry/core': 10.69.0
 
-  '@sentry/webpack-plugin@5.4.0(rollup@4.62.4)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23))':
+  '@sentry/webpack-plugin@5.4.0(rollup@4.62.4)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23))':
     dependencies:
-      '@sentry/bundler-plugins': 10.69.0(rollup@4.62.4)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23))
-      webpack: 5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23)
+      '@sentry/bundler-plugins': 10.69.0(rollup@4.62.4)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23))
+      webpack: 5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23)
     transitivePeerDependencies:
       - encoding
       - rollup
@@ -9373,7 +9463,7 @@ snapshots:
   '@stylexswc/rs-compiler@0.18.6(@swc/core@1.16.1(@swc/helpers@0.5.23))':
     dependencies:
       '@swc/core': 1.16.1(@swc/helpers@0.5.23)
-      picomatch: 4.0.5
+      picomatch: 4.0.7
     optionalDependencies:
       '@stylexswc/rs-compiler-darwin-arm64': 0.18.6
       '@stylexswc/rs-compiler-darwin-x64': 0.18.6
@@ -10728,6 +10818,8 @@ snapshots:
   content-type@2.0.0: {}
 
   convert-source-map@2.0.0: {}
+
+  cookie-es@3.1.1: {}
 
   cookie-signature@1.0.7: {}
 
@@ -13347,15 +13439,16 @@ snapshots:
 
   minimist@1.2.8: {}
 
-  minimizer-webpack-plugin@5.6.1(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23)):
+  minimizer-webpack-plugin@5.6.1(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23)):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
       schema-utils: 4.3.3
       terser: 5.49.2
-      webpack: 5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23)
+      webpack: 5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23)
     optionalDependencies:
       '@swc/core': 1.16.1(@swc/helpers@0.5.23)
+      lightningcss: 1.33.0
       postcss: 8.5.23
 
   minipass@7.1.3: {}
@@ -13747,8 +13840,6 @@ snapshots:
 
   picomatch@2.3.2: {}
 
-  picomatch@4.0.5: {}
-
   picomatch@4.0.7: {}
 
   pirates@4.0.7: {}
@@ -13989,6 +14080,13 @@ snapshots:
   react-is@17.0.2: {}
 
   react-is@18.3.1: {}
+
+  react-router@8.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+    dependencies:
+      cookie-es: 3.1.1
+      react: 19.2.6
+    optionalDependencies:
+      react-dom: 19.2.6(react@19.2.6)
 
   react-stately@3.49.0(react@19.2.6):
     dependencies:
@@ -15145,7 +15243,7 @@ snapshots:
 
   webpack-sources@3.5.1: {}
 
-  webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23):
+  webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23):
     dependencies:
       '@types/estree': 1.0.9
       '@types/json-schema': 7.0.15
@@ -15161,7 +15259,7 @@ snapshots:
       events: 3.3.0
       graceful-fs: 4.2.11
       mime-db: 1.54.0
-      minimizer-webpack-plugin: 5.6.1(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(postcss@8.5.23))
+      minimizer-webpack-plugin: 5.6.1(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23)(webpack@5.109.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(lightningcss@1.33.0)(postcss@8.5.23))
       neo-async: 2.6.2
       schema-utils: 4.3.3
       tapable: 2.3.3
