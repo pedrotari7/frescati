@@ -7,8 +7,7 @@
 	},
 	"env": {
 		"es2022": true,
-		"browser": true,
-		"jest/globals": true
+		"browser": true
 	},
 	"extends": [
 		"next/core-web-vitals",
@@ -16,7 +15,7 @@
 		"plugin:react/recommended",
 		"prettier"
 	],
-	"plugins": ["react", "jest", "@typescript-eslint", "@stylexjs"],
+	"plugins": ["react", "@typescript-eslint", "@stylexjs"],
 	"rules": {
 		"@stylexjs/valid-styles": [
 			"error",

@@ -19,7 +19,7 @@
 	"ignorePatterns": ["lib/", "node_modules/"],
 	"overrides": [
 		{
-			"files": ["tests/**/*.ts", "jest.config.ts"],
+			"files": ["tests/**/*.ts"],
 			"env": { "jest": true }
 		}
 	]

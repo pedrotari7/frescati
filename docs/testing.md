@@ -89,4 +89,12 @@ The rules and backend suites are left out on purpose. Both spend three quarters 
 
 ## What is still jest's
 
-`jest.config.ts`, `frontend/jest.config.ts`, `rules/jest.config.ts`, `backend/jest.config.ts`, the two `jest.setup.ts` files and `frontend/test/babel.config.js` are all still there, and nothing runs them. They are what makes the table above reproducible. Deleting them and the jest dependencies is a separate commit, and the right time for it is when nobody wants to re-run this comparison.
+Nothing. The configs, the setup files, `frontend/test/babel.config.js` and the `jest`, `ts-jest`, `@types/jest`, `jest-environment-jsdom` and `eslint-plugin-jest` dependencies are all gone.
+
+`@testing-library/jest-dom` stays, despite the name. It is the matcher library, not a jest dependency, and `frontend/vitest.setup.ts` imports its `/vitest` entry point.
+
+Two things went with jest, and both needed replacing rather than deleting.
+
+`ts-jest` typechecked every test file as it compiled it, and vitest does not: esbuild strips the types without reading them. A deliberate type error in a `shared/` test failed jest and passed vitest, which is how that got noticed. `pnpm --filter frontend typecheck` covers the frontend, and `frontend/test/globals.d.ts` is what makes it possible, since `@types/jest` was quietly supplying `describe`, `it` and `expect` to the whole package and nothing supplies `vi` unless asked. The `shared/`, `rules/` and `backend/` test files sit in no tsconfig at all and are still unchecked. That predates this move, but jest was hiding it.
+
+`scripts/bench-test.mjs` can only run its vitest half now. The jest half needs a checkout from before this commit, which is the price of the table above and worth paying once.
