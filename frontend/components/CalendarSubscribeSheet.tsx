@@ -41,7 +41,7 @@ const styles = stylex.create({
 	spinner: { width: 16, height: 16 },
 	loadingLabel: { color: colors.faint },
 
-	link: { marginTop: 16, fontFamily: fonts.mono, fontSize: 12 },
+	link: { marginTop: 16, fontFamily: fonts.mono, fontSize: 12, lineHeight: '16px' },
 	actions: { marginTop: 12, display: 'flex', gap: 12 },
 	subscribe: {
 		color: colors.ink,

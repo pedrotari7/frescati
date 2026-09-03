@@ -28,7 +28,7 @@ const styles = stylex.create({
 	fields: { display: 'flex', flexDirection: 'column', gap: 16 },
 
 	heading: { marginTop: 24, marginBottom: 8 },
-	facts: { display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 },
+	facts: { display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, lineHeight: '16px' },
 	factLabel: { color: colors.faint },
 	link: {
 		color: colors.ink,
