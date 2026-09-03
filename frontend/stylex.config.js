@@ -5,7 +5,7 @@ const path = require('path');
  * the Rust plugin SWC runs over the app (`next.config.js`), the PostCSS pass
  * that collects the rules into the stylesheet (`postcss.config.js`), and the
  * Babel plugin jest compiles tests with (`test/babel.config.js`). They have to
- * agree: a class name is a hash of the declaration that produced it, so two
+ * agree. A class name is a hash of the declaration that produced it, so two
  * compilers reading different options emit two different names for the same
  * style, and the one in the stylesheet is not the one on the element.
  */

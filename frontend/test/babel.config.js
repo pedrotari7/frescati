@@ -8,9 +8,9 @@ const stylexOptions = require('../stylex.config');
  * turn SWC off for the whole app. Jest needs Babel because the Rust compiler
  * rewrites `stylex.create` and leaves the module syntax alone, so its output is
  * still ESM and jest wants CommonJS. Chaining it in front of Next's own SWC
- * transformer means reaching into `next/dist/build/swc`, which is a private
- * path that moves between releases; `next/babel` is public and does the whole
- * job in one pass.
+ * transformer means reaching into `next/dist/build/swc`, a private path that
+ * moves between releases. `next/babel` is public and does the whole job in one
+ * pass.
  *
  * The two compilers agree on what they emit. The stylesheet the Rust compiler
  * produces is byte for byte the one Babel produced, hashed class names
