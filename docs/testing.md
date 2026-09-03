@@ -44,22 +44,24 @@ The mock-factory hoisting rule people warn about turned out not to bite. Vitest 
 
 ## What it is worth
 
-Medians of three runs, on a ten-core M-series laptop, 654 frontend tests and 659 shared. `node scripts/bench-test.mjs jest 3`, then the same for `vitest`, then `--table`. One runner per invocation, because the test files call `vi.*` or they call `jest.*` and never both, so measuring the other side means checking its files back out first.
+Medians of three runs on an otherwise idle ten-core M-series laptop, 654 frontend tests and 659 shared, the two runners measured minutes apart. `node scripts/bench-test.mjs jest 3`, then the same for `vitest`, then `--table`. One runner per invocation, because the test files call `vi.*` or they call `jest.*` and never both, so measuring the other side means checking its files back out first.
 
 | scenario | suite | jest | vitest | change |
 | --- | --- | --- | --- | --- |
-| cold | shared | 5.56s | 1.94s | -65% |
-| cold | frontend | 24.37s | 21.38s | -12% |
-| warm | shared | 4.21s | 1.95s | -54% |
-| warm | frontend | 15.11s | 18.50s | **+22%** |
-| single file | shared | 2.27s | 1.09s | -52% |
-| single file | frontend | 3.58s | 3.05s | -15% |
+| cold | shared | 3.47s | 1.41s | -59% |
+| cold | frontend | 16.14s | 12.79s | -21% |
+| warm | shared | 2.49s | 1.41s | -43% |
+| warm | frontend | 13.79s | 11.58s | -16% |
+| single file | shared | 2.03s | 0.94s | -54% |
+| single file | frontend | 3.44s | 2.59s | -25% |
 
 Cold is caches cleared, which is what CI pays every run. Warm is the second run of the day. Single file is the inner loop, where startup is the whole bill.
 
-One number goes the wrong way, and it is the one worth leading with. A warm frontend run is slower under vitest. Half its time is spent building a jsdom, once per file, and a thread is a cheaper place to do that than a child process, which is why `pool: 'threads'` is set and worth about nine seconds. The two faster options are both closed. `isolate: false` shares one environment across files and fails 169 tests, so this suite's independence is real rather than incidental, and `vmThreads` crashes a worker outright.
+Vitest is ahead in every cell, and none of the six pairs of run ranges overlap.
 
-Everything else moves the right way, and the numbers that matter most to a person waiting are the small ones.
+The first version of this table said a warm frontend run was 22% slower under vitest, and that was wrong. Both halves of it were measured on a laptop that had emulators, builds and a browser on it, and vitest's frontend runs lost far more to that than jest's did. The likely reason is worker count: this jest config pins `maxWorkers: 4` while vitest sizes its pool to the machine, so contention costs it more. Re-measured back to back on a quiet machine, every cell moved, shared included, and the frontend regression disappeared. The lesson is in the method rather than the runner, and it is why the harness records every individual run and not just the median: the mistake was visible in the numbers before it was visible in the table.
+
+Half the frontend suite's time goes on building a jsdom, once per file. A thread is a cheaper place to do that than a child process, which is why `pool: 'threads'` is set and worth about nine seconds. The two faster options are closed. `isolate: false` shares one environment across files and fails 169 tests, so this suite's independence is real rather than incidental, and `vmThreads` crashes a worker outright.
 
 ## The coverage numbers changed, and the old ones were flattering
 
@@ -73,7 +75,7 @@ So 69/70/61/70 is the first honest reading of that suite and 78/89/61/78 never d
 
 ## The faster environment, and what it costs
 
-`happy-dom` in place of jsdom takes the warm frontend run from 18.50s to 5.81s, which is three times faster than vitest on jsdom and two and a half times faster than jest ever was. It is installed, so `pnpm exec vitest run --environment=happy-dom` from `frontend/` will show you.
+`happy-dom` in place of jsdom takes a warm frontend run to roughly a third of what it costs on jsdom, measured at 5.81s against 18.50s in the loaded session above. It is installed, so `pnpm exec vitest run --environment=happy-dom` from `frontend/` will show you.
 
 It is not the default because it is not free. As it stands it fails 24 tests. Twenty-two of those are one idiom: the suite stubs the clipboard with `Object.assign(navigator, ...)` and happy-dom makes that property getter-only, so `Object.defineProperty` is needed instead. The remaining two are the ones that matter. `ErrorBoundary` and `useLiveGameRedirect` both test what happens when storage is blocked, and happy-dom's storage does not fail the way jsdom's does, so the guard never trips and the test watches the wrong branch run.
 
