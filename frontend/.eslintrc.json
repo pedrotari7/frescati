@@ -48,7 +48,7 @@
 	},
 	"overrides": [
 		{
-			"files": ["*.config.js", "next.config.js"],
+			"files": ["*.config.js", "*.config.ts", "next.config.js"],
 			"env": { "node": true },
 			"rules": {
 				"@typescript-eslint/no-require-imports": "off"

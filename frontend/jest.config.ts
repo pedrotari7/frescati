@@ -10,15 +10,17 @@ const config: Config = {
 	/**
 	 * Compile the tests the way the app is compiled.
 	 *
-	 * `next/jest` hands everything to SWC, and SWC cannot run StyleX: its only
-	 * compiler is a Babel plugin. Left alone, every suite that renders a
-	 * component died on `Unexpected 'stylex.defineVars' call at runtime`, which
-	 * is the runtime shim saying it was never compiled. The key here is the one
-	 * `next/jest` uses, so this replaces the SWC transformer rather than being
-	 * added alongside it, and `babel.config.js` is the same file the build uses.
+	 * `next/jest` hands everything to Next's own SWC, and SWC on its own cannot
+	 * run StyleX: left alone, every suite that renders a component died on
+	 * `Unexpected 'stylex.defineVars' call at runtime`, which is the runtime shim
+	 * saying it was never compiled. The build compiles StyleX in SWC through a
+	 * Rust plugin, which rewrites the styles and leaves the module syntax alone,
+	 * so its output is ESM and jest wants CommonJS. `test/babel.config.js` says
+	 * why this is Babel rather than that plugin, and why the class names still
+	 * match what ships.
 	 */
 	transform: {
-		'^.+\\.(js|jsx|ts|tsx|mjs)$': ['babel-jest', { configFile: './babel.config.js' }],
+		'^.+\\.(js|jsx|ts|tsx|mjs)$': ['babel-jest', { configFile: './test/babel.config.js' }],
 	},
 	moduleNameMapper: {
 		'^@/(.*)$': '<rootDir>/$1',

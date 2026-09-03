@@ -1,15 +1,22 @@
 # The browsers the client bundle is compiled and prefixed for.
 #
-# This is Next's own default list, the one it hands SWC, written down because
-# Babel does the compiling now and Babel does not know about it: `next/babel`
-# leaves `@babel/preset-env` to ask browserslist, and preset-env with no list to
-# find compiles for nothing in particular, which means ES5. That cost 1.4MB of
-# extra JavaScript across the bundle and put every `await` in the app through a
-# regenerator shim. Nothing in the port asked for it and no measurement of the
-# port is honest without it.
+# This is Next's own default list, `MODERN_BROWSERSLIST_TARGET`, written down.
+# Next looks for a browserslist config before falling back to that constant, so
+# for the JavaScript this file says exactly what Next would have decided on its
+# own. Writing it down is what makes it available to everything else: chiefly
+# autoprefixer, which otherwise prefixes for browserslist's defaults, a
+# different and older set than the one the JavaScript is built for.
 #
-# Autoprefixer reads the same list, so the stylesheet is prefixed for the
-# browsers the JavaScript is built for rather than for browserslist's defaults.
+# It cost more than that once. The app was compiled by Babel while it was on
+# StyleX's Babel plugin, and `next/babel` leaves `@babel/preset-env` to ask
+# browserslist. With no list to find, preset-env compiles for nothing in
+# particular, which means ES5: 1.4MB of extra JavaScript across the bundle and a
+# regenerator shim around every `await` in the app. The compiler is SWC again
+# and that trap is gone, which leaves this file with one job rather than two.
+#
+# The cost of writing a default down is that it can drift from the default. If
+# Next moves `MODERN_BROWSERSLIST_TARGET`, this pins the old one until somebody
+# copies the new one across.
 #
 # It lives at the repo root rather than in `frontend/` because the file a build
 # picks up depends on which directory it started in, and `pnpm --filter frontend
