@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import ScoreboardLock from './ScoreboardLock';
 import { ConfirmProvider } from './ConfirmDialog';
 
-const onChange = jest.fn();
+const onChange = vi.fn();
 
 // Rendered inside the real provider rather than a stub: the whole point of this
 // component is that a tap does nothing until a second, separate one says it
@@ -25,7 +25,7 @@ const draw = async (correcting = false) => {
 const unlock = () => screen.getByRole('button', { name: /Correct a score/ });
 
 describe('ScoreboardLock', () => {
-	beforeEach(() => jest.clearAllMocks());
+	beforeEach(() => vi.clearAllMocks());
 
 	it('asks before it unlocks anything', async () => {
 		await draw();

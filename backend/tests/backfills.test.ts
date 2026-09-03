@@ -14,6 +14,7 @@ import {
 	writeSeason,
 	writeTeams,
 } from './helpers';
+import type { Mock, MockInstance } from 'vitest';
 
 /**
  * The one-shot repairs, and the line all four of them walk.
@@ -46,10 +47,10 @@ const context = ({ dryRun = false, args = [] as string[] } = {}): ScriptContext 
  * which setup.ts deliberately leaves unmocked, so this file spies on it for the
  * length of each test rather than globally.
  */
-let errors: jest.SpyInstance;
+let errors: MockInstance;
 
 const output = (): string =>
-	[...(console.log as jest.Mock).mock.calls, ...errors.mock.calls].map(call => call.map(String).join(' ')).join('\n');
+	[...(console.log as Mock).mock.calls, ...errors.mock.calls].map(call => call.map(String).join(' ')).join('\n');
 
 const ledgerEntry = (overrides: Record<string, unknown> = {}) => ({
 	seasonId: SEASON_ID,
@@ -78,7 +79,7 @@ const writeResult = (gameId: string, changes: { uid: string; before: number | nu
 beforeEach(async () => {
 	await clearFirestore();
 	await clearAuth();
-	errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+	errors = vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => errors.mockRestore());
@@ -296,7 +297,7 @@ describe('backfill-motm-voters', () => {
 		await writeMotmVote(SEASON_ID, GAME_ID, 'anna', 'bosse');
 
 		await backfillMotmVoters(context());
-		(console.log as jest.Mock).mockClear();
+		(console.log as Mock).mockClear();
 
 		await backfillMotmVoters(context());
 

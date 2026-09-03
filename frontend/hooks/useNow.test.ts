@@ -3,11 +3,11 @@ import { useNow } from './useNow';
 
 describe('useNow', () => {
 	beforeEach(() => {
-		jest.useFakeTimers().setSystemTime(new Date('2026-09-01T17:00:00.000Z'));
+		vi.useFakeTimers().setSystemTime(new Date('2026-09-01T17:00:00.000Z'));
 	});
 
 	afterEach(() => {
-		jest.useRealTimers();
+		vi.useRealTimers();
 	});
 
 	it('starts on the current time', () => {
@@ -20,7 +20,7 @@ describe('useNow', () => {
 		const { result } = renderHook(() => useNow(30_000));
 
 		act(() => {
-			jest.advanceTimersByTime(30_000);
+			vi.advanceTimersByTime(30_000);
 		});
 
 		expect(result.current.toISOString()).toBe('2026-09-01T17:00:30.000Z');
@@ -32,7 +32,7 @@ describe('useNow', () => {
 		const { result } = renderHook(() => useNow());
 
 		act(() => {
-			jest.setSystemTime(new Date('2026-09-01T18:00:00.000Z'));
+			vi.setSystemTime(new Date('2026-09-01T18:00:00.000Z'));
 			document.dispatchEvent(new Event('visibilitychange'));
 		});
 
@@ -46,7 +46,7 @@ describe('useNow', () => {
 		const initial = result.current;
 
 		act(() => {
-			jest.setSystemTime(new Date('2026-09-01T18:00:00.000Z'));
+			vi.setSystemTime(new Date('2026-09-01T18:00:00.000Z'));
 			document.dispatchEvent(new Event('visibilitychange'));
 		});
 
@@ -54,7 +54,7 @@ describe('useNow', () => {
 	});
 
 	it('clears the interval and listener on unmount', () => {
-		const removeSpy = jest.spyOn(document, 'removeEventListener');
+		const removeSpy = vi.spyOn(document, 'removeEventListener');
 		const { unmount } = renderHook(() => useNow());
 
 		unmount();

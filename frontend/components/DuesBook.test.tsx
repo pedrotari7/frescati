@@ -60,9 +60,9 @@ const book = (
 	canSettle = false,
 	chase: { chasedAt?: Map<string, string>; canChase?: boolean } = {}
 ) => {
-	const onSettle = jest.fn();
-	const onDelete = jest.fn();
-	const onRemind = jest.fn();
+	const onSettle = vi.fn();
+	const onDelete = vi.fn();
+	const onRemind = vi.fn();
 
 	render(
 		<DuesBook

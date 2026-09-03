@@ -23,18 +23,18 @@ import { renderHook } from '@testing-library/react';
  * Every subscription stubbed with one that returns an unsubscribe.
  *
  * A function *declaration*, and named with the `mock` prefix, because
- * `jest.mock` factories are hoisted above every `const` in the file and may only
+ * `vi.mock` factories are hoisted above every `const` in the file and may only
  * reach out-of-scope identifiers whose names begin with `mock`.
  */
 function mockSubscriptions(...names: string[]) {
-	return Object.fromEntries(names.map(name => [name, jest.fn(() => jest.fn())]));
+	return Object.fromEntries(names.map(name => [name, vi.fn(() => vi.fn())]));
 }
 
-jest.mock('../lib/db/seasons', () => mockSubscriptions('subscribeToSeasons', 'subscribeToSeason'));
-jest.mock('../lib/db/games', () => mockSubscriptions('subscribeToGames', 'subscribeToGame'));
-jest.mock('../lib/db/responses', () => mockSubscriptions('subscribeToResponses'));
-jest.mock('../lib/db/kit', () => mockSubscriptions('subscribeToKit'));
-jest.mock('../lib/db/tournament', () =>
+vi.mock('../lib/db/seasons', () => mockSubscriptions('subscribeToSeasons', 'subscribeToSeason'));
+vi.mock('../lib/db/games', () => mockSubscriptions('subscribeToGames', 'subscribeToGame'));
+vi.mock('../lib/db/responses', () => mockSubscriptions('subscribeToResponses'));
+vi.mock('../lib/db/kit', () => mockSubscriptions('subscribeToKit'));
+vi.mock('../lib/db/tournament', () =>
 	mockSubscriptions(
 		'subscribeToTeams',
 		'subscribeToMatches',
@@ -43,10 +43,10 @@ jest.mock('../lib/db/tournament', () =>
 		'subscribeToPlayerLedger'
 	)
 );
-jest.mock('../lib/db/motm', () =>
+vi.mock('../lib/db/motm', () =>
 	mockSubscriptions('subscribeToMotm', 'subscribeToMotmVoters', 'subscribeToMyMotmVote')
 );
-jest.mock('../lib/db/users', () => mockSubscriptions('subscribeToUsers', 'subscribeToUser'));
+vi.mock('../lib/db/users', () => mockSubscriptions('subscribeToUsers', 'subscribeToUser'));
 
 import * as games from '../lib/db/games';
 import * as kit from '../lib/db/kit';
@@ -56,6 +56,7 @@ import * as seasons from '../lib/db/seasons';
 import * as tournament from '../lib/db/tournament';
 import * as users from '../lib/db/users';
 import * as data from './useData';
+import type { Mock } from 'vitest';
 
 const SEASON = 'season-1';
 const GAME = 'game-1';
@@ -69,111 +70,111 @@ const UID = 'anna';
 const HOOKS: {
 	name: string;
 	hook: (...args: (string | null)[]) => unknown;
-	subscribe: jest.Mock;
+	subscribe: Mock;
 	args: (string | null)[];
 	subscribeWith: string[];
 }[] = [
 	{
 		name: 'useSeason',
 		hook: data.useSeason,
-		subscribe: seasons.subscribeToSeason as jest.Mock,
+		subscribe: seasons.subscribeToSeason as Mock,
 		args: [SEASON],
 		subscribeWith: [SEASON],
 	},
 	{
 		name: 'useGames',
 		hook: data.useGames,
-		subscribe: games.subscribeToGames as jest.Mock,
+		subscribe: games.subscribeToGames as Mock,
 		args: [SEASON],
 		subscribeWith: [SEASON],
 	},
 	{
 		name: 'useKit',
 		hook: data.useKit,
-		subscribe: kit.subscribeToKit as jest.Mock,
+		subscribe: kit.subscribeToKit as Mock,
 		args: [SEASON],
 		subscribeWith: [SEASON],
 	},
 	{
 		name: 'useSeasonLedger',
 		hook: data.useSeasonLedger,
-		subscribe: tournament.subscribeToSeasonLedger as jest.Mock,
+		subscribe: tournament.subscribeToSeasonLedger as Mock,
 		args: [SEASON],
 		subscribeWith: [SEASON],
 	},
 	{
 		name: 'useUser',
 		hook: data.useUser,
-		subscribe: users.subscribeToUser as jest.Mock,
+		subscribe: users.subscribeToUser as Mock,
 		args: [UID],
 		subscribeWith: [UID],
 	},
 	{
 		name: 'usePlayerLedger',
 		hook: data.usePlayerLedger,
-		subscribe: tournament.subscribeToPlayerLedger as jest.Mock,
+		subscribe: tournament.subscribeToPlayerLedger as Mock,
 		args: [UID],
 		subscribeWith: [UID],
 	},
 	{
 		name: 'useGame',
 		hook: data.useGame,
-		subscribe: games.subscribeToGame as jest.Mock,
+		subscribe: games.subscribeToGame as Mock,
 		args: [SEASON, GAME],
 		subscribeWith: [SEASON, GAME],
 	},
 	{
 		name: 'useResponses',
 		hook: data.useResponses,
-		subscribe: responses.subscribeToResponses as jest.Mock,
+		subscribe: responses.subscribeToResponses as Mock,
 		args: [SEASON, GAME],
 		subscribeWith: [SEASON, GAME],
 	},
 	{
 		name: 'useTournamentTeams',
 		hook: data.useTournamentTeams,
-		subscribe: tournament.subscribeToTeams as jest.Mock,
+		subscribe: tournament.subscribeToTeams as Mock,
 		args: [SEASON, GAME],
 		subscribeWith: [SEASON, GAME],
 	},
 	{
 		name: 'useMatches',
 		hook: data.useMatches,
-		subscribe: tournament.subscribeToMatches as jest.Mock,
+		subscribe: tournament.subscribeToMatches as Mock,
 		args: [SEASON, GAME],
 		subscribeWith: [SEASON, GAME],
 	},
 	{
 		name: 'useTournamentResult',
 		hook: data.useTournamentResult,
-		subscribe: tournament.subscribeToResult as jest.Mock,
+		subscribe: tournament.subscribeToResult as Mock,
 		args: [SEASON, GAME],
 		subscribeWith: [SEASON, GAME],
 	},
 	{
 		name: 'useMotm',
 		hook: data.useMotm,
-		subscribe: motm.subscribeToMotm as jest.Mock,
+		subscribe: motm.subscribeToMotm as Mock,
 		args: [SEASON, GAME],
 		subscribeWith: [SEASON, GAME],
 	},
 	{
 		name: 'useMotmVoters',
 		hook: data.useMotmVoters,
-		subscribe: motm.subscribeToMotmVoters as jest.Mock,
+		subscribe: motm.subscribeToMotmVoters as Mock,
 		args: [SEASON, GAME],
 		subscribeWith: [SEASON, GAME],
 	},
 	{
 		name: 'useMyMotmVote',
 		hook: data.useMyMotmVote,
-		subscribe: motm.subscribeToMyMotmVote as jest.Mock,
+		subscribe: motm.subscribeToMyMotmVote as Mock,
 		args: [SEASON, GAME, UID],
 		subscribeWith: [SEASON, GAME, UID],
 	},
 ];
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 describe('every id-gated subscription in useData', () => {
 	it.each(HOOKS.map(row => [row.name, row] as const))('%s subscribes once it has what it needs', (_name, row) => {

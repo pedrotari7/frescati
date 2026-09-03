@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ArrowRightStartOnRectangleIcon, BellIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import { signOutOfApp, useAuth } from '../../../lib/auth';
-import { buildLabel } from '../../../lib/build';
+import { buildCommitUrl, buildLabel } from '../../../lib/build';
 import { checkPushSupport, disablePush, enablePush, isPushEnabled } from '../../../lib/push';
 import type { PushSupport } from '../../../lib/push';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
@@ -22,7 +22,7 @@ import Avatar from '../../../components/Avatar';
 import Button from '../../../components/Button';
 import StatusPill from '../../../components/StatusPill';
 import { bp, colors, tint } from '../../tokens.stylex';
-import { surfaces, utils } from '../../../lib/styles';
+import { focus, surfaces, utils } from '../../../lib/styles';
 
 const styles = stylex.create({
 	page: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16 },
@@ -67,6 +67,18 @@ const styles = stylex.create({
 
 	out: { width: 16, height: 16 },
 	build: { color: colors.faint, paddingTop: 4, textAlign: 'center', fontSize: 12, lineHeight: '16px' },
+	/*
+	 * Underlined rather than tinted, because at this size and this colour a
+	 * shade of green is not enough to say "this is a link". The padding is a
+	 * thumb: seven characters of 12px type is a target nobody hits.
+	 */
+	buildLink: {
+		color: { default: 'inherit', [bp.hover]: { default: 'inherit', ':hover': colors.muted } },
+		textDecorationLine: 'underline',
+		textDecorationColor: tint.white20,
+		textUnderlineOffset: 3,
+		padding: 8,
+	},
 });
 
 /**
@@ -89,6 +101,35 @@ const LinkCard = ({ title, blurb, label, href }: { title: string; blurb?: string
 				{label}
 			</Button>
 		</section>
+	);
+};
+
+/**
+ * Which build this is, and a way to go and read it.
+ *
+ * Shown to everybody rather than only to admins, because the point of it is to
+ * be readable off somebody else's phone: "the app is broken" and "which build
+ * are you on" are the same question, and an admin-only version could never be
+ * asked of the person it is broken for. Faint and last. Nobody needs it until
+ * they are asked for it.
+ *
+ * Plain text on a local build, where there is no commit page to open. See
+ * `lib/build.ts`.
+ */
+const BuildStamp = () => {
+	const url = buildCommitUrl();
+
+	return (
+		<p {...stylex.props(styles.build)}>
+			Build{' '}
+			{url ? (
+				<a {...stylex.props(focus.ring, styles.buildLink)} href={url} target='_blank' rel='noopener noreferrer'>
+					{buildLabel()}
+				</a>
+			) : (
+				buildLabel()
+			)}
+		</p>
 	);
 };
 
@@ -347,13 +388,7 @@ const MePage = () => {
 					Sign out
 				</Button>
 
-				{/* Shown to everybody rather than only to admins, because the point
-				    of it is to be readable off somebody else's phone: "the app is
-				    broken" and "which build are you on" are the same question, and
-				    an admin-only version could never be asked of the person it is
-				    broken for. Faint and last. Nobody needs it until they are
-				    asked for it. */}
-				<p {...stylex.props(styles.build)}>Build {buildLabel()}</p>
+				<BuildStamp />
 			</div>
 		</PageShell>
 	);

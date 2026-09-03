@@ -26,8 +26,8 @@ const teams: TournamentTeam[] = [
 	{ index: 1, uids: ['sofia', 'kalle', 'bruno'] },
 ];
 
-const onSwap = jest.fn();
-const onClose = jest.fn();
+const onSwap = vi.fn();
+const onClose = vi.fn();
 
 // Headless UI settles its own transition state a microtask after mount, so an
 // unflushed render logs an act warning from inside the library on every test.
@@ -48,7 +48,7 @@ const draw = async (team: TournamentTeam | null = teams[1]) => {
 };
 
 describe('TeamLetterSheet', () => {
-	beforeEach(() => jest.clearAllMocks());
+	beforeEach(() => vi.clearAllMocks());
 
 	// A letter on its own is not something anybody can pick between at the side
 	// of a pitch. The decision is about who team A currently is.

@@ -2,6 +2,7 @@ import { DEFAULT_NOTIFICATION_PREFS } from '../../shared/types';
 import { buildGamePush } from '../../shared/notifications';
 import { sendEmail } from '../src/lib/email';
 import { clearAuth, clearFirestore, createAuthUser, getDb, writeUser } from './helpers';
+import type { Mock } from 'vitest';
 
 /**
  * The email fallback's transport, against the Auth emulator and a stubbed
@@ -34,7 +35,7 @@ const configure = () => {
 
 /** The batch bodies Resend was asked to send, one array per request. */
 const sentBatches = (): { to: string[]; subject: string; html: string; text: string }[][] =>
-	(fetch as jest.Mock).mock.calls.map(([, init]) => JSON.parse(init.body));
+	(fetch as Mock).mock.calls.map(([, init]) => JSON.parse(init.body));
 
 /**
  * Spied rather than assigned, so `restoreAllMocks` puts the real one back. The
@@ -43,7 +44,7 @@ const sentBatches = (): { to: string[]; subject: string; html: string; text: str
  * the last one's accounts.
  */
 const resendReturns = (response: { ok: boolean; status: number; text: string }) =>
-	jest.spyOn(global, 'fetch').mockResolvedValue({ ...response, text: async () => response.text } as never);
+	vi.spyOn(global, 'fetch').mockResolvedValue({ ...response, text: async () => response.text } as never);
 
 beforeEach(async () => {
 	// Before the spy goes on, these are real requests to the emulators.
@@ -60,7 +61,7 @@ beforeEach(async () => {
 	resendReturns({ ok: true, status: 200, text: '' });
 });
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => vi.restoreAllMocks());
 
 describe('sendEmail', () => {
 	it('sends nothing when no sender is configured', async () => {
@@ -147,7 +148,7 @@ describe('sendEmail', () => {
 		configure();
 		await writeUser(ANNA);
 		await createAuthUser(ANNA, { email: 'anna@example.test' });
-		jest.spyOn(global, 'fetch').mockRejectedValue(new Error('network down'));
+		vi.spyOn(global, 'fetch').mockRejectedValue(new Error('network down'));
 
 		expect(await sendEmail([ANNA], PAYLOAD)).toBe(0);
 	});

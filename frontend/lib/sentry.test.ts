@@ -7,21 +7,17 @@
  * write or blank a screen. It just quietly turns the reporter into a second
  * source of errors, on top of the one being reported.
  *
- * The DSN is read once at module load, which is why each test re-imports
- * through `jest.isolateModulesAsync` rather than setting the variable and
+ * The DSN is read once at module load, which is why each test drops the module
+ * from the registry and imports it again rather than setting the variable and
  * hoping.
  */
 
 import type * as SentryLib from './sentry';
 
-const loadSentryModule = async () => {
-	let loaded!: typeof SentryLib;
+const loadSentryModule = (): Promise<typeof SentryLib> => {
+	vi.resetModules();
 
-	await jest.isolateModulesAsync(async () => {
-		loaded = await import('./sentry');
-	});
-
-	return loaded;
+	return import('./sentry');
 };
 
 describe('sentry', () => {
@@ -100,7 +96,7 @@ describe('sentry', () => {
 		});
 
 		it('swallows an SDK that fails to load rather than rejecting', async () => {
-			jest.doMock('@sentry/nextjs', () => {
+			vi.doMock('@sentry/nextjs', () => {
 				// Stands in for the lazily fetched chunk failing on bad signal,
 				// which is the realistic case at a pitch.
 				throw new Error('chunk load failed');
@@ -111,12 +107,12 @@ describe('sentry', () => {
 			await expect(captureError(new Error('boom'))).resolves.toBeUndefined();
 			await expect(setSentryUser('uid-1')).resolves.toBeUndefined();
 
-			jest.dontMock('@sentry/nextjs');
+			vi.doUnmock('@sentry/nextjs');
 		});
 
 		it('passes the uid through and nothing else about the person', async () => {
-			const setUser = jest.fn();
-			jest.doMock('@sentry/nextjs', () => ({ setUser, captureException: jest.fn() }));
+			const setUser = vi.fn();
+			vi.doMock('@sentry/nextjs', () => ({ setUser, captureException: vi.fn() }));
 
 			const { setSentryUser } = await loadSentryModule();
 
@@ -128,7 +124,7 @@ describe('sentry', () => {
 			await setSentryUser(null);
 			expect(setUser).toHaveBeenLastCalledWith(null);
 
-			jest.dontMock('@sentry/nextjs');
+			vi.doUnmock('@sentry/nextjs');
 		});
 	});
 });

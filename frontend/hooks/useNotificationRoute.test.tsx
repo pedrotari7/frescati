@@ -1,12 +1,13 @@
 import { renderHook } from '@testing-library/react';
 
-const mockPush = jest.fn();
+const mockPush = vi.fn();
 
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
 	useRouter: () => ({ push: mockPush }),
 }));
 
 import { useNotificationRoute } from './useNotificationRoute';
+import type { Mock } from 'vitest';
 
 /**
  * The page's half of a notification tap.
@@ -20,11 +21,11 @@ import { useNotificationRoute } from './useNotificationRoute';
 type Listener = (event: MessageEvent) => void;
 
 let listeners: Listener[];
-let container: { addEventListener: jest.Mock; removeEventListener: jest.Mock; startMessages: jest.Mock };
-let replace: jest.Mock;
+let container: { addEventListener: Mock; removeEventListener: Mock; startMessages: Mock };
+let replace: Mock;
 
 /** Stands in for the port the worker transfers with the message. */
-const aPort = () => ({ postMessage: jest.fn() });
+const aPort = () => ({ postMessage: vi.fn() });
 
 const at = (href: string) => {
 	const url = new URL(href);
@@ -35,22 +36,22 @@ const at = (href: string) => {
 	});
 };
 
-const send = (data: unknown, port?: { postMessage: jest.Mock }) => {
+const send = (data: unknown, port?: { postMessage: Mock }) => {
 	const event = { data, ports: port ? [port] : [] } as unknown as MessageEvent;
 	for (const listener of listeners) listener(event);
 };
 
 beforeEach(() => {
 	mockPush.mockClear();
-	replace = jest.fn();
+	replace = vi.fn();
 	listeners = [];
 
 	container = {
-		addEventListener: jest.fn((type: string, listener: Listener) => {
+		addEventListener: vi.fn((type: string, listener: Listener) => {
 			if (type === 'message') listeners.push(listener);
 		}),
-		removeEventListener: jest.fn(),
-		startMessages: jest.fn(),
+		removeEventListener: vi.fn(),
+		startMessages: vi.fn(),
 	};
 
 	Object.defineProperty(navigator, 'serviceWorker', { value: container, configurable: true });

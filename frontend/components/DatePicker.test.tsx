@@ -3,19 +3,19 @@ import DatePicker from './DatePicker';
 
 describe('DatePicker', () => {
 	it('shows a placeholder when there is no value', () => {
-		render(<DatePicker value='' onChange={jest.fn()} />);
+		render(<DatePicker value='' onChange={vi.fn()} />);
 
 		expect(screen.getByText('Select a date')).toBeInTheDocument();
 	});
 
 	it('shows the formatted date when there is a value', () => {
-		render(<DatePicker value='2026-09-01' onChange={jest.fn()} />);
+		render(<DatePicker value='2026-09-01' onChange={vi.fn()} />);
 
 		expect(screen.getByText('Tue 1 Sep')).toBeInTheDocument();
 	});
 
 	it('opens a calendar with week numbers on click', async () => {
-		render(<DatePicker value='2026-09-01' onChange={jest.fn()} />);
+		render(<DatePicker value='2026-09-01' onChange={vi.fn()} />);
 
 		fireEvent.click(screen.getByRole('button'));
 
@@ -25,7 +25,7 @@ describe('DatePicker', () => {
 	});
 
 	it('reports the picked date and closes the calendar', async () => {
-		const onChange = jest.fn();
+		const onChange = vi.fn();
 		render(<DatePicker value='2026-09-01' onChange={onChange} />);
 
 		fireEvent.click(screen.getByRole('button'));

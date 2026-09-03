@@ -15,6 +15,7 @@ import {
 	writeTeams,
 	writeUser,
 } from './helpers';
+import type { Mock } from 'vitest';
 
 /**
  * The only thing in this repo that destroys data on purpose, and the only one
@@ -46,8 +47,8 @@ const context = (args: string[], { dryRun = false } = {}): ScriptContext => ({
 	args,
 });
 
-/** Everything the script printed, as one string. `console.log` is a jest mock. */
-const output = (): string => (console.log as jest.Mock).mock.calls.map(call => call.map(String).join(' ')).join('\n');
+/** Everything the script printed, as one string. `console.log` is a mock. */
+const output = (): string => (console.log as Mock).mock.calls.map(call => call.map(String).join(' ')).join('\n');
 
 const tokenIds = async (uid: string): Promise<string[]> => {
 	const snapshot = await getDb().collection(`users/${uid}/pushTokens`).get();
@@ -268,7 +269,7 @@ describe('running it twice', () => {
 
 	it('writes nothing the second time and says so', async () => {
 		await main(context([LEAVER]));
-		(console.log as jest.Mock).mockClear();
+		(console.log as Mock).mockClear();
 
 		await main(context([LEAVER]));
 

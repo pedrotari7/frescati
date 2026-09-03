@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { useFirestoreSubscription } from './useFirestoreSubscription';
 
-jest.mock('../lib/sentry', () => ({ captureError: jest.fn() }));
+vi.mock('../lib/sentry', () => ({ captureError: vi.fn() }));
 
 /**
  * The plumbing under every `onSnapshot` in the app.
@@ -14,10 +14,10 @@ jest.mock('../lib/sentry', () => ({ captureError: jest.fn() }));
 
 /** A subscription whose callbacks the test drives by hand. */
 const controllable = () => {
-	const unsubscribe = jest.fn();
+	const unsubscribe = vi.fn();
 	const calls: { onChange: (value: string) => void; onError: (error: Error) => void }[] = [];
 
-	const subscribe = jest.fn((onChange: (value: string) => void, onError: (error: Error) => void) => {
+	const subscribe = vi.fn((onChange: (value: string) => void, onError: (error: Error) => void) => {
 		calls.push({ onChange, onError });
 		return unsubscribe;
 	});

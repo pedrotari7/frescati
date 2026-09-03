@@ -1,6 +1,7 @@
 import { main as rateReplayReport } from '../scripts/rateReplayReport';
 import type { ScriptContext } from '../scripts/lib/script';
 import { clearFirestore, getDb, writeMatch, writeSeason, writeTeams } from './helpers';
+import type { Mock, MockInstance } from 'vitest';
 
 /**
  * The read-only report that prices the new rating formula against real history.
@@ -27,10 +28,10 @@ const context = ({ args = [] as string[] } = {}): ScriptContext => ({
 	args,
 });
 
-let errors: jest.SpyInstance;
+let errors: MockInstance;
 
 const output = (): string =>
-	[...(console.log as jest.Mock).mock.calls, ...errors.mock.calls].map(call => call.map(String).join(' ')).join('\n');
+	[...(console.log as Mock).mock.calls, ...errors.mock.calls].map(call => call.map(String).join(' ')).join('\n');
 
 const settled = (elo: number) => ({ elo, games: 10, updatedAt: '2026-08-01T00:00:00.000Z' });
 
@@ -58,7 +59,7 @@ const playedGame = async (gameId: string, kickoff: string, overrides: Record<str
 
 beforeEach(async () => {
 	await clearFirestore();
-	errors = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+	errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	await writeSeason(SEASON_ID, { memberUids: [...TEAM_A, ...TEAM_B] });
 });
 
@@ -77,7 +78,7 @@ describe('rate-replay-report', () => {
 		await rateReplayReport(context());
 		expect(output()).toContain('K=20');
 
-		(console.log as jest.Mock).mockClear();
+		(console.log as Mock).mockClear();
 		await rateReplayReport(context({ args: ['33'] }));
 
 		expect(output()).toContain('K=33');

@@ -42,8 +42,8 @@ const writeToken = (uid: string) =>
 
 /** One FCM result per token, and `sendDuesReminder` sends one person at a time. */
 const fcmDelivers = (success = true) =>
-	jest.spyOn(firebase, 'messaging').mockReturnValue({
-		sendEachForMulticast: jest.fn().mockResolvedValue({
+	vi.spyOn(firebase, 'messaging').mockReturnValue({
+		sendEachForMulticast: vi.fn().mockResolvedValue({
 			successCount: success ? 1 : 0,
 			responses: [success ? { success: true } : { success: false, error: { code: 'messaging/internal-error' } }],
 		}),
@@ -57,12 +57,12 @@ beforeEach(async () => {
 	await clearAuth();
 	// Nobody has an address unless a test gives them one, so the fallback reports
 	// nothing sent and a push is the only way anything gets through.
-	jest.spyOn(email, 'sendEmail').mockResolvedValue(0);
+	vi.spyOn(email, 'sendEmail').mockResolvedValue(0);
 	fcmDelivers();
 	await writeSeason(SEASON_ID, { adminUids: [ADMIN] });
 });
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => vi.restoreAllMocks());
 
 describe('remindDebtors', () => {
 	it('rejects when nobody is signed in', async () => {
@@ -181,7 +181,7 @@ describe('remindDebtors', () => {
 	it('does not resurrect a mark that was cleared mid-chase', async () => {
 		await mark(ANNA);
 		await writeToken(ANNA);
-		jest.spyOn(email, 'sendEmail').mockImplementation(async uids => {
+		vi.spyOn(email, 'sendEmail').mockImplementation(async uids => {
 			await getDb().doc(`seasons/${SEASON_ID}/debtors/${ANNA}`).delete();
 
 			return uids.length;
@@ -199,7 +199,7 @@ describe('remindDebtors', () => {
 	it('tells a blocked player the debt is holding their In', async () => {
 		await mark(ANNA);
 		await writeToken(ANNA);
-		const sendEmail = jest.spyOn(email, 'sendEmail').mockResolvedValue(0);
+		const sendEmail = vi.spyOn(email, 'sendEmail').mockResolvedValue(0);
 		fcmDelivers(false);
 
 		await call({ seasonId: SEASON_ID, uids: [ANNA] });
@@ -209,7 +209,7 @@ describe('remindDebtors', () => {
 
 	it('leaves that out for an admin the books cannot lock', async () => {
 		await mark(ADMIN);
-		const sendEmail = jest.spyOn(email, 'sendEmail').mockResolvedValue(0);
+		const sendEmail = vi.spyOn(email, 'sendEmail').mockResolvedValue(0);
 
 		await call({ seasonId: SEASON_ID, uids: [ADMIN] });
 
@@ -219,7 +219,7 @@ describe('remindDebtors', () => {
 	it('leaves it out for an app admin too, who is not in adminUids', async () => {
 		await mark(JOHAN);
 		await writeUser(JOHAN, { isAppAdmin: true });
-		const sendEmail = jest.spyOn(email, 'sendEmail').mockResolvedValue(0);
+		const sendEmail = vi.spyOn(email, 'sendEmail').mockResolvedValue(0);
 
 		await call({ seasonId: SEASON_ID, uids: [JOHAN] });
 
@@ -231,7 +231,7 @@ describe('remindDebtors', () => {
 	it('names each person their own amount', async () => {
 		await mark(ANNA, { outstanding: 500 });
 		await mark(JOHAN, { outstanding: 60 });
-		const sendEmail = jest.spyOn(email, 'sendEmail').mockResolvedValue(0);
+		const sendEmail = vi.spyOn(email, 'sendEmail').mockResolvedValue(0);
 
 		await call({ seasonId: SEASON_ID });
 

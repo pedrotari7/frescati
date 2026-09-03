@@ -129,7 +129,7 @@ describe('TeamCard', () => {
 		// The letter is the biggest thing on the card and the thing being
 		// changed, so it is the target rather than a control of its own.
 		it('opens the letter sheet from the badge and the team name', () => {
-			const onChangeLetter = jest.fn();
+			const onChangeLetter = vi.fn();
 
 			render(
 				<TeamCard team={team} elos={{}} usersByUid={usersByUid} sideSize={2} onChangeLetter={onChangeLetter} />
@@ -141,7 +141,7 @@ describe('TeamCard', () => {
 		});
 
 		it('opens the move sheet for the player whose button was tapped', () => {
-			const onMovePlayer = jest.fn();
+			const onMovePlayer = vi.fn();
 
 			render(<TeamCard team={team} elos={{}} usersByUid={usersByUid} sideSize={2} onMovePlayer={onMovePlayer} />);
 
@@ -154,7 +154,7 @@ describe('TeamCard', () => {
 		// covers taking them off the sheet, so the move sheet would open with
 		// every control greyed and only Cancel live.
 		it('refuses to offer a move for the only player on a squad', () => {
-			const onMovePlayer = jest.fn();
+			const onMovePlayer = vi.fn();
 
 			render(
 				<TeamCard

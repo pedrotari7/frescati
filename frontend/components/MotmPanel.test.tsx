@@ -52,7 +52,7 @@ const renderPanel = (props: Partial<React.ComponentProps<typeof MotmPanel>> = {}
 			votingUntil={OPEN_UNTIL}
 			now={NOW}
 			canVote
-			onVote={jest.fn()}
+			onVote={vi.fn()}
 			{...props}
 		/>
 	);
@@ -77,7 +77,7 @@ describe('MotmPanel', () => {
 	// Deliberate: a rule against it is one more thing to go wrong for the player
 	// who genuinely was the best one out there.
 	it('lets somebody vote for themselves', () => {
-		const onVote = jest.fn();
+		const onVote = vi.fn();
 		renderPanel({ onVote });
 
 		fireEvent.click(screen.getByRole('button', { name: /Anna/ }));
@@ -251,7 +251,7 @@ describe('MotmPanel', () => {
 		});
 
 		it('stops taking votes', () => {
-			const onVote = jest.fn();
+			const onVote = vi.fn();
 			renderPanel({ motm: decided(['zara'], [{ uid: 'zara', votes: 1 }]), votingUntil: undefined, onVote });
 
 			expect(screen.getByRole('button', { name: /Zara/ })).toBeDisabled();

@@ -1,4 +1,4 @@
-jest.mock('../src/lib/teams', () => ({ enqueueTeamRebuild: jest.fn().mockResolvedValue(undefined) }));
+vi.mock('../src/lib/teams', () => ({ enqueueTeamRebuild: vi.fn().mockResolvedValue(undefined) }));
 
 import { onResponseWrite } from '../src/onResponseWrite';
 import { enqueueTeamRebuild } from '../src/lib/teams';
@@ -16,6 +16,7 @@ import {
 	writeUser,
 	writtenEvent,
 } from './helpers';
+import type { Mock } from 'vitest';
 
 const SEASON_ID = 'season-1';
 const GAME_ID = 'game-1';
@@ -23,7 +24,7 @@ const MEMBER = 'member-1';
 const OTHER_MEMBER = 'member-2';
 const WATCHER = 'watcher-1';
 
-const enqueue = enqueueTeamRebuild as jest.Mock;
+const enqueue = enqueueTeamRebuild as Mock;
 
 /**
  * Whoever is following this game. Written straight in rather than through the
@@ -42,7 +43,7 @@ const writeWatcher = (uid: string, gameId = GAME_ID) =>
  * accepts a token is `push.test.ts`.
  */
 const captureSends = () => {
-	const spy = jest.spyOn(push, 'sendGamePush').mockResolvedValue({ pushed: 0, emailed: 0 });
+	const spy = vi.spyOn(push, 'sendGamePush').mockResolvedValue({ pushed: 0, emailed: 0 });
 
 	return spy;
 };
@@ -74,7 +75,7 @@ beforeEach(async () => {
 	enqueue.mockClear();
 });
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => vi.restoreAllMocks());
 
 describe('onResponseWrite', () => {
 	it('recounts the game a response belongs to', async () => {

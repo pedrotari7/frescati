@@ -41,7 +41,7 @@ let testEnv: RulesTestEnvironment;
 /** Swapped per test by `as`, and read by the mocked `getDb` below. */
 let currentDb: Firestore;
 
-jest.mock('../frontend/lib/firebaseClient', () => ({ getDb: () => currentDb }));
+vi.mock('../frontend/lib/firebaseClient', () => ({ getDb: () => currentDb }));
 
 import { clearResponse, setConfirmOverride, setResponse } from '../frontend/lib/db/responses';
 import { addKitItem, deleteKitItem, renameKitItem, transferKitItem } from '../frontend/lib/db/kit';

@@ -1,16 +1,16 @@
-const mockCallable = jest.fn();
-const mockHttpsCallable = jest.fn(() => mockCallable);
+const mockCallable = vi.fn();
+const mockHttpsCallable = vi.fn(() => mockCallable);
 
-jest.mock('firebase/functions', () => ({
+vi.mock('firebase/functions', () => ({
 	httpsCallable: (...args: unknown[]) => mockHttpsCallable(...(args as [])),
 }));
 
-jest.mock('../firebaseClient', () => ({ getFunctionsClient: () => ({ region: 'europe-west1' }) }));
+vi.mock('../firebaseClient', () => ({ getFunctionsClient: () => ({ region: 'europe-west1' }) }));
 
 import { callFunction } from './call';
 
 beforeEach(() => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 	mockCallable.mockResolvedValue({ data: { ok: true } });
 });
 

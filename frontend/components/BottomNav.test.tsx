@@ -2,9 +2,9 @@ import { render, screen } from '@testing-library/react';
 import { activeIndexFor, matchesHref, seasonAdminHref, seasonNavItems } from './BottomNav';
 import BottomNav from './BottomNav';
 
-const mockUsePathname = jest.fn();
+const mockUsePathname = vi.fn();
 
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
 	usePathname: () => mockUsePathname(),
 }));
 

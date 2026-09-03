@@ -19,7 +19,7 @@ const match = (overrides: Partial<TournamentMatch>): TournamentMatch => ({
 describe('MatchScore', () => {
 	it('shows a dash on both sides for an unplayed match', () => {
 		render(
-			<MatchScore fixture={fixture} match={undefined} sideSize={5} canScore onScore={jest.fn()} onClear={jest.fn()} />
+			<MatchScore fixture={fixture} match={undefined} sideSize={5} canScore onScore={vi.fn()} onClear={vi.fn()} />
 		);
 
 		expect(screen.getAllByText('–')).toHaveLength(2);
@@ -32,8 +32,8 @@ describe('MatchScore', () => {
 				match={match({ scoreA: 3, scoreB: 1 })}
 				sideSize={5}
 				canScore
-				onScore={jest.fn()}
-				onClear={jest.fn()}
+				onScore={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -48,8 +48,8 @@ describe('MatchScore', () => {
 				match={undefined}
 				sideSize={4}
 				canScore
-				onScore={jest.fn()}
-				onClear={jest.fn()}
+				onScore={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -57,10 +57,10 @@ describe('MatchScore', () => {
 	});
 
 	it('sends a first score of zero for the untouched side when the other side is stepped', () => {
-		const onScore = jest.fn();
+		const onScore = vi.fn();
 
 		render(
-			<MatchScore fixture={fixture} match={undefined} sideSize={5} canScore onScore={onScore} onClear={jest.fn()} />
+			<MatchScore fixture={fixture} match={undefined} sideSize={5} canScore onScore={onScore} onClear={vi.fn()} />
 		);
 
 		fireEvent.click(screen.getByRole('button', { name: 'Team A one more' }));
@@ -69,7 +69,7 @@ describe('MatchScore', () => {
 	});
 
 	it('increments and decrements an existing score', () => {
-		const onScore = jest.fn();
+		const onScore = vi.fn();
 
 		render(
 			<MatchScore
@@ -78,7 +78,7 @@ describe('MatchScore', () => {
 				sideSize={5}
 				canScore
 				onScore={onScore}
-				onClear={jest.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -96,8 +96,8 @@ describe('MatchScore', () => {
 				match={match({ scoreA: 0, scoreB: 0 })}
 				sideSize={5}
 				canScore
-				onScore={jest.fn()}
-				onClear={jest.fn()}
+				onScore={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -112,8 +112,8 @@ describe('MatchScore', () => {
 				match={match({ scoreA: 2, scoreB: 1 })}
 				sideSize={5}
 				canScore={false}
-				onScore={jest.fn()}
-				onClear={jest.fn()}
+				onScore={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -122,7 +122,7 @@ describe('MatchScore', () => {
 	});
 
 	it('clears a played match', () => {
-		const onClear = jest.fn();
+		const onClear = vi.fn();
 
 		render(
 			<MatchScore
@@ -130,7 +130,7 @@ describe('MatchScore', () => {
 				match={match({ scoreA: 2, scoreB: 1 })}
 				sideSize={5}
 				canScore
-				onScore={jest.fn()}
+				onScore={vi.fn()}
 				onClear={onClear}
 			/>
 		);
@@ -144,7 +144,7 @@ describe('MatchScore', () => {
 
 	it('has no Clear button for an unplayed match even when scoring is allowed', () => {
 		render(
-			<MatchScore fixture={fixture} match={undefined} sideSize={5} canScore onScore={jest.fn()} onClear={jest.fn()} />
+			<MatchScore fixture={fixture} match={undefined} sideSize={5} canScore onScore={vi.fn()} onClear={vi.fn()} />
 		);
 
 		expect(screen.queryByRole('button', { name: /^Clear the score/ })).not.toBeInTheDocument();

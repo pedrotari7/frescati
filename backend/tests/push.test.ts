@@ -32,14 +32,14 @@ const writeToken = (uid: string, token: string) =>
 
 /** One FCM result per token sent, in order. `true` succeeded, `false` didn't. */
 const fcmReturns = (...outcomes: boolean[]) => {
-	const sendEachForMulticast = jest.fn().mockResolvedValue({
+	const sendEachForMulticast = vi.fn().mockResolvedValue({
 		successCount: outcomes.filter(Boolean).length,
 		responses: outcomes.map(success =>
 			success ? { success: true } : { success: false, error: { code: 'messaging/internal-error' } }
 		),
 	});
 
-	jest.spyOn(firebase, 'messaging').mockReturnValue({ sendEachForMulticast } as never);
+	vi.spyOn(firebase, 'messaging').mockReturnValue({ sendEachForMulticast } as never);
 
 	return sendEachForMulticast;
 };
@@ -52,7 +52,7 @@ const fcmReturns = (...outcomes: boolean[]) => {
  * nobody needs one, which is the same outcome as not asking.
  */
 const captureEmails = () => {
-	const spy = jest.spyOn(email, 'sendEmail').mockImplementation(async uids => uids.length);
+	const spy = vi.spyOn(email, 'sendEmail').mockImplementation(async uids => uids.length);
 
 	return () => spy.mock.calls.flatMap(([uids]) => uids);
 };
@@ -62,7 +62,7 @@ beforeEach(async () => {
 	await clearAuth();
 });
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => vi.restoreAllMocks());
 
 describe('sendPush', () => {
 	it('emails somebody who has no device registered at all', async () => {
@@ -183,8 +183,8 @@ describe('sendPush', () => {
 	it('deletes tokens FCM reports as dead, and still emails their owner', async () => {
 		await writeUser(ANNA);
 		await writeToken(ANNA, 'dead-token');
-		jest.spyOn(firebase, 'messaging').mockReturnValue({
-			sendEachForMulticast: jest.fn().mockResolvedValue({
+		vi.spyOn(firebase, 'messaging').mockReturnValue({
+			sendEachForMulticast: vi.fn().mockResolvedValue({
 				successCount: 0,
 				responses: [{ success: false, error: { code: 'messaging/registration-token-not-registered' } }],
 			}),

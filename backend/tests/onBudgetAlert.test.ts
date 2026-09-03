@@ -1,4 +1,5 @@
 import { onBudgetAlert } from '../src/onBudgetAlert';
+import type { Mock } from 'vitest';
 
 /**
  * The one function here whose bug takes the app off the internet.
@@ -85,7 +86,7 @@ interface BillingStub {
 
 /** Routes the three calls the handler can make: token, read, write. */
 const mockBilling = ({ billingEnabled = true, token, read, write }: BillingStub = {}) => {
-	const fetchMock = jest.fn(async (url: string | URL, init?: { method?: string }) => {
+	const fetchMock = vi.fn(async (url: string | URL, init?: { method?: string }) => {
 		const href = String(url);
 
 		if (href.includes('metadata.google.internal')) {
@@ -105,7 +106,7 @@ const mockBilling = ({ billingEnabled = true, token, read, write }: BillingStub 
 	return fetchMock;
 };
 
-const putCalls = (fetchMock: jest.Mock) =>
+const putCalls = (fetchMock: Mock) =>
 	fetchMock.mock.calls.filter(([, init]) => (init as { method?: string } | undefined)?.method === 'PUT');
 
 describe('onBudgetAlert', () => {

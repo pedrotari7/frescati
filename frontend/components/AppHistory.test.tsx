@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 
 let mockPathname = '/s/1';
 
-jest.mock('next/navigation', () => ({ usePathname: () => mockPathname }));
+vi.mock('next/navigation', () => ({ usePathname: () => mockPathname }));
 
 import { AppHistoryProvider, useAppHistory } from './AppHistory';
 

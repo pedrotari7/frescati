@@ -1,10 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 
-const mockRecordVisit = jest.fn().mockResolvedValue(undefined);
-const mockCaptureError = jest.fn().mockResolvedValue(undefined);
+const mockRecordVisit = vi.fn().mockResolvedValue(undefined);
+const mockCaptureError = vi.fn().mockResolvedValue(undefined);
 
-jest.mock('../lib/db/users', () => ({ recordVisit: (...args: unknown[]) => mockRecordVisit(...args) }));
-jest.mock('../lib/sentry', () => ({ captureError: (...args: unknown[]) => mockCaptureError(...args) }));
+vi.mock('../lib/db/users', () => ({ recordVisit: (...args: unknown[]) => mockRecordVisit(...args) }));
+vi.mock('../lib/sentry', () => ({ captureError: (...args: unknown[]) => mockCaptureError(...args) }));
 
 import { useLastSeen } from './useLastSeen';
 
@@ -20,13 +20,13 @@ const becomes = (state: 'visible' | 'hidden') =>
 
 describe('useLastSeen', () => {
 	beforeEach(() => {
-		jest.clearAllMocks();
-		jest.useFakeTimers().setSystemTime(new Date('2026-08-12T19:00:00.000Z'));
+		vi.clearAllMocks();
+		vi.useFakeTimers().setSystemTime(new Date('2026-08-12T19:00:00.000Z'));
 		setVisibility('visible');
 	});
 
 	afterEach(() => {
-		jest.useRealTimers();
+		vi.useRealTimers();
 	});
 
 	// The sign-in write already stamped this instant; writing it again from here
@@ -41,7 +41,7 @@ describe('useLastSeen', () => {
 		renderHook(() => useLastSeen('anna'));
 
 		act(() => setVisibility('hidden'));
-		jest.setSystemTime(new Date('2026-08-12T21:30:00.000Z'));
+		vi.setSystemTime(new Date('2026-08-12T21:30:00.000Z'));
 		becomes('visible');
 
 		expect(mockRecordVisit).toHaveBeenCalledWith('anna', '2026-08-12T21:30:00.000Z');
@@ -62,7 +62,7 @@ describe('useLastSeen', () => {
 
 		for (let i = 0; i < 5; i++) {
 			becomes('hidden');
-			jest.setSystemTime(new Date(Date.now() + 20_000));
+			vi.setSystemTime(new Date(Date.now() + 20_000));
 			becomes('visible');
 		}
 
@@ -75,7 +75,7 @@ describe('useLastSeen', () => {
 		setVisibility('hidden');
 		renderHook(() => useLastSeen('anna'));
 
-		jest.setSystemTime(new Date('2026-08-12T19:00:30.000Z'));
+		vi.setSystemTime(new Date('2026-08-12T19:00:30.000Z'));
 		becomes('visible');
 
 		expect(mockRecordVisit).toHaveBeenCalledWith('anna', '2026-08-12T19:00:30.000Z');
@@ -85,7 +85,7 @@ describe('useLastSeen', () => {
 		renderHook(() => useLastSeen(undefined));
 
 		act(() => setVisibility('hidden'));
-		jest.setSystemTime(new Date('2026-08-12T21:30:00.000Z'));
+		vi.setSystemTime(new Date('2026-08-12T21:30:00.000Z'));
 		becomes('visible');
 
 		expect(mockRecordVisit).not.toHaveBeenCalled();
@@ -99,7 +99,7 @@ describe('useLastSeen', () => {
 		renderHook(() => useLastSeen('anna'));
 
 		act(() => setVisibility('hidden'));
-		jest.setSystemTime(new Date('2026-08-12T21:30:00.000Z'));
+		vi.setSystemTime(new Date('2026-08-12T21:30:00.000Z'));
 		becomes('visible');
 
 		await act(async () => {
@@ -109,14 +109,14 @@ describe('useLastSeen', () => {
 		expect(mockCaptureError).toHaveBeenCalled();
 
 		act(() => setVisibility('hidden'));
-		jest.setSystemTime(new Date('2026-08-12T21:30:20.000Z'));
+		vi.setSystemTime(new Date('2026-08-12T21:30:20.000Z'));
 		becomes('visible');
 
 		expect(mockRecordVisit).toHaveBeenCalledTimes(2);
 	});
 
 	it('stops listening once it unmounts', () => {
-		const removeSpy = jest.spyOn(document, 'removeEventListener');
+		const removeSpy = vi.spyOn(document, 'removeEventListener');
 		const { unmount } = renderHook(() => useLastSeen('anna'));
 
 		unmount();

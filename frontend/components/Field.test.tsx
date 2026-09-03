@@ -30,7 +30,7 @@ describe('Field', () => {
 
 describe('TextInput', () => {
 	it('forwards standard input props', () => {
-		const onChange = jest.fn();
+		const onChange = vi.fn();
 		render(<TextInput placeholder='Name' onChange={onChange} />);
 
 		fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'Alice' } });
@@ -41,7 +41,7 @@ describe('TextInput', () => {
 
 describe('Select', () => {
 	it('renders its options and reports a change', () => {
-		const onChange = jest.fn();
+		const onChange = vi.fn();
 
 		render(
 			<Select aria-label='Weekday' defaultValue='2' onChange={onChange}>

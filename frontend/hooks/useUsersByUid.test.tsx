@@ -7,8 +7,8 @@ const marco = { uid: 'marco', displayName: 'Marco' } as AppUser;
 let mockUsers: AppUser[] = [anna, marco];
 let mockLoading = false;
 
-jest.mock('../lib/db/users', () => ({ subscribeToUsers: jest.fn(), subscribeToUser: jest.fn() }));
-jest.mock('./useFirestoreSubscription', () => ({
+vi.mock('../lib/db/users', () => ({ subscribeToUsers: vi.fn(), subscribeToUser: vi.fn() }));
+vi.mock('./useFirestoreSubscription', () => ({
 	useFirestoreSubscription: () => ({ data: mockUsers, loading: mockLoading, error: null }),
 }));
 

@@ -22,10 +22,10 @@ const file = (name: string, type: string, size: number): File => {
 };
 
 const list = (receipts: Receipt[], canEdit = false) => {
-	const onUpload = jest.fn().mockResolvedValue(true);
-	const onDownload = jest.fn().mockResolvedValue(undefined);
-	const onCopyLink = jest.fn().mockResolvedValue(undefined);
-	const onDelete = jest.fn();
+	const onUpload = vi.fn().mockResolvedValue(true);
+	const onDownload = vi.fn().mockResolvedValue(undefined);
+	const onCopyLink = vi.fn().mockResolvedValue(undefined);
+	const onDelete = vi.fn();
 
 	render(
 		<ReceiptList
@@ -229,16 +229,16 @@ describe('adding one', () => {
 	// A refused write has already been reported by `useWrite`, and what somebody
 	// needs to try again with is the thing they typed.
 	it('leaves the form alone when the upload fails', async () => {
-		const onUpload = jest.fn().mockResolvedValue(false);
+		const onUpload = vi.fn().mockResolvedValue(false);
 
 		render(
 			<ReceiptList
 				receipts={[]}
 				canEdit
 				onUpload={onUpload}
-				onDownload={jest.fn()}
-				onCopyLink={jest.fn()}
-				onDelete={jest.fn()}
+				onDownload={vi.fn()}
+				onCopyLink={vi.fn()}
+				onDelete={vi.fn()}
 			/>
 		);
 

@@ -13,15 +13,15 @@ beforeEach(async () => {
 	await clearAuth();
 });
 
-// `jest.spyOn` reuses the same mock across calls on an already-spied method.
-afterEach(() => jest.restoreAllMocks());
+// `vi.spyOn` reuses the same mock across calls on an already-spied method.
+afterEach(() => vi.restoreAllMocks());
 
 describe('onUserCreated', () => {
 	it('tells every app admin, and nobody else', async () => {
 		await writeUser(ADMIN, { isAppAdmin: true });
 		await writeUser(OTHER_ADMIN, { isAppAdmin: true });
 		await writeUser(PLAYER);
-		const sendSpy = jest.spyOn(push, 'sendPush');
+		const sendSpy = vi.spyOn(push, 'sendPush');
 
 		await onUserCreated.run(createdEvent({ uid: NEWCOMER }, aUser(NEWCOMER, { displayName: 'Zoe Lindqvist' })));
 
@@ -35,7 +35,7 @@ describe('onUserCreated', () => {
 
 	it('sends the same payload the debug screen and the copy tests agree on', async () => {
 		await writeUser(ADMIN, { isAppAdmin: true });
-		const sendSpy = jest.spyOn(push, 'sendPush');
+		const sendSpy = vi.spyOn(push, 'sendPush');
 
 		await onUserCreated.run(createdEvent({ uid: NEWCOMER }, aUser(NEWCOMER, { displayName: 'Zoe Lindqvist' })));
 
@@ -52,7 +52,7 @@ describe('onUserCreated', () => {
 	it('deep-links to the manage-squad screen of the active season', async () => {
 		await writeUser(ADMIN, { isAppAdmin: true });
 		await writeSeason('season-active', { status: 'active' });
-		const sendSpy = jest.spyOn(push, 'sendPush');
+		const sendSpy = vi.spyOn(push, 'sendPush');
 
 		await onUserCreated.run(createdEvent({ uid: NEWCOMER }, aUser(NEWCOMER)));
 
@@ -67,7 +67,7 @@ describe('onUserCreated', () => {
 		await writeSeason('season-older', { status: 'active', createdAt: '2026-01-01T00:00:00.000Z' });
 		await writeSeason('season-newer', { status: 'active', createdAt: '2026-06-01T00:00:00.000Z' });
 		await writeSeason('season-archived', { status: 'archived', createdAt: '2026-09-01T00:00:00.000Z' });
-		const sendSpy = jest.spyOn(push, 'sendPush');
+		const sendSpy = vi.spyOn(push, 'sendPush');
 
 		await onUserCreated.run(createdEvent({ uid: NEWCOMER }, aUser(NEWCOMER)));
 
@@ -80,7 +80,7 @@ describe('onUserCreated', () => {
 	it('falls back to /admin when no season is active', async () => {
 		await writeUser(ADMIN, { isAppAdmin: true });
 		await writeSeason('season-archived', { status: 'archived' });
-		const sendSpy = jest.spyOn(push, 'sendPush');
+		const sendSpy = vi.spyOn(push, 'sendPush');
 
 		await onUserCreated.run(createdEvent({ uid: NEWCOMER }, aUser(NEWCOMER)));
 
@@ -92,7 +92,7 @@ describe('onUserCreated', () => {
 	// did it is the person who would be told.
 	it('ignores a profile created already carrying the admin badge', async () => {
 		await writeUser(ADMIN, { isAppAdmin: true });
-		const sendSpy = jest.spyOn(push, 'sendPush');
+		const sendSpy = vi.spyOn(push, 'sendPush');
 
 		await onUserCreated.run(createdEvent({ uid: OTHER_ADMIN }, aUser(OTHER_ADMIN, { isAppAdmin: true })));
 
@@ -107,7 +107,7 @@ describe('onUserCreated', () => {
 
 	it('ignores an event with no document on it', async () => {
 		await writeUser(ADMIN, { isAppAdmin: true });
-		const sendSpy = jest.spyOn(push, 'sendPush');
+		const sendSpy = vi.spyOn(push, 'sendPush');
 
 		await onUserCreated.run(createdEvent({ uid: NEWCOMER }, undefined));
 

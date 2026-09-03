@@ -50,8 +50,8 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra={false}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -69,8 +69,8 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra={false}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -88,8 +88,8 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra={false}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -109,8 +109,8 @@ describe('NextGameHero', () => {
 				myResponse={response({ role: 'extra' })}
 				isExtra
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -125,8 +125,8 @@ describe('NextGameHero', () => {
 				myResponse={response({ role: 'extra', confirmOverride: true })}
 				isExtra
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -142,8 +142,8 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -158,8 +158,8 @@ describe('NextGameHero', () => {
 				myResponse={response({})}
 				isExtra={false}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -176,8 +176,8 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra={false}
 				now={locked}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -194,8 +194,8 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra={false}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -212,8 +212,8 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra={false}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -229,8 +229,8 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra={false}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -246,8 +246,8 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -262,8 +262,8 @@ describe('NextGameHero', () => {
 				myResponse={response({})}
 				isExtra={false}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 
@@ -273,7 +273,7 @@ describe('NextGameHero', () => {
 	// The bell is on the card the whole group opens first, so following the next
 	// game never costs a trip to its own screen.
 	it('offers the bell on the next game, and toggles it', () => {
-		const onWatchChange = jest.fn();
+		const onWatchChange = vi.fn();
 
 		render(
 			<NextGameHero
@@ -282,8 +282,8 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra={false}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 				onWatchChange={onWatchChange}
 			/>
 		);
@@ -303,9 +303,9 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra={false}
 				now={new Date('2026-08-31T18:00:00.000Z')}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
-				onWatchChange={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
+				onWatchChange={vi.fn()}
 			/>
 		);
 
@@ -320,9 +320,9 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra={false}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
-				onWatchChange={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
+				onWatchChange={vi.fn()}
 			/>
 		);
 
@@ -339,8 +339,8 @@ describe('NextGameHero', () => {
 				myResponse={undefined}
 				isExtra={false}
 				now={now}
-				onRespond={jest.fn()}
-				onClear={jest.fn()}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
 			/>
 		);
 

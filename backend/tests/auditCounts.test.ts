@@ -24,14 +24,14 @@ beforeEach(async () => {
 	await clearFirestore();
 });
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => vi.restoreAllMocks());
 
 describe('auditGameCounts', () => {
 	it('reports a game whose counters never caught up with its responses', async () => {
 		await writeSeason(SEASON_ID, { status: 'active', minPlayers: 10 });
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(48) });
 		await writeResponse(SEASON_ID, GAME_ID, 'member-1', inFull);
-		const reportSpy = jest.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
+		const reportSpy = vi.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
 
 		await auditGameCounts.run(undefined as never);
 
@@ -58,7 +58,7 @@ describe('auditGameCounts', () => {
 	it('says nothing about a game nobody has answered yet', async () => {
 		await writeSeason(SEASON_ID, { status: 'active', minPlayers: 10 });
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(48) });
-		const reportSpy = jest.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
+		const reportSpy = vi.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
 
 		await auditGameCounts.run(undefined as never);
 
@@ -74,7 +74,7 @@ describe('auditGameCounts', () => {
 			atRisk: false,
 		});
 		await writeResponse(SEASON_ID, GAME_ID, 'member-1', inFull);
-		const reportSpy = jest.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
+		const reportSpy = vi.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
 
 		await auditGameCounts.run(undefined as never);
 
@@ -87,7 +87,7 @@ describe('auditGameCounts', () => {
 		await writeSeason(SEASON_ID, { status: 'active', minPlayers: 10 });
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(-48) });
 		await writeResponse(SEASON_ID, GAME_ID, 'member-1', inFull);
-		const reportSpy = jest.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
+		const reportSpy = vi.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
 
 		await auditGameCounts.run(undefined as never);
 
@@ -103,7 +103,7 @@ describe('auditGameCounts', () => {
 		await writeGame('season-2', 'game-2', { status: 'scheduled', kickoff: hoursFromNow(48) });
 		await writeResponse('season-2', 'game-2', 'member-1', inFull);
 
-		const reportSpy = jest.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
+		const reportSpy = vi.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
 
 		await auditGameCounts.run(undefined as never);
 
@@ -120,7 +120,7 @@ describe('auditGameCounts', () => {
 			await writeResponse(SEASON_ID, gameId, 'member-1', inFull);
 		}
 
-		const reportSpy = jest.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
+		const reportSpy = vi.spyOn(sentry, 'reportError').mockImplementation(() => undefined);
 
 		await auditGameCounts.run(undefined as never);
 

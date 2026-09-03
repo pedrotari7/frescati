@@ -24,7 +24,7 @@ const configure = () => {
 };
 
 const resendReturns = (response: { ok: boolean; status: number; text: string }) =>
-	jest.spyOn(global, 'fetch').mockResolvedValue({ ...response, text: async () => response.text } as never);
+	vi.spyOn(global, 'fetch').mockResolvedValue({ ...response, text: async () => response.text } as never);
 
 beforeEach(async () => {
 	await clearFirestore();
@@ -38,7 +38,7 @@ beforeEach(async () => {
 	resendReturns({ ok: true, status: 200, text: '' });
 });
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => vi.restoreAllMocks());
 
 describe('sendTestEmail', () => {
 	it('rejects when nobody is signed in', async () => {

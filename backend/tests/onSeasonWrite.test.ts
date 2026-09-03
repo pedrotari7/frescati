@@ -1,4 +1,4 @@
-jest.mock('../src/lib/teams', () => ({ enqueueTeamRebuild: jest.fn().mockResolvedValue(undefined) }));
+vi.mock('../src/lib/teams', () => ({ enqueueTeamRebuild: vi.fn().mockResolvedValue(undefined) }));
 
 import { onSeasonWrite } from '../src/onSeasonWrite';
 import { enqueueTeamRebuild } from '../src/lib/teams';
@@ -12,13 +12,14 @@ import {
 	writeResponse,
 	writtenEvent,
 } from './helpers';
+import type { Mock } from 'vitest';
 
 const SEASON_ID = 'season-1';
 const GAME_ID = 'game-1';
 const MEMBER = 'member-1';
 const NEW_MEMBER = 'member-2';
 
-const enqueue = enqueueTeamRebuild as jest.Mock;
+const enqueue = enqueueTeamRebuild as Mock;
 
 const inTheFuture = new Date(Date.now() + 24 * 3_600_000).toISOString();
 const inThePast = new Date(Date.now() - 24 * 3_600_000).toISOString();

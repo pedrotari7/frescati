@@ -1,8 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 
-jest.mock('../lib/sentry', () => ({ captureError: jest.fn().mockResolvedValue(undefined) }));
+vi.mock('../lib/sentry', () => ({ captureError: vi.fn().mockResolvedValue(undefined) }));
 
 import { useServiceWorkerUpdate } from './useServiceWorkerUpdate';
+import type { Mock } from 'vitest';
 
 /**
  * jsdom has no `navigator.serviceWorker` at all, so the whole container is
@@ -37,8 +38,8 @@ class FakeWorker {
 class FakeRegistration {
 	waiting: FakeWorker | null = null;
 	installing: FakeWorker | null = null;
-	readonly update = jest.fn().mockResolvedValue(undefined);
-	readonly unregister = jest.fn().mockResolvedValue(true);
+	readonly update = vi.fn().mockResolvedValue(undefined);
+	readonly unregister = vi.fn().mockResolvedValue(true);
 	private readonly listeners = new Map<string, Listener[]>();
 
 	constructor(readonly scope = 'https://frescati.test/') {}
@@ -57,13 +58,13 @@ class FakeRegistration {
 let registration: FakeRegistration;
 let container: {
 	controller: unknown;
-	register: jest.Mock;
-	getRegistrations?: jest.Mock;
-	addEventListener: jest.Mock;
-	removeEventListener: jest.Mock;
+	register: Mock;
+	getRegistrations?: Mock;
+	addEventListener: Mock;
+	removeEventListener: Mock;
 };
 let controllerChange: Listener | undefined;
-let reload: jest.Mock;
+let reload: Mock;
 
 const install = ({ controlled, others }: { controlled: boolean; others?: FakeRegistration[] }) => {
 	registration = new FakeRegistration();
@@ -71,22 +72,22 @@ const install = ({ controlled, others }: { controlled: boolean; others?: FakeReg
 
 	container = {
 		controller: controlled ? {} : null,
-		register: jest.fn().mockResolvedValue(registration),
-		addEventListener: jest.fn((type: string, listener: Listener) => {
+		register: vi.fn().mockResolvedValue(registration),
+		addEventListener: vi.fn((type: string, listener: Listener) => {
 			if (type === 'controllerchange') controllerChange = listener;
 		}),
-		removeEventListener: jest.fn(),
+		removeEventListener: vi.fn(),
 	};
 
 	// Left off unless a test asks for it, because Safari leaves it off too and
 	// the hook has to survive that.
-	if (others) container.getRegistrations = jest.fn().mockResolvedValue([registration, ...others]);
+	if (others) container.getRegistrations = vi.fn().mockResolvedValue([registration, ...others]);
 
 	Object.defineProperty(navigator, 'serviceWorker', { value: container, configurable: true });
 };
 
 beforeEach(() => {
-	reload = jest.fn();
+	reload = vi.fn();
 	Object.defineProperty(window, 'location', { value: { reload }, configurable: true, writable: true });
 	Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
 });

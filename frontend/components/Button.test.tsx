@@ -3,7 +3,7 @@ import Button from './Button';
 
 describe('Button', () => {
 	it('renders its children and fires onClick', async () => {
-		const onClick = jest.fn();
+		const onClick = vi.fn();
 
 		render(<Button onClick={onClick}>Save</Button>);
 
@@ -22,7 +22,7 @@ describe('Button', () => {
 
 	it('disables itself and shows a spinner while an async onClick is pending', async () => {
 		let resolveClick: () => void = () => {};
-		const onClick = jest.fn(
+		const onClick = vi.fn(
 			() =>
 				new Promise<void>(resolve => {
 					resolveClick = resolve;

@@ -13,8 +13,8 @@ const expense = (over: Partial<Expense> = {}): Expense => ({
 });
 
 const list = (expenses: Expense[], canEdit = false, added = true) => {
-	const onAdd = jest.fn().mockResolvedValue(added);
-	const onDelete = jest.fn();
+	const onAdd = vi.fn().mockResolvedValue(added);
+	const onDelete = vi.fn();
 
 	render(<ExpenseList expenses={expenses} canEdit={canEdit} onAdd={onAdd} onDelete={onDelete} />);
 

@@ -1,12 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ErrorBoundary from './ErrorBoundary';
 import { captureErrorAndFlush } from '../lib/sentry';
+import type { Mock, MockedFunction } from 'vitest';
 
-jest.mock('../lib/sentry', () => ({
-	captureErrorAndFlush: jest.fn(() => Promise.resolve()),
+vi.mock('../lib/sentry', () => ({
+	captureErrorAndFlush: vi.fn(() => Promise.resolve()),
 }));
 
-const flushSentry = captureErrorAndFlush as jest.MockedFunction<typeof captureErrorAndFlush>;
+const flushSentry = captureErrorAndFlush as MockedFunction<typeof captureErrorAndFlush>;
 
 const Bomb = () => {
 	throw new Error('boom');
@@ -16,12 +17,12 @@ const Bomb = () => {
 const alreadyReloaded = () => window.sessionStorage.setItem('frescati:error-reload', String(Date.now()));
 
 describe('ErrorBoundary', () => {
-	let reload: jest.Mock;
+	let reload: Mock;
 
 	beforeEach(() => {
-		jest.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 
-		reload = jest.fn();
+		reload = vi.fn();
 		Object.defineProperty(window, 'location', {
 			value: { ...window.location, reload },
 			configurable: true,
@@ -34,7 +35,7 @@ describe('ErrorBoundary', () => {
 	});
 
 	afterEach(() => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	});
 
 	it('renders its children when nothing throws', () => {
@@ -152,7 +153,7 @@ describe('ErrorBoundary', () => {
 		it('leaves it to the button when storage is blocked, rather than looping', async () => {
 			// Safari in private mode throws outright rather than no-opping, and
 			// an unrecorded attempt is one nothing can stop repeating.
-			jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
 				throw new Error('storage disabled');
 			});
 

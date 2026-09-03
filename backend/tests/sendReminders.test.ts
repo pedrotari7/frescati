@@ -15,9 +15,9 @@ beforeEach(async () => {
 	await clearAuth();
 });
 
-// `jest.spyOn` reuses the same mock across calls on an already-spied method, so
+// `vi.spyOn` reuses the same mock across calls on an already-spied method, so
 // without this its call count would keep accumulating across tests in this file.
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => vi.restoreAllMocks());
 
 describe('sendReminders', () => {
 	it('nudges members who have not answered once their window opens', async () => {
@@ -28,7 +28,7 @@ describe('sendReminders', () => {
 		});
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(48) });
 		await writeResponse(SEASON_ID, GAME_ID, MEMBER, { status: 'in', role: 'member' });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await sendReminders.run(undefined as never);
 
@@ -41,7 +41,7 @@ describe('sendReminders', () => {
 	it('does not resend a reminder once its window is recorded', async () => {
 		await writeSeason(SEASON_ID, { status: 'active', memberUids: [SILENT_MEMBER], reminderHours: [72, 24] });
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(48), remindersSent: [72] });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await sendReminders.run(undefined as never);
 
@@ -52,7 +52,7 @@ describe('sendReminders', () => {
 		await writeSeason(SEASON_ID, { status: 'active', memberUids: [SILENT_MEMBER], reminderHours: [72, 24] });
 		// Both the 72h and 24h windows have already passed by the time this runs.
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(20) });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await sendReminders.run(undefined as never);
 
@@ -64,7 +64,7 @@ describe('sendReminders', () => {
 	it('ignores seasons that are not active', async () => {
 		await writeSeason(SEASON_ID, { status: 'draft', memberUids: [SILENT_MEMBER], reminderHours: [72] });
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(48) });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await sendReminders.run(undefined as never);
 
@@ -74,7 +74,7 @@ describe('sendReminders', () => {
 	it('ignores games further out than every reminder window', async () => {
 		await writeSeason(SEASON_ID, { status: 'active', memberUids: [SILENT_MEMBER], reminderHours: [72, 24] });
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(200) });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await sendReminders.run(undefined as never);
 
@@ -84,7 +84,7 @@ describe('sendReminders', () => {
 	it('ignores a game that has already kicked off', async () => {
 		await writeSeason(SEASON_ID, { status: 'active', memberUids: [SILENT_MEMBER], reminderHours: [72, 24] });
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(-2) });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await sendReminders.run(undefined as never);
 
@@ -95,7 +95,7 @@ describe('sendReminders', () => {
 		// Nobody is playing, so there is nothing to be nudged about.
 		await writeSeason(SEASON_ID, { status: 'active', memberUids: [SILENT_MEMBER], reminderHours: [72, 24] });
 		await writeGame(SEASON_ID, GAME_ID, { status: 'cancelled', kickoff: hoursFromNow(48) });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await sendReminders.run(undefined as never);
 
@@ -110,7 +110,7 @@ describe('sendReminders', () => {
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(48) });
 		await writeResponse(SEASON_ID, GAME_ID, MEMBER, { status: 'in', role: 'member' });
 		await writeResponse(SEASON_ID, GAME_ID, 'extra-1', { status: 'in', role: 'extra' });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await sendReminders.run(undefined as never);
 
@@ -123,7 +123,7 @@ describe('sendReminders', () => {
 		await writeSeason(SEASON_ID, { status: 'active', memberUids: [MEMBER], reminderHours: [72, 24] });
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(48) });
 		await writeResponse(SEASON_ID, GAME_ID, MEMBER, { status: 'in', role: 'member' });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await sendReminders.run(undefined as never);
 
@@ -136,7 +136,7 @@ describe('sendReminders', () => {
 		await writeSeason(SEASON_ID, { status: 'active', memberUids: [SILENT_MEMBER] });
 		await getDb().doc(`seasons/${SEASON_ID}`).update({ reminderHours: FieldValue.delete() });
 		await writeGame(SEASON_ID, GAME_ID, { status: 'scheduled', kickoff: hoursFromNow(48) });
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await expect(sendReminders.run(undefined as never)).resolves.toBeUndefined();
 
@@ -167,7 +167,7 @@ describe('sendReminders when one document is broken', () => {
 			memberUids: [SILENT_MEMBER],
 			reminderHours: 72 as unknown as number[],
 		});
-		const sendSpy = jest.spyOn(push, 'sendGamePush');
+		const sendSpy = vi.spyOn(push, 'sendGamePush');
 
 		await expect(sendReminders.run(undefined as never)).resolves.toBeUndefined();
 
@@ -178,7 +178,7 @@ describe('sendReminders when one document is broken', () => {
 		await writeSeason(SEASON_ID, { status: 'active', memberUids: [SILENT_MEMBER], reminderHours: [72, 24] });
 		await writeGame(SEASON_ID, 'game-broken', { status: 'scheduled', kickoff: hoursFromNow(48) });
 
-		const sendSpy = jest
+		const sendSpy = vi
 			.spyOn(push, 'sendGamePush')
 			.mockImplementation(async (_uids, _kind, payload: { gameId?: string }) => {
 				if (payload.gameId === 'game-broken') throw new Error('FCM refused');
@@ -193,7 +193,7 @@ describe('sendReminders when one document is broken', () => {
 
 	it('leaves the window unrecorded on the game that failed, so the next run retries it', async () => {
 		await writeSeason(SEASON_ID, { status: 'active', memberUids: [SILENT_MEMBER], reminderHours: [72, 24] });
-		jest.spyOn(push, 'sendGamePush').mockRejectedValue(new Error('FCM refused'));
+		vi.spyOn(push, 'sendGamePush').mockRejectedValue(new Error('FCM refused'));
 
 		await sendReminders.run(undefined as never);
 
