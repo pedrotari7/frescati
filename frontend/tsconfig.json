@@ -16,6 +16,12 @@
 		"jsx": "preserve",
 		"incremental": true,
 		"baseUrl": ".",
+		// `describe`, `it`, `expect` and `vi`, which `globals: true` installs and
+		// nothing else declares: vitest does not publish under `@types/`, so the
+		// automatic inclusion that used to pick `@types/jest` up never sees it.
+		// Naming any type here switches that automatic inclusion off, which costs
+		// nothing because `next-env.d.ts` already references what the app needs.
+		"types": ["vitest/globals"],
 		"paths": {
 			"@/*": ["./*"],
 			"@shared/*": ["../shared/*"]
