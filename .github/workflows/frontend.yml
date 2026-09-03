@@ -39,4 +39,12 @@ jobs:
           # No `SENTRY_AUTH_TOKEN` on purpose, so CI uploads no source maps: this
           # build is thrown away, and releases would be attributed to it.
           NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+      # Reads the build above from both sides: every StyleX class the output
+      # wears against every one the stylesheet defines. Two compilers produce
+      # those halves, the Rust one inside SWC and the Babel one behind PostCSS,
+      # and when they disagree the build still succeeds while the declarations
+      # resolve to nothing. Nothing else here can see that: jest compiles the
+      # component and its expectation with the same plugin, and the end-to-end
+      # suite reads text that is still text at the wrong size.
+      - run: pnpm check:stylex
       - run: pnpm --filter frontend test
