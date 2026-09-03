@@ -43,7 +43,11 @@ The claim is checkable, and the first round checked the wrong thing. It diffed t
 
 The contract that matters is that the class name on the element is the one the sheet defines, and those two names come from different compilers. The Rust one rewrites `stylex.create` in the bundler; the Babel one generates the rules in PostCSS. They disagreed, and the branch spent its whole life with every numeric font size resolving to nothing. "The px that the bundler made rem" below is what that cost.
 
-So the check to repeat when either side moves is not a diff of the stylesheet. It is: build, collect every `x…` class the JS references, collect every one the stylesheet defines, and assert the first is a subset of the second. On a good build there are no orphans at all. `pnpm test:e2e` cannot answer this and neither can jest, which compiles with Babel on both sides of the comparison and so agrees with itself.
+So the check to repeat when either side moves is not a diff of the stylesheet. It is: build, collect every `x…` class the output wears, collect every one the stylesheet defines, and assert the first is a subset of the second. On a good build there are no orphans at all. `pnpm test:e2e` cannot answer this and neither can jest, which compiles with Babel on both sides of the comparison and so agrees with itself.
+
+That check is `scripts/check-stylex-classes.mjs`. `pnpm check:stylex` runs it against an existing build, and the frontend CI job runs it on the build it just made. It reads only the files carrying `$$css`, the marker the compiler leaves on every object it compiles, because a chunk holding no StyleX cannot be wearing a StyleX class. That is what keeps Firebase's `"xmlhttp"` out of the answer, which is the right shape and nothing to do with this. It also fails when it finds too few names to be a reading of this app, because a check for a missing name goes quiet the same way when the check is the thing that broke.
+
+Confirmed against the bug it was written for. Delete the `enableFontSizePxToRem` line from `frontend/stylex.config.js` and each compiler falls back to its own default again. The build still succeeds. The check names ten orphans, `xboafo0` among them.
 
 ## Why jest still runs Babel
 
