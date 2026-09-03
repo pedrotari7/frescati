@@ -34,6 +34,25 @@ module.exports = {
 	 */
 	runtimeInjection: false,
 	/**
+	 * Off, and it has to be said out loud rather than left to the default,
+	 * because the three compilers below do not share one.
+	 *
+	 * On, a `fontSize: 12` is emitted as `0.75rem`; off, as `12px`. A class name
+	 * is a hash of the declaration, so the two spellings are two different
+	 * names for one style, and only one of them ends up in the stylesheet.
+	 * `@stylexswc/plugin-shared`, which the bundler plugin runs through, turns
+	 * this on by default. `@stylexjs/babel-plugin`, which the PostCSS pass
+	 * generates the stylesheet with and which jest compiles tests with, leaves
+	 * it off. So the element carried the rem name and the sheet defined the px
+	 * one, every numeric font size in the app resolved to nothing, and the whole
+	 * type scale fell back to the 16px it inherited from the body.
+	 *
+	 * It is `false` rather than `true` because that is what the stylesheet and
+	 * the tests already agree on, and because px is what the port wrote down and
+	 * what its sizes were read against.
+	 */
+	enableFontSizePxToRem: false,
+	/**
 	 * Keeps a `.stylex.ts` file in the bundle when everything it exports has
 	 * been inlined at compile time, so the variable declarations it owns are
 	 * still there for the rules that reference them. Measured as a no-op on
