@@ -3,9 +3,9 @@
 # This is Next's own default list, `MODERN_BROWSERSLIST_TARGET`, written down.
 # Next looks for a browserslist config before falling back to that constant, so
 # for the JavaScript this file says exactly what Next would have decided on its
-# own. Writing it down is what makes it available to everything else: chiefly
-# autoprefixer, which otherwise prefixes for browserslist's defaults, a
-# different and older set than the one the JavaScript is built for.
+# own. Writing it down is what makes it available to autoprefixer, which
+# otherwise prefixes for browserslist's defaults, a different and older set
+# than the one the JavaScript is built for.
 #
 # It cost more than that once. The app was compiled by Babel while it was on
 # StyleX's Babel plugin, and `next/babel` leaves `@babel/preset-env` to ask

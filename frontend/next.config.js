@@ -216,8 +216,9 @@ const hasUploadCredentials = Boolean(process.env.SENTRY_AUTH_TOKEN && process.en
  *
  * The styles are compiled at build time, and StyleX's own compiler is a Babel
  * plugin. A Babel config in the project root turns SWC off for the app's whole
- * source, which is what this app did until this plugin replaced it: the same
- * transform written in Rust, running inside the SWC pipeline Next already uses.
+ * source, which is what this app did until this plugin replaced it. This is the
+ * same transform written in Rust, running inside the SWC pipeline Next has
+ * anyway.
  * The stylesheet it emits is byte for byte the one Babel emitted, hashed class
  * names included, and the build takes less than half as long. `docs/stylex.md`
  * has the measurement.

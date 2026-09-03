@@ -12,8 +12,8 @@ const rsOptions = require('./stylex.config');
  *
  * This is a second pass over the same files, which the bundler plugin can avoid
  * by extracting the CSS itself into a stylesheet of its own. That was measured
- * and not taken: see "One stylesheet, and what the second pass costs" in
- * `docs/stylex.md`.
+ * and not taken. "One stylesheet, and what the second pass costs" in
+ * `docs/stylex.md` has the numbers.
  */
 module.exports = {
 	plugins: {

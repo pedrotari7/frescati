@@ -79,7 +79,7 @@ Each of these is deep and specific to one part of the app, deliberately kept out
 - `docs/notifications.md` — push/email: reach, per-kind preferences, routing a tap to an open window, the `/debug` send paths.
 - `docs/error-reporting.md` — the Sentry wiring: what gets reported and from where, the scheduled-sweep monitors, `/debug`'s self-tests.
 - `docs/members-vs-extras.md` — member vs extra, and what an extra's In actually does before an admin confirms it.
-- `docs/stylex.md` — the styling: where the tokens and shared styles live, what the port off Tailwind cost and bought, why Babel replaces SWC and what that did to jest, and the handful of things StyleX will not express.
+- `docs/stylex.md` — the styling: where the tokens and shared styles live, what the port off Tailwind cost and bought, which compiler builds the styles and why jest uses a different one, and the handful of things StyleX will not express.
 
 ## Conventions
 
