@@ -39,9 +39,11 @@ Against `main` the whole account is now three seconds of build time and 61 kB of
 
 `@stylexswc/nextjs-plugin` is a community project. It tracks the official releases and says out loud which one it is compatible with, currently the 0.19 the app is on, but it is a second implementation of a compiler whose entire job is to produce exactly the right string.
 
-What makes it safe to lean on is that the claim is checkable, and it checks out exactly. The stylesheet the Rust compiler emits is byte for byte the stylesheet Babel emitted: the same size, the same rules in the same order, the same hashed class names, down to the same content hash in the filename Next serves it under. Two independent implementations agreeing to the byte is the whole contract. `pnpm test:e2e` then drove the app itself, at both viewports, against a real seeded database.
+The claim is checkable, and the first round checked the wrong thing. It diffed the stylesheet, found it byte for byte identical, and called two independent implementations agreeing to the byte the whole contract. The stylesheet was never the risk: PostCSS writes it, so both builds were being asked the same question by the same compiler, and of course it answered the same way.
 
-What that does not cover is a future release of either side drifting. The check is cheap and worth repeating whenever one of them moves: build, and diff `.next/static/css/*.css` against the sheet before the upgrade. If the filename hash still matches, nothing moved.
+The contract that matters is that the class name on the element is the one the sheet defines, and those two names come from different compilers. The Rust one rewrites `stylex.create` in the bundler; the Babel one generates the rules in PostCSS. They disagreed, and the branch spent its whole life with every numeric font size resolving to nothing. "The px that the bundler made rem" below is what that cost.
+
+So the check to repeat when either side moves is not a diff of the stylesheet. It is: build, collect every `x…` class the JS references, collect every one the stylesheet defines, and assert the first is a subset of the second. On a good build there are no orphans at all. `pnpm test:e2e` cannot answer this and neither can jest, which compiles with Babel on both sides of the comparison and so agrees with itself.
 
 ## Why jest still runs Babel
 
@@ -78,13 +80,29 @@ Babel is gone and the trap with it, so the file has one job left rather than two
 
 ## `flex-1` is not `flexBasis: 0`
 
-One of the port's two real bugs, and the shape of it is worth writing down because the translation looked exact.
+The first of the port's three real bugs, and the shape of it is worth writing down because the translation looked exact.
 
 Tailwind's `flex-1` is `flex: 1 1 0%`, and it was on 62 elements. Written out as properties that reads as `flexGrow: 1, flexBasis: 0`, which is what the port did in 48 places. Those are not the same declaration. A percentage flex basis against a container whose main size is indefinite falls back to the item's own content; a length of 0 is simply 0. Every horizontal case in the app is inside something with a definite width, so 47 of them behaved identically.
 
 The one that did not was the dev user switcher: a dialog capped at `80dvh` but sized by its content, so its height is indefinite, so the scrolling list of accounts had no free space to grow into and rendered as nothing at all. Every end-to-end spec failed, all 30 of them, because signing in is the first thing each one does and the person to sign in as was a button with no height.
 
 Jest never saw it and could not have: jsdom has no layout, so a test can read the class list back and confirm the property is set, and the property was set. `pnpm test:e2e` in a real browser is the only thing in this repo that could have caught it, and it caught it immediately.
+
+## The px that the bundler made rem
+
+The port's worst bug, invisible for the length of the branch, and the one the "byte for byte" check above was built to catch and could not.
+
+`enableFontSizePxToRem` rewrites a numeric font size into rem. `@stylexswc/plugin-shared`, which the Next bundler plugin runs the transform through, turns it on by default. `@stylexjs/babel-plugin`, which the PostCSS pass generates the stylesheet with and which jest compiles tests with, leaves it off. Nothing in this repo said which it wanted, so it got both.
+
+A StyleX class name is a hash of the declaration that produced it, so this is not one style with two spellings. `fontSize: 12` compiled to `.xboafo0` in the bundler, off `font-size:.75rem`, and to `.xfifm61` in the stylesheet, off `font-size:12px`. The element wore `xboafo0`. The sheet defined `xfifm61`. Seven declarations, which is every numeric font size in the app, and each one resolved to no rule and fell back to the 16px it inherited from the body.
+
+The whole type scale was gone, and it presented as text a bit too big rather than as a page that had lost its stylesheet, because everything else on those elements, the colour, the weight, the leading, the padding, was a string or a unitless number and hashed the same on both sides. Only `fontSize` takes a length from a bare number here.
+
+Every check this repo has went green, and each for its own reason. jest compiles the component and the test's expectation with the same Babel plugin, so `stylesOf` and `stylesFor` agree with each other and are wrong in the same direction. `pnpm test:e2e` reads text and clicks it, and text at 16px is still text. The stylesheet was correct in isolation, so diffing it proved the sheet while the bug was that nothing on the page pointed at the sheet. Even the port's headline numbers held up, because the CSS is 12 kB smaller than Tailwind's whatever the elements do with it.
+
+`frontend/stylex.config.js` now sets the flag explicitly, which is what that file is for: three compiles read it and they have to agree. `false`, because that is the side the stylesheet and the tests were already on, and because px is what the port wrote down and what these sizes were read against.
+
+The measurement that found it is worth keeping, and it is not a diff of source. Drive the built app in a real browser, read `getComputedStyle` off every element carrying text, and compare that against the same reading taken from the Tailwind build. That was 362 elements over five screens and both viewports, and the answer is either "identical" or a list. Reading the source said these sizes were right. Only the browser knew the app was not wearing them.
 
 ## The preflight line that did not come across
 
