@@ -4,7 +4,7 @@ Part of Frescati's CLAUDE.md context. See the root `CLAUDE.md` for the app overv
 
 The frontend was Tailwind v4 and is now StyleX 0.19. This file is the evaluation that came with the port: what moved, what it cost, what it caught, and whether it was worth it.
 
-It has been measured twice. The first round was the port itself, which put the app on StyleX's Babel plugin and doubled the build. The second round took the Babel plugin out again, and most of what the first round called the price of StyleX turned out to be the price of that one plugin. Every number below is `next build` on one laptop, warm install, no build cache, median of three, all three configurations measured in the same sitting.
+It has been measured twice. The first round was the port itself, which put the app on StyleX's Babel plugin and doubled the build. The second round took the Babel plugin out again, and most of what the first round called the price of StyleX turned out to be the price of that one plugin. Every number below is `next build` on one laptop, warm install, no build cache, median of three, all three configurations measured in the same sitting. `pnpm bench:build <label> 3` is what produced them, and re-running it is the only way to know whether any of this still holds on your machine or after an upgrade.
 
 ## Where the styling lives now
 
