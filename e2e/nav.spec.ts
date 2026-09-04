@@ -99,6 +99,65 @@ test.describe('the way back out of a screen', () => {
 		await expect(page, 'the chevron went up to the season instead of back to the game').toHaveURL(game);
 	});
 
+	/*
+	 * The same journey as above, asking the other question about it.
+	 *
+	 * That test proved the chevron goes back to the game. It could not see that
+	 * the game came back scrolled to somewhere with nothing on it, because a URL
+	 * is right whatever the page is scrolled to and `toBeVisible` does not mean
+	 * on screen.
+	 *
+	 * Which is what happened. Every screen here is drawn from a Firestore
+	 * subscription, so a step back lands on a skeleton a few hundred pixels tall,
+	 * the router restores the recorded position into that, and the browser
+	 * clamps it to whatever the short document can offer. Going back to a game
+	 * left at 1216 returned it at 13. With the data a little faster the clamp
+	 * lands at the bottom instead, and since the top bar is `position: fixed` the
+	 * result is a screen with a correct header and nothing under it.
+	 *
+	 * `hooks/useScrollMemory.ts` is the fix and this is the check on it: leave a
+	 * game somewhere specific, go into a player, come back, and expect to be
+	 * able to see what was on screen on the way out.
+	 */
+	test('comes back to the part of the game that was being read', async ({ page }) => {
+		await openAGame(page);
+
+		// Somewhere unambiguously down the page, and only if there is room. A
+		// short game has nothing to restore and nothing to get wrong.
+		await page.mouse.wheel(0, 1200);
+		await page.waitForTimeout(300);
+
+		/*
+		 * Read after the click has scrolled its target into view rather than
+		 * before, because those are two different positions and only the later
+		 * one is where this screen is actually being left. Playwright brings a
+		 * link into view before clicking it, so a player higher up the roster
+		 * moves the page back up on the way out, and an expectation written
+		 * against the earlier number fails against a restore that was correct.
+		 */
+		const player = playerLinks(page).first();
+		await player.scrollIntoViewIfNeeded();
+		await page.waitForTimeout(200);
+
+		const leftAt = await page.evaluate(() => Math.round(window.scrollY));
+		test.skip(leftAt < 200, 'this game is too short to be scrolled away from');
+
+		await player.click();
+		await expect(page).toHaveURL(AT.player);
+
+		await backChevron(page).click();
+		await expect(page).toHaveURL(AT.game);
+
+		// Generous, because what is being waited for is the season's listeners
+		// coming back before the position can be restored into a real page.
+		await expect
+			.poll(async () => page.evaluate(() => Math.round(window.scrollY)), {
+				message: 'the game came back scrolled somewhere else entirely',
+				timeout: 10_000,
+			})
+			.toBeGreaterThan(leftAt - 100);
+	});
+
 	// The same thing one tab across, and the clearer half of it: a profile's
 	// declared parent is the season's *Games* tab, so a squad list that came
 	// back to itself cannot have been following the declared parent.

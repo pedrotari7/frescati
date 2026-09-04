@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useScrollMemory } from '../hooks/useScrollMemory';
 
 interface AppHistoryValue {
 	/** Whether this document has a screen of its own behind it. */
@@ -12,7 +13,8 @@ interface AppHistoryValue {
 const AppHistoryContext = createContext<AppHistoryValue>({ canGoBack: false });
 
 /**
- * Whether the back chevron has a real *back* to go to, or only an *up*.
+ * Whether the back chevron has a real *back* to go to, or only an *up*, and
+ * where the screen it goes back to should be scrolled to.
  *
  * Every screen declares its way out as a `backHref`, the parent in the
  * hierarchy, and that is the only answer available to a screen somebody opened
@@ -47,6 +49,14 @@ const AppHistoryContext = createContext<AppHistoryValue>({ canGoBack: false });
 export const AppHistoryProvider = ({ children }: { children: ReactNode }) => {
 	const pathname = usePathname();
 	const [depth, setDepth] = useState(0);
+
+	/*
+	 * The other thing that depends on knowing a step backwards from a step
+	 * forwards, and the reason it lives here rather than beside the router:
+	 * this component already works that out, and a second copy of the reasoning
+	 * is a fix that lands in one of them.
+	 */
+	const restoreScroll = useScrollMemory();
 
 	/** Every screen this document has walked through, deepest last. */
 	const trail = useRef<string[]>([pathname]);
@@ -96,7 +106,30 @@ export const AppHistoryProvider = ({ children }: { children: ReactNode }) => {
 		else trail.current = [...trail.current.slice(0, -1), pathname];
 
 		setDepth(trail.current.length - 1);
-	}, [pathname]);
+
+		// Only a real step backwards, and only one that landed somewhere this
+		// document has been. A forward move is already at the top, where the
+		// router put it and where a screen being opened belongs.
+		/*
+		 * Whether this is a screen the document has been on before, asked
+		 * without reference to `popped` above, and that is the whole point.
+		 *
+		 * `popped` cannot answer it. The router updates `usePathname` and runs
+		 * this effect *before* the browser dispatches `popstate`, so the flag
+		 * that decides it is still unset every time this reads it, in the
+		 * capture phase as much as the bubble phase. Traced on a step back from
+		 * a player to a game: this effect ran with `popped` false, and the
+		 * event arrived afterwards.
+		 *
+		 * Landing on a path already on the trail is the signal that survives
+		 * that, because it is a fact about where this document has been rather
+		 * than about when an event fires. It is looser: tabbing back to a
+		 * screen counts too, and restoring where somebody was reading is a fair
+		 * answer there as well. What it will not do is restore a screen nobody
+		 * has been on, which is the case that would be wrong.
+		 */
+		if (trail.current.lastIndexOf(pathname, trail.current.length - 2) >= 0) restoreScroll(pathname);
+	}, [pathname, restoreScroll]);
 
 	const value = useMemo<AppHistoryValue>(() => ({ canGoBack: depth > 0 }), [depth]);
 
