@@ -187,7 +187,7 @@ const NextGameHero = ({
 					</div>
 				</Link>
 
-				<HeadcountBar game={liveGame} season={season} sx={styles.bar} />
+				<HeadcountBar game={liveGame} season={season} sx={styles.bar} settling={responsesLoading} />
 
 				{/* Only ever drawn when something required is genuinely missing,
 				    which is the point: this card is what most people ever look

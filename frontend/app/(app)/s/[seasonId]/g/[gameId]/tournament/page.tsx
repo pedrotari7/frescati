@@ -67,7 +67,7 @@ import MatchScore from '../../../../../../../components/MatchScore';
 import ScoreboardLock from '../../../../../../../components/ScoreboardLock';
 import StandingsTable from '../../../../../../../components/StandingsTable';
 import { bp, colors, tint } from '../../../../../../tokens.stylex';
-import { surfaces, utils } from '../../../../../../../lib/styles';
+import { animations, surfaces, utils } from '../../../../../../../lib/styles';
 
 const styles = stylex.create({
 	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
@@ -157,6 +157,23 @@ const styles = stylex.create({
 		textTransform: 'uppercase',
 	},
 	roundBreak: { borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: tint.white8, paddingTop: 16 },
+});
+
+/*
+ * The squads come out one after another rather than all at once, which is the
+ * one place in the app where a stagger says something true: they were dealt.
+ * It runs again on a reshuffle, because that is the same event a second time.
+ *
+ * A dynamic style rather than four named ones, for the reason `HeadcountBar`
+ * has one: this is a genuinely per-element value, and `stylex.props` has to be
+ * what writes the `style` attribute. A second one spread beside it would win or
+ * lose on whatever order the props happened to be in.
+ *
+ * 70ms, and no more. Four cards is 210ms on the last one, which reads as a deal
+ * rather than as a queue. `MAX_TEAMS` is 4, so that is the whole cost.
+ */
+const deal = stylex.create({
+	delay: (index: number) => ({ animationDelay: `${index * 70}ms` }),
 });
 
 const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
@@ -500,9 +517,10 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 				</section>
 
 				<div {...stylex.props(styles.cards)}>
-					{lineup.teams.map(team => (
+					{lineup.teams.map((team, order) => (
 						<TeamCard
 							key={team.index}
+							sx={[animations.rise, deal.delay(order)]}
 							team={team}
 							elos={lineup.elos}
 							usersByUid={usersByUid}

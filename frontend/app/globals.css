@@ -157,6 +157,16 @@ textarea {
 	*::before,
 	*::after {
 		animation-duration: 0.01ms !important;
+		/*
+		 * The delay has to go with the duration, and it did not have to before
+		 * the squads were dealt in one card at a time. A stagger is a delay, and
+		 * a delay this rule leaves alone still runs in full: the card holds at
+		 * the `from` keyframe, which for every entrance in the app is
+		 * `opacity: 0`. So the reader who asked for less motion is the only one
+		 * who sees the cards blank, and the further down the grid a card sits
+		 * the longer it stays that way.
+		 */
+		animation-delay: 0ms !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
 	}

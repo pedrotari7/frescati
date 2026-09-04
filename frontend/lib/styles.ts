@@ -39,6 +39,39 @@ const spin = stylex.keyframes({
 	to: { transform: 'rotate(360deg)' },
 });
 
+/*
+ * The three below are the only motion in the app that answers something rather
+ * than introduces it. Everything above plays on arrival and says "here I am".
+ * These play when a number moves, and say "that just changed".
+ *
+ * Which is why none of them may be applied on mount. A ring thrown off a button
+ * that was already showing your answer, or a glint across a bar that was
+ * already full when the screen opened, is the app celebrating history, and it
+ * teaches people to stop reading it. Each component that uses one of these
+ * holds the "did this just happen" state itself, because what counts as a
+ * change is different in every case and none of it can be inferred from the
+ * style.
+ */
+
+/** The ring a control throws off when it takes your answer. */
+const ripple = stylex.keyframes({
+	from: { transform: 'scale(1)', opacity: 0.9 },
+	to: { transform: 'scale(1.12)', opacity: 0 },
+});
+
+/** A glint crossing something once, to pull the eye back to it. */
+const sweep = stylex.keyframes({
+	from: { transform: 'translateX(-100%)' },
+	to: { transform: 'translateX(100%)' },
+});
+
+/** Already on screen, and worth a second look. */
+const swell = stylex.keyframes({
+	'0%': { transform: 'scale(1)' },
+	'35%': { transform: 'scale(1.16)' },
+	'100%': { transform: 'scale(1)' },
+});
+
 export const animations = stylex.create({
 	fadeIn: {
 		animationName: fadeIn,
@@ -57,6 +90,37 @@ export const animations = stylex.create({
 		animationDuration: '0.35s',
 		animationTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
 		animationFillMode: 'both',
+	},
+	/**
+	 * Belongs on a child of the control rather than on the control, and the
+	 * child has to be absolutely positioned and `pointer-events: none`. Both
+	 * halves of the In/Out pair already animate `transform` on `:active`, and a
+	 * ring on the button itself would be the same property twice: the press
+	 * would fight the confirmation, and the confirmation would win, so the tap
+	 * would stop feeling like a press at the moment it most needs to.
+	 */
+	ripple: {
+		animationName: ripple,
+		animationDuration: '0.5s',
+		animationTimingFunction: 'ease-out',
+		animationFillMode: 'forwards',
+	},
+	/** Wants a parent that clips, or the glint runs off down the page. */
+	sweep: {
+		animationName: sweep,
+		animationDuration: '0.9s',
+		animationTimingFunction: 'ease-in-out',
+		animationFillMode: 'forwards',
+	},
+	/*
+	 * The one animation here with no fill mode, because it is the one that
+	 * starts and ends where the element already was. `both` would pin the
+	 * element to a keyframe it is identical to.
+	 */
+	swell: {
+		animationName: swell,
+		animationDuration: '0.45s',
+		animationTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
 	},
 	shimmer: {
 		animationName: shimmer,
