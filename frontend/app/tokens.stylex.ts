@@ -72,6 +72,11 @@ export const tint = stylex.defineConsts({
 	white12: 'rgb(255 255 255 / 0.12)',
 	white15: 'rgb(255 255 255 / 0.15)',
 	white20: 'rgb(255 255 255 / 0.20)',
+	/* The one that is a light rather than a surface: the glint that crosses the
+	   headcount bar when a game fills up. It has to read in the half-second it
+	   is on screen, over a 6px bar already painted in a bright green, and every
+	   lift above it disappears against that. */
+	white45: 'rgb(255 255 255 / 0.45)',
 
 	brand5: `color-mix(in srgb, ${colors.brand} 5%, transparent)`,
 	brand10: `color-mix(in srgb, ${colors.brand} 10%, transparent)`,

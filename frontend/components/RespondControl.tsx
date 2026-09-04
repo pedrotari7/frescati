@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircleIcon, CheckIcon, XCircleIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import * as stylex from '@stylexjs/stylex';
@@ -9,6 +9,7 @@ import type { GameResponse, ResponseStatus } from '@shared/types';
 import { getExtraSpot } from '@shared/game';
 import { formatSek } from '@shared/format';
 import { bp, colors, shadows, tint } from '../app/tokens.stylex';
+import { animations } from '../lib/styles';
 import { useToast } from './Toast';
 import { hapticLight, hapticSuccess } from '../lib/utils/haptics';
 import { captureError } from '../lib/sentry';
@@ -44,6 +45,15 @@ const halves = stylex.create({
 	},
 
 	outChosen: { backgroundColor: colors.out, color: colors.canvas, boxShadow: shadows.lift },
+	/*
+	 * The ring thrown off when the half becomes the answer, in the answer's own
+	 * colour. It cannot take that colour from the button: the chosen half fills
+	 * with `colors.in` and sets its text to `colors.canvas`, so `currentColor`
+	 * inside it is the near-black the label is drawn in, and a ring in that is
+	 * a smudge on a dark page.
+	 */
+	inRing: { boxShadow: `0 0 0 2px ${colors.in}` },
+	outRing: { boxShadow: `0 0 0 2px ${colors.out}` },
 	outOffered: {
 		backgroundColor: { default: tint.out10, [bp.hover]: { default: null, ':hover': tint.out20 } },
 		color: colors.out,
@@ -78,6 +88,8 @@ const OPTIONS: {
 	chosenLabel: string;
 	icons: Record<'chosen' | 'other', typeof CheckIcon>;
 	styles: Record<Standing, StyleXStyles>;
+	/** The colour of the ring this half throws off when it takes the answer. */
+	ring: StyleXStyles;
 }[] = [
 	{
 		status: 'in',
@@ -85,6 +97,7 @@ const OPTIONS: {
 		chosenLabel: "You're in",
 		icons: { chosen: CheckCircleIcon, other: CheckIcon },
 		styles: { chosen: halves.inChosen, offered: halves.inOffered, passedOver: halves.passedOver },
+		ring: halves.inRing,
 	},
 	{
 		status: 'out',
@@ -92,6 +105,7 @@ const OPTIONS: {
 		chosenLabel: "You're out",
 		icons: { chosen: XCircleIcon, other: XMarkIcon },
 		styles: { chosen: halves.outChosen, offered: halves.outOffered, passedOver: halves.passedOver },
+		ring: halves.outRing,
 	},
 ];
 
@@ -102,6 +116,10 @@ const styles = stylex.create({
 	pairSm: { gap: 8 },
 
 	half: {
+		/* For the ring, which is a child rather than a `::after`, because the
+		   ring has to restart every time an answer lands and only a fresh
+		   element restarts an animation reliably. */
+		position: 'relative',
 		display: 'flex',
 		alignItems: 'center',
 		justifyContent: 'center',
@@ -114,6 +132,17 @@ const styles = stylex.create({
 	},
 	halfLg: { height: 56, borderRadius: 16, fontSize: 16, lineHeight: '24px' },
 	halfSm: { height: 40, borderRadius: 12, paddingInline: 8, fontSize: 14, lineHeight: '20px' },
+
+	/*
+	 * Sits exactly on the button's edge and grows outward from it. `inherit`
+	 * rather than a repeat of the two radii below, so the ring cannot end up
+	 * rounder or squarer than the button it is leaving.
+	 *
+	 * Nothing about it is in the layout. Absolutely positioned, so it is not a
+	 * flex item competing with the icon and the label for the row.
+	 * `pointer-events: none`, so the half stays one tap target while it plays.
+	 */
+	ring: { position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none' },
 
 	iconLg: { width: 20, height: 20 },
 	iconSm: { width: 16, height: 16 },
@@ -204,6 +233,33 @@ const RespondControl = ({
 
 	const status = response?.status;
 
+	/**
+	 * Which half, if any, is owed a ring right now.
+	 *
+	 * The ring is the receipt for the tap, so it has to fire on the answer
+	 * *changing* and never on the answer merely being there. `seen` starts at
+	 * whatever the document already said, so opening the app on a game you
+	 * answered last week is silent, and only a change from that point on plays.
+	 *
+	 * It is keyed off the document rather than off the click handler on purpose.
+	 * Firestore's local cache reflects a write before the server has taken it,
+	 * so this fires at the same moment the fill does, and it fires for a change
+	 * that did not come from this device either. An admin moving somebody out
+	 * should be visible to them, not a silent swap under a button they happen to
+	 * be looking at.
+	 */
+	const [ringing, setRinging] = useState<ResponseStatus | null>(null);
+	const seen = useRef(status);
+
+	useEffect(() => {
+		if (seen.current === status) return;
+
+		seen.current = status;
+		// Withdrawing leaves no chosen half to ring, and the pair going quiet is
+		// the whole point of that action.
+		setRinging(status ?? null);
+	}, [status]);
+
 	// An extra's In is the one answer that does not put them in the game until a
 	// season admin says so, and this button sits directly above the note saying
 	// exactly that. So it keeps the words they tapped and lets the fill, the
@@ -286,6 +342,7 @@ const RespondControl = ({
 					const chosen = status === option.status;
 					const standing: Standing = chosen ? 'chosen' : status ? 'passedOver' : 'offered';
 					const Icon = chosen ? option.icons.chosen : option.icons.other;
+					const landing = ringing === option.status;
 
 					return (
 						<button
@@ -301,7 +358,29 @@ const RespondControl = ({
 								option.styles[standing]
 							)}
 						>
-							<Icon {...stylex.props(large ? styles.iconLg : styles.iconSm)} aria-hidden='true' />
+							{/* Mounted only while it plays, and taken down by its own
+							    `animationend` rather than by a timer, so the element
+							    is gone exactly when the animation is over however
+							    long the browser decided that was. Under
+							    `prefers-reduced-motion` the blanket in `globals.css`
+							    cuts every animation to 0.01ms, which still ends and
+							    still fires, so this unmounts there too. */}
+							{landing && (
+								<span
+									{...stylex.props(styles.ring, option.ring, animations.ripple)}
+									onAnimationEnd={() => setRinging(null)}
+									aria-hidden='true'
+								/>
+							)}
+
+							{/* The icon changes shape as well as state when a half
+							    becomes the answer, a tick becoming a ticked circle,
+							    so the swap is already a small event and the pop is
+							    what makes it read as one. */}
+							<Icon
+								{...stylex.props(large ? styles.iconLg : styles.iconSm, landing && animations.pop)}
+								aria-hidden='true'
+							/>
 							{pending === option.status
 								? 'Saving…'
 								: chosen && answerHonoured

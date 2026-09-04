@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import type { StyleXStyles } from '@stylexjs/stylex';
 import type { AppUser, TournamentTeam } from '@shared/types';
 import { toDisplayRating } from '@shared/rating';
 import { counted } from '@shared/format';
@@ -112,6 +113,7 @@ const TeamCard = ({
 	absentUids,
 	onMovePlayer,
 	onChangeLetter,
+	sx,
 }: {
 	team: TournamentTeam;
 	elos: Record<string, number>;
@@ -143,6 +145,7 @@ const TeamCard = ({
 	 * the card already.
 	 */
 	onChangeLetter?: () => void;
+	sx?: StyleXStyles;
 }) => {
 	const style = teamStyle(team.index);
 	// Only over the ratings we actually hold. Treating a missing one as zero
@@ -173,7 +176,7 @@ const TeamCard = ({
 	);
 
 	return (
-		<section {...stylex.props(surfaces.glass, styles.card, style.ring)}>
+		<section {...stylex.props(surfaces.glass, styles.card, style.ring, sx)}>
 			{/* Reads as a bib from across the card, before any letter has been. */}
 			<div {...stylex.props(styles.bib, style.bar)} aria-hidden='true' />
 

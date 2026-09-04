@@ -9,6 +9,13 @@ import TeamCard from './TeamCard';
 /* A name struck through is on the sheet but not on the pitch. */
 const expected = stylex.create({ struck: { textDecorationLine: 'line-through' } });
 
+/* What the tournament page hands the card to deal the squads in one at a time:
+   a static style and a per-card delay, in one array. */
+const dealt = stylex.create({
+	rise: { animationDuration: '0.35s' },
+	delay: (ms: number) => ({ animationDelay: `${ms}ms` }),
+});
+
 const user = (uid: string, displayName: string): AppUser => ({
 	uid,
 	displayName,
@@ -243,5 +250,26 @@ describe('TeamCard', () => {
 		);
 
 		expect(screen.queryByText(/^[+-]\d+$/)).not.toBeInTheDocument();
+	});
+
+	/**
+	 * The squads are dealt in with a stagger, which is a static animation plus a
+	 * delay that differs per card, passed down as one `sx`.
+	 *
+	 * Worth a test because the failure is silent. A dynamic style is the one
+	 * kind StyleX cannot express as a class name: it writes a custom property
+	 * into the element's `style` instead, and `stylex.props` is the only thing
+	 * that can put it there. Dropped on the way through, the cards would still
+	 * animate, all four at once, and nothing anywhere would say so.
+	 */
+	it('wears the styling its caller passes, delay included', () => {
+		const { container } = render(
+			<TeamCard team={team} elos={{}} usersByUid={usersByUid} sideSize={2} sx={[dealt.rise, dealt.delay(140)]} />
+		);
+
+		const card = container.firstElementChild as HTMLElement;
+
+		expect(stylesOf(card)).toEqual(expect.arrayContaining(stylesFor(dealt.rise)));
+		expect(card.getAttribute('style')).toContain('140ms');
 	});
 });

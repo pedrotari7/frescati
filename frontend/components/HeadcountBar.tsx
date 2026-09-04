@@ -1,8 +1,12 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import type { StyleXStyles } from '@stylexjs/stylex';
 import type { Game, Season } from '@shared/types';
 import { getAwaitingSpotCount, getFormat, getHeadcountState, getMinPlayers, getNoResponseCount } from '@shared/game';
 import { colors, tint } from '../app/tokens.stylex';
+import { animations } from '../lib/styles';
 import StatusPill from './StatusPill';
 
 const styles = stylex.create({
@@ -13,7 +17,15 @@ const styles = stylex.create({
 	short: { color: colors.pending },
 	unit: { color: colors.faint, fontSize: 14, lineHeight: '20px' },
 
-	track: { height: 6, overflow: 'hidden', borderRadius: 9999, backgroundColor: tint.white8 },
+	track: { position: 'relative', height: 6, overflow: 'hidden', borderRadius: 9999, backgroundColor: tint.white8 },
+	/* Rides over the fill rather than under it, so the light crosses the green
+	   and not the empty part of the track. The track clips it at both ends. */
+	glint: {
+		pointerEvents: 'none',
+		position: 'absolute',
+		inset: 0,
+		backgroundImage: `linear-gradient(90deg, transparent, ${tint.white45}, transparent)`,
+	},
 	fillBase: {
 		height: '100%',
 		borderRadius: 9999,
@@ -52,7 +64,29 @@ const fill = stylex.create({
  * minimum and then simply reads "ready", because more players is never a
  * problem, only fewer is.
  */
-const HeadcountBar = ({ game, season, sx }: { game: Game; season: Season; sx?: StyleXStyles }) => {
+const HeadcountBar = ({
+	game,
+	season,
+	sx,
+	settling = false,
+}: {
+	game: Game;
+	season: Season;
+	sx?: StyleXStyles;
+	/**
+	 * That these counts are still the placeholder rather than the answer, so a
+	 * change out of them is the screen loading and not the game filling up.
+	 *
+	 * `NextGameHero` is the caller that needs this and the reason it exists. It
+	 * draws the denormalised `game.counts` until its own responses listener
+	 * lands, then swaps to its tally of them, and that swap is a change in these
+	 * numbers that nobody did. Left unsaid, a game whose trigger was a moment
+	 * behind would throw the celebration below at somebody who had just opened
+	 * the app. Callers holding one set of counts all the way through, which is
+	 * the game screen, leave it alone.
+	 */
+	settling?: boolean;
+}) => {
 	const minimum = getMinPlayers(game, season);
 	const { playing } = game.counts;
 	const atRisk = getHeadcountState(game, season) === 'at-risk';
@@ -61,6 +95,35 @@ const HeadcountBar = ({ game, season, sx }: { game: Game; season: Season; sx?: S
 	const awaitingSpot = getAwaitingSpotCount(game.counts);
 
 	const progress = minimum > 0 ? Math.min(100, (playing / minimum) * 100) : 100;
+
+	/**
+	 * Whether the game has *just* reached its minimum, which is the one moment
+	 * on this card worth interrupting somebody for.
+	 *
+	 * Every listener in the app is live, so you can be looking at it when it
+	 * happens: the count is one short, somebody else taps In, and the game goes
+	 * on under your thumb. That is the payoff the whole app is for, and it used
+	 * to be a colour change nobody was watching.
+	 *
+	 * `seen` is null until the first reading that is not settling, and that
+	 * first reading is the baseline rather than a change. So arriving at a game
+	 * that is already on is silent, which is the point: this says "that just
+	 * happened", and it is worth nothing if it also says it about history.
+	 *
+	 * The count has to have *grown*. Dropping the minimum clears the shortfall
+	 * too, and an admin editing the season is not eleven people turning up.
+	 */
+	const [reached, setReached] = useState(false);
+	const seen = useRef<{ atRisk: boolean; playing: number } | null>(null);
+
+	useEffect(() => {
+		if (settling) return;
+
+		const before = seen.current;
+		seen.current = { atRisk, playing };
+
+		if (before && before.atRisk && !atRisk && playing > before.playing) setReached(true);
+	}, [settling, atRisk, playing]);
 
 	return (
 		<div {...stylex.props(sx)}>
@@ -73,14 +136,22 @@ const HeadcountBar = ({ game, season, sx }: { game: Game; season: Season; sx?: S
 					    the squad count too. */}
 					<span
 						data-testid='headcount-playing'
-						{...stylex.props(styles.number, atRisk ? styles.short : styles.ok)}
+						{...stylex.props(styles.number, atRisk ? styles.short : styles.ok, reached && animations.swell)}
 					>
 						{playing}
 					</span>
 					<span {...stylex.props(styles.unit)}>{atRisk ? `of ${minimum} needed` : 'playing'}</span>
 				</div>
 
-				{format && !atRisk && <StatusPill tone='brand'>{format}</StatusPill>}
+				{/* This pill is not the "Need n more" one restyled, it replaces it, so
+				    on the crossing it is a genuinely new thing arriving and pops in
+				    as one. Every other time it is simply what the card says, and
+				    popping it then would be motion for its own sake. */}
+				{format && !atRisk && (
+					<StatusPill tone='brand' sx={reached ? animations.pop : undefined}>
+						{format}
+					</StatusPill>
+				)}
 				{atRisk && <StatusPill tone='pending'>Need {minimum - playing} more</StatusPill>}
 			</div>
 
@@ -88,6 +159,20 @@ const HeadcountBar = ({ game, season, sx }: { game: Game; season: Season; sx?: S
 				<div
 					{...stylex.props(styles.fillBase, atRisk ? styles.fillShort : styles.fillOk, fill.width(progress))}
 				/>
+
+				{/* Mounted only for the length of the run and taken down by its own
+				    `animationend`, so there is no timer to get out of step with
+				    however long the browser took. The reduced-motion blanket in
+				    `globals.css` cuts it to 0.01ms, which still ends and still
+				    fires, so it unmounts there too rather than sitting on the bar
+				    as a white band. */}
+				{reached && (
+					<span
+						{...stylex.props(styles.glint, animations.sweep)}
+						onAnimationEnd={() => setReached(false)}
+						aria-hidden='true'
+					/>
+				)}
 			</div>
 
 			<div {...stylex.props(styles.strip)}>
