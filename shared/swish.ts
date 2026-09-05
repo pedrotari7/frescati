@@ -58,6 +58,35 @@ export const toLocal = (payee: string): string => {
  */
 export const toAlias = (payee: string): string => toInternational(payee).slice(1);
 
+/** Swish's own host and the path its links take, with no scheme in front. */
+const SWISH_LINK = 'app.swish.nu/1/p/sw/';
+
+/** The Android package that answers for that host. */
+const SWISH_PACKAGE = 'se.bankgirot.swish';
+
+/**
+ * The query both forms of the link carry, escaped and in Swish's own order.
+ *
+ * `edit` is the single parameter deliberately left out: it lists the fields the
+ * payer may still change, and omitting it locks all of them. The reference is
+ * how an admin works out whose payment landed, and an editable one is a payment
+ * nobody can match to a name.
+ */
+const swishQuery = ({ payee, amount, message }: SwishPayment): string => {
+	const params = new URLSearchParams({ sw: toAlias(payee), amt: String(Math.round(amount)), cur: 'SEK' });
+
+	// Omitted rather than sent blank, which is what the generators do too.
+	if (message) params.set('msg', message);
+
+	params.set('src', 'qr');
+
+	// `URLSearchParams` spells a space `+`, and a payee reads this reference off a
+	// bank statement by eye, where `Fall+2026` is not what anybody typed. Safe as
+	// a blanket replace because a plus somebody really typed is already `%2B` by
+	// the time it gets here.
+	return params.toString().replace(/\+/g, '%20');
+};
+
 /**
  * The URL that opens the Swish app with the payment already filled in.
  *
@@ -74,28 +103,52 @@ export const toAlias = (payee: string): string => toInternational(payee).slice(1
  * is meant to carry this rather than something else.
  *
  * The parameters are built the way those generators build them, in their order,
- * because a difference from a link known to work should be one we chose. `edit`
- * is the single parameter deliberately left out: it lists the fields the payer
- * may still change, and omitting it locks all of them. The reference is how an
- * admin works out whose payment landed, and an editable one is a payment nobody
- * can match to a name.
+ * because a difference from a link known to work should be one we chose.
+ *
+ * This is the form the QR code carries and the form every platform but Android
+ * puts behind the button. `swishIntentUrl` says why Android is the exception.
  *
  * What this replaced was `swish://payment?data=<json>`, a 2018 reverse
  * engineering with no first party behind it that the app now rejects. The one
  * custom scheme Swish does document, `swish://paymentrequest?token=...`, needs a
  * Swish Handel agreement and a token from a server, so it is not that either.
  */
-export const swishAppUrl = ({ payee, amount, message }: SwishPayment): string => {
-	const params = new URLSearchParams({ sw: toAlias(payee), amt: String(Math.round(amount)), cur: 'SEK' });
+export const swishAppUrl = (payment: SwishPayment): string => `https://${SWISH_LINK}?${swishQuery(payment)}`;
 
-	// Omitted rather than sent blank, which is what the generators do too.
-	if (message) params.set('msg', message);
+/**
+ * The same payment, addressed to the Swish package by name.
+ *
+ * Android is the platform where the https link is not enough. Nothing at
+ * `app.swish.nu` reads a payment: every path on that host serves the same
+ * "Ladda ner Swish" page, so the link is only ever a way of asking the system to
+ * fetch the app, and when that ask is refused a person who already has Swish is
+ * looking at a page telling them to install it.
+ *
+ * iOS answers that ask itself, before a browser ever sees the link. Android
+ * leaves it to the browser, and the browser hands it over on two conditions:
+ * the app verified its claim on the host when it was installed, and the person
+ * still has "Open supported links" switched on for it. Either can be off.
+ * Neither says so. The tap just lands on the download page. On top of that this
+ * app runs as a WebAPK, so the tap leaves one app for another rather than
+ * following a link inside a tab, and that is the handoff Android is most
+ * reluctant about.
+ *
+ * `intent://` skips the lot. `package=` names Swish outright, and an explicit
+ * intent answers to neither the verification nor the setting. It is the same
+ * route the phone's own camera takes with a scanned code, which is why the QR
+ * has always worked on the phones this button did not.
+ *
+ * `S.browser_fallback_url` is what makes it safe to prefer. A phone with no
+ * Swish, or a browser that has never heard of the scheme, follows that to the
+ * plain https link and gets the download page it would have got anyway. The
+ * intent form can be no worse than what it replaces.
+ *
+ * Chromium and Firefox both read this, and on Android that is every browser
+ * worth counting. `scheme=https` is what the intent resolves back to, so Swish
+ * is handed the same URL the QR code carries.
+ */
+export const swishIntentUrl = (payment: SwishPayment): string => {
+	const fallback = encodeURIComponent(swishAppUrl(payment));
 
-	params.set('src', 'qr');
-
-	// `URLSearchParams` spells a space `+`, and a payee reads this reference off a
-	// bank statement by eye, where `Fall+2026` is not what anybody typed. Safe as
-	// a blanket replace because a plus somebody really typed is already `%2B` by
-	// the time it gets here.
-	return `https://app.swish.nu/1/p/sw/?${params.toString().replace(/\+/g, '%20')}`;
+	return `intent://${SWISH_LINK}?${swishQuery(payment)}#Intent;scheme=https;package=${SWISH_PACKAGE};S.browser_fallback_url=${fallback};end`;
 };

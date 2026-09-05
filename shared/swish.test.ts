@@ -1,4 +1,4 @@
-import { swishAppUrl, toAlias, toInternational, toLocal } from './swish';
+import { swishAppUrl, swishIntentUrl, toAlias, toInternational, toLocal } from './swish';
 
 describe('toInternational', () => {
 	it('swaps a leading zero for the country code', () => {
@@ -111,5 +111,64 @@ describe('swishAppUrl', () => {
 
 		expect(url.protocol).toBe('https:');
 		expect(url.host).toBe('app.swish.nu');
+	});
+});
+
+describe('swishIntentUrl', () => {
+	const payment = { payee: '0701234567', amount: 1736, message: 'Fall 2026: Anna Berg' };
+
+	/**
+	 * The whole point of the intent form. `package=` is what makes the intent
+	 * explicit, and an explicit intent is the one thing on Android that is not
+	 * subject to link verification or to the "Open supported links" setting.
+	 */
+	it('names the Swish package, so the phone has nothing to decide', () => {
+		expect(swishIntentUrl(payment)).toContain(';package=se.bankgirot.swish;');
+	});
+
+	/**
+	 * `scheme=https` is what the intent resolves back to. Swish is handed the
+	 * identical URL the QR code carries, so a payment cannot arrive one way and
+	 * not the other.
+	 */
+	it('carries the same payment the link does', () => {
+		const intent = swishIntentUrl(payment);
+		const url = swishAppUrl(payment);
+
+		expect(intent.startsWith(`intent://${url.slice('https://'.length)}#Intent;`)).toBe(true);
+		expect(intent).toContain(';scheme=https;');
+	});
+
+	/**
+	 * What makes this safe to prefer over the plain link. A phone with no Swish,
+	 * or a browser that has never heard of the scheme, follows this and lands on
+	 * exactly the page it would have landed on before.
+	 */
+	it('falls back to the plain link, escaped so the fragment survives it', () => {
+		const intent = swishIntentUrl(payment);
+
+		expect(intent).toContain(`;S.browser_fallback_url=${encodeURIComponent(swishAppUrl(payment))};end`);
+
+		// The fallback is the last thing before `end`, so anything of its own
+		// left unescaped would be read as another intent parameter.
+		const fallback = intent.slice(
+			intent.indexOf('S.browser_fallback_url=') + 'S.browser_fallback_url='.length,
+			-';end'.length
+		);
+
+		expect(fallback).not.toContain(';');
+		expect(fallback).not.toContain('#');
+		expect(fallback).not.toContain('&');
+		expect(decodeURIComponent(fallback)).toBe(swishAppUrl(payment));
+	});
+
+	/** One `#`, or the browser reads the intent parameters as part of the path. */
+	it('opens the fragment exactly once', () => {
+		expect(swishIntentUrl({ ...payment, message: 'Anna & Erik +1' }).match(/#/g)).toEqual(['#']);
+	});
+
+	/** `end` closes it. Chrome ignores an intent that never says so. */
+	it('closes the intent', () => {
+		expect(swishIntentUrl(payment).endsWith(';end')).toBe(true);
 	});
 });

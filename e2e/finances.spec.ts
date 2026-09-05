@@ -298,9 +298,24 @@ test.describe('the season books', () => {
 		if (testInfo.project.name === 'mobile') {
 			await expect(openSwish, 'a phone was left with nothing but the QR').toBeVisible();
 
-			// The payee has to be bare digits. A `+` is the malformed link the
-			// Swish app opens on an error dialog instead of the payment sheet.
-			await expect(openSwish).toHaveAttribute('href', /^https:\/\/app\.swish\.nu\/1\/p\/sw\/\?sw=\d+&amt=\d+&/);
+			// The mobile project is a Pixel 5, so this is the Android branch, and
+			// the only place anything checks it fires: the swap reads a real user
+			// agent after mount, which a jsdom render cannot report on. Naming the
+			// package is what stops Android dropping a person who already has
+			// Swish onto its download page. The payee has to be bare digits either
+			// way. A `+` is the malformed link the app opens on an error dialog
+			// instead of the payment sheet.
+			await expect(openSwish).toHaveAttribute(
+				'href',
+				/^intent:\/\/app\.swish\.nu\/1\/p\/sw\/\?sw=\d+&amt=\d+&.*#Intent;scheme=https;package=se\.bankgirot\.swish;/
+			);
+
+			// Without this a phone with no Swish follows the intent to nothing at
+			// all, where before it at least reached the download page.
+			await expect(openSwish).toHaveAttribute(
+				'href',
+				/;S\.browser_fallback_url=https%3A%2F%2Fapp\.swish\.nu%2F1%2Fp%2Fsw%2F[^;]*;end$/
+			);
 		} else {
 			await expect(openSwish, "a desktop was offered Swish's download page").toBeHidden();
 		}
