@@ -40,10 +40,22 @@ vi.mock('qrcode.react', async () => {
 
 const pay = () => render(<SwishPay payee='0701234567' amount={1736} message='Fall 2026: Anna Berg' />);
 
+const jsdomUserAgent = navigator.userAgent;
+
+const setUserAgent = (value: string) => Object.defineProperty(navigator, 'userAgent', { value, configurable: true });
+
+/** jsdom reports a desktop, so an Android run has to be asked for. */
+const onAndroid = () =>
+	setUserAgent('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Mobile');
+
+const href = () => screen.getByTestId('swish-open').getAttribute('href')!;
+
 describe('SwishPay', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockDrawn.length = 0;
+		// Or the first Android test leaves every test after it on Android.
+		setUserAgent(jsdomUserAgent);
 		Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
 	});
 
@@ -85,11 +97,45 @@ describe('SwishPay', () => {
 	it('opens the app with the payment already filled in', () => {
 		pay();
 
-		const href = screen.getByTestId('swish-open').getAttribute('href')!;
-
-		expect(href).toBe(
+		expect(href()).toBe(
 			'https://app.swish.nu/1/p/sw/?sw=46701234567&amt=1736&cur=SEK&msg=Fall%202026%3A%20Anna%20Berg&src=qr'
 		);
+	});
+
+	/**
+	 * Android will not hand an https link to an installed app unless the app
+	 * verified its claim on `app.swish.nu` and the person left "Open supported
+	 * links" on. Neither is ours to set, and when either is off the tap lands on
+	 * Swish's download page. Naming the package skips the whole question.
+	 */
+	it('addresses the Swish package by name on Android', () => {
+		onAndroid();
+		pay();
+
+		expect(href()).toBe(
+			'intent://app.swish.nu/1/p/sw/?sw=46701234567&amt=1736&cur=SEK&msg=Fall%202026%3A%20Anna%20Berg&src=qr' +
+				'#Intent;scheme=https;package=se.bankgirot.swish;S.browser_fallback_url=' +
+				'https%3A%2F%2Fapp.swish.nu%2F1%2Fp%2Fsw%2F%3Fsw%3D46701234567%26amt%3D1736%26cur%3DSEK' +
+				'%26msg%3DFall%25202026%253A%2520Anna%2520Berg%26src%3Dqr;end'
+		);
+	});
+
+	/**
+	 * The one place the code and the button are allowed to disagree. A camera
+	 * reads the code, not a browser, and a camera handed `intent://` has nothing
+	 * to open. Scanning is also the route that already worked on the phones this
+	 * change is for, so it is the route not to touch.
+	 */
+	it('leaves the code an https link on Android, because a camera reads it', () => {
+		onAndroid();
+		pay();
+
+		// Deduplicated because settling on Android is a state change, so the code
+		// is drawn once before it and once after. That both are the same string
+		// is the point: the swap moves the button and leaves the code alone.
+		expect([...new Set(mockDrawn)]).toEqual([
+			'https://app.swish.nu/1/p/sw/?sw=46701234567&amt=1736&cur=SEK&msg=Fall%202026%3A%20Anna%20Berg&src=qr',
+		]);
 	});
 
 	/**
@@ -101,7 +147,7 @@ describe('SwishPay', () => {
 	it('puts the same link in the code that the button holds', () => {
 		pay();
 
-		expect(mockDrawn).toEqual([screen.getByTestId('swish-open').getAttribute('href')]);
+		expect(mockDrawn).toEqual([href()]);
 	});
 
 	/**

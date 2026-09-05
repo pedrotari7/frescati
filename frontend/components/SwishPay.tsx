@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import * as stylex from '@stylexjs/stylex';
 import { formatSek } from '@shared/format';
-import { swishAppUrl, toLocal } from '@shared/swish';
+import { swishAppUrl, swishIntentUrl, toLocal } from '@shared/swish';
 import { useWrite } from '../hooks/useWrite';
+import { isAndroid } from '../lib/device';
 import Button from './Button';
 import { bp, colors } from '../app/tokens.stylex';
 import { surfaces } from '../lib/styles';
@@ -44,12 +46,17 @@ const styles = stylex.create({
 /**
  * Paying, without anybody retyping a phone number at the side of a pitch.
  *
- * Two routes to the same payment, carrying the same string. The code used to
- * hold the payload out of the Swish QR specification, `C0701234567;1736;...;0`,
- * which is a line of text and not a URL. A phone camera reads it, finds nothing
- * to open and offers nothing, so the only scanner it ever worked in was Swish's
- * own. A camera can act on a URL, so the code and the button now hand over the
- * same link.
+ * Two routes to the same payment. The code used to hold the payload out of the
+ * Swish QR specification, `C0701234567;1736;...;0`, which is a line of text and
+ * not a URL. A phone camera reads it, finds nothing to open and offers nothing,
+ * so the only scanner it ever worked in was Swish's own. A camera can act on a
+ * URL, so the code now carries the same link the button does.
+ *
+ * Addressed differently on Android, where a link is not enough to reach an
+ * installed app and the button sends an intent naming the Swish package
+ * instead. `swishIntentUrl` has the whole of that. The code stays an https URL
+ * on every phone, because the scan is the route that always worked and it is a
+ * camera reading it rather than a browser.
  *
  * Both are pure string building. Nothing calls Swish, which matters twice: the
  * CSP does not let the browser reach `mpc.getswish.net`, and a payment screen
@@ -64,7 +71,25 @@ const styles = stylex.create({
 const SwishPay = ({ payee, amount, message }: { payee: string; amount: number; message: string }) => {
 	const write = useWrite();
 
+	/*
+	 * Which way the button hands the payment over, settled after mount.
+	 *
+	 * It cannot be settled while rendering. The server has no user agent to
+	 * read, so it would pick a different href than the browser and the two would
+	 * fail to hydrate. Starting on the https link and correcting to the intent
+	 * leaves the wrong one live for a frame, and the wrong one is still the link
+	 * that works everywhere but Android.
+	 */
+	const [onAndroid, setOnAndroid] = useState(false);
+
+	useEffect(() => setOnAndroid(isAndroid()), []);
+
 	const appUrl = swishAppUrl({ payee, amount, message });
+
+	// The code always carries the https link. A camera scanning `intent://`
+	// gets a string it can do nothing with, and the scan is the path that has
+	// never needed fixing.
+	const href = onAndroid ? swishIntentUrl({ payee, amount, message }) : appUrl;
 
 	return (
 		<section {...stylex.props(surfaces.glass, styles.card)}>
@@ -123,7 +148,7 @@ const SwishPay = ({ payee, amount, message }: { payee: string; amount: number; m
 				    front of the QR code came for. `pointer: coarse` rather than
 				    sniffing the user agent, which is why this needs an e2e test at
 				    both viewports. */}
-				<a href={appUrl} data-testid='swish-open' {...stylex.props(surfaces.glassCard, styles.open)}>
+				<a href={href} data-testid='swish-open' {...stylex.props(surfaces.glassCard, styles.open)}>
 					Open Swish
 				</a>
 

@@ -61,3 +61,12 @@ export const thisDevice = (): DeviceDescription => {
 	// The parser has no way to spot an iPadOS 13+ tablet; this does.
 	return described.platform === 'desktop' && isIos() ? { ...described, platform: 'ios' } : described;
 };
+
+/**
+ * Whether this is an Android device.
+ *
+ * The one place it decides anything is the Swish button, which has to be handed
+ * over as an `intent://` there and as a plain https link everywhere else. See
+ * `swishIntentUrl` in `shared/swish.ts` for why that is Android's alone.
+ */
+export const isAndroid = (): boolean => describeUserAgent(navigator.userAgent).platform === 'android';
