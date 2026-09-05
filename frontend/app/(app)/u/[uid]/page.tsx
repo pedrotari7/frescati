@@ -149,7 +149,6 @@ const styles = stylex.create({
 	placeWon: { color: colors.brand },
 	placeLost: { color: colors.faint },
 	trophy: { color: colors.pending, width: 16, height: 16, flexShrink: 0 },
-	flat: { color: colors.faint, fontSize: 12, lineHeight: '16px', fontVariantNumeric: 'tabular-nums' },
 	after: {
 		color: colors.faint,
 		width: 32,
@@ -578,7 +577,7 @@ const GameRow = ({ game, seasonName, timezone }: { game: PlayerGame; seasonName?
 				/>
 			)}
 
-			<RatingMovement delta={game.delta} flat={<span {...stylex.props(styles.flat)}>—</span>} />
+			<RatingMovement delta={game.delta} />
 
 			<span {...stylex.props(styles.after)}>{toDisplayRating(game.after)}</span>
 
