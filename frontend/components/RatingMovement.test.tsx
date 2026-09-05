@@ -4,16 +4,19 @@ import { colors } from '../app/tokens.stylex';
 import { stylesFor, stylesOf } from '../test/stylex';
 import RatingMovement from './RatingMovement';
 
-const expected = stylex.create({ gain: { color: colors.in }, loss: { color: colors.out } });
+const expected = stylex.create({
+	gain: { color: colors.in },
+	loss: { color: colors.out },
+	level: { color: colors.faint },
+});
 
 /* A size of the caller's own, which has to beat the 12px the badge defaults to. */
 const caller = stylex.create({ smaller: { fontSize: 11 } });
 
 /**
- * The zero rule is the whole reason this component exists, the team sheet and
- * the player profile each documented it and then implemented it differently,
- * with nothing pinning either. These are the two behaviours that divergence
- * turned on.
+ * A display point is five Elo, so most of these are about the deltas under one.
+ * The badge has to keep the direction the rounding took away, and it has to
+ * tell that apart from a game that moved nobody.
  */
 describe('RatingMovement', () => {
 	it('signs a gain and colours it', () => {
@@ -28,23 +31,30 @@ describe('RatingMovement', () => {
 		expect(stylesOf(screen.getByText('-6'))).toEqual(expect.arrayContaining(stylesFor(expected.loss)));
 	});
 
-	// A real game routinely moves somebody by less than a point on the displayed
-	// scale, and `+0` reads as a result rather than as rounding.
-	it('draws nothing when the change rounds away', () => {
-		const { container } = render(<RatingMovement delta={0} />);
+	// The squad in the middle of a team sheet, between two reading +2 and -2.
+	// Blank said the game did nothing to them, which is not what happened.
+	it('signs a gain that rounds away', () => {
+		render(<RatingMovement delta={1} />);
 
-		expect(container).toBeEmptyDOMElement();
+		expect(stylesOf(screen.getByText('+0'))).toEqual(expect.arrayContaining(stylesFor(expected.gain)));
 	});
 
-	it('draws the flat placeholder instead when given one', () => {
-		render(<RatingMovement delta={0} flat={<span>—</span>} />);
+	it('signs a loss that rounds away', () => {
+		render(<RatingMovement delta={-1} />);
 
-		expect(screen.getByText('—')).toBeInTheDocument();
+		expect(stylesOf(screen.getByText('-0'))).toEqual(expect.arrayContaining(stylesFor(expected.loss)));
+	});
+
+	// Nothing to round and no direction to report, so it takes neither colour.
+	it('leaves a movement of exactly nothing unsigned', () => {
+		render(<RatingMovement delta={0} />);
+
+		expect(stylesOf(screen.getByText('0'))).toEqual(expect.arrayContaining(stylesFor(expected.level)));
 	});
 
 	// An unrated game, not a game worth nothing. The two must not look alike.
 	it('draws nothing for a game with no rating yet', () => {
-		const { container } = render(<RatingMovement delta={undefined} flat={<span>—</span>} />);
+		const { container } = render(<RatingMovement delta={undefined} />);
 
 		expect(container).toBeEmptyDOMElement();
 	});

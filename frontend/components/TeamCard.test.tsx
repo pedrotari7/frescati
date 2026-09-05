@@ -238,7 +238,11 @@ describe('TeamCard', () => {
 		expect(screen.queryByText('Out')).not.toBeInTheDocument();
 	});
 
-	it('shows no movement badge for a delta that rounds to zero', () => {
+	// A display point is five Elo, so a squad can play the whole game and move
+	// less than the badge can show. It keeps the sign anyway, because the cards
+	// beside this one read +2 and -2, and a blank row between them reads as a
+	// game that skipped somebody.
+	it('signs a delta that rounds to zero', () => {
 		render(
 			<TeamCard
 				team={team}
@@ -249,7 +253,7 @@ describe('TeamCard', () => {
 			/>
 		);
 
-		expect(screen.queryByText(/^[+-]\d+$/)).not.toBeInTheDocument();
+		expect(screen.getByText('+0')).toBeInTheDocument();
 	});
 
 	/**

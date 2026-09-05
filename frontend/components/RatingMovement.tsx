@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import type { StyleXStyles } from '@stylexjs/stylex';
 import { toDisplayMovement } from '@shared/leaderboard';
@@ -16,6 +15,7 @@ const styles = stylex.create({
 	movement: { fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: 12, lineHeight: '16px' },
 	up: { color: colors.in },
 	down: { color: colors.out },
+	level: { color: colors.faint },
 });
 
 /**
@@ -24,42 +24,50 @@ const styles = stylex.create({
  * Rendered on the displayed 0–100 scale rather than in Elo, so it agrees with
  * the number beside it: a game worth 30 Elo reads as +6.
  *
- * **A change that rounds to nothing renders nothing.** That is the rule this
- * component exists to hold in one place. The team sheet and the player profile
- * each documented it in a comment and then implemented it differently, one
- * returning `null` and the other an em dash, which is a divergence rather than
- * a decision. `flat` is now what that choice is called, so a caller picks it on
- * purpose: a dash where the column would otherwise collapse, nothing where the
- * row reads fine without it.
+ * **A change that rounds away still gets a badge, signed.** A display point is
+ * five Elo, which is coarse enough that a real game routinely moves somebody by
+ * less than one, so a whole squad went blank on the team sheet while the two
+ * cards beside it read +2 and -2. Blank says the game did nothing to them, and
+ * the team sheet is the one screen where three squads are read against each
+ * other. `+0` and `-0` say it moved them by less than the scale can show, and
+ * which way.
  *
- * `+0` is what both were avoiding. The displayed scale is coarse enough that a
- * real game routinely moves somebody by less than a point, and a badge claiming
- * a change of zero reads as a result rather than as rounding.
+ * The sign and the colour come off the Elo rather than off the rounded number,
+ * because the rounding is what took the direction away.
+ *
+ * A movement of *exactly* zero is the third case and reads `0`, in neither
+ * colour. Nothing rounded and there is no direction to report. That is a
+ * tournament where every fixture was drawn, or a first appearance on a ledger
+ * entry old enough that the rating it worked off was never stored, leaving no
+ * distance to measure.
  *
  * The season table deliberately does *not* use this. Its movement is the
  * headline number in a column that shows a rating on the other tab, so it needs
- * no colour of its own and does need to print `0`. A blank cell in a table
- * column reads as missing data, not as "no change". It shares `signed` and
- * nothing else.
+ * no colour of its own, and a season that rounds away still prints a plain `0`.
+ * Half a display point spread over twelve games has no direction worth reading.
+ * It shares `signed` and nothing else.
  */
 const RatingMovement = ({
 	delta,
 	sx,
-	flat = null,
 }: {
 	/** Elo, not the displayed scale. `undefined` when the game has not been rated. */
 	delta: number | undefined;
 	sx?: StyleXStyles;
-	/** What to draw when the change rounds to nothing. */
-	flat?: ReactNode;
 }) => {
 	if (delta === undefined) return null;
 
 	const shown = toDisplayMovement(delta);
 
-	if (shown === 0) return <>{flat}</>;
+	// `signed` prints an unsigned `0`, which is right for the movement that is
+	// genuinely nothing and wrong for the one that rounded to nothing.
+	const label = shown !== 0 ? signed(shown) : delta > 0 ? '+0' : delta < 0 ? '-0' : '0';
 
-	return <span {...stylex.props(styles.movement, shown > 0 ? styles.up : styles.down, sx)}>{signed(shown)}</span>;
+	return (
+		<span {...stylex.props(styles.movement, delta > 0 ? styles.up : delta < 0 ? styles.down : styles.level, sx)}>
+			{label}
+		</span>
+	);
 };
 
 export default RatingMovement;
