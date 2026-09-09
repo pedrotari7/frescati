@@ -165,6 +165,28 @@ describe('RosterList', () => {
 		expect(screen.queryByRole('button')).not.toBeInTheDocument();
 	});
 
+	// Two labels that are open questions right up to kick-off and neither
+	// afterwards: nobody is going to answer now, and nobody is going to be
+	// given a spot.
+	it('closes the two open questions once the game has been played', () => {
+		render(
+			<RosterList
+				memberUids={['alice', 'carol']}
+				responses={[
+					response({ uid: 'alice', status: 'in', role: 'member' }),
+					response({ uid: 'dave', status: 'in', role: 'extra' }),
+				]}
+				usersByUid={usersByUid}
+				played
+			/>
+		);
+
+		expect(screen.getByText('Never answered')).toBeInTheDocument();
+		expect(screen.queryByText('Yet to answer')).not.toBeInTheDocument();
+		expect(screen.getByText('No spot')).toBeInTheDocument();
+		expect(screen.queryByText('Awaiting a spot')).not.toBeInTheDocument();
+	});
+
 	it('lets an admin give an unconfirmed extra a spot', async () => {
 		const onToggleExtra = vi.fn().mockResolvedValue(undefined);
 

@@ -32,6 +32,34 @@ const styles = stylex.create({
 });
 
 /**
+ * The four things this strip can say: a spot waited on or given, before the
+ * game and after it. Two independent questions, so a table rather than the
+ * nested ternary that hides which of them each branch is answering.
+ */
+const notes = {
+	ahead: {
+		pending: {
+			lead: 'Waiting on a spot.',
+			rest: "You're down as an extra, an admin confirms your spot before you count towards the headcount.",
+		},
+		confirmed: {
+			lead: "You're in.",
+			rest: 'An admin confirmed your spot, so you count towards the headcount.',
+		},
+	},
+	played: {
+		pending: {
+			lead: 'No spot.',
+			rest: 'You were down as an extra and nobody confirmed a spot, so you never counted towards the headcount.',
+		},
+		confirmed: {
+			lead: 'You were in.',
+			rest: 'An admin confirmed your spot, so you counted towards the headcount.',
+		},
+	},
+} as const;
+
+/**
  * What an extra is told about their own spot, under the buttons they tapped.
  *
  * An extra's In is the one answer in the app that does nothing on its own: the
@@ -70,6 +98,11 @@ const ExtraSpotNote = ({
 		const pending = spot === 'pending';
 		const Icon = pending ? ClockIcon : CheckBadgeIcon;
 
+		// Past the final whistle none of this is still happening. A pending spot
+		// is one that never came rather than one still being waited on, and a
+		// confirmed one counted towards a headcount that has stopped moving.
+		const { lead, rest } = notes[lifecycle === 'finished' ? 'played' : 'ahead'][pending ? 'pending' : 'confirmed'];
+
 		// The strip the compact kit warning draws, on purpose: the icon carries
 		// the colour and the words stay legible against the tint, and this card
 		// already speaks that language a few pixels further up.
@@ -81,12 +114,8 @@ const ExtraSpotNote = ({
 				/>
 
 				<p {...stylex.props(styles.text)}>
-					<span {...stylex.props(styles.lead)}>{pending ? 'Waiting on a spot.' : "You're in."}</span>
-					<span {...stylex.props(styles.rest)}>
-						{pending
-							? " You're down as an extra, an admin confirms your spot before you count towards the headcount."
-							: ' An admin confirmed your spot, so you count towards the headcount.'}
-					</span>
+					<span {...stylex.props(styles.lead)}>{lead}</span>
+					<span {...stylex.props(styles.rest)}>{` ${rest}`}</span>
 				</p>
 			</div>
 		);

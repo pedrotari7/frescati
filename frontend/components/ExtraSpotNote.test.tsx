@@ -33,6 +33,22 @@ describe('ExtraSpotNote', () => {
 		expect(screen.getByText('Waiting on a spot.')).toBeInTheDocument();
 	});
 
+	// A spot that never came, not one still being waited on. Nobody confirms an
+	// extra for a game that has already been played.
+	it('settles a pending spot once the game has been played', () => {
+		render(<ExtraSpotNote isExtra myResponse={response({})} lifecycle='finished' />);
+
+		expect(screen.getByText('No spot.')).toBeInTheDocument();
+		expect(screen.getByText(/never counted towards the headcount/)).toBeInTheDocument();
+	});
+
+	it('puts a confirmed spot in the past once the game has been played', () => {
+		render(<ExtraSpotNote isExtra myResponse={response({ confirmOverride: true })} lifecycle='finished' />);
+
+		expect(screen.getByText('You were in.')).toBeInTheDocument();
+		expect(screen.getByText(/counted towards the headcount/)).toBeInTheDocument();
+	});
+
 	it('explains what will happen before they have answered', () => {
 		render(<ExtraSpotNote isExtra myResponse={undefined} lifecycle='open' />);
 

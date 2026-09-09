@@ -69,6 +69,7 @@ const HeadcountBar = ({
 	season,
 	sx,
 	settling = false,
+	played = false,
 }: {
 	game: Game;
 	season: Season;
@@ -86,6 +87,13 @@ const HeadcountBar = ({
 	 * the game screen, leave it alone.
 	 */
 	settling?: boolean;
+	/**
+	 * That the game is behind us, so every number here is a turnout rather than
+	 * a forecast. The bar itself does not change. The words around it do:
+	 * nobody is yet to answer a game that has been played, they never answered
+	 * it.
+	 */
+	played?: boolean;
 }) => {
 	const minimum = getMinPlayers(game, season);
 	const { playing } = game.counts;
@@ -140,7 +148,9 @@ const HeadcountBar = ({
 					>
 						{playing}
 					</span>
-					<span {...stylex.props(styles.unit)}>{atRisk ? `of ${minimum} needed` : 'playing'}</span>
+					<span {...stylex.props(styles.unit)}>
+						{played ? 'played' : atRisk ? `of ${minimum} needed` : 'playing'}
+					</span>
 				</div>
 
 				{/* This pill is not the "Need n more" one restyled, it replaces it, so
@@ -152,7 +162,11 @@ const HeadcountBar = ({
 						{format}
 					</StatusPill>
 				)}
-				{atRisk && <StatusPill tone='pending'>Need {minimum - playing} more</StatusPill>}
+				{atRisk && (
+					<StatusPill tone='pending'>
+						{played ? `${minimum - playing} short` : `Need ${minimum - playing} more`}
+					</StatusPill>
+				)}
 			</div>
 
 			<div {...stylex.props(styles.track)}>
@@ -183,9 +197,17 @@ const HeadcountBar = ({
 				    above deliberately did not move for, and an admin is the only
 				    one who can. Without it, an extra tapping In changes nothing
 				    anybody can see. */}
-				{awaitingSpot > 0 && <span {...stylex.props(styles.awaiting)}>{awaitingSpot} awaiting a spot</span>}
+				{awaitingSpot > 0 && (
+					<span {...stylex.props(styles.awaiting)}>
+						{awaitingSpot} {played ? 'never got a spot' : 'awaiting a spot'}
+					</span>
+				)}
 				{game.counts.membersOut > 0 && <span>{game.counts.membersOut} out</span>}
-				{awaiting > 0 && <span>{awaiting} yet to answer</span>}
+				{awaiting > 0 && (
+					<span>
+						{awaiting} {played ? 'never answered' : 'yet to answer'}
+					</span>
+				)}
 			</div>
 		</div>
 	);

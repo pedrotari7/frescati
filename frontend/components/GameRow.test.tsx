@@ -59,6 +59,23 @@ describe('GameRow', () => {
 		expect(screen.getByText('10 playing')).toBeInTheDocument();
 	});
 
+	// The same number it carried all week, but nobody is going to add to it.
+	it('reports a turnout rather than a headcount on a game already played', () => {
+		render(
+			<GameRow
+				game={game({ counts: { ...EMPTY_COUNTS, membersIn: 10, playing: 10 } })}
+				season={season}
+				myResponse={undefined}
+				now={new Date('2026-09-01T19:00:00.000Z')}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
+			/>
+		);
+
+		expect(screen.getByText('10 played')).toBeInTheDocument();
+		expect(screen.queryByText('10 playing')).not.toBeInTheDocument();
+	});
+
 	it('flags a game short of players as at risk', () => {
 		render(
 			<GameRow

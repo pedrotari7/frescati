@@ -170,6 +170,7 @@ const RosterList = ({
 	usersByUid,
 	canManageExtras = false,
 	canReportAbsence = false,
+	played = false,
 	onToggleExtra,
 	onToggleAbsent,
 }: {
@@ -183,6 +184,12 @@ const RosterList = ({
 	 * `shared/game.ts` is the half of that about the clock.
 	 */
 	canReportAbsence?: boolean;
+	/**
+	 * That the game is behind us. Two of these groups are open questions until
+	 * then and neither survives it: nobody is going to answer now, and nobody
+	 * is going to be given a spot. Both say what happened instead.
+	 */
+	played?: boolean;
 	onToggleExtra?: (uid: string, confirmed: boolean) => Promise<void>;
 	onToggleAbsent?: (uid: string, absent: boolean) => Promise<void>;
 }) => {
@@ -253,7 +260,7 @@ const RosterList = ({
 						return confirmed ? (
 							<StatusPill tone='extra'>Extra</StatusPill>
 						) : (
-							<StatusPill tone='neutral'>Awaiting a spot</StatusPill>
+							<StatusPill tone='neutral'>{played ? 'No spot' : 'Awaiting a spot'}</StatusPill>
 						);
 					}
 
@@ -266,8 +273,8 @@ const RosterList = ({
 			/>
 
 			{/* Straight after the people who did turn up, because that is the list
-			    it is the exception to, and above "Yet to answer", which is a
-			    different failure and a much smaller one. */}
+			    it is the exception to, and above the people who never answered,
+			    which is a different failure and a much smaller one. */}
 			<Section
 				title="Didn't show"
 				tone='out'
@@ -285,7 +292,7 @@ const RosterList = ({
 				}
 			/>
 
-			<Section title='Yet to answer' tone='pending' entries={awaiting} />
+			<Section title={played ? 'Never answered' : 'Yet to answer'} tone='pending' entries={awaiting} />
 
 			<Section title='Out' tone='out' entries={out} />
 		</div>

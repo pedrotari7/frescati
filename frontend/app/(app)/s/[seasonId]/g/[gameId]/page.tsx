@@ -162,6 +162,11 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const lifecycle = getGameLifecycle(game, season, now);
 	const timezone = season.slot.timezone;
 
+	// Past the final whistle nothing on this screen is a question any more. The
+	// headcount, the roster heading and the groups inside it all read as one
+	// until then, so each of them says what happened instead.
+	const played = lifecycle === 'finished';
+
 	return (
 		<SeasonShell
 			title={formatGameDateLong(game.kickoff, timezone)}
@@ -199,7 +204,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 
 					{game.note && <p {...stylex.props(styles.note)}>{game.note}</p>}
 
-					<HeadcountBar game={game} season={season} />
+					<HeadcountBar game={game} season={season} played={played} />
 
 					{lifecycle === 'cancelled' ? (
 						<p {...stylex.props(styles.off)}>{game.cancelledReason || 'This game is off.'}</p>
@@ -255,7 +260,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 				)}
 
 				<div>
-					<h2 {...stylex.props(styles.rosterHead)}>Who&apos;s playing</h2>
+					<h2 {...stylex.props(styles.rosterHead)}>{played ? 'Who played' : "Who's playing"}</h2>
 
 					<RosterList
 						memberUids={season.memberUids}
@@ -263,6 +268,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 						usersByUid={usersByUid}
 						canManageExtras={isAdmin}
 						canReportAbsence={isAdmin && canReportAbsence(lifecycle)}
+						played={played}
 						onToggleExtra={async (uid, confirmed) => {
 							await write(
 								() => setConfirmOverride(seasonId, gameId, uid, confirmed),

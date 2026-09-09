@@ -149,8 +149,11 @@ const GameRow = ({
 								<StatusPill tone='out'>Cancelled</StatusPill>
 							) : (
 								<>
+									{/* A turnout once the game is behind us, not a headcount:
+									    the same number, but nobody is going to add to it. The
+									    row already drops the "Short" pill for the same reason. */}
 									<span {...stylex.props(styles.count, atRisk ? styles.countShort : styles.countOk)}>
-										{game.counts.playing} playing
+										{game.counts.playing} {isPast ? 'played' : 'playing'}
 									</span>
 									{!atRisk && getFormat(game.counts.playing) && (
 										<span {...stylex.props(styles.format)}>· {getFormat(game.counts.playing)}</span>

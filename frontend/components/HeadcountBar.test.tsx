@@ -82,6 +82,38 @@ describe('HeadcountBar', () => {
 		expect(screen.getByText('5 yet to answer')).toBeInTheDocument();
 	});
 
+	/*
+	 * The three below are all one rule: once the game has been played every
+	 * line here is a turnout, so nothing on it asks for anything.
+	 */
+	it('reports a turnout rather than a headcount once the game has been played', () => {
+		render(<HeadcountBar game={game({ membersIn: 10, playing: 10 })} season={season} played />);
+
+		expect(screen.getByText('played')).toBeInTheDocument();
+		expect(screen.queryByText('playing')).not.toBeInTheDocument();
+	});
+
+	it('says a played game came up short rather than asking for more', () => {
+		render(<HeadcountBar game={game({ membersIn: 8, playing: 8 })} season={season} played />);
+
+		expect(screen.getByText('played')).toBeInTheDocument();
+		expect(screen.getByText('2 short')).toBeInTheDocument();
+		expect(screen.queryByText(/Need/)).not.toBeInTheDocument();
+	});
+
+	it('closes both open questions on the strip once the game has been played', () => {
+		render(
+			<HeadcountBar
+				game={game({ membersIn: 8, membersOut: 1, extrasIn: 3, extrasConfirmed: 1, playing: 9 })}
+				season={season}
+				played
+			/>
+		);
+
+		expect(screen.getByText('2 never got a spot')).toBeInTheDocument();
+		expect(screen.getByText('1 never answered')).toBeInTheDocument();
+	});
+
 	it('lets a per-game minimum override the season default', () => {
 		render(
 			<HeadcountBar game={{ ...game({ membersIn: 4, playing: 4 }), minPlayers: 4 } as Game} season={season} />
