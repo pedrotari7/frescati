@@ -35,6 +35,22 @@ const dropStrayWorkers = async (ours: ServiceWorkerRegistration): Promise<void> 
 };
 
 /**
+ * Whether a rejected registration is the environment refusing service workers
+ * outright, rather than this app failing to install one.
+ *
+ * Google's renderer crawls the public pages after every deploy, and it replaces
+ * `navigator.serviceWorker.register` with a stub that rejects with a bare
+ * `Rejected`. Nothing was attempted and nothing is broken. A crawler that will
+ * never run a worker is not a visitor who lost their offline cache. It arrived
+ * once per release for a month, which is how an inbox stops being read.
+ *
+ * Matched here rather than in `ignoreErrors` because the message is one common
+ * word. Ignoring `Rejected` across the whole app would eventually swallow
+ * something real; ignoring it on the single call site that provokes it cannot.
+ */
+const refusedByRenderer = (error: unknown): boolean => error instanceof Error && error.message === 'Rejected';
+
+/**
  * Registers the service worker, and notices when a newer one is ready.
  *
  * Registration and update detection are the same object: you cannot watch for
@@ -93,7 +109,14 @@ export const useServiceWorkerUpdate = () => {
 		navigator.serviceWorker
 			.register('/sw.js', { scope: '/' })
 			.then(current => {
-				if (cancelled) return;
+				// `cancelled` is an unmount. A missing registration is a
+				// stubbed API. The spec resolves this with a
+				// `ServiceWorkerRegistration`, and an environment handing back
+				// nothing has no worker to offer and no update to watch for.
+				// Reading `.waiting` off it threw a TypeError that the `catch`
+				// below then filed as a failed registration, which is the one
+				// thing it was not.
+				if (cancelled || !current) return;
 
 				registration.current = current;
 
@@ -113,6 +136,9 @@ export const useServiceWorkerUpdate = () => {
 				});
 			})
 			.catch(error => {
+				// A crawler declining the worker is not a visitor losing one.
+				if (refusedByRenderer(error)) return;
+
 				// Nothing else observes this. A failed registration means no
 				// offline fallback and no push for this visitor, silently.
 				// Worth knowing about even though there's nothing to say on

@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 vi.mock('../lib/sentry', () => ({ captureError: vi.fn().mockResolvedValue(undefined) }));
 
 import { useServiceWorkerUpdate } from './useServiceWorkerUpdate';
+import { captureError } from '../lib/sentry';
 import type { Mock } from 'vitest';
 
 /**
@@ -87,6 +88,10 @@ const install = ({ controlled, others }: { controlled: boolean; others?: FakeReg
 };
 
 beforeEach(() => {
+	vi.mocked(captureError).mockClear();
+	// The failure path prints, and a test that provokes it on purpose should not
+	// print with it.
+	vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	reload = vi.fn();
 	Object.defineProperty(window, 'location', { value: { reload }, configurable: true, writable: true });
 	Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
@@ -234,5 +239,43 @@ describe('useServiceWorkerUpdate', () => {
 		});
 
 		expect(registration.update).not.toHaveBeenCalled();
+	});
+
+	// A shim that resolves nothing rather than a registration. Reading
+	// `.waiting` off it threw, and the `catch` then reported the TypeError as a
+	// failed registration.
+	it('survives a register that resolves without a registration', async () => {
+		install({ controlled: true });
+		container.register.mockResolvedValue(undefined);
+
+		const { result } = renderHook(() => useServiceWorkerUpdate());
+
+		await waitFor(() => expect(container.register).toHaveBeenCalled());
+		expect(result.current.updateReady).toBe(false);
+		expect(captureError).not.toHaveBeenCalled();
+	});
+
+	// Google's renderer stubs `register` to reject with a bare `Rejected`, once
+	// per deploy. Nothing was attempted, so there is nothing to report.
+	it('says nothing when a crawler refuses the worker', async () => {
+		install({ controlled: true });
+		container.register.mockRejectedValue(new Error('Rejected'));
+
+		renderHook(() => useServiceWorkerUpdate());
+
+		await waitFor(() => expect(container.register).toHaveBeenCalled());
+		expect(captureError).not.toHaveBeenCalled();
+	});
+
+	// The filter above is narrow on purpose. A worker that failed to install
+	// still has to reach the inbox.
+	it('still reports a registration that actually failed', async () => {
+		install({ controlled: true });
+		const failure = new Error('Failed to register a ServiceWorker: bad MIME type');
+		container.register.mockRejectedValue(failure);
+
+		renderHook(() => useServiceWorkerUpdate());
+
+		await waitFor(() => expect(captureError).toHaveBeenCalledWith(failure, { stage: 'serviceWorkerRegister' }));
 	});
 });
