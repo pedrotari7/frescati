@@ -33,9 +33,10 @@ const TEAMS = [
 const NOW = new Date('2026-09-02T12:00:00.000Z');
 const OPEN_UNTIL = NOW.getTime() + 24 * 3_600_000;
 
-const decided = (winners: string[], counts: TournamentMotm['counts']): TournamentMotm => ({
+const decided = (winners: string[], counts: TournamentMotm['counts'], voterUids?: string[]): TournamentMotm => ({
 	winners,
 	counts,
+	...(voterUids ? { voterUids } : {}),
 	decidedAt: '2026-09-04T12:00:00.000Z',
 });
 
@@ -242,9 +243,44 @@ describe('MotmPanel', () => {
 			expect(screen.getByText(/Nobody voted/)).toBeInTheDocument();
 		});
 
-		// The turnout is the sum of the published totals from here on, and the
-		// document behind the strip is deleted with the window.
-		it('drops the turnout strip, which the totals now carry', () => {
+		// Who never got round to it is a question about the week that just went as
+		// much as about the one still running, and the totals answer it with a
+		// number: one vote, from which of the four is anybody's guess.
+		it('keeps the turnout strip, from the list the count wrote down', () => {
+			renderPanel({
+				motm: decided(['zara'], [{ uid: 'zara', votes: 2 }], ['anna', 'johan']),
+				votingUntil: undefined,
+			});
+
+			expect(screen.getByText('2 of 4 voted')).toBeInTheDocument();
+			expect(screen.getByRole('listitem', { name: 'Anna, voted' })).toBeInTheDocument();
+			expect(screen.getByRole('listitem', { name: 'Erik, did not vote' })).toBeInTheDocument();
+		});
+
+		// Nothing says "yet" once the door is shut. The strip has stopped being a
+		// nudge and become a record of who answered.
+		it('drops the present tense once it is counted', () => {
+			renderPanel({
+				motm: decided(['zara'], [{ uid: 'zara', votes: 4 }], ['anna', 'johan', 'zara', 'erik']),
+				votingUntil: undefined,
+			});
+
+			expect(screen.getByText('Everybody voted')).toBeInTheDocument();
+			expect(screen.queryByRole('listitem', { name: /not yet/ })).not.toBeInTheDocument();
+		});
+
+		// Eleven faded faces under a line that has just said the same thing in
+		// words. While the vote is open that state is worth drawing, because it is
+		// the one somebody is here to change.
+		it('leaves the strip off when nobody voted', () => {
+			renderPanel({ motm: decided([], [], []), votingUntil: undefined });
+
+			expect(screen.queryByRole('listitem', { name: /voted|not yet/ })).not.toBeInTheDocument();
+		});
+
+		// Every game decided before the turnout was kept. Drawing the lineup with
+		// nobody marked as having voted would be a claim nothing supports.
+		it('draws no strip at all for a game decided before the list was kept', () => {
 			renderPanel({ motm: decided(['zara'], [{ uid: 'zara', votes: 1 }]), votingUntil: undefined });
 
 			expect(screen.queryByRole('listitem', { name: /voted|not yet/ })).not.toBeInTheDocument();

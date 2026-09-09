@@ -24,7 +24,8 @@ import { reportError } from './sentry';
  *
  * Between them the only thing published is the turnout: who has answered, never
  * what they answered. That is the whole of what a vote in progress may say about
- * itself.
+ * itself. It outlives the vote too. The count copies it onto the decision, so
+ * the group can still see who sat the week out.
  *
  * The decision document is the record, not the votes. They stay where they are.
  * A replay is not a recount, but nothing reads them again.
@@ -69,11 +70,11 @@ export const getMotmDecision = async (seasonId: string, gameId: string): Promise
  * Read off the document ids rather than the `uid` field, the way `closeMotmVote`
  * does: the id is the voter by construction.
  *
- * A counted vote is left with no list at all. The turnout is the sum of the
- * published totals by then, so keeping this would be a second copy of a number
- * already on screen. The decision, not the clock, is what says the counting
- * has happened, which is what makes a vote landing in the same moment as the
- * sweep unable to resurrect it.
+ * A counted vote is left with no list at all. `closeMotmVote` copies the
+ * turnout onto the decision as it publishes the totals, so keeping this would
+ * be a second copy of a list already on screen. The decision, not the clock, is
+ * what says the counting has happened, which is what makes a vote landing in
+ * the same moment as the sweep unable to resurrect it.
  */
 export const recountMotmVoters = async (seasonId: string, gameId: string): Promise<number> =>
 	db.runTransaction(async transaction => {
@@ -252,14 +253,26 @@ export const closeMotmVote = async (seasonId: string, gameId: string): Promise<b
 	const votes = votesSnap.docs.map(doc => ({ ...(doc.data() as MotmVote), uid: doc.id }));
 	const { winners, counts } = tallyMotmVotes(votes);
 
-	const decision: TournamentMotm = { winners, counts, decidedAt: new Date().toISOString() };
+	// Who answered goes down with the decision. It is the same list the live
+	// document has been publishing all week, and the question it answers, who
+	// still hasn't voted, gets asked about the week that has just gone as much
+	// as about the one running. The counts say four people voted without saying
+	// which four. Keeping it discloses nothing new, since it carries uids and no
+	// picks, which is what made it publishable while the vote was open.
+	const decision: TournamentMotm = {
+		winners,
+		counts,
+		voterUids: votesSnap.docs.map(doc => doc.id).sort(),
+		decidedAt: new Date().toISOString(),
+	};
 
 	await motmRef(seasonId, gameId).set(decision);
 	await gameRef(seasonId, gameId).update({ motmVotingUntilMillis: FieldValue.delete() });
 
-	// Last, and after the decision on purpose: from here the turnout is the sum
-	// of the totals just published, so a list of who answered is a second copy of
-	// a number already on screen. It goes for the same reason the window does.
+	// Last, and after the decision on purpose: the list has just been written
+	// onto the record, so leaving this one behind would be two copies of it to
+	// keep in step. It goes for the same reason the window does, and in the same
+	// order, nothing is deleted until what replaces it is safely down.
 	await votersRef(seasonId, gameId).delete();
 
 	logger.info('Counted a man-of-the-match vote', { seasonId, gameId, votes: votes.length, winners });
