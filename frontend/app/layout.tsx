@@ -11,6 +11,7 @@ import ServiceWorkerRegistrar from '../components/ServiceWorkerRegistrar';
 import PwaInstallPrompt from '../components/PwaInstallPrompt';
 import DevUserSwitcher from '../components/DevUserSwitcher';
 import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export const metadata: Metadata = {
 	title: 'Frescati',
@@ -113,6 +114,7 @@ const RootLayout = ({ children }: { children: ReactNode }) => (
 			</ErrorBoundary>
 			<ServiceWorkerRegistrar />
 			<Analytics />
+			<SpeedInsights />
 		</body>
 	</html>
 );
