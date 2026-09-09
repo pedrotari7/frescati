@@ -216,7 +216,7 @@ describe('the turnout while the vote is open', () => {
 		expect((await readMotmVoters(SEASON_ID, GAME_ID))?.uids).toEqual(['p1']);
 	});
 
-	it('goes when the votes are counted, because the totals carry it from then on', async () => {
+	it('moves onto the decision when the votes are counted', async () => {
 		await setUpGame();
 		await confirm();
 		await writeMotmVote(SEASON_ID, GAME_ID, 'p1', 'p5');
@@ -225,7 +225,10 @@ describe('the turnout while the vote is open', () => {
 
 		await closeMotmVoting.run({} as never);
 
+		// One list, on whichever document describes the state the vote is in.
+		// Two would be two to keep in step.
 		expect(await readMotmVoters(SEASON_ID, GAME_ID)).toBeUndefined();
+		expect((await readMotm(SEASON_ID, GAME_ID))?.voterUids).toEqual(['p1']);
 	});
 
 	// A vote cast in the last moment of the window, whose trigger lands after the
@@ -271,6 +274,9 @@ describe('closing the vote', () => {
 			{ uid: 'p5', votes: 2 },
 			{ uid: 'p1', votes: 1 },
 		]);
+		// Who answered, and pointedly not who any of them answered with. Sorted,
+		// so the sweep, a backfill and a second reader all produce one list.
+		expect((await readMotm(SEASON_ID, GAME_ID))?.voterUids).toEqual(['p1', 'p2', 'p3']);
 		// Gone, which is what takes the game out of this sweep's query for good.
 		expect((await readGame(SEASON_ID, GAME_ID))?.motmVotingUntilMillis).toBeUndefined();
 	});
@@ -284,7 +290,7 @@ describe('closing the vote', () => {
 
 		await closeMotmVoting.run({} as never);
 
-		expect(await readMotm(SEASON_ID, GAME_ID)).toMatchObject({ winners: [], counts: [] });
+		expect(await readMotm(SEASON_ID, GAME_ID)).toMatchObject({ winners: [], counts: [], voterUids: [] });
 		expect((await readGame(SEASON_ID, GAME_ID))?.motmVotingUntilMillis).toBeUndefined();
 	});
 

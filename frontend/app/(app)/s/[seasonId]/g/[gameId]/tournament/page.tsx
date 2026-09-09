@@ -25,7 +25,6 @@ import { findTeamIndex, getUnassigned } from '@shared/lineup';
 import { getAbsentUids, isConfirmed, sortResponses } from '@shared/game';
 import { getStandings } from '@shared/standings';
 import { formatGameDateLong, formatRelative } from '@shared/format';
-import { isMotmVotingOpen } from '@shared/motm';
 import * as stylex from '@stylexjs/stylex';
 import { useSeasonContext } from '../../../../../../../components/SeasonProvider';
 import {
@@ -370,45 +369,41 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// enforce too. Being an admin is not being on the pitch.
 	const playedInThis = !!user && lineup.teams.some(team => team.uids.includes(user.uid));
 
-	// Where the panel goes depends on whether it is a ballot or a record. While
-	// the vote is open it is the only thing on the screen with a deadline, and
-	// the notification that opened it lands here, so it goes first, above a
-	// lineup and a scoreboard that are both already settled. Once it is decided
-	// it drops back to sitting with the table, which is the other thing the
-	// evening produced. Drawn once either way: the panel returns nothing at all
-	// until there is a vote to hold or a result to report.
-	const motmPanel = (
-		<MotmPanel
-			teams={lineup.teams}
-			usersByUid={usersByUid}
-			motm={motm}
-			vote={vote}
-			voterUids={voterUids}
-			votingUntil={game.motmVotingUntilMillis}
-			now={now}
-			canVote={playedInThis}
-			onVote={async uid => {
-				if (!user) return;
-
-				// Tapping your own pick again takes it back. Abstaining is a
-				// real position, and there is nowhere else to express it.
-				await write(
-					() =>
-						vote?.votedFor === uid
-							? clearMotmVote(seasonId, gameId, user.uid)
-							: setMotmVote(seasonId, gameId, user.uid, uid),
-					"Couldn't save your vote."
-				);
-			}}
-		/>
-	);
-
-	const voting = isMotmVotingOpen(game.motmVotingUntilMillis, now.getTime());
-
 	return (
 		<SeasonShell title='Teams' subtitle={subtitle} backHref={backHref}>
 			<div {...stylex.props(styles.page)}>
-				{voting && motmPanel}
+				{/* First on the screen, whichever of its two jobs it is doing. Open, it
+				    is the only thing here with a deadline on it and the notification that
+				    opened it lands on this page, so it goes above a lineup and a
+				    scoreboard that are both already settled. Decided, it stays there: it
+				    used to drop down beside the table once it was counted, which put the
+				    one part of the evening the table cannot show below three sections of
+				    the parts it can, at the bottom of a long scroll on a phone. Drawn
+				    only when there is something to draw: the panel returns nothing at all
+				    until there is a vote to hold or a result to report. */}
+				<MotmPanel
+					teams={lineup.teams}
+					usersByUid={usersByUid}
+					motm={motm}
+					vote={vote}
+					voterUids={voterUids}
+					votingUntil={game.motmVotingUntilMillis}
+					now={now}
+					canVote={playedInThis}
+					onVote={async uid => {
+						if (!user) return;
+
+						// Tapping your own pick again takes it back. Abstaining is a
+						// real position, and there is nowhere else to express it.
+						await write(
+							() =>
+								vote?.votedFor === uid
+									? clearMotmVote(seasonId, gameId, user.uid)
+									: setMotmVote(seasonId, gameId, user.uid, uid),
+							"Couldn't save your vote."
+						);
+					}}
+				/>
 
 				<section {...stylex.props(surfaces.glass, styles.card)}>
 					<div {...stylex.props(styles.pills)}>
@@ -624,10 +619,6 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 						))}
 					</ol>
 				</section>
-
-				{/* Above the table on purpose: the winner is the part of the
-				    evening the table can't show. */}
-				{!voting && motmPanel}
 
 				{(played > 0 || finalised) && (
 					<section {...stylex.props(surfaces.glass, styles.card)}>

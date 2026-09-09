@@ -19,6 +19,7 @@
 		"deploy-cors": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/deployCors.ts",
 		"backfill-kickoff-millis": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillKickoffMillis.ts",
 		"backfill-motm-voters": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillMotmVoters.ts",
+		"backfill-motm-turnout": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillMotmTurnout.ts",
 		"backfill-ledger-teams": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillLedgerTeams.ts",
 		"backfill-ledger-seed": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillLedgerSeed.ts",
 		"backfill-debtors": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillDebtors.ts",

@@ -249,6 +249,27 @@ test.describe('the team sheet', () => {
 	});
 });
 
+/**
+ * Whether the team sheet on screen belongs to a game whose vote has been
+ * counted.
+ *
+ * The panel has to be waited for rather than asked about: a played game that
+ * nobody confirmed has no panel at all, and "not counted yet" and "not drawn
+ * yet" look identical to an instant check. Not finding one is a `false` here
+ * rather than a failure, unlike `showsAsConfirmed`, because a game with no vote
+ * on it is an ordinary state for this loop to walk past.
+ */
+const showsADecidedVote = async (page: Page): Promise<boolean> => {
+	const panel = sectionUnder(page, /^Man of the match$/).last();
+
+	const drawn = await panel
+		.waitFor({ state: 'visible', timeout: 5_000 })
+		.then(() => true)
+		.catch(() => false);
+
+	return drawn && panel.getByText('Decided', { exact: true }).isVisible();
+};
+
 test.describe('man of the match', () => {
 	test("shows the turnout without showing anybody's pick", async ({ page }) => {
 		const admin = aSeasonAdmin();
@@ -344,5 +365,36 @@ test.describe('man of the match', () => {
 		// who was picked, only that the pick survived, which means it reached
 		// Firestore through a rule that checks the team sheet.
 		await expect(panel.locator('li button[aria-pressed="true"]')).toHaveCount(1);
+	});
+
+	// The two halves of what a counted vote leaves on the screen, and both are
+	// about a game whose result the seeder wrote the way `closeMotmVote` does:
+	// the winner announced above everything the table can already tell you, and
+	// the turnout still there, in the past tense, from the copy on the decision.
+	test('puts a counted result above the scoreboard, turnout and all', async ({ page }) => {
+		const admin = aSeasonAdmin();
+		await openSeasonAs(page, admin);
+		await openAPlayedGame(page, showsADecidedVote);
+
+		// Headings in document order. The panel used to sit between the
+		// scoreboard and the table, at the bottom of a long scroll on a phone,
+		// which is the whole of what this asserts.
+		const headings = await page.getByRole('heading').allInnerTexts();
+
+		expect(headings).toContain('Man of the match');
+		expect(headings.indexOf('Man of the match')).toBeLessThan(headings.indexOf('Scoreboard'));
+
+		// Who answered survives the count now, so the strip is still here and
+		// nothing on it says "yet". A game decided before the list was kept has
+		// none at all, which is why this asks for either label rather than for a
+		// count of them.
+		const turnout = page.locator('li[aria-label*="voted"], li[aria-label*="did not vote"]');
+		await expect(turnout.first(), 'the turnout strip drew nobody').toBeVisible();
+
+		for (const label of await turnout.evaluateAll(nodes =>
+			nodes.map(node => node.getAttribute('aria-label') ?? '')
+		)) {
+			expect(label).toMatch(/, (voted|did not vote)$/);
+		}
 	});
 });

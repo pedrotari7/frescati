@@ -697,6 +697,33 @@ export interface TournamentMotm {
 	winners: string[];
 	/** Every player who got a vote, most first. Sums to the turnout. */
 	counts: { uid: string; votes: number }[];
+	/**
+	 * Who voted, by uid, sorted. Never who any of them picked.
+	 *
+	 * The same list `TournamentMotmVoters` publishes while the vote runs, moved
+	 * onto the record when the vote is counted, which is what lets the panel go
+	 * on answering "who still hasn't voted" after the door shuts. That question
+	 * does not stop being asked at the deadline: the group asks it about the
+	 * week that just happened, and the counts alone say four people answered
+	 * without saying which four.
+	 *
+	 * There is never a second copy of it. The live document is deleted as this
+	 * one is written, so at any moment the list sits on whichever document
+	 * describes the state the vote is in.
+	 *
+	 * The privacy line is the one the turnout has always held. Names with no
+	 * picks attached give nobody a lead to fall in behind, which is the only
+	 * reason the votes are sealed at all, and the tally this sits beside was
+	 * published on purpose. The tail case is unchanged and still accepted. On a
+	 * game where one person voted, knowing who voted and reading the totals
+	 * identifies their pick.
+	 *
+	 * Optional because every game decided before this shipped has none. Absent
+	 * means "not recorded", and the panel draws that as no turnout at all rather
+	 * than as a lineup nobody in it voted. `backfill-motm-turnout` fills them
+	 * in from the votes, which counting does not consume.
+	 */
+	voterUids?: string[];
 	decidedAt: string;
 }
 

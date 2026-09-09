@@ -3,7 +3,7 @@
 import { CheckCircleIcon, TrophyIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { AppUser, MotmVote, TournamentMotm, TournamentTeam } from '@shared/types';
-import { formatRelative } from '@shared/format';
+import { counted, formatRelative } from '@shared/format';
 import { getMotmTurnout, isMotmVotingOpen } from '@shared/motm';
 import Avatar from './Avatar';
 import StatusPill from './StatusPill';
@@ -108,10 +108,44 @@ const styles = stylex.create({
 	waiting: { opacity: 0.3 },
 
 	nobody: { color: colors.muted, marginBottom: 4, fontSize: 14, lineHeight: 1.625 },
-	result: { marginBottom: 4 },
-	winners: { color: colors.ink, fontSize: 18, lineHeight: 1.25, fontWeight: 700 },
+
+	/*
+	 * The result, once there is one.
+	 *
+	 * A face and a name at the size a name gets announced at, rather than the
+	 * 18px line it used to be above a 12px tally. Somebody opening a played game
+	 * a week later is after two things, the table and this, and the table can be
+	 * worked out from the scorelines directly above it while this cannot be
+	 * worked out from anything on the screen at all. It is the trophy's wash and
+	 * ring, the same pair the winning row in the list below carries, so the two
+	 * read as one answer given twice rather than as two separate claims.
+	 */
+	podium: {
+		marginTop: 12,
+		marginBottom: 4,
+		display: 'flex',
+		alignItems: 'center',
+		gap: 14,
+		borderRadius: 16,
+		backgroundColor: tint.pending10,
+		boxShadow: `0 0 0 1px ${tint.pending30}`,
+		padding: 14,
+	},
+	// A tie is one result with two faces in it, so they overlap. Side by side
+	// they read as the beginning of a list, which is the next thing down.
+	podiumFaces: { display: 'flex', flexShrink: 0 },
+	podiumFace: { marginLeft: { default: -14, ':first-child': 0 } },
+	podiumWho: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	winners: { color: colors.ink, fontSize: 22, lineHeight: '28px', fontWeight: 700 },
 	shared: { color: colors.muted, fontSize: 14, lineHeight: '20px', fontWeight: 400 },
-	tally: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
+	tally: {
+		color: colors.pending,
+		marginTop: 2,
+		fontSize: 13,
+		lineHeight: '18px',
+		fontWeight: 600,
+		fontVariantNumeric: 'tabular-nums',
+	},
 });
 
 /**
@@ -127,7 +161,9 @@ const styles = stylex.create({
  * a different question with a different answer: eight names with nothing
  * attached to them is not a leaderboard. What it is instead is the list the
  * group would otherwise reconstruct by asking each other, which is who still
- * hasn't voted.
+ * hasn't voted. It stays up after the count, because that list is exactly as
+ * interesting on the Friday as it was on the Wednesday and the published totals
+ * give the number without the names.
  *
  * Whoever is looking is not necessarily in it. A game is public to the whole
  * group, so somebody who didn't play sees the same panel with no buttons in it,
@@ -150,7 +186,10 @@ const MotmPanel = ({
 	motm: TournamentMotm | null;
 	/** Your own vote, or `null` if you haven't cast one. */
 	vote: MotmVote | null;
-	/** Who has voted so far. Empty once it is counted. See `Decided`. */
+	/**
+	 * Who has voted so far, while the vote is open. Empty once it is counted,
+	 * the count deletes the live document and copies the list onto `motm`.
+	 */
 	voterUids: string[];
 	/** When the vote closes, as epoch milliseconds. Absent means it is shut. */
 	votingUntil?: number;
@@ -206,7 +245,7 @@ const MotmPanel = ({
 			</div>
 
 			{motm ? (
-				<Decided motm={motm} name={name} votes={votes} />
+				<Decided motm={motm} usersByUid={usersByUid} name={name} votes={votes} />
 			) : (
 				<p {...stylex.props(styles.blurb)}>
 					{canVote
@@ -275,7 +314,15 @@ const MotmPanel = ({
 				</ul>
 			)}
 
+			{/* While the vote runs this comes off `tournament/motmVoters`, which the
+			    count deletes. After it, off the copy on the decision, so the strip
+			    stays where it was rather than disappearing at the deadline, which
+			    is the moment people start asking who never voted. A game decided
+			    before that copy existed has neither, and gets no strip. */}
 			{open && <Turnout teams={teams} usersByUid={usersByUid} voterUids={voterUids} />}
+			{!open && motm?.voterUids !== undefined && (
+				<Turnout teams={teams} usersByUid={usersByUid} voterUids={motm.voterUids} closed />
+			)}
 
 			{live && (
 				<p {...stylex.props(styles.footnote)}>
@@ -289,7 +336,7 @@ const MotmPanel = ({
 };
 
 /**
- * Who has answered, while the vote is still open.
+ * Who answered and who didn't.
  *
  * The one thing about a vote in progress everybody may see, and it is worth
  * being clear about why it is not the thing the rest of the panel withholds:
@@ -304,17 +351,29 @@ const MotmPanel = ({
  * is the same size all week and nobody's absence is a gap they have to be
  * counted to notice.
  *
- * Not drawn once the vote is counted. The turnout is the sum of the published
- * totals by then, and the document behind this is deleted with the window.
+ * **Drawn after the count too**, from the copy `closeMotmVote` writes onto the
+ * decision. Who never got round to it is a question about the week that has
+ * just gone as much as about the one still running, and the published totals
+ * answer it with a number rather than with names. Four votes, from which four
+ * of the fourteen, is anybody's guess. What changes at the deadline is the
+ * tense, and that the strip has stopped being a nudge, so nothing here says
+ * "yet".
+ *
+ * A game decided before the turnout was kept has no list at all, which the
+ * panel handles by not drawing this rather than by drawing a lineup with nobody
+ * in it marked as having voted.
  */
 const Turnout = ({
 	teams,
 	usersByUid,
 	voterUids,
+	closed = false,
 }: {
 	teams: TournamentTeam[];
 	usersByUid: Map<string, AppUser>;
 	voterUids: string[];
+	/** Whether the vote has been counted. Changes the tense, nothing else. */
+	closed?: boolean;
 }) => {
 	const { voted, pending } = getMotmTurnout(teams, voterUids);
 	const total = voted.length + pending.length;
@@ -322,9 +381,16 @@ const Turnout = ({
 
 	if (total === 0) return null;
 
+	// A counted vote nobody answered is a strip of faded faces under a line that
+	// has just said the same thing in words. While it is open the same state is
+	// worth drawing, because it is the state somebody is here to change.
+	if (closed && voted.length === 0) return null;
+
 	const summary =
 		pending.length === 0
-			? 'Everybody has voted'
+			? closed
+				? 'Everybody voted'
+				: 'Everybody has voted'
 			: voted.length === 0
 				? 'Nobody has voted yet'
 				: `${voted.length} of ${total} voted`;
@@ -337,9 +403,10 @@ const Turnout = ({
 				{[...voted, ...pending].map(uid => {
 					const displayName = nameByUid(usersByUid, uid);
 					const hasVoted = answered.has(uid);
+					const state = hasVoted ? 'voted' : closed ? 'did not vote' : 'not yet';
 
 					return (
-						<li key={uid} aria-label={`${displayName}, ${hasVoted ? 'voted' : 'not yet'}`}>
+						<li key={uid} aria-label={`${displayName}, ${state}`}>
 							<Avatar
 								displayName={displayName}
 								photoURL={usersByUid.get(uid)?.photoURL}
@@ -355,7 +422,10 @@ const Turnout = ({
 };
 
 /**
- * The result line.
+ * The result.
+ *
+ * The one part of the evening the table further down the screen cannot show, so
+ * it is drawn as a face and a name rather than as a sentence about them.
  *
  * A tie is stated as a tie rather than resolved: the group produced two names,
  * and they share the rating bonus the same way teams level on every tie-break
@@ -363,10 +433,12 @@ const Turnout = ({
  */
 const Decided = ({
 	motm,
+	usersByUid,
 	name,
 	votes,
 }: {
 	motm: TournamentMotm;
+	usersByUid: Map<string, AppUser>;
 	name: (uid: string) => string;
 	votes: Map<string, number>;
 }) => {
@@ -375,16 +447,33 @@ const Decided = ({
 	}
 
 	const [top] = motm.winners;
+	const cast = [...votes.values()].reduce((total, count) => total + count, 0);
 
 	return (
-		<div {...stylex.props(styles.result)}>
-			<p {...stylex.props(styles.winners)}>
-				{motm.winners.map(name).join(' & ')}
-				{motm.winners.length > 1 && <span {...stylex.props(styles.shared)}>, shared</span>}
-			</p>
-			<p {...stylex.props(styles.tally)}>
-				{votes.get(top) ?? 0} of {[...votes.values()].reduce((total, count) => total + count, 0)} votes
-			</p>
+		<div {...stylex.props(styles.podium)}>
+			<div {...stylex.props(styles.podiumFaces)}>
+				{motm.winners.map(uid => (
+					<Avatar
+						key={uid}
+						displayName={name(uid)}
+						photoURL={usersByUid.get(uid)?.photoURL}
+						size='lg'
+						sx={styles.podiumFace}
+					/>
+				))}
+			</div>
+
+			<div {...stylex.props(styles.podiumWho)}>
+				<p {...stylex.props(styles.winners)}>
+					{motm.winners.map(name).join(' & ')}
+					{motm.winners.length > 1 && <span {...stylex.props(styles.shared)}>, shared</span>}
+				</p>
+				{/* Everybody level on the most votes is level by construction, so
+				    one number covers a winner and a tie alike. */}
+				<p {...stylex.props(styles.tally)}>
+					{votes.get(top) ?? 0} of {counted(cast, 'vote')}
+				</p>
+			</div>
 		</div>
 	);
 };

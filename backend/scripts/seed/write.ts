@@ -870,7 +870,19 @@ const playGame = (
 		matches,
 		motmVotes,
 		...(counted
-			? { motm: { winners: tally.winners, counts: tally.counts, decidedAt: addHours(finalisedAt, 48) } }
+			? {
+					motm: {
+						winners: tally.winners,
+						counts: tally.counts,
+						// The turnout, as `closeMotmVote` records it: who answered,
+						// sorted, and never who they answered with. A decided game
+						// without one reads as a vote from before this was kept,
+						// which is a state worth seeing but not the one every
+						// seeded game should be in.
+						voterUids: motmVotes.map(vote => vote.uid).sort(),
+						decidedAt: addHours(finalisedAt, 48),
+					},
+				}
 			: // Still running, so the window is ahead of now rather than behind the
 				// game, the state a game confirmed a moment ago is in.
 				{ motmVotingUntilMillis: Date.now() + MOTM_VOTING_HOURS * 3_600_000 }),

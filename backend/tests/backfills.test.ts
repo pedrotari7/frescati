@@ -2,12 +2,14 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { main as backfillKickoffMillis } from '../scripts/backfillKickoffMillis';
 import { main as backfillLedgerSeed } from '../scripts/backfillLedgerSeed';
 import { main as backfillLedgerTeams } from '../scripts/backfillLedgerTeams';
+import { main as backfillMotmTurnout } from '../scripts/backfillMotmTurnout';
 import { main as backfillMotmVoters } from '../scripts/backfillMotmVoters';
 import type { ScriptContext } from '../scripts/lib/script';
 import {
 	clearAuth,
 	clearFirestore,
 	getDb,
+	readMotm,
 	readMotmVoters,
 	writeGame,
 	writeMotmVote,
@@ -17,7 +19,7 @@ import {
 import type { Mock, MockInstance } from 'vitest';
 
 /**
- * The one-shot repairs, and the line all four of them walk.
+ * The one-shot repairs, and the line all five of them walk.
  *
  * Every one exists because a field was added after the data was, so each has to
  * reconstruct history from a second copy of it. That makes them the scripts most
@@ -329,6 +331,73 @@ describe('backfill-motm-voters', () => {
 		await backfillMotmVoters(context({ dryRun: true }));
 
 		expect(await readMotmVoters(SEASON_ID, GAME_ID)).toBeUndefined();
+		expect(output()).toContain('Dry run, nothing written.');
+	});
+});
+
+describe('backfill-motm-turnout', () => {
+	const writeDecision = (voterUids?: string[]) =>
+		getDb()
+			.doc(`seasons/${SEASON_ID}/games/${GAME_ID}/tournament/motm`)
+			.set({
+				winners: ['bosse'],
+				counts: [{ uid: 'bosse', votes: 2 }],
+				...(voterUids ? { voterUids } : {}),
+				decidedAt: '2026-09-03T12:00:00.000Z',
+			});
+
+	const readVoterUids = async () => (await readMotm(SEASON_ID, GAME_ID))?.voterUids;
+
+	beforeEach(() => writeSeason(SEASON_ID));
+
+	// Counting a vote does not consume it, and nobody can write one once the
+	// window is gone, so this is a reconstruction from the original.
+	it('records who voted on a game decided before the list was kept', async () => {
+		await writeGame(SEASON_ID, GAME_ID);
+		await writeMotmVote(SEASON_ID, GAME_ID, 'anna', 'bosse');
+		await writeMotmVote(SEASON_ID, GAME_ID, 'cissi', 'bosse');
+		await writeDecision();
+
+		await backfillMotmTurnout(context());
+
+		expect(await readVoterUids()).toEqual(['anna', 'cissi']);
+	});
+
+	// The published totals sum to the votes cast, by construction. A game where
+	// they no longer do has had its votes changed since it was counted, and a
+	// turnout that contradicts the tally beside it is worse than the blank.
+	it('refuses a game whose votes no longer add up to its totals', async () => {
+		await writeGame(SEASON_ID, GAME_ID);
+		await writeMotmVote(SEASON_ID, GAME_ID, 'anna', 'bosse');
+		await writeDecision();
+
+		await backfillMotmTurnout(context());
+
+		expect(await readVoterUids()).toBeUndefined();
+		expect(output()).toContain('1 vote stored against 2 published');
+	});
+
+	it('leaves a decision that already carries one alone', async () => {
+		await writeGame(SEASON_ID, GAME_ID);
+		await writeMotmVote(SEASON_ID, GAME_ID, 'anna', 'bosse');
+		await writeMotmVote(SEASON_ID, GAME_ID, 'cissi', 'bosse');
+		await writeDecision(['anna']);
+
+		await backfillMotmTurnout(context());
+
+		expect(await readVoterUids()).toEqual(['anna']);
+		expect(output()).toContain('Nothing to do.');
+	});
+
+	it('writes nothing on a dry run', async () => {
+		await writeGame(SEASON_ID, GAME_ID);
+		await writeMotmVote(SEASON_ID, GAME_ID, 'anna', 'bosse');
+		await writeMotmVote(SEASON_ID, GAME_ID, 'cissi', 'bosse');
+		await writeDecision();
+
+		await backfillMotmTurnout(context({ dryRun: true }));
+
+		expect(await readVoterUids()).toBeUndefined();
 		expect(output()).toContain('Dry run, nothing written.');
 	});
 });
