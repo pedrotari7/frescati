@@ -26,6 +26,20 @@ describe('tallyMotmVotes', () => {
 		expect(tallyMotmVotes([])).toEqual({ winners: [], counts: [] });
 	});
 
+	// Rules refuse one and no screen offers one, so the only way this arrives is
+	// a vote cast before that was true. It is dropped rather than counted, since
+	// the question is what the rest of the squad made of you.
+	it('ignores a vote somebody cast for themselves', () => {
+		const tally = tallyMotmVotes([vote('a', 'a'), vote('b', 'x'), vote('c', 'x')]);
+
+		expect(tally.winners).toEqual(['x']);
+		expect(tally.counts).toEqual([{ uid: 'x', votes: 2 }]);
+	});
+
+	it('has no winner when the only vote was for its own author', () => {
+		expect(tallyMotmVotes([vote('a', 'a')])).toEqual({ winners: [], counts: [] });
+	});
+
 	it('counts one vote per voter however the documents arrived', () => {
 		const tally = tallyMotmVotes([vote('a', 'x'), vote('a', 'x')]);
 

@@ -365,10 +365,6 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// Only worth explaining when it is actually happening.
 	const unequal = new Set(standings.map(row => row.played)).size > 1;
 
-	// Only the people on the team sheet get a vote, which is what the rules
-	// enforce too. Being an admin is not being on the pitch.
-	const playedInThis = !!user && lineup.teams.some(team => team.uids.includes(user.uid));
-
 	return (
 		<SeasonShell title='Teams' subtitle={subtitle} backHref={backHref}>
 			<div {...stylex.props(styles.page)}>
@@ -389,7 +385,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 					voterUids={voterUids}
 					votingUntil={game.motmVotingUntilMillis}
 					now={now}
-					canVote={playedInThis}
+					meUid={user?.uid ?? null}
 					onVote={async uid => {
 						if (!user) return;
 

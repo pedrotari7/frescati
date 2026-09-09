@@ -560,12 +560,19 @@ service cloud.firestore {
           }
 
           // Both ends of the vote in one read of the team sheet: only somebody
-          // who played may vote, and only for somebody who played.
+          // who played may vote, and only for somebody else who played.
+          //
+          // That "else" is the one clause here that is not about the lineup.
+          // Man of the match is what the rest of the squad made of you, and
+          // your own name is the one answer that says nothing about that. It
+          // goes first because a `let` is evaluated only where it is used, so
+          // refusing a self-vote costs no read of the team sheet.
           function isAValidVote() {
             let squads = get(/databases/$(database)/documents/seasons/$(seasonId)/games/$(gameId)/tournament/teams)
                            .data.teams;
 
-            return playedIn(squads, request.auth.uid)
+            return request.resource.data.votedFor != request.auth.uid
+                   && playedIn(squads, request.auth.uid)
                    && playedIn(squads, request.resource.data.votedFor);
           }
 

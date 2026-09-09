@@ -52,7 +52,7 @@ const renderPanel = (props: Partial<React.ComponentProps<typeof MotmPanel>> = {}
 			voterUids={[]}
 			votingUntil={OPEN_UNTIL}
 			now={NOW}
-			canVote
+			meUid='anna'
 			onVote={vi.fn()}
 			{...props}
 		/>
@@ -67,30 +67,45 @@ describe('MotmPanel', () => {
 		expect(container).toBeEmptyDOMElement();
 	});
 
-	it('offers everybody who played, both teams', () => {
+	it('offers everybody else who played, both teams', () => {
 		renderPanel();
 
-		for (const name of ['Anna', 'Johan', 'Zara', 'Erik']) {
+		for (const name of ['Johan', 'Zara', 'Erik']) {
 			expect(screen.getByRole('button', { name: new RegExp(name) })).toBeEnabled();
 		}
 	});
 
-	// Deliberate: a rule against it is one more thing to go wrong for the player
-	// who genuinely was the best one out there.
-	it('lets somebody vote for themselves', () => {
+	it('hands the name you tapped up to be saved', () => {
 		const onVote = vi.fn();
 		renderPanel({ onVote });
 
-		fireEvent.click(screen.getByRole('button', { name: /Anna/ }));
+		fireEvent.click(screen.getByRole('button', { name: /Zara/ }));
 
-		expect(onVote).toHaveBeenCalledWith('anna');
+		expect(onVote).toHaveBeenCalledWith('zara');
+	});
+
+	// Man of the match is what the rest of the squad made of you. The name comes
+	// off the ballot rather than sitting on it dead, because a dead row looks
+	// exactly like a live one until somebody taps it.
+	it('leaves you off your own ballot', () => {
+		renderPanel();
+
+		expect(screen.queryByRole('button', { name: /Anna/ })).not.toBeInTheDocument();
+	});
+
+	// Off the ballot is not off the screen. The turnout strip is the whole
+	// lineup, and whether you have answered is what it is there to say.
+	it('keeps you in the turnout while leaving you off the ballot', () => {
+		renderPanel({ voterUids: ['anna'] });
+
+		expect(screen.getByRole('listitem', { name: 'Anna, voted' })).toBeInTheDocument();
 	});
 
 	it('marks the name you picked', () => {
 		renderPanel({ vote: vote('zara') });
 
 		expect(screen.getByRole('button', { name: /Zara/ })).toHaveAttribute('aria-pressed', 'true');
-		expect(screen.getByRole('button', { name: /Anna/ })).toHaveAttribute('aria-pressed', 'false');
+		expect(screen.getByRole('button', { name: /Johan/ })).toHaveAttribute('aria-pressed', 'false');
 	});
 
 	// The whole reason nobody else's vote is readable: a visible lead is a lead
@@ -105,7 +120,7 @@ describe('MotmPanel', () => {
 	// The game is public to the whole group, so somebody who wasn't on the pitch
 	// sees the same panel. Buttons that fail on write would be worse.
 	it('leaves the names unclickable for somebody who did not play', () => {
-		renderPanel({ canVote: false });
+		renderPanel({ meUid: 'nils' });
 
 		expect(screen.getByRole('button', { name: /Anna/ })).toBeDisabled();
 		expect(screen.getByText(/The players are voting/)).toBeInTheDocument();
@@ -187,6 +202,25 @@ describe('MotmPanel', () => {
 			expect(screen.getAllByText('Zara')).toHaveLength(2);
 			expect(screen.getByText('3 of 4 votes')).toBeInTheDocument();
 			expect(screen.getByText('Decided')).toBeInTheDocument();
+		});
+
+		// The list stops being a ballot at the deadline, so the name that was kept
+		// off it is back on it. Somebody the group voted for cannot be missing
+		// from the result of that vote because they were not allowed to cast one
+		// for themselves.
+		it('puts you back on the list once it is decided', () => {
+			renderPanel({
+				motm: decided(
+					['anna'],
+					[
+						{ uid: 'anna', votes: 3 },
+						{ uid: 'zara', votes: 1 },
+					]
+				),
+				votingUntil: undefined,
+			});
+
+			expect(screen.getByRole('button', { name: /Anna/ })).toBeInTheDocument();
 		});
 
 		// The ballot was in team order because there was nothing to rank by. A
@@ -317,10 +351,10 @@ describe('MotmPanel', () => {
 					['zara'],
 					[
 						{ uid: 'zara', votes: 2 },
-						{ uid: 'anna', votes: 1 },
+						{ uid: 'johan', votes: 1 },
 					]
 				),
-				vote: vote('anna'),
+				vote: vote('johan'),
 				votingUntil: undefined,
 			});
 
@@ -328,7 +362,7 @@ describe('MotmPanel', () => {
 
 			expect(stylesOf(winner)).toEqual(expect.arrayContaining(stylesFor(expected.won)));
 			expect(stylesOf(winner)).not.toEqual(expect.arrayContaining(stylesFor(expected.wonPicked)));
-			expect(stylesOf(screen.getByRole('button', { name: /Anna/ }))).toEqual(
+			expect(stylesOf(screen.getByRole('button', { name: /Johan/ }))).toEqual(
 				expect.arrayContaining(stylesFor(expected.picked))
 			);
 		});

@@ -361,10 +361,21 @@ test.describe('man of the match', () => {
 
 		await page.reload();
 
-		// Voting for yourself is allowed on purpose, so no assertion here cares
-		// who was picked, only that the pick survived, which means it reached
-		// Firestore through a rule that checks the team sheet.
+		// No assertion here cares who was picked, only that the pick survived,
+		// which means it reached Firestore through a rule that checks the team
+		// sheet at both ends.
 		await expect(panel.locator('li button[aria-pressed="true"]')).toHaveCount(1);
+
+		// The one name a ballot never offers is the voter's own, since man of
+		// the match is what the rest of the squad made of you. Checked after the
+		// reload, so this is the list as the app draws it from scratch for
+		// somebody in the lineup.
+		const drawnFresh = await namesOnBallot();
+
+		expect(
+			drawnFresh.some(name => name.includes(player!.displayName)),
+			`${player!.displayName} was offered their own name: ${drawnFresh.join(', ')}`
+		).toBe(false);
 	});
 
 	// The two halves of what a counted vote leaves on the screen, and both are

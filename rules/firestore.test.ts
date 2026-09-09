@@ -1513,13 +1513,12 @@ describe('the man-of-the-match vote', () => {
 		await assertFails(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, APP_ADMIN)));
 	});
 
-	// Deliberately allowed. A rule against it is one more thing to go wrong for
-	// the player who genuinely was the best one out there, and the group can be
-	// trusted to have an opinion about somebody who does it every week.
-	it('lets somebody vote for themselves', async () => {
+	// Man of the match is what the rest of the squad made of you, so the one
+	// answer that says nothing about it is your own name.
+	it('refuses a vote for yourself', async () => {
 		await openTheVote();
 
-		await assertSucceeds(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, MEMBER)));
+		await assertFails(setDoc(doc(authed(MEMBER), voteDoc(MEMBER)), aVote(MEMBER, MEMBER)));
 	});
 
 	it("refuses to let anyone vote on somebody else's behalf", async () => {

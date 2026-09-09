@@ -731,25 +731,31 @@ const playMatch = (squadA: string[], squadB: string[], rng: () => number): [numb
  * a full turnout hides what a thin one looks like.
  */
 const runMotmVote = (uids: string[], kickoff: string, rng: () => number): MotmVote[] => {
-	const weights = uids.map(uid => strengthOf(uid) ** 4);
-	const total = weights.reduce((sum, weight) => sum + weight, 0);
+	const weightOf = (uid: string) => strengthOf(uid) ** 4;
 
-	const pick = (): string => {
+	// Everybody but the voter, because the rules refuse a vote for yourself and
+	// seeded data is meant to be what the app would have produced. The field is
+	// rebuilt for each voter rather than once for the game, so the weights sum to
+	// the names on offer.
+	const pick = (voter: string): string => {
+		const others = uids.filter(uid => uid !== voter);
+		const total = others.reduce((sum, uid) => sum + weightOf(uid), 0);
+
 		let target = rng() * total;
 
-		for (const [index, weight] of weights.entries()) {
-			target -= weight;
-			if (target <= 0) return uids[index];
+		for (const uid of others) {
+			target -= weightOf(uid);
+			if (target <= 0) return uid;
 		}
 
-		return uids[uids.length - 1];
+		return others[others.length - 1];
 	};
 
 	return uids
 		.filter(() => rng() < 0.65)
 		.map((uid, rank) => ({
 			uid,
-			votedFor: pick(),
+			votedFor: pick(uid),
 			// Spread over the evening and the morning after, which is when a
 			// notification sent at confirmation actually gets answered.
 			votedAt: addHours(kickoff, 3 + rank * 1.5),

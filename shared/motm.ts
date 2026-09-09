@@ -56,11 +56,21 @@ export interface MotmTally {
  * Ordering inside a tie is by uid rather than by whatever order the documents
  * came back in, so two devices looking at the same decided game list the same
  * names in the same order.
+ *
+ * A vote for its own author is dropped rather than counted. Rules refuse one and
+ * no screen offers one, so this is the guard `getMotmTurnout` already puts on the
+ * turnout by reading it against the lineup. What decides a winner should not
+ * depend on a rule holding. The only way one gets this far is a vote cast before
+ * that rule shipped.
  */
 export const tallyMotmVotes = (votes: MotmVote[]): MotmTally => {
 	const totals = new Map<string, number>();
 
-	for (const vote of votes) totals.set(vote.votedFor, (totals.get(vote.votedFor) ?? 0) + 1);
+	for (const vote of votes) {
+		if (vote.votedFor === vote.uid) continue;
+
+		totals.set(vote.votedFor, (totals.get(vote.votedFor) ?? 0) + 1);
+	}
 
 	const counts = [...totals.entries()]
 		.map(([uid, count]) => ({ uid, votes: count }))

@@ -168,6 +168,13 @@ const styles = stylex.create({
  * Whoever is looking is not necessarily in it. A game is public to the whole
  * group, so somebody who didn't play sees the same panel with no buttons in it,
  * which is the honest state, rather than a control that fails on write.
+ *
+ * Nobody is on their own ballot, for the same reason. The rules refuse a vote
+ * for yourself, and a dead row looks exactly like a live one until somebody taps
+ * it, so the name comes off the list instead. It has not left the screen, the
+ * turnout strip below is still the whole lineup. Once the vote is counted the
+ * list is a result rather than a ballot, and you are back on it if the group
+ * named you.
  */
 const MotmPanel = ({
 	teams,
@@ -177,7 +184,7 @@ const MotmPanel = ({
 	voterUids,
 	votingUntil,
 	now,
-	canVote,
+	meUid,
 	onVote,
 }: {
 	teams: TournamentTeam[];
@@ -194,8 +201,8 @@ const MotmPanel = ({
 	/** When the vote closes, as epoch milliseconds. Absent means it is shut. */
 	votingUntil?: number;
 	now: Date;
-	/** Whether the person looking played in this game. */
-	canVote: boolean;
+	/** Who is looking, or `null` when nobody is signed in. */
+	meUid: string | null;
 	onVote: (uid: string) => void;
 }) => {
 	const open = isMotmVotingOpen(votingUntil, now.getTime());
@@ -212,18 +219,24 @@ const MotmPanel = ({
 
 	const votesFor = (uid: string) => votes.get(uid) ?? 0;
 
+	// Only the team sheet gets a vote, which is what the rules enforce too, and
+	// being an admin is not being on the pitch. Read off the lineup this panel is
+	// already drawing rather than passed in beside it, so there is one answer to
+	// it rather than two that can drift apart.
+	const canVote = candidates.some(candidate => candidate.uid === meUid);
+	const live = open && canVote;
+
 	// Decided, the list stops being a ballot and becomes a result: the people the
 	// group named, most votes first. Everybody else drops off, because a name with
 	// nothing beside it says only that nobody picked them, and the team sheet is
 	// already on this screen for anyone who wants the full lineup. While the vote
-	// is open it is that whole lineup in team order, since there is nothing to
-	// rank by that anybody is allowed to see. The sort is stable, so names level
-	// on votes keep the team order they were drawn in.
+	// is open it is that whole lineup in team order, minus yourself, since there
+	// is nothing to rank by that anybody is allowed to see and nothing you are
+	// allowed to do with your own name. The sort is stable, so names level on
+	// votes keep the team order they were drawn in.
 	const ordered = motm
 		? candidates.filter(candidate => votesFor(candidate.uid) > 0).sort((a, b) => votesFor(b.uid) - votesFor(a.uid))
-		: candidates;
-
-	const live = open && canVote;
+		: candidates.filter(candidate => !live || candidate.uid !== meUid);
 
 	return (
 		<section {...stylex.props(surfaces.glass, styles.card)}>
@@ -249,7 +262,7 @@ const MotmPanel = ({
 			) : (
 				<p {...stylex.props(styles.blurb)}>
 					{canVote
-						? 'Who stood out? One vote each, and nobody sees the count until it closes.'
+						? 'Who stood out? One vote each, and not for yourself. Nobody sees the count until it closes.'
 						: 'The players are voting. The result appears here when it closes.'}
 				</p>
 			)}

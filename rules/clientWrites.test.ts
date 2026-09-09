@@ -297,10 +297,10 @@ describe('the man-of-the-match vote', () => {
 		await assertSucceeds(setMotmVote(SEASON, GAME, MEMBER, OTHER_MEMBER));
 	});
 
-	it('lets somebody vote for themselves, which is allowed on purpose', async () => {
+	it('refuses a vote for yourself', async () => {
 		as(MEMBER);
 
-		await assertSucceeds(setMotmVote(SEASON, GAME, MEMBER, MEMBER));
+		await assertFails(setMotmVote(SEASON, GAME, MEMBER, MEMBER));
 	});
 
 	it('refuses a vote from somebody who did not play', async () => {
