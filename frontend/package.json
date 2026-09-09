@@ -21,7 +21,7 @@
 		"@vercel/speed-insights": "^2.0.0",
 		"date-fns": "^4.4.0",
 		"firebase": "12.13.0",
-		"next": "15.5.21",
+		"next": "15.5.24",
 		"qrcode.react": "4.2.0",
 		"react": "19.2.6",
 		"react-day-picker": "^10.0.1",
