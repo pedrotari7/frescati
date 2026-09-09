@@ -48,3 +48,35 @@ jobs:
       # suite reads text that is still text at the wrong size.
       - run: pnpm check:stylex
       - run: pnpm --filter frontend test
+
+      # The Vite port, built and checked the same two ways.
+      #
+      # It is an evaluation rather than the app that ships, and it is in CI for
+      # the reason the jest configs stayed in the tree through the vitest port:
+      # a comparison nobody can re-run stops being evidence within a release or
+      # two. What would rot first is not the bundler, it is the routing, since
+      # `frontend/vite/routes.tsx` names all 21 screens by hand and a new one
+      # under `app/` is invisible to it. This job is what says so.
+      #
+      # It reuses the environment above, minus the Sentry DSN: nothing here
+      # depends on it and the port aliases `@sentry/nextjs` to `@sentry/react`,
+      # which is the substitution most worth compiling on every change.
+      - run: pnpm --filter frontend build:vite
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+          NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY }}
+      # A fourth compiler reads `frontend/stylex.config.js` now, called straight
+      # from a Vite plugin rather than through SWC, so it is a fourth chance for
+      # two of them to disagree about a hash.
+      - run: pnpm check:stylex vite
+      # The headers in `frontend/vercel.json` are generated, because the policy
+      # they carry is computed from the project id and cannot be written as
+      # static JSON. This fails when what is committed is not what the generator
+      # produces.
+      - run: pnpm --filter frontend headers:check

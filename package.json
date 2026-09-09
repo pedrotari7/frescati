@@ -30,7 +30,8 @@
 		"deploy:rules": "firebase deploy --only firestore:rules,storage && pnpm --filter backend deploy-cors",
 		"deploy:functions": "firebase deploy --only functions",
 		"prepare": "husky",
-		"preinstall": "npx only-allow pnpm"
+		"preinstall": "npx only-allow pnpm",
+		"bench:stacks": "node scripts/bench-stacks.mjs"
 	},
 	"devDependencies": {
 		"@firebase/rules-unit-testing": "5.0.0",

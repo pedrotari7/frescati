@@ -32,7 +32,45 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const built = join(root, 'frontend', '.next');
+
+/**
+ * Which build to read, because there are two of them.
+ *
+ * `pnpm check:stylex` reads the Next build, which is the app that ships and the
+ * default for that reason. `pnpm check:stylex vite` reads the port in
+ * `frontend/dist`. The check matters more there, not less: that build compiles
+ * StyleX with `@stylexswc/rs-compiler` called directly from a Vite plugin,
+ * which is a fourth caller of `frontend/stylex.config.js` and so a fourth
+ * chance for two compilers to disagree about a hash. See `docs/build.md`.
+ */
+const STACKS = {
+	next: {
+		dir: join(root, 'frontend', '.next'),
+		// Next writes the stylesheet and the chunks to separate trees, and the
+		// server bundle carries the classes the prerendered HTML wears.
+		stylesheets: dir => [join(dir, 'static', 'css')],
+		output: dir => [join(dir, 'static'), join(dir, 'server')],
+		rebuild: 'pnpm --filter frontend build',
+	},
+	vite: {
+		dir: join(root, 'frontend', 'dist'),
+		// One directory for both, and no server bundle to read: nothing is
+		// prerendered, so every class the app wears is worn by a browser.
+		stylesheets: dir => [join(dir, 'assets')],
+		output: dir => [join(dir, 'assets')],
+		rebuild: 'pnpm --filter frontend build:vite',
+	},
+};
+
+const stackName = process.argv[2] ?? 'next';
+const stack = STACKS[stackName];
+
+if (!stack) {
+	console.error(`Unknown build "${stackName}". Expected one of: ${Object.keys(STACKS).join(', ')}.`);
+	process.exit(1);
+}
+
+const built = stack.dir;
 
 /** Every file under `dir` with one of these extensions, depth first. */
 const filesUnder = (dir, extensions) => {
@@ -57,9 +95,9 @@ const filesUnder = (dir, extensions) => {
  */
 const CLASS = /^x[0-9a-z]{4,12}$/;
 
-const stylesheets = filesUnder(join(built, 'static', 'css'), ['.css']);
+const stylesheets = stack.stylesheets(built).flatMap(dir => filesUnder(dir, ['.css']));
 if (stylesheets.length === 0) {
-	console.error(`No stylesheet under ${relative(root, built)}. Run \`pnpm --filter frontend build\` first.`);
+	console.error(`No stylesheet under ${relative(root, built)}. Run \`${stack.rebuild}\` first.`);
 	process.exit(1);
 }
 
@@ -93,8 +131,66 @@ for (const path of stylesheets) {
  * copy, and every name in it was put there by a compiled object in the server
  * bundle, which is read here.
  */
+/**
+ * Every string literal in a file, read the way a parser would rather than the
+ * way a pattern would.
+ *
+ * This was a regex over the three kinds of quote, and a regex cannot do this
+ * job. Quotes only pair with their own kind, and a bundle is full of
+ * apostrophes sitting inside template literals: one of those opens a match that
+ * runs to the next apostrophe, swallowing whatever code is in between along
+ * with any class names in it. Which names survive then depends on what the
+ * bundler happened to put in the chunk, so the check passed on one machine and
+ * failed on CI over the same commit.
+ *
+ * So this scans. It tracks the quote that opened the string and skips escapes,
+ * which is enough to end every literal where it actually ends. It still knows
+ * nothing about regex literals or comments, and does not need to: a stray match
+ * there has to also be shaped like a class name and sit where a value sits.
+ */
+/** Whether the character at `at` is a backslash escaping the next one. */
+const isEscape = (text, at) => text[at] === '\\';
+
+function* literals(text) {
+	for (let index = 0; index < text.length; index++) {
+		const quote = text[index];
+		if (quote !== '"' && quote !== "'" && quote !== '`') continue;
+
+		const start = index + 1;
+		let end = start;
+
+		while (end < text.length && text[end] !== quote) end += isEscape(text, end) ? 2 : 1;
+		if (end >= text.length) return;
+
+		yield { value: text.slice(start, end), opensAt: index };
+		index = end;
+	}
+}
+
+/**
+ * Whether a literal is sitting where a compiled StyleX class name sits, which
+ * is as the value of an object property.
+ *
+ * This is what keeps Firebase's `xmlhttp` out of the answer. It is a real
+ * string, seven characters, `x` and six more from the same alphabet, so it is
+ * the exact shape of a class name and no test of the name itself can reject it.
+ * What it is not is a property value: it is an argument, `T(t, 'TYPE',
+ * 'xmlhttp')`. Compiled StyleX is always `{kzqmXN:'xh8yej3', …}`.
+ *
+ * The `$$css` file filter used to be enough for this, because webpack kept
+ * Firebase in chunks of its own. Rolldown merges them, so a file carrying
+ * compiled StyleX carries the transport as well, and the filter that was doing
+ * this work quietly stopped.
+ */
+const isPropertyValue = (text, opensAt) => {
+	let before = opensAt - 1;
+	while (before >= 0 && /\s/.test(text[before])) before--;
+
+	return text[before] === ':';
+};
+
 const referenced = new Map();
-const output = [...filesUnder(join(built, 'static'), ['.js']), ...filesUnder(join(built, 'server'), ['.js'])];
+const output = stack.output(built).flatMap(dir => filesUnder(dir, ['.js']));
 
 let compiledFiles = 0;
 for (const path of output) {
@@ -102,8 +198,10 @@ for (const path of output) {
 	if (!text.includes('$$css')) continue;
 	compiledFiles++;
 
-	for (const [, literal] of text.matchAll(/"([^"\\\n]*)"/g)) {
-		for (const token of literal.split(' ')) {
+	for (const { value, opensAt } of literals(text)) {
+		if (!isPropertyValue(text, opensAt)) continue;
+
+		for (const token of value.split(' ')) {
 			if (CLASS.test(token) && !variables.has(token) && !referenced.has(token)) {
 				referenced.set(token, relative(built, path));
 			}
