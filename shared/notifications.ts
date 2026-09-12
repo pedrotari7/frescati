@@ -67,13 +67,20 @@ const APP_NOTIFICATIONS: AppNotification[] = ['newPlayer'];
  *
  * Its own category because neither of the two above fits. A game notification
  * carries a kick-off and a headcount and deep-links to a game; an app one goes
- * to every admin about the app itself. This goes to one named person about what
- * they owe one season, and it is the first thing the app sends that an admin
- * aims by hand rather than a trigger firing on an event.
+ * to every admin about the app itself. Both of these go to one named person
+ * about what they owe one season, and `duesReminder` is the only thing the app
+ * sends that an admin aims by hand rather than a trigger firing on an event.
+ *
+ * `dueRaised` is the bill arriving and `duesReminder` is somebody asking about
+ * it later, which is why they are two kinds and not one. A bill names one
+ * charge, an amount and the game it is for, and lands the moment that game is
+ * confirmed. A chase names a running total across however many charges have
+ * piled up and lands when an admin has sat down with the books. Folding them
+ * together would mean one of the two lying about the other's numbers.
  */
-export type SeasonNotification = 'duesReminder';
+export type SeasonNotification = 'duesReminder' | 'dueRaised';
 
-const SEASON_NOTIFICATIONS: SeasonNotification[] = ['duesReminder'];
+const SEASON_NOTIFICATIONS: SeasonNotification[] = ['duesReminder', 'dueRaised'];
 
 /** Every kind the app can send. */
 export type AnyNotification = GameNotification | AppNotification | SeasonNotification;
@@ -163,6 +170,13 @@ export const NOTIFICATION_PREF: Record<AnyNotification, keyof NotificationPrefs 
 	// picks a channel rather than a kind. Somebody who wants no mail from
 	// Frescati wants none about money either, and the push still goes.
 	duesReminder: null,
+	// The bill shares the chase's answer, and it is the same argument twice.
+	// Owing money is the only way to be sent either of them, paying is the only
+	// way to stop, and a switch would silence the one message the group needs
+	// read. It is the weaker case of the two, since nobody aimed this one by
+	// hand, but "would you like us not to tell you what you owe" is not a
+	// setting worth building either.
+	dueRaised: null,
 };
 
 /**
@@ -476,6 +490,64 @@ export const buildDuesPush = ({
 	// evening is the case this exists for, and the second notification says the
 	// same thing as the first.
 	tag: `dues-${seasonId}`,
+	respondable: false,
+});
+
+export interface DueRaisedContext {
+	seasonId: string;
+	seasonName: string;
+	/** What the charge is for, and what makes the tag one charge rather than one season. */
+	gameId: string;
+	/** SEK, the charge that has just been raised rather than a running total. */
+	amount: number;
+	/** The game it is for, already formatted in the season's timezone. */
+	when: string;
+	/**
+	 * Whether it also stops them signing up for the next game, the same split
+	 * `duesReminder` makes and for the same reason. An admin owes their share
+	 * like everybody else and is never locked out by it.
+	 */
+	blocked: boolean;
+}
+
+/**
+ * A charge has just been raised against you, because you played as an extra and
+ * the game has been confirmed.
+ *
+ * The amount is in the title, the way the chase puts a total there: it is the
+ * whole notification, and the body is the half a lock screen cuts off. The date
+ * goes next to it because a charge is read against a memory of a Tuesday, which
+ * is why `dueLabel` names one in the books rather than a game id.
+ *
+ * The body is the chase's body with a different middle, deliberately. Somebody
+ * who has had both should recognise the second as being about the same money,
+ * and the sentence that matters, the one about not being able to say you are in
+ * again, has to read identically in both or one of them is wrong.
+ *
+ * Tagged per charge rather than per season, unlike the chase. Two games are two
+ * separate things to know about, the same reasoning `new-player-{uid}` uses, and
+ * a second Tuesday quietly replacing the first on a lock screen would leave
+ * somebody paying one of the two. The chase stays per season because that one
+ * is the same fact restated.
+ *
+ * Never `respondable`, and here that is not only a question nobody can answer
+ * from a lock screen. The worker's "I'm in" shortcut writes the exact response
+ * this charge now blocks.
+ */
+export const buildDueRaisedPush = ({
+	seasonId,
+	seasonName,
+	gameId,
+	amount,
+	when,
+	blocked,
+}: DueRaisedContext): PushPayload => ({
+	title: `You owe ${formatSek(amount)} for ${when}`,
+	body: blocked
+		? `${seasonName}, for playing as an extra. You cannot say you are in for another game until it is settled.`
+		: `${seasonName}, for playing as an extra. Mark it paid in the books once you have settled it.`,
+	url: `/s/${seasonId}/finances`,
+	tag: `due-${seasonId}-${gameId}`,
 	respondable: false,
 });
 

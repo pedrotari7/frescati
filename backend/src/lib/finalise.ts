@@ -18,6 +18,8 @@ import { commitInBatches } from './batch';
 import { getGame, getProfiles, getSeason } from './data';
 import { clearPendingIfUnmoved, readPendingFrom, withDrainedLadderLock, withLadderLock } from './ladderLock';
 import { getMotmDecision, openMotmVoting } from './motm';
+import { raiseGameDues } from './dues';
+import { reportError } from './sentry';
 
 /**
  * Turning a scoreboard into ratings.
@@ -275,12 +277,13 @@ export const finaliseGame = async (
 
 	// Outside the lock, and only for a confirmation that actually applied.
 	//
-	// Outside because it sends a notification to everybody who played, and the
-	// ladder has nothing to do with that. Holding a global lock open for the
-	// length of a multicast would block every correction in the app behind a
-	// push. Only for a real confirmation because `already-finalised` is the
-	// answer a second attempt gets, and a Tuesday six weeks ago must not ask the
-	// squad to vote on it again.
+	// Outside because both of these end in a notification and one of them writes
+	// money onto the books, and the ladder has nothing to do with either. Holding
+	// a global lock open for the length of a multicast would block every
+	// correction in the app behind a push. Only for a real confirmation because
+	// `already-finalised` is the answer a second attempt gets, and a Tuesday six
+	// weeks ago must not ask the squad to vote on it again, or send anybody a
+	// bill they paid in September.
 	//
 	// The season is read again rather than carried out of the closure: this
 	// happens once in a game's life, and one extra read beats a captured
@@ -288,7 +291,27 @@ export const finaliseGame = async (
 	if (outcome === 'finalised') {
 		const season = await getSeason(seasonId);
 
-		if (season) await openMotmVoting(seasonId, gameId, season);
+		if (season) {
+			// The charges first, so an extra who taps through from either
+			// notification lands on books that already agree with it, and so
+			// the vote is the one left on top of the lock screen, since it is
+			// the one with a clock on it. Somebody who played as a guest gets
+			// both, which is right: they are two different things to do.
+			//
+			// Swallowed, because the game is confirmed either way and a throw
+			// here would cost the vote as well. Nothing retries it: a second
+			// attempt gets `already-finalised` and never reaches this line. What
+			// it falls back to is the finances screen's sweep, which is one
+			// press and plans the same charges. Reported rather than logged,
+			// because otherwise a season that had stopped charging its extras
+			// would say so nowhere. The notification has a catch of its own, so
+			// this one is only ever about the writing.
+			await raiseGameDues(seasonId, gameId, season).catch(error =>
+				reportError('Could not charge the extras for a confirmed game', { seasonId, gameId }, error)
+			);
+
+			await openMotmVoting(seasonId, gameId, season);
+		}
 	}
 
 	return outcome ?? 'busy';

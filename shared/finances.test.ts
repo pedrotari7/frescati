@@ -10,6 +10,7 @@ import {
 	owesForGame,
 	paymentReference,
 	planDues,
+	planGameDues,
 	summarise,
 } from './finances';
 import type { Due, Expense, GameResponse } from './types';
@@ -106,6 +107,47 @@ describe('owesForGame', () => {
 		// `role` was snapshotted as `extra` when they answered. They are a member
 		// now, and they still owe for the game they played as a guest.
 		expect(owesForGame(response('anna', { role: 'extra', confirmOverride: true }))).toBe(true);
+	});
+});
+
+describe('planGameDues', () => {
+	const fees = { perGame: 70 };
+
+	it('charges every extra who played, at the fee the season is set to', () => {
+		const planned = planGameDues(fees, 'g-1', [
+			response('sam', { confirmOverride: true }),
+			response('kim', { confirmOverride: true }),
+		]);
+
+		expect(planned).toEqual([
+			{ id: 'game_g-1_sam', uid: 'sam', kind: 'game', amount: 70, gameId: 'g-1' },
+			{ id: 'game_g-1_kim', uid: 'kim', kind: 'game', amount: 70, gameId: 'g-1' },
+		]);
+	});
+
+	it('charges nobody who was not chargeable', () => {
+		const planned = planGameDues(fees, 'g-1', [
+			response('pending'),
+			response('absent', { confirmOverride: true, absent: true }),
+			response('regular', { role: 'member' }),
+			response('out', { confirmOverride: true, status: 'out' }),
+		]);
+
+		expect(planned).toEqual([]);
+	});
+
+	it('raises nothing for a fee of zero rather than a charge for nothing', () => {
+		expect(planGameDues({ perGame: 0 }, 'g-1', [response('sam', { confirmOverride: true })])).toEqual([]);
+	});
+
+	// The id is what makes confirming a game and sweeping the books safe to do in
+	// either order: both write the same document, so whichever gets there second
+	// finds nothing to raise.
+	it('plans exactly what a whole-season sweep would plan for the same game', () => {
+		const responses = [response('sam', { confirmOverride: true }), response('kim')];
+		const season = { memberUids: [], fees: { total: 0, perGame: 70 } };
+
+		expect(planGameDues(fees, 'g-1', responses)).toEqual(planDues(season, [{ gameId: 'g-1', responses }]));
 	});
 });
 

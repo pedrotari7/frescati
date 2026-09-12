@@ -3,6 +3,7 @@ import {
 	GAME_NOTIFICATIONS,
 	NOTIFICATIONS,
 	NOTIFICATION_PREF,
+	buildDueRaisedPush,
 	buildDuesPush,
 	buildEmail,
 	buildGamePush,
@@ -308,6 +309,83 @@ describe('buildDuesPush', () => {
 	});
 });
 
+describe('buildDueRaisedPush', () => {
+	const CHARGE = {
+		seasonId: 'spring',
+		seasonName: 'Spring 2026',
+		gameId: 'game-1',
+		amount: 70,
+		when: 'Tue 1 Sep',
+		blocked: true,
+	};
+
+	// The amount for the reason the chase leads with one, and the date beside it
+	// because a charge is read against the memory of a Tuesday. `dueLabel` names
+	// the same date on the same charge in the books.
+	it('leads with the amount and the game it is for', () => {
+		expect(buildDueRaisedPush(CHARGE)).toMatchObject({
+			title: 'You owe 70 kr for Tue 1 Sep',
+			body: 'Spring 2026, for playing as an extra. You cannot say you are in for another game until it is settled.',
+		});
+	});
+
+	// The one sentence both money notifications share, because somebody who gets
+	// both has to read the same fact twice rather than two versions of it.
+	it('says the lock in the same words the chase does', () => {
+		const chased = buildDuesPush({
+			seasonId: 'spring',
+			seasonName: 'Spring 2026',
+			outstanding: 70,
+			charges: 1,
+			blocked: true,
+		});
+
+		expect(buildDueRaisedPush(CHARGE).body).toContain(
+			'You cannot say you are in for another game until it is settled.'
+		);
+		expect(chased.body).toContain('You cannot say you are in for another game until it is settled.');
+	});
+
+	// An admin owes their share and is never locked out by it, so telling them
+	// they cannot sign up would be a lie sent by their own app.
+	it('drops the lock from the copy for somebody it does not lock', () => {
+		const body = buildDueRaisedPush({ ...CHARGE, blocked: false }).body;
+
+		expect(body).not.toContain('cannot say you are in');
+		expect(body).toBe('Spring 2026, for playing as an extra. Mark it paid in the books once you have settled it.');
+	});
+
+	it('opens the season books, where the Swish code is', () => {
+		expect(buildDueRaisedPush(CHARGE).url).toBe('/s/spring/finances');
+	});
+
+	// Two games are two separate things to know about, the same reasoning
+	// `new-player-{uid}` uses. A second Tuesday replacing the first on a lock
+	// screen would leave somebody paying one of the two.
+	it('keeps two games apart rather than replacing one with the other', () => {
+		expect(buildDueRaisedPush({ ...CHARGE, gameId: 'game-2' }).tag).not.toBe(buildDueRaisedPush(CHARGE).tag);
+	});
+
+	// Unlike the chase, which is the same fact restated and does replace itself.
+	it('does not collide with the chase for the same season', () => {
+		const chased = buildDuesPush({
+			seasonId: 'spring',
+			seasonName: 'Spring 2026',
+			outstanding: 70,
+			charges: 1,
+			blocked: true,
+		});
+
+		expect(buildDueRaisedPush(CHARGE).tag).not.toBe(chased.tag);
+	});
+
+	// The worker's "I'm in" shortcut writes the exact response this charge has
+	// just started blocking.
+	it('carries no respond shortcut', () => {
+		expect(buildDueRaisedPush(CHARGE).respondable).toBe(false);
+	});
+});
+
 describe('NOTIFICATION_PREF', () => {
 	it('gates every kind behind a preference, or explicitly behind none', () => {
 		for (const kind of NOTIFICATIONS) {
@@ -329,10 +407,17 @@ describe('NOTIFICATION_PREF', () => {
 		expect(NOTIFICATION_PREF.duesReminder).toBeNull();
 	});
 
-	// Those two are the only ones that may be `null`. Everything else goes out to
-	// a standing audience nobody signed up for, so the profile has to be able to
-	// say no to it.
-	const UNGATED = ['availability', 'duesReminder'];
+	// The bill shares the chase's answer. Owing is the only way to be sent either,
+	// and paying is the only way to stop.
+	it('leaves the bill to end the same way the chase does', () => {
+		expect(NOTIFICATION_PREF.dueRaised).toBe(NOTIFICATION_PREF.duesReminder);
+		expect(NOTIFICATION_PREF.dueRaised).toBeNull();
+	});
+
+	// Those three are the only ones that may be `null`. Everything else goes out
+	// to a standing audience nobody signed up for, so the profile has to be able
+	// to say no to it.
+	const UNGATED = ['availability', 'duesReminder', 'dueRaised'];
 
 	it('keeps every standing-audience kind on a preference', () => {
 		for (const kind of NOTIFICATIONS.filter(candidate => !UNGATED.includes(candidate))) {

@@ -4,12 +4,14 @@ import {
 	callRequest,
 	clearAuth,
 	clearFirestore,
+	getDb,
 	paramsEvent,
 	readGame,
 	readRatingLedger,
 	readUser,
 	writeGame,
 	writeMatch,
+	writeResponse,
 	writeSeason,
 	writeTeams,
 	writeUser,
@@ -188,6 +190,40 @@ describe('finaliseTournament', () => {
 		await expect(
 			finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }))
 		).rejects.toMatchObject({ code: 'failed-precondition' });
+	});
+
+	/**
+	 * Confirming a game with extras in it puts their fees on the books.
+	 *
+	 * `dues.test.ts` proves what gets charged and what does not. What is proved
+	 * here is only that the confirmation reaches it at all, which is the half
+	 * neither suite would catch on its own: the charges are raised outside the
+	 * ladder lock, on the one branch that means a confirmation actually applied.
+	 */
+	it('charges the extras who played', async () => {
+		await setUpGame();
+		await writeGameMatches([[2, 1]]);
+		// On a squad of eight, all of them members. `p1` played as a guest of
+		// somebody else's season, which is what the role on the response says.
+		await writeResponse(SEASON_ID, GAME_ID, 'p1', { role: 'extra', status: 'in', confirmOverride: true });
+
+		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
+
+		const due = await getDb().doc(`seasons/${SEASON_ID}/dues/game_${GAME_ID}_p1`).get();
+
+		expect(due.exists, 'confirming the game left the extra uncharged').toBe(true);
+		expect(due.data()).toMatchObject({ uid: 'p1', kind: 'game', gameId: GAME_ID, status: 'owing' });
+	});
+
+	// The whole squad were members, so there is nobody to charge and the books
+	// stay empty. A confirmation is not by itself a reason to open one.
+	it('leaves the books alone for a game nobody guested in', async () => {
+		await setUpGame();
+		await writeGameMatches([[2, 1]]);
+
+		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
+
+		expect((await getDb().collection(`seasons/${SEASON_ID}/dues`).get()).empty).toBe(true);
 	});
 });
 

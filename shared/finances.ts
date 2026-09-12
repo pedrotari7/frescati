@@ -79,6 +79,33 @@ export interface PlannedDue {
 }
 
 /**
+ * The charges one game's extras owe, before anybody has raised them.
+ *
+ * Split out of `planDues` because two things ask this question now and they must
+ * not answer it differently. The admin's sweep plans a whole season at once.
+ * Confirming a result raises the charges for the one game that has just been
+ * played. A second copy of `owesForGame` and `dueId` would eventually disagree
+ * about the same game, and both would be writing documents at the same id.
+ *
+ * A fee of zero raises nothing rather than a charge for nothing.
+ */
+export const planGameDues = (
+	fees: Pick<SeasonFees, 'perGame'>,
+	gameId: string,
+	responses: GameResponse[]
+): PlannedDue[] => {
+	if (fees.perGame <= 0) return [];
+
+	return responses.filter(owesForGame).map(response => ({
+		id: dueId('game', response.uid, gameId),
+		uid: response.uid,
+		kind: 'game',
+		amount: fees.perGame,
+		gameId,
+	}));
+};
+
+/**
  * Every charge this season ought to have, given who is in the squad and who
  * played.
  *
@@ -111,20 +138,8 @@ export const planDues = (
 		}
 	}
 
-	if (fees.perGame > 0) {
-		for (const { gameId, responses } of responsesByGame) {
-			for (const response of responses) {
-				if (!owesForGame(response)) continue;
-
-				planned.push({
-					id: dueId('game', response.uid, gameId),
-					uid: response.uid,
-					kind: 'game',
-					amount: fees.perGame,
-					gameId,
-				});
-			}
-		}
+	for (const { gameId, responses } of responsesByGame) {
+		planned.push(...planGameDues(fees, gameId, responses));
 	}
 
 	return planned;

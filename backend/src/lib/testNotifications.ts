@@ -1,8 +1,8 @@
 import { HttpsError } from 'firebase-functions/v2/https';
 import type { AnyNotification, GameNotificationContext, PushPayload } from '../../../shared/notifications';
-import { buildDuesPush, buildGamePush, buildNewPlayerPush } from '../../../shared/notifications';
+import { buildDueRaisedPush, buildDuesPush, buildGamePush, buildNewPlayerPush } from '../../../shared/notifications';
 import { formatGameWhen } from '../../../shared/format';
-import { SAMPLE_DEBT } from '../../../shared/debug';
+import { SAMPLE_CHARGE, SAMPLE_DEBT } from '../../../shared/debug';
 import { getGame, getMostRecentActiveSeasonId, getSeason } from './data';
 
 /**
@@ -26,10 +26,10 @@ import { getGame, getMostRecentActiveSeasonId, getSeason } from './data';
  * for the game kinds, and a test send is only honest if it deep-links exactly
  * where the real trigger would.
  *
- * `duesReminder` is the one kind that needs the picker, since it is about a
- * named season rather than a game, and the one that invents its figures rather
- * than borrowing the sender's. An admin testing the copy is rarely somebody the
- * books say owes anything.
+ * `duesReminder` and `dueRaised` are the two kinds that need the picker, since
+ * both are about a named season rather than a game, and both invent their
+ * figures rather than borrowing the sender's. An admin testing the copy is
+ * rarely somebody the books say owes anything.
  */
 /** The kinds whose deep link is the team sheet rather than the game page. */
 const ON_THE_TEAM_SHEET: AnyNotification[] = ['motm', 'motmResult'];
@@ -40,16 +40,30 @@ export const buildTestPayload = async (
 ): Promise<PushPayload> => {
 	if (kind === 'newPlayer') return buildNewPlayerPush({ ...sender, seasonId: await getMostRecentActiveSeasonId() });
 
-	// The one kind with no stand-in for a missing season. The game kinds all have
-	// one, and theirs links to `/seasons` and still reads. This one is entirely
-	// *about* a named season, and both halves worth testing, the name in the body
-	// and the deep link to that season's books, need a real one to point at.
-	if (kind === 'duesReminder') {
+	// The two kinds with no stand-in for a missing season. The game kinds all
+	// have one, and theirs links to `/seasons` and still reads. These are
+	// entirely *about* a named season, and both halves worth testing, the name in
+	// the body and the deep link to that season's books, need a real one to point
+	// at.
+	if (kind === 'duesReminder' || kind === 'dueRaised') {
 		const season = seasonId ? await getSeason(seasonId) : null;
 
-		if (!season) throw new HttpsError('not-found', 'Pick a season to test the dues chase.');
+		if (!season) throw new HttpsError('not-found', 'Pick a season to test the money notifications.');
 
-		return buildDuesPush({ seasonId: season.id, seasonName: season.name, ...SAMPLE_DEBT, blocked: true });
+		if (kind === 'duesReminder') {
+			return buildDuesPush({ seasonId: season.id, seasonName: season.name, ...SAMPLE_DEBT, blocked: true });
+		}
+
+		// The picked game only for the tag, since that is all the real send uses
+		// it for. The same stand-in id `buildTestContext` uses stands in here, so
+		// two test sends still replace each other rather than stacking up.
+		return buildDueRaisedPush({
+			seasonId: season.id,
+			seasonName: season.name,
+			gameId: gameId ?? 'sample',
+			...SAMPLE_CHARGE,
+			blocked: true,
+		});
 	}
 
 	const context = await buildTestContext(seasonId, gameId);
