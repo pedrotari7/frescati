@@ -2,7 +2,7 @@
 	"name": "Frescati",
 	"short_name": "Frescati",
 	"description": "Say whether you're in, see who else is.",
-	"start_url": "/",
+	"start_url": "/seasons",
 	"scope": "/",
 	"display": "standalone",
 	"orientation": "portrait",
@@ -33,7 +33,7 @@
 		{
 			"name": "Next game",
 			"short_name": "Next game",
-			"url": "/",
+			"url": "/seasons",
 			"icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
 		}
 	]

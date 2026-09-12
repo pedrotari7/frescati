@@ -381,7 +381,11 @@ const MePage = () => {
 					fullWidth
 					onClick={async () => {
 						await signOutOfApp();
-						router.push('/');
+						// The top of the app, spelled out rather than as `/`,
+						// which is a redirect to exactly this. The gate draws
+						// the login screen whatever the path, so this only
+						// decides where somebody signing back in lands.
+						router.push('/seasons');
 					}}
 				>
 					<ArrowRightStartOnRectangleIcon {...stylex.props(styles.out)} aria-hidden='true' />
