@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { CalendarDaysIcon, TrophyIcon, UserCircleIcon, UsersIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import TapLink from './TapLink';
 import { bp, colors, tint } from '../app/tokens.stylex';
 import { elevation, surfaces, utils } from '../lib/styles';
 import { hapticLight } from '../lib/utils/haptics';
@@ -173,19 +173,19 @@ const BottomNav = ({ items, sectionHrefs }: { items: NavItem[]; sectionHrefs?: s
 					const Icon = item.icon;
 
 					return (
-						<Link
+						<TapLink
 							key={item.href}
 							href={item.href}
 							ref={element => {
 								itemRefs.current[index] = element;
 							}}
-							onClick={hapticLight}
+							onTap={hapticLight}
 							aria-current={isActive ? 'page' : undefined}
 							{...stylex.props(styles.tab, isActive ? styles.tabOn : styles.tabOff)}
 						>
 							<Icon {...stylex.props(styles.icon)} aria-hidden='true' />
 							<span {...stylex.props(styles.label)}>{item.label}</span>
-						</Link>
+						</TapLink>
 					);
 				})}
 			</div>
