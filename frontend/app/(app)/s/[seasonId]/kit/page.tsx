@@ -113,12 +113,13 @@ const styles = stylex.create({
 /**
  * The register: what the group owns, and who has it right now.
  *
- * Open to everybody, and the handover control with it. A ball changes hands at
- * the side of a pitch between two people, neither of whom is necessarily an
- * admin. Routing that through one means it never gets recorded and the whole
- * thing goes stale in a fortnight. Adding, naming and removing items stays with
- * the admins, because that is a decision about the season rather than about a
- * bag.
+ * Open to everybody, and both of a member's controls with it. A ball changes
+ * hands at the side of a pitch between two people, neither of whom is
+ * necessarily an admin, and the person who turns up with a new one is the
+ * person who knows it exists. Routing either through an admin means it never
+ * gets recorded and the whole thing goes stale in a fortnight. Renaming,
+ * re-kinding and removing stay with the admins, because those change what an
+ * item already is for the whole squad.
  *
  * The next game sits at the top rather than the bottom: "who has the ball" is
  * only ever asked as a way of asking "is there a ball on Tuesday", and this is
@@ -223,12 +224,13 @@ const KitPage = () => {
 		await write(() => deleteKitItem(seasonId, item.id), `Couldn't remove ${item.name}.`);
 	};
 
-	// Members only, matching the rule. An extra sees the register and can't move
-	// anything in it. Offering them a button that always fails would be worse
-	// than not offering one.
-	const canTransfer = isMember || isAdmin;
+	// What a member may write, matching the rules: hand any item to any other
+	// member, and put a new one on the list. An extra sees the register and
+	// writes nothing to it, and offering them a button that always fails would
+	// be worse than not offering one.
+	const canWrite = isMember || isAdmin;
 
-	const addPanel = isAdmin ? (
+	const addPanel = canWrite ? (
 		adding ? (
 			<section {...stylex.props(surfaces.glass, styles.addCard)}>
 				<h2 {...stylex.props(styles.addTitle)}>Add to the kit list</h2>
@@ -300,9 +302,9 @@ const KitPage = () => {
 							icon={<ShoppingBagIcon />}
 							title='Nothing on the list'
 							message={
-								isAdmin
+								canWrite
 									? 'Add the ball and the vests and the app will tell you when nobody is bringing them.'
-									: "An admin hasn't listed the group's balls or vests yet."
+									: "Nobody has listed the group's balls or vests yet."
 							}
 							action={addPanel}
 						/>
@@ -412,7 +414,7 @@ const KitPage = () => {
 															</p>
 														</div>
 
-														{canTransfer && (
+														{canWrite && (
 															<Button
 																size='sm'
 																variant='secondary'
@@ -446,8 +448,8 @@ const KitPage = () => {
 							{addPanel}
 
 							<p {...stylex.props(styles.note)}>
-								Anyone in the squad can hand a piece of kit on, no need to find an admin. A game is
-								flagged when nobody bringing a ball or the vests has said they&apos;re playing.
+								Anyone in the squad can add a piece of kit or hand one on, no need to find an admin. A
+								game is flagged when nobody bringing a ball or the vests has said they&apos;re playing.
 							</p>
 						</>
 					)}

@@ -5,20 +5,26 @@ import { openSeasonAs, openTab } from './helpers';
 import { AT, NO_PROFILE_YET, dialog, dialogGone } from './locators';
 
 /**
- * Handing the ball over, and the two rules that meet on that screen.
+ * Putting kit on the register and handing it over, and the rules that meet on
+ * that screen.
  *
  * The register is the one place where an ordinary member may write to a document
- * they do not own, any member may hand any item to any other member, because a
- * handover happens at a pitch between two people and routing it through an admin
- * means it never gets recorded at all. What they may not do is change what an
- * item *is*, and the rules express that as a diff: a member's write may touch
- * `holderUid`, `updatedBy` and `updatedAt` and nothing else.
+ * they do not own. Any member may hand any item to any other member, and any
+ * member may add one, because both are settled at a pitch rather than in an
+ * admin's inbox, and routing either through one means it never gets recorded at
+ * all. What they may not do is change what an item already *is*, and the rules
+ * express that as
+ * a diff: a member's write to an existing item may touch `holderUid`,
+ * `updatedBy` and `updatedAt` and nothing else.
  *
  * A diff rule is exactly the kind that passes a hand-written rules test and
  * fails against the real client, because what it accepts depends on the precise
  * field set the app sends. `transferKitItem` writes those three and no more; if
  * a fourth were ever added, a `transferredAt`, a denormalised name, every
  * handover by every non-admin would start failing and no unit test would notice.
+ * A create is the same shape of bet: `kitShapeOk` names five keys and nothing
+ * else, so `addKitItem` is only legal for a member as long as it sends exactly
+ * those.
  *
  * The other half is `getKitStatus`, which is derived rather than stored: no
  * counter, no trigger, just the register read against the game's responses. So
@@ -111,10 +117,11 @@ test.describe('the kit register', () => {
 		await expect(page.getByText(other).first()).toBeVisible();
 	});
 
-	test('refuses to offer a member the admin-only controls', async ({ page }) => {
-		// Naming, re-kinding, adding and deleting stay with season admins: a
-		// member who could re-kind the vests as `other` would silence that
-		// warning for the whole squad.
+	test('offers a member both of their controls and neither of the admin ones', async ({ page }) => {
+		// Renaming, re-kinding and deleting stay with season admins: a member who
+		// could re-kind the vests as `other`, or delete them outright, would
+		// silence that warning for the whole squad. Adding and handing over are
+		// theirs, because both are a claim about a bag somebody is carrying.
 		const member = whoIs(/^Member of /).find(candidate => !/Admin of /.test(candidate.hint));
 		// Not a skip: every scenario seeds seasons with ordinary members in them,
 		// so no such person means the cast changed shape, which is a thing to
@@ -126,8 +133,9 @@ test.describe('the kit register', () => {
 
 		await expect(page.getByRole('button', { name: /^Rename / })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: /^Remove / })).toHaveCount(0);
-		// The one thing they can do is still there.
+
 		await expect(page.getByRole('button', { name: 'Hand over' }).first()).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Add kit' })).toBeVisible();
 	});
 
 	test('survives a reload, because the handover was written', async ({ page }) => {
@@ -150,5 +158,42 @@ test.describe('the kit register', () => {
 		await page.reload();
 
 		await expect(page.getByText(holder).first()).toBeVisible();
+	});
+
+	// Last in the file on purpose: this is the one test here that puts a new
+	// document on the register, and the tests above reach for the first row of a
+	// list. Tests inside a spec file run in order, so leaving this at the end
+	// means every one of them still sees the register the seeder wrote.
+	test('lets an ordinary member put something new on the register', async ({ page }) => {
+		// Through the real form, because what a create is allowed to carry is a
+		// shape check on five named keys, and only the app knows which fields it
+		// actually sends.
+		const member = whoIs(/^Member of /).find(candidate => !/Admin of /.test(candidate.hint));
+		expect(member, 'no seeded season member who is not also an admin').toBeTruthy();
+
+		await openSeasonAs(page, member!);
+		await openTheKitRegister(page);
+
+		await page.getByRole('button', { name: 'Add kit' }).click();
+
+		// Named for this run, so the assertion below can't match kit that was
+		// seeded or left behind by an earlier test in this file.
+		const name = `Spare ball ${Date.now()}`;
+		await page.getByLabel('What is it').fill(name);
+
+		// Whoever the form offers, which is the squad and only the squad: the
+		// rules refuse a holder who isn't on `memberUids`, so a name picked out
+		// of the cast here would be legal only by luck.
+		const holder = page.getByLabel('Who has it');
+		await expect(holder.locator('option:not([value=""])').first()).toBeAttached();
+		await holder.selectOption({ index: 1 });
+
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+		// On the register, and still there once the write has been round
+		// Firestore rather than only in the form that sent it.
+		await expect(page.getByText(name)).toBeVisible();
+		await page.reload();
+		await expect(page.getByText(name)).toBeVisible();
 	});
 });
