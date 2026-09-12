@@ -1,4 +1,17 @@
 {
+	// The TypeScript no package compiles.
+	//
+	// `frontend/tsconfig.json` owns `frontend/`, `backend/tsconfig.json` the
+	// deployed functions and `backend/tsconfig.scripts.json` the scripts beside
+	// them. That left four directories belonging to nobody, and a type error in
+	// any of them was invisible: every suite here runs through vitest or
+	// ts-node, both of which transpile rather than check, and eslint is not
+	// type-aware anywhere in this repo. The hole was found by `tsc` catching in
+	// one file what a green `pnpm test`, a green `pnpm lint` and a passing
+	// `next build` had all just waved through.
+	//
+	// So this config's whole job is coverage rather than output. It compiles
+	// nothing and is run by `pnpm typecheck`.
 	"compilerOptions": {
 		"target": "es2022",
 		"lib": ["dom", "dom.iterable", "esnext"],
@@ -13,8 +26,37 @@
 		"resolveJsonModule": true,
 		"isolatedModules": true,
 		"jsx": "preserve",
-		"incremental": true
+		"incremental": true,
+		"baseUrl": ".",
+		// `describe`, `it`, `expect` and `vi`, which `globals: true` installs and
+		// nothing else declares, the same line `frontend/tsconfig.json` carries
+		// and for the same reason: vitest publishes no `@types/` package, so the
+		// automatic inclusion never finds it. Naming anything here switches that
+		// inclusion off, which is why `node` has to be listed too.
+		"types": ["vitest/globals", "node"],
+		// Not for anything in `shared/` itself, which imports its neighbours by
+		// relative path. `rules/clientWrites.test.ts` drives the real client
+		// writers through the real rules, so it imports `frontend/lib/db/`, and
+		// those files reach `shared/` by the alias their own package declares.
+		// Without this the rules suite resolves nothing and the 1400 lines of it
+		// that this config exists to check report only missing modules.
+		"paths": {
+			"@shared/*": ["./shared/*"]
+		}
 	},
-	"include": ["./shared"],
-	"exclude": ["node_modules", "./shared/**/*.test.ts"]
+	// `shared/**/*.test.ts` used to be excluded here, and is still excluded from
+	// both of the package configs that pull `shared/` in, because neither ships
+	// a test file. This is the one place that has to look at them, or they are
+	// checked nowhere. The same goes for the two suites that live outside any
+	// package, and for the root configs, which are the files most likely to be
+	// edited by somebody who then runs no command that reads them.
+	"include": ["shared", "e2e", "rules", "*.ts"],
+	// `jest.setup.ts` is the one file here that is meant to be dead. The jest
+	// configs were kept beside the vitest ones on purpose, so the benchmark in
+	// `docs/testing.md` can be re-run rather than believed, and this is the half
+	// of them that calls `jest.spyOn` rather than exporting an options object.
+	// Checking it would mean naming `@types/jest` above, and jest's `expect` and
+	// vitest's do not agree on a type, so the whole of `shared/` and `rules/`
+	// would fail to make room for eleven lines nothing runs.
+	"exclude": ["node_modules", "jest.setup.ts"]
 }

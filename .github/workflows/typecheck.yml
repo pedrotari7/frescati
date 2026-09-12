@@ -1,0 +1,32 @@
+name: typecheck
+
+# The root tsconfig, and nothing else. `frontend.yml` and `backend.yml` each run
+# the one that covers their own package, so this is the third and last: the
+# TypeScript no package compiles, which is `shared/`'s test files, the rules and
+# end-to-end suites, and the root configs.
+#
+# A job of its own rather than a step on `shared`, because the paths that reach
+# it are not that job's paths. An end-to-end spec or a rules test moving is a
+# reason to run this and no reason at all to re-run the shared suite, and a red
+# job named after the wrong half of the repo is a worse signal than no job.
+
+on:
+  workflow_call:
+    inputs:
+      isTypecheck:
+        required: true
+        type: string
+
+jobs:
+  typecheck:
+    if: ${{ inputs.isTypecheck == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck:root

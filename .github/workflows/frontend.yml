@@ -20,6 +20,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter frontend lint
+      # Before the build rather than after it, because the build does not stand
+      # in for this. `next build` prints "Checking validity of types" and means
+      # the app: it leaves the test files out, so a type error in one of the 71
+      # suites below compiles, ships and is found by the next person to run
+      # `tsc` by hand. This config's `include` is `**/*.tsx`, so it sees them.
+      - run: pnpm --filter frontend typecheck
       - run: pnpm --filter frontend build
         env:
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}

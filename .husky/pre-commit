@@ -20,19 +20,31 @@ echo "$changed_files" | grep -q '^frontend/' && frontend_changed=true
 echo "$changed_files" | grep -q '^backend/' && backend_changed=true
 echo "$changed_files" | grep -vE '^(frontend/|backend/)' | grep -q . && other_changed=true
 
+# One typecheck per tsconfig, and each runs before the build or the suite beside
+# it, because it is the cheapest of the three and the only one that reads test
+# files. Nothing else in this repo checks types: every suite runs through vitest
+# or ts-node, both of which transpile, `next build` leaves the test files out of
+# the check it does run, and eslint is not type-aware here.
 run_root() {
   echo "Running shared checks..."
-  pnpm install && pnpm lint:shared && pnpm test
+  pnpm install && pnpm lint:shared && pnpm typecheck:root && pnpm test
 }
 
 run_frontend() {
   echo "Running frontend checks..."
-  pnpm --filter frontend lint && pnpm --filter frontend build && pnpm --filter frontend test
+  pnpm --filter frontend lint \
+    && pnpm --filter frontend typecheck \
+    && pnpm --filter frontend build \
+    && pnpm --filter frontend test
 }
 
+# `build` is a real `tsc`, so it checks `src/` and `shared/` on its way to
+# emitting. `typecheck:scripts` is the wider one: it adds `scripts/`, which the
+# build excludes because none of it is deployed, and which otherwise only ever
+# meets a `--transpile-only` ts-node in front of every seed.
 run_backend() {
   echo "Running backend checks..."
-  pnpm --filter backend lint && pnpm --filter backend build
+  pnpm --filter backend lint && pnpm --filter backend typecheck:scripts && pnpm --filter backend build
 }
 
 if [ "$other_changed" = true ] || { [ "$frontend_changed" = true ] && [ "$backend_changed" = true ]; }; then
