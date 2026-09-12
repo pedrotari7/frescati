@@ -773,13 +773,20 @@ service cloud.firestore {
       // that isn't theirs, and it is the same bargain the scoreboard strikes:
       // a handover happens at the pitch between two people, and routing it
       // through an admin means it simply never gets recorded. So any member of
-      // the season can move any item to any other member.
+      // the season can move any item to any other member, and any member can
+      // put one on the list to begin with. Whoever turns up with a new ball is
+      // the person who knows there is one, and a register only an admin may
+      // write to is a register that runs a week behind the bag.
       //
-      // What they cannot do is change what an item *is*. Naming, re-kinding,
-      // adding and deleting stay with the season admins, because the kind is
-      // what decides whether a game gets warned about a missing ball. A member
-      // who could re-kind the vests as `other` could silence that warning for
-      // the whole squad, which is a different power from carrying a bag home.
+      // What they cannot do is change what an item already *is*. Renaming,
+      // re-kinding and deleting stay with the season admins, because the kind
+      // is what decides whether a game gets warned about a missing ball, and a
+      // member who could re-kind the vests as `other`, or delete them outright,
+      // could switch that warning off for the whole squad. Adding is the
+      // opposite kind of act: a claim that a thing exists and somebody has it,
+      // signed by whoever made it, which is what a handover is too. The cost is
+      // that a member can put something on the register and not take it off
+      // again, so a duplicate ball waits for an admin.
       match /kit/{itemId} {
 
         // `id` is deliberately not on this list: the document id is the id, the
@@ -829,7 +836,12 @@ service cloud.firestore {
 
         allow read: if isSignedIn();
 
-        allow create: if isSeasonAdmin(seasonId) && kitShapeOk() && holderIsInTheSquad();
+        // Any member, for the same reason a handover is theirs. The shape checks
+        // are what that power rests on rather than the caller's role: a bounded
+        // name, one of three kinds, and a holder who is on the roster.
+        allow create: if kitShapeOk()
+                      && holderIsInTheSquad()
+                      && (isSeasonAdmin(seasonId) || isSeasonMember(seasonId));
 
         allow update: if kitShapeOk()
                       && (keepsItsHolder() || holderIsInTheSquad())

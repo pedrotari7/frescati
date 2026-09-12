@@ -191,7 +191,7 @@ describe('confirming an extra', () => {
 });
 
 describe('the kit register', () => {
-	/** Added by an admin, since that is the only way one gets there. */
+	/** On the register before the test starts, however it got there. */
 	const anItem = async (): Promise<string> => {
 		as(SEASON_ADMIN);
 
@@ -202,10 +202,20 @@ describe('the kit register', () => {
 		await expect(anItem()).resolves.toEqual(expect.any(String));
 	});
 
-	it('refuses a member adding one', async () => {
+	it('lets a member add one', async () => {
+		// The add form is a member's, so `addKitItem` has to send exactly the five
+		// keys `kitShapeOk` names and nothing more.
 		as(MEMBER);
 
-		await assertFails(addKitItem(SEASON, { name: 'Vests', kind: 'vests', holderUid: MEMBER }, MEMBER));
+		await expect(addKitItem(SEASON, { name: 'Vests', kind: 'vests', holderUid: MEMBER }, MEMBER)).resolves.toEqual(
+			expect.any(String)
+		);
+	});
+
+	it('refuses an extra adding one', async () => {
+		as(EXTRA);
+
+		await assertFails(addKitItem(SEASON, { name: 'Vests', kind: 'vests', holderUid: MEMBER }, EXTRA));
 	});
 
 	it('lets any member hand any item to any other member', async () => {

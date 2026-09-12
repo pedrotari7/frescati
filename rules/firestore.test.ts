@@ -1792,11 +1792,33 @@ describe('kit', () => {
 		await assertSucceeds(deleteDoc(doc(authed(SEASON_ADMIN), kitDoc('vests-1'))));
 	});
 
-	it('refuses to let a member add or remove one', async () => {
-		await assertFails(setDoc(doc(authed(MEMBER), kitDoc('vests-1')), anItem(MEMBER)));
+	// The other half of the bargain a handover strikes. A register only an admin
+	// may write to runs a week behind the bag it is describing.
+	it('lets a member add one', async () => {
+		await assertSucceeds(setDoc(doc(authed(MEMBER), kitDoc('vests-1')), anItem(MEMBER)));
+	});
 
+	// Adding is a claim about a thing that exists. Removing takes something off
+	// the register for the whole squad, warnings included, so it stays an admin's.
+	it('refuses to let a member remove one', async () => {
 		await seedItem();
+
 		await assertFails(deleteDoc(doc(authed(MEMBER), kitDoc('ball-1'))));
+	});
+
+	// An extra is on nobody's roster next week, so the register is read-only to
+	// them however they come at it.
+	it('refuses to let an extra add one', async () => {
+		await assertFails(setDoc(doc(authed(EXTRA), kitDoc('vests-1')), anItem(EXTRA)));
+	});
+
+	// A member's create rests on the shape checks rather than on who is asking,
+	// so they are worth driving from a member's side of the rule too.
+	it('holds a member to the same shape as an admin', async () => {
+		await assertFails(setDoc(doc(authed(MEMBER), kitDoc('x')), anItem(MEMBER, { kind: 'trophy' })));
+		await assertFails(setDoc(doc(authed(MEMBER), kitDoc('x')), anItem(MEMBER, { holderUid: EXTRA })));
+		// Signed by whoever made it, the same as a handover.
+		await assertFails(setDoc(doc(authed(MEMBER), kitDoc('x')), anItem(SEASON_ADMIN)));
 	});
 
 	// The whole feature: a handover happens at the pitch between two people, and
