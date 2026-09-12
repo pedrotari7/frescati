@@ -947,6 +947,16 @@ export interface RatingLedgerEntry {
 	motm?: string[];
 }
 
+/**
+ * How one fixture ended. Which of its two sides took it, or neither.
+ *
+ * `'a'` and `'b'` are the fixture's own two sides, not team indices, so this
+ * says nothing on its own about which bib played where. The names are picked to
+ * make that obvious, since `scoreA` and `teamA` sit next to each other on the
+ * match document and only one of them is a team.
+ */
+export type MatchOutcome = 'a' | 'b' | 'draw';
+
 /** One row of the table. */
 export interface TeamStanding {
 	team: number;

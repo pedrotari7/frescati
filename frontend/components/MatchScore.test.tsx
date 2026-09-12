@@ -1,9 +1,46 @@
+import * as stylex from '@stylexjs/stylex';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { Fixture } from '@shared/tournament';
 import type { TournamentMatch } from '@shared/types';
+import { stylesFor, stylesOf } from '../test/stylex';
 import MatchScore from './MatchScore';
 
 const fixture: Fixture = { order: 0, teamA: 0, teamB: 1 };
+
+/*
+ * The three lengths a side's band can have, written out rather than read off the
+ * component.
+ *
+ * A class list says whether two elements are painted differently. It cannot say
+ * which of them is shorter, so the figures themselves are the pin. Move either
+ * reach and this fails, and whoever moved it has to decide again whether a draw
+ * still stops short of the middle and a win still runs past it, which is the
+ * whole difference between the two.
+ */
+const expected = stylex.create({
+	won: { width: '58%', opacity: 1 },
+	drew: { width: '34%', opacity: 1 },
+	unpainted: { width: 0, opacity: 0 },
+});
+
+/**
+ * The two bands, in fixture order.
+ *
+ * Direct children of the row and the only aria-hidden ones, which is as close to
+ * a name as decoration gets. The `>` is load-bearing: the icons inside the
+ * steppers are hidden from a screen reader too.
+ *
+ * The count is asserted here rather than in each test. Every test below reads
+ * the two sides as a pair or a loop, so a selector that stopped matching would
+ * let all four of them pass against a row carrying no bands at all.
+ */
+const bandsOf = (container: HTMLElement) => {
+	const bands = Array.from(container.querySelectorAll('li > [aria-hidden="true"]'));
+
+	expect(bands, 'the row drew something other than one band per side').toHaveLength(2);
+
+	return bands.map(stylesOf);
+};
 
 const match = (overrides: Partial<TournamentMatch>): TournamentMatch => ({
 	order: 0,
@@ -148,5 +185,72 @@ describe('MatchScore', () => {
 		);
 
 		expect(screen.queryByRole('button', { name: /^Clear the score/ })).not.toBeInTheDocument();
+	});
+
+	it('fills the winning side of the row and leaves the beaten one alone', () => {
+		const { container } = render(
+			<MatchScore
+				fixture={fixture}
+				match={match({ scoreA: 3, scoreB: 1 })}
+				sideSize={5}
+				canScore
+				onScore={vi.fn()}
+				onClear={vi.fn()}
+			/>
+		);
+
+		const [a, b] = bandsOf(container);
+
+		expect(a).toEqual(expect.arrayContaining(stylesFor(expected.won)));
+		expect(b).toEqual(expect.arrayContaining(stylesFor(expected.unpainted)));
+	});
+
+	it('fills the side that won whichever side of the fixture that is', () => {
+		const { container } = render(
+			<MatchScore
+				fixture={fixture}
+				match={match({ scoreA: 1, scoreB: 3 })}
+				sideSize={5}
+				canScore
+				onScore={vi.fn()}
+				onClear={vi.fn()}
+			/>
+		);
+
+		const [a, b] = bandsOf(container);
+
+		expect(a).toEqual(expect.arrayContaining(stylesFor(expected.unpainted)));
+		expect(b).toEqual(expect.arrayContaining(stylesFor(expected.won)));
+	});
+
+	it('fills both sides of a draw, and shorter than a win', () => {
+		const { container } = render(
+			<MatchScore
+				fixture={fixture}
+				match={match({ scoreA: 2, scoreB: 2 })}
+				sideSize={5}
+				canScore
+				onScore={vi.fn()}
+				onClear={vi.fn()}
+			/>
+		);
+
+		for (const side of bandsOf(container)) {
+			expect(side).toEqual(expect.arrayContaining(stylesFor(expected.drew)));
+			expect(side).not.toEqual(expect.arrayContaining(stylesFor(expected.won)));
+		}
+	});
+
+	it('paints neither side of a match nobody has played', () => {
+		// The state a scoreboard spends most of its life in, and the one that has
+		// to look exactly as it did before any of this. A band here would read a
+		// result off a match with no document at all.
+		const { container } = render(
+			<MatchScore fixture={fixture} match={undefined} sideSize={5} canScore onScore={vi.fn()} onClear={vi.fn()} />
+		);
+
+		for (const side of bandsOf(container)) {
+			expect(side).toEqual(expect.arrayContaining(stylesFor(expected.unpainted)));
+		}
 	});
 });

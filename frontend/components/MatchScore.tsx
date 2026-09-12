@@ -3,8 +3,9 @@
 import { MinusIcon, PlusIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { StyleXStyles } from '@stylexjs/stylex';
+import { getMatchOutcome } from '@shared/standings';
 import type { Fixture } from '@shared/tournament';
-import type { TournamentMatch } from '@shared/types';
+import type { MatchOutcome, TournamentMatch } from '@shared/types';
 import TeamBadge, { teamName, teamStyle } from './TeamBadge';
 import { bp, colors, tint } from '../app/tokens.stylex';
 import { surfaces, utils } from '../lib/styles';
@@ -36,8 +37,17 @@ const styles = stylex.create({
 	},
 	unplayed: { color: colors.faint },
 
-	row: { borderRadius: 16, padding: 12 },
-	head: { marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+	row: { position: 'relative', borderRadius: 16, padding: 12 },
+	/* Both sit above the bands, which are absolutely positioned and would
+	   otherwise paint over this text rather than behind it. */
+	head: {
+		position: 'relative',
+		marginBottom: 8,
+		display: 'flex',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		gap: 8,
+	},
 	meta: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
 	clear: {
 		color: { default: colors.faint, [bp.hover]: { default: null, ':hover': colors.out } },
@@ -50,7 +60,7 @@ const styles = stylex.create({
 		transitionDuration: '0.15s',
 		backgroundColor: { default: null, ':active': tint.white5 },
 	},
-	body: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
+	body: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
 });
 
 /**
@@ -69,6 +79,96 @@ const wash = stylex.create({
 		backgroundImage: `linear-gradient(to right, color-mix(in srgb, ${from} 12%, transparent), transparent, color-mix(in srgb, ${to} 12%, transparent))`,
 	}),
 });
+
+/**
+ * How far a side's band reaches across the row, as a share of its width.
+ *
+ * A win runs past the middle. A draw stops a third of the way across, so the two
+ * bands leave a gap between them, and that gap is the tell. The difference is a
+ * length rather than a second band because counting two bands against one means
+ * finding both of them first, and the scoreboard is read across a pitch in the
+ * dark.
+ *
+ * The draw figure is the shorter of the two but not arbitrarily short. It has to
+ * clear the score it belongs to, which on a phone sits about a quarter of the way
+ * in. Any shorter and the colour stops before the number it is about.
+ */
+const WIN_REACH = '58%';
+const DRAW_REACH = '34%';
+
+/**
+ * The band of colour under the side that took the fixture.
+ *
+ * Its own element rather than another stop on the wash above, and it has to be,
+ * because `background-image` is not an animatable property. A gradient rewritten
+ * on every tap would snap, and a score is tapped in one at a time: 1–0, 1–1,
+ * 2–1 is a win, then a draw, then a win again, three hard cuts in about four
+ * seconds.
+ *
+ * So the two properties that move are both animatable. `width` slides the band
+ * out from the edge it belongs to, and shortens it in place when a draw takes a
+ * win's length away. `opacity` is what lets a band leave, since a width going to
+ * zero on its own thins to a stripe before it vanishes. The global
+ * `prefers-reduced-motion` rule in `globals.css` takes both out.
+ *
+ * Nothing clips it, so it rounds its own two corners to match the card's 16.
+ * `overflow: hidden` on the row would have done it in one line and cost the 2px
+ * that Clear's `tap44` hit area spills above the card. It sits behind both
+ * content rows, which is what their `position: relative` is for.
+ */
+const band = stylex.create({
+	base: {
+		position: 'absolute',
+		insetBlockStart: 0,
+		insetBlockEnd: 0,
+		width: 0,
+		opacity: 0,
+		pointerEvents: 'none',
+		transitionProperty: 'width, opacity',
+		transitionDuration: '0.35s',
+		transitionTimingFunction: 'ease-out',
+	},
+
+	/*
+	 * The colour is a runtime fact, so this is a dynamic style for the same
+	 * reason the wash above is. `towards` rides along with it because a band
+	 * pinned to the right of the row has to fade to the left, and StyleX
+	 * collapses every argument of one dynamic style into the single custom
+	 * property it sets, so carrying it here costs nothing over two hard-coded
+	 * directions.
+	 *
+	 * Three stops, not two. A straight ramp to transparent still has half its
+	 * colour at the halfway mark, which on a win is under the other side's
+	 * stepper. The 45% stop spends the strength near the edge the band belongs
+	 * to and leaves a long tail, so it reads as a side of the row rather than a
+	 * block with a soft edge.
+	 */
+	fill: (colour: string, towards: 'left' | 'right') => ({
+		backgroundImage: `linear-gradient(to ${towards}, color-mix(in srgb, ${colour} 30%, transparent) 0%, color-mix(in srgb, ${colour} 11%, transparent) 45%, transparent 100%)`,
+	}),
+
+	start: { insetInlineStart: 0, borderStartStartRadius: 16, borderEndStartRadius: 16 },
+	end: { insetInlineEnd: 0, borderStartEndRadius: 16, borderEndEndRadius: 16 },
+
+	won: { width: WIN_REACH, opacity: 1 },
+	drew: { width: DRAW_REACH, opacity: 1 },
+});
+
+/**
+ * What one side's band is, given how the fixture ended.
+ *
+ * `null` for the side that lost and for a fixture nobody has scored, which
+ * leaves the band at the zero width and zero opacity it rests at. An unplayed
+ * row therefore looks exactly as it did before any of this, which is the state
+ * a scoreboard spends most of its life in. A beaten side keeps its wash and its
+ * bib, which is what said whose stepper was whose before there was a result to
+ * show.
+ */
+const reachFor = (side: 'a' | 'b', outcome: MatchOutcome | null): StyleXStyles | null => {
+	if (outcome === 'draw') return band.drew;
+
+	return outcome === side ? band.won : null;
+};
 
 /** Big enough to hit with a cold thumb, in a coat, in the dark. */
 const Stepper = ({
@@ -122,6 +222,11 @@ const Stepper = ({
  * rather than `0`. Tapping either stepper is what brings it into existence,
  * which is why the first tap on the away side still has to send a `0` for the
  * home side, not leave it null.
+ *
+ * Once it has been played, the half that won it is filled in that side's
+ * colour. Two 20px numbers either side of a `v` are the slowest way to read a
+ * result, and the scoreboard is read far more often than it is filled in. The
+ * table below says who finished where; this says who took this one.
  */
 const MatchScore = ({
 	fixture,
@@ -140,6 +245,7 @@ const MatchScore = ({
 }) => {
 	const [scoreA, scoreB] = [match?.scoreA ?? null, match?.scoreB ?? null];
 	const [styleA, styleB] = [teamStyle(fixture.teamA), teamStyle(fixture.teamB)];
+	const outcome = match ? getMatchOutcome(match.scoreA, match.scoreB) : null;
 
 	return (
 		// Each half of the row is washed in the colour of the side that owns it,
@@ -147,6 +253,18 @@ const MatchScore = ({
 		// the letter read. `glassCard` sets a background *colour*; this is an
 		// image over it, so the frosting stays.
 		<li {...stylex.props(surfaces.glassCard, styles.row, wash.gradient(styleA.colour, styleB.colour))}>
+			{/* Decoration and nothing else. The result is already in the two
+			    numbers and in the table, so there is nothing here a screen
+			    reader should be told twice. */}
+			<span
+				aria-hidden='true'
+				{...stylex.props(band.base, band.start, band.fill(styleA.colour, 'right'), reachFor('a', outcome))}
+			/>
+			<span
+				aria-hidden='true'
+				{...stylex.props(band.base, band.end, band.fill(styleB.colour, 'left'), reachFor('b', outcome))}
+			/>
+
 			<div {...stylex.props(styles.head)}>
 				<span {...stylex.props(styles.meta)}>
 					Match {fixture.order + 1} · {sideSize} a side
