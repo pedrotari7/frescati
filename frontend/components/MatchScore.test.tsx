@@ -2,6 +2,7 @@ import * as stylex from '@stylexjs/stylex';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { Fixture } from '@shared/tournament';
 import type { TournamentMatch } from '@shared/types';
+import { colors } from '../app/tokens.stylex';
 import { stylesFor, stylesOf } from '../test/stylex';
 import MatchScore from './MatchScore';
 
@@ -21,6 +22,13 @@ const expected = stylex.create({
 	won: { width: '58%', opacity: 1 },
 	drew: { width: '34%', opacity: 1 },
 	unpainted: { width: 0, opacity: 0 },
+
+	/* What the two numbers are painted. The team's colour, or white where the
+	   number stands on that team's own fill and would not read in it, or the
+	   faint of a match with no score at all. */
+	teamB: { color: colors.teamB },
+	onFill: { color: colors.ink },
+	unscored: { color: colors.faint },
 });
 
 /**
@@ -37,10 +45,16 @@ const expected = stylex.create({
 const bandsOf = (container: HTMLElement) => {
 	const bands = Array.from(container.querySelectorAll('li > [aria-hidden="true"]'));
 
-	expect(bands, 'the row drew something other than one band per side').toHaveLength(2);
+	expect(bands).toHaveLength(2);
 
 	return bands.map(stylesOf);
 };
+
+/** The two numbers, in fixture order. */
+const scoresOf = () => [stylesOf(screen.getByTestId('score-Team A')), stylesOf(screen.getByTestId('score-Team B'))];
+
+/** What the row itself carries, which is where the wash is or is not. */
+const rowOf = (container: HTMLElement) => stylesOf(container.querySelector('li'));
 
 const match = (overrides: Partial<TournamentMatch>): TournamentMatch => ({
 	order: 0,
@@ -238,6 +252,84 @@ describe('MatchScore', () => {
 		for (const side of bandsOf(container)) {
 			expect(side).toEqual(expect.arrayContaining(stylesFor(expected.drew)));
 			expect(side).not.toEqual(expect.arrayContaining(stylesFor(expected.won)));
+		}
+	});
+
+	it('takes the wash off once there is a result to show instead', () => {
+		// The wash and the fill are the same idea drawn twice, and a row wearing
+		// both reads as painted whatever happened on it. A 1-0 and a 0-0 one
+		// above the other were indistinguishable until this.
+		const unplayed = render(
+			<MatchScore fixture={fixture} match={undefined} sideSize={5} canScore onScore={vi.fn()} onClear={vi.fn()} />
+		);
+		const washed = rowOf(unplayed.container);
+		unplayed.unmount();
+
+		const { container } = render(
+			<MatchScore
+				fixture={fixture}
+				match={match({ scoreA: 3, scoreB: 1 })}
+				sideSize={5}
+				canScore
+				onScore={vi.fn()}
+				onClear={vi.fn()}
+			/>
+		);
+
+		// A background image either way, so the comparison is against the row
+		// that has no result rather than against a property being absent.
+		expect(rowOf(container)).not.toEqual(washed);
+	});
+
+	it('lifts a score off its own fill and leaves the other in its team colour', () => {
+		// The team's colour on 55% of that same colour is about 2:1, so a number
+		// standing on a fill goes white and the fill under it says whose it is.
+		render(
+			<MatchScore
+				fixture={fixture}
+				match={match({ scoreA: 3, scoreB: 1 })}
+				sideSize={5}
+				canScore
+				onScore={vi.fn()}
+				onClear={vi.fn()}
+			/>
+		);
+
+		const [a, b] = scoresOf();
+
+		expect(a).toEqual(expect.arrayContaining(stylesFor(expected.onFill)));
+		expect(b).toEqual(expect.arrayContaining(stylesFor(expected.teamB)));
+	});
+
+	it('lifts both scores off a draw, since both sides are filled', () => {
+		render(
+			<MatchScore
+				fixture={fixture}
+				match={match({ scoreA: 2, scoreB: 2 })}
+				sideSize={5}
+				canScore
+				onScore={vi.fn()}
+				onClear={vi.fn()}
+			/>
+		);
+
+		for (const side of scoresOf()) {
+			expect(side).toEqual(expect.arrayContaining(stylesFor(expected.onFill)));
+		}
+	});
+
+	it('leaves an unscored match dimmed rather than lifted or coloured', () => {
+		render(
+			<MatchScore fixture={fixture} match={undefined} sideSize={5} canScore onScore={vi.fn()} onClear={vi.fn()} />
+		);
+
+		// The third state, and the reason the tone is picked per side rather than
+		// per row. An en dash in white would read as a side that had won nothing
+		// and an en dash in cyan as one still to play, and only one of those is
+		// what no match document means.
+		for (const side of scoresOf()) {
+			expect(side).toEqual(expect.arrayContaining(stylesFor(expected.unscored)));
+			expect(side).not.toEqual(expect.arrayContaining(stylesFor(expected.onFill)));
 		}
 	});
 

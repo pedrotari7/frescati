@@ -36,6 +36,10 @@ const styles = stylex.create({
 		fontVariantNumeric: 'tabular-nums',
 	},
 	unplayed: { color: colors.faint },
+	/* A score on top of its own side's fill. The team's colour on 55% of that
+	   same colour is about 2:1, so the number goes white and the fill under it
+	   says whose it is. */
+	onFill: { color: colors.ink },
 
 	row: { position: 'relative', borderRadius: 16, padding: 12 },
 	/* Both sit above the bands, which are absolutely positioned and would
@@ -64,7 +68,17 @@ const styles = stylex.create({
 });
 
 /**
- * The wash across a fixture, in the two teams' colours.
+ * The wash across a fixture nobody has scored yet, in the two teams' colours.
+ *
+ * Only until there is a result. Two 12% halves and one filled half are the same
+ * idea drawn twice, and the weaker one wins, because a row washed end to end
+ * reads as painted whatever happened on it. That is what shipped first: a 1-0
+ * and a 0-0 sitting one above the other were indistinguishable, and the fill was
+ * doing nothing the wash was not already doing worse.
+ *
+ * Nothing is lost on a played row. Which stepper belongs to whom was never only
+ * this: the bib is a solid 28px block of the team's colour at each end, and the
+ * score between them is in the same colour.
  *
  * A dynamic style, which is the one thing StyleX compiles to a CSS variable set
  * on the element rather than to a static class. It has to be: the pair of
@@ -137,14 +151,18 @@ const band = stylex.create({
 	 * property it sets, so carrying it here costs nothing over two hard-coded
 	 * directions.
 	 *
-	 * Three stops, not two. A straight ramp to transparent still has half its
-	 * colour at the halfway mark, which on a win is under the other side's
-	 * stepper. The 45% stop spends the strength near the edge the band belongs
-	 * to and leaves a long tail, so it reads as a side of the row rather than a
-	 * block with a soft edge.
+	 * Three stops, not two, and the middle one is what makes this a fill rather
+	 * than a gradient. A straight ramp from the edge is already halfway to
+	 * nothing by the time it reaches the score it is about, which is the part
+	 * anybody is actually looking at. Holding near full strength to the 42% mark
+	 * covers the bib and the number, and the tail from there is the fade.
+	 *
+	 * 55% is as strong as it can go. The score sits on top of it, and the number
+	 * has to leave its team's colour for `colors.ink` at anything like this
+	 * strength, because cyan on 55% cyan is about 2:1.
 	 */
 	fill: (colour: string, towards: 'left' | 'right') => ({
-		backgroundImage: `linear-gradient(to ${towards}, color-mix(in srgb, ${colour} 30%, transparent) 0%, color-mix(in srgb, ${colour} 11%, transparent) 45%, transparent 100%)`,
+		backgroundImage: `linear-gradient(to ${towards}, color-mix(in srgb, ${colour} 55%, transparent) 0%, color-mix(in srgb, ${colour} 38%, transparent) 42%, transparent 100%)`,
 	}),
 
 	start: { insetInlineStart: 0, borderStartStartRadius: 16, borderEndStartRadius: 16 },
@@ -182,7 +200,11 @@ const Stepper = ({
 	onChange: (next: number) => void;
 	disabled: boolean;
 	label: string;
-	/** The scoring team's colour, so the number itself says whose it is. */
+	/**
+	 * What colour the number is. The scoring team's, so it says whose it is, or
+	 * `colors.ink` where the number sits on that team's own fill and would not
+	 * have the contrast for it.
+	 */
 	tone: StyleXStyles;
 }) => (
 	<div {...stylex.props(styles.stepper)}>
@@ -247,23 +269,27 @@ const MatchScore = ({
 	const [styleA, styleB] = [teamStyle(fixture.teamA), teamStyle(fixture.teamB)];
 	const outcome = match ? getMatchOutcome(match.scoreA, match.scoreB) : null;
 
+	// Whether a side's score sits on a fill is the same question as whether that
+	// side has a band, so it is asked once and the tone follows the band. Two
+	// separate readings of the outcome is how a white number ends up on an
+	// unfilled half.
+	const [bandA, bandB] = [reachFor('a', outcome), reachFor('b', outcome)];
+
 	return (
-		// Each half of the row is washed in the colour of the side that owns it,
-		// so which stepper belongs to whom survives a glance rather than needing
-		// the letter read. `glassCard` sets a background *colour*; this is an
-		// image over it, so the frosting stays.
-		<li {...stylex.props(surfaces.glassCard, styles.row, wash.gradient(styleA.colour, styleB.colour))}>
+		// Until there is a result, each half of the row is washed in the colour of
+		// the side that owns it. After it, the wash comes off and the fill below
+		// says who took it, because both at once is a row painted end to end and
+		// no outcome legible in it. `glassCard` sets a background *colour*; both
+		// of these are images over it, so the frosting stays either way.
+		<li {...stylex.props(surfaces.glassCard, styles.row, !match && wash.gradient(styleA.colour, styleB.colour))}>
 			{/* Decoration and nothing else. The result is already in the two
 			    numbers and in the table, so there is nothing here a screen
 			    reader should be told twice. */}
 			<span
 				aria-hidden='true'
-				{...stylex.props(band.base, band.start, band.fill(styleA.colour, 'right'), reachFor('a', outcome))}
+				{...stylex.props(band.base, band.start, band.fill(styleA.colour, 'right'), bandA)}
 			/>
-			<span
-				aria-hidden='true'
-				{...stylex.props(band.base, band.end, band.fill(styleB.colour, 'left'), reachFor('b', outcome))}
-			/>
+			<span aria-hidden='true' {...stylex.props(band.base, band.end, band.fill(styleB.colour, 'left'), bandB)} />
 
 			<div {...stylex.props(styles.head)}>
 				<span {...stylex.props(styles.meta)}>
@@ -293,7 +319,7 @@ const MatchScore = ({
 				<Stepper
 					value={scoreA}
 					disabled={!canScore}
-					tone={styleA.text}
+					tone={bandA ? styles.onFill : styleA.text}
 					label={`Team ${teamName(fixture.teamA)}`}
 					onChange={next => onScore(next, scoreB ?? 0)}
 				/>
@@ -303,7 +329,7 @@ const MatchScore = ({
 				<Stepper
 					value={scoreB}
 					disabled={!canScore}
-					tone={styleB.text}
+					tone={bandB ? styles.onFill : styleB.text}
 					label={`Team ${teamName(fixture.teamB)}`}
 					onChange={next => onScore(scoreA ?? 0, next)}
 				/>
