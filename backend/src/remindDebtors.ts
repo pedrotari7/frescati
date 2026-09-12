@@ -1,8 +1,9 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
-import type { AppUser, Debtor, Season } from '../../shared/types';
+import type { Debtor } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
 import { getProfiles, getSeason } from './lib/data';
+import { isBlockedBy } from './lib/dues';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendDuesReminder } from './lib/push';
 import { requireSeasonAdmin } from './lib/auth';
@@ -22,23 +23,6 @@ export interface DuesReminderOutcome {
 export interface DuesReminderResult {
 	reminded: DuesReminderOutcome[];
 }
-
-/**
- * Whether this debt is also stopping them signing up, which is what decides
- * which of the two bodies they get.
- *
- * The same test `debtStanding` makes on the client, and it has to stay the same
- * one or the notification contradicts the notice on the season home. A season
- * admin is never blocked by their own books, and the global badge outranks the
- * per-season one here as it does everywhere else.
- *
- * `isAppAdmin` is the mirror on the profile rather than the custom claim it
- * mirrors, for the reason `getAppAdminUids` gives. Reading the claim would mean
- * paging Firebase Auth, and this decides a sentence rather than a permission. A
- * stale mirror costs somebody the wrong half of a body, not a way in.
- */
-const isBlockedBy = (season: Season, uid: string, profile?: AppUser): boolean =>
-	!season.adminUids.includes(uid) && profile?.isAppAdmin !== true;
 
 /**
  * Chase somebody, or everybody, for what they owe a season.

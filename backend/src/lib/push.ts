@@ -1,11 +1,12 @@
 import type { NotificationPrefs } from '../../../shared/types';
 import type {
+	DueRaisedContext,
 	DuesReminderContext,
 	GameNotification,
 	GameNotificationContext,
 	PushPayload,
 } from '../../../shared/notifications';
-import { NOTIFICATION_PREF, buildDuesPush, buildGamePush } from '../../../shared/notifications';
+import { NOTIFICATION_PREF, buildDueRaisedPush, buildDuesPush, buildGamePush } from '../../../shared/notifications';
 import { db, messaging } from './firebase';
 import { sendEmail } from './email';
 import { reportError } from './sentry';
@@ -183,3 +184,14 @@ export const sendGamePush = (
  */
 export const sendDuesReminder = (uid: string, context: DuesReminderContext): Promise<SendResult> =>
 	sendPush([uid], buildDuesPush(context), NOTIFICATION_PREF.duesReminder);
+
+/**
+ * Tell one player a charge has just been raised against them.
+ *
+ * One uid for the reason the chase above is one uid. The copy names the
+ * reader's own amount and says whether their own next In is held, so a game
+ * with four extras in it is four payloads and four sends rather than one
+ * payload sent to four people.
+ */
+export const sendDueRaised = (uid: string, context: DueRaisedContext): Promise<SendResult> =>
+	sendPush([uid], buildDueRaisedPush(context), NOTIFICATION_PREF.dueRaised);

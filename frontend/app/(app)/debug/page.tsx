@@ -4,9 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { BellAlertIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { AnyNotification, PushPayload } from '@shared/notifications';
-import { NOTIFICATIONS, buildDuesPush, buildGamePush, buildNewPlayerPush } from '@shared/notifications';
+import {
+	NOTIFICATIONS,
+	buildDueRaisedPush,
+	buildDuesPush,
+	buildGamePush,
+	buildNewPlayerPush,
+} from '@shared/notifications';
 import { getSilentMembers } from '@shared/game';
-import { SAMPLE_DEBT } from '@shared/debug';
+import { SAMPLE_CHARGE, SAMPLE_DEBT } from '@shared/debug';
 import { counted, formatGameWhen, plural } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
 import { checkPushSupport, isPushEnabled } from '../../../lib/push';
@@ -152,16 +158,20 @@ const styles = stylex.create({
  * builder rather than retyped, so a row can't label itself something other than
  * what the send returns.
  *
- * `duesReminder` is the first title that interpolates. An empty context still
- * renders, it just renders `0 kr`, so this one gets `SAMPLE_DEBT`, the same
- * figures `buildTestPayload` sends with. Otherwise the row would relabel itself
- * the moment a send came back.
+ * The two money kinds are the ones whose titles interpolate. An empty context
+ * still renders, it just renders `0 kr`, so each gets the same invented figures
+ * `buildTestPayload` sends with. Otherwise the row would relabel itself the
+ * moment a send came back.
  */
 const titleFor = (kind: AnyNotification) => {
 	if (kind === 'newPlayer') return buildNewPlayerPush({ uid: '', displayName: '', seasonId: null }).title;
 
 	if (kind === 'duesReminder') {
 		return buildDuesPush({ seasonId: '', seasonName: '', ...SAMPLE_DEBT, blocked: true }).title;
+	}
+
+	if (kind === 'dueRaised') {
+		return buildDueRaisedPush({ seasonId: '', seasonName: '', gameId: '', ...SAMPLE_CHARGE, blocked: true }).title;
 	}
 
 	return buildGamePush(kind, { when: '', url: '', gameId: '' }).title;
@@ -181,6 +191,8 @@ const DESCRIPTIONS: Record<AnyNotification, string> = {
 		'Really goes to the same people when the vote is counted, two days later. Sends as if you had won it. Opens the team sheet, where the totals are.',
 	duesReminder:
 		'Really goes to one person an admin chased from the season books, with what they owe read off the books rather than typed. Needs the season above; sends a made-up amount. Opens the finances screen.',
+	dueRaised:
+		'Really goes to each extra the moment a game they played is confirmed, one send each, with the fee off the season. Needs the season above; sends a made-up amount and date. Opens the finances screen.',
 };
 
 const STATUS_TONE: Record<EmailTestStatus, PillTone> = { sent: 'in', noAddress: 'out', emailOff: 'neutral' };
@@ -229,8 +241,8 @@ const DebugPage = () => {
 	const gameId = chosenGame && byKickoff.some(game => game.id === chosenGame) ? chosenGame : defaultGameId;
 
 	// What both send buttons aim at. The season travels on its own when there is
-	// no game to name, because `duesReminder` is about a season rather than a
-	// game and a season with no games generated yet would otherwise be told to
+	// no game to name, because the two money kinds are about a season rather than
+	// a game and a season with no games generated yet would otherwise be told to
 	// pick one. The game kinds fall back to their stand-in context, as they
 	// already do when nothing is picked at all.
 	const target = seasonId ? { seasonId, gameId: gameId ?? undefined } : undefined;

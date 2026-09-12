@@ -23,8 +23,9 @@ import {
 } from '@shared/tournament';
 import { findTeamIndex, getUnassigned } from '@shared/lineup';
 import { getAbsentUids, isConfirmed, sortResponses } from '@shared/game';
+import { feesFor, planGameDues } from '@shared/finances';
 import { getStandings } from '@shared/standings';
-import { formatGameDateLong, formatRelative } from '@shared/format';
+import { formatGameDateLong, formatRelative, formatSek } from '@shared/format';
 import * as stylex from '@stylexjs/stylex';
 import { useSeasonContext } from '../../../../../../../components/SeasonProvider';
 import {
@@ -343,6 +344,25 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 		response => response.uid
 	);
 
+	// What confirming costs the extras who played, off the same function the
+	// callable raises the charges with, so the dialog cannot promise a different
+	// number of charges from the one that lands.
+	//
+	// Named only when there is something to name. A season with no per-game fee,
+	// or a game the whole squad turned out for, charges nobody, and a dialog that
+	// warned about money either way would be wrong on most Tuesdays.
+	const extraCharges = planGameDues(feesFor(season), gameId, responses);
+
+	// One sentence or none. Every charge here is the same season fee, so one
+	// amount says the whole of it, and the count is what an admin reads to
+	// recognise the game they are about to bill.
+	const chargeNote =
+		extraCharges.length > 0
+			? ` The ${
+					extraCharges.length === 1 ? 'extra who played is' : `${extraCharges.length} extras who played are`
+				} charged ${formatSek(extraCharges[0].amount)}, and can pay as soon as this lands.`
+			: '';
+
 	// A hand-picked lineup stops being re-picked, which is the point of it, and
 	// the price is that the sheet and the pool can drift apart in both
 	// directions: somebody says In afterwards and lands on no team, or somebody
@@ -644,10 +664,11 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 
 								{/* The one tap on this screen that reaches everybody.
 								    It applies ratings, opens the vote and notifies
-								    the lineup, and freezes the sheet the ledger was
-								    computed against, and it sits directly under a
-								    table an admin came here to read, which is where
-								    a scrolling thumb ends up. `ScoreboardLock`
+								    the lineup, charges the extras who played, and
+								    freezes the sheet the ledger was computed
+								    against, and it sits directly under a table an
+								    admin came here to read, which is where a
+								    scrolling thumb ends up. `ScoreboardLock`
 								    already asks before *undoing* this; asking here
 								    too is the other half of the same trade, since
 								    this is the tap that makes the undo cost a
@@ -659,8 +680,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 										onClick={async () => {
 											const ok = await confirm({
 												title: 'Confirm the results?',
-												message:
-													'Ratings are worked out and applied to everybody who played, the man-of-the-match vote opens and the lineup is notified. Correcting a score after this works the ratings out again: for this game, and for every game played since.',
+												message: `Ratings are worked out and applied to everybody who played, the man-of-the-match vote opens and the lineup is notified.${chargeNote} Correcting a score after this works the ratings out again: for this game, and for every game played since.`,
 												confirmLabel: 'Confirm it',
 											});
 

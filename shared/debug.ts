@@ -49,3 +49,15 @@ export const BACKEND_ERROR_KINDS: BackendErrorKind[] = ['throw', 'httpsError', '
  * or the row would relabel itself the moment the send came back.
  */
 export const SAMPLE_DEBT = { outstanding: 1735, charges: 2 };
+
+/**
+ * What a test bill claims somebody has just been charged.
+ *
+ * Invented for the reason `SAMPLE_DEBT` is, and the date as well as the amount,
+ * because this title interpolates both. The season's real `perGame` was the
+ * tempting alternative and is the wrong one: the debug screen labels an unsent
+ * row from here, so a figure read off the season would make the row relabel
+ * itself the moment the send came back. `when` is the same stand-in date
+ * `buildTestContext` uses for a game nobody picked.
+ */
+export const SAMPLE_CHARGE = { amount: 70, when: 'Tue 1 Sep' };
