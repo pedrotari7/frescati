@@ -18,21 +18,52 @@ const DEFAULT_INTERVAL_MS = 30_000;
  * usually resumed rather than reopened, and timers don't fire while it's
  * backgrounded, so returning after an hour would otherwise show an hour-old
  * clock until the next interval.
+ *
+ * Which is also why the interval only runs while the tab is on screen. Five
+ * screens call this, and a tick re-renders every one of them down to the last
+ * row, re-partitioning the calendar on the way. Nobody is looking at any of
+ * that in a backgrounded tab, and the foreground tick above already puts the
+ * clock right the moment somebody is.
  */
 export const useNow = (intervalMs: number = DEFAULT_INTERVAL_MS): Date => {
 	const [now, setNow] = useState(() => new Date());
 
 	useEffect(() => {
+		let handle: ReturnType<typeof setInterval> | undefined;
+
 		const tick = () => setNow(new Date());
 
-		const handle = setInterval(tick, intervalMs);
-		const onVisible = () => document.visibilityState === 'visible' && tick();
+		const stop = () => {
+			if (handle !== undefined) clearInterval(handle);
+			handle = undefined;
+		};
 
-		document.addEventListener('visibilitychange', onVisible);
+		// Restarted rather than left running, so the first tick after a return
+		// to the foreground is a whole interval away rather than whatever was
+		// left of the one that was running when the tab went away.
+		const start = () => {
+			stop();
+			handle = setInterval(tick, intervalMs);
+		};
+
+		const onVisibilityChange = () => {
+			if (document.visibilityState !== 'visible') {
+				stop();
+
+				return;
+			}
+
+			tick();
+			start();
+		};
+
+		if (document.visibilityState === 'visible') start();
+
+		document.addEventListener('visibilitychange', onVisibilityChange);
 
 		return () => {
-			clearInterval(handle);
-			document.removeEventListener('visibilitychange', onVisible);
+			stop();
+			document.removeEventListener('visibilitychange', onVisibilityChange);
 		};
 	}, [intervalMs]);
 
