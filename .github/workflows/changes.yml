@@ -13,6 +13,8 @@ on:
         value: ${{ jobs.changes.outputs.rules }}
       e2e:
         value: ${{ jobs.changes.outputs.e2e }}
+      typecheck:
+        value: ${{ jobs.changes.outputs.typecheck }}
 
 jobs:
   changes:
@@ -23,6 +25,7 @@ jobs:
       shared: ${{ steps.filter.outputs.shared }}
       rules: ${{ steps.filter.outputs.rules }}
       e2e: ${{ steps.filter.outputs.e2e }}
+      typecheck: ${{ steps.filter.outputs.typecheck }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4.0.1
@@ -74,6 +77,30 @@ jobs:
               # drift it exists to catch is exactly a client that moved while
               # the rules stayed put.
               - 'frontend/lib/db/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - '.github/**'
+            # The root tsconfig, which covers the TypeScript no package
+            # compiles: `shared/` including the test files both package configs
+            # exclude, the two suites that live outside any package, and the
+            # root configs themselves. Every one of those runs through vitest,
+            # ts-node or Playwright, all of which transpile rather than check,
+            # so until this filter existed a type error in any of them was
+            # invisible to every job here.
+            #
+            # `frontend/lib/db` is in it for the same reason the rules filter
+            # has it: `rules/clientWrites.test.ts` drives the real client
+            # writers through the real rules, so it imports them, and a
+            # signature changed there breaks a file the frontend's own config
+            # never looks at.
+            typecheck:
+              - 'shared/**'
+              - 'e2e/**'
+              - 'rules/**'
+              - 'frontend/lib/db/**'
+              - 'tsconfig.json'
+              - 'playwright.config.ts'
+              - 'vitest.config.ts'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - '.github/**'

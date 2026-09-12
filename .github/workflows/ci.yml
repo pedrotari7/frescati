@@ -42,6 +42,12 @@ jobs:
     with:
       isE2e: ${{ needs.changes.outputs.e2e }}
 
+  typecheck:
+    needs: changes
+    uses: ./.github/workflows/typecheck.yml
+    with:
+      isTypecheck: ${{ needs.changes.outputs.typecheck }}
+
   # Deploys functions and rules together, so it must wait on both suites, and
   # on `shared`, whose code is compiled into the functions being deployed. Left
   # out, a red shared suite still shipped the backend that embeds it. `frontend`
@@ -50,9 +56,12 @@ jobs:
   # below is about to refuse, and shipping the backend on its own leaves the
   # deployed pair mismatched. `e2e` is the last of them and the only one that
   # checks the halves still meet, so a broken core loop stops the deploy rather
-  # than being shipped past.
+  # than being shipped past. `typecheck` is the newest of them and the quietest:
+  # it is the only job that reads `shared/`'s test files and the two suites that
+  # live outside any package, and a deploy is exactly when nobody is going to
+  # notice that nothing did.
   deploy-backend:
-    needs: [changes, shared, frontend, backend, rules, e2e]
+    needs: [changes, shared, frontend, backend, rules, e2e, typecheck]
     if: >-
       ${{ always() && !failure() && !cancelled()
       && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.rules == 'true') }}
@@ -125,7 +134,7 @@ jobs:
   # definition, the project settings, rather than a second copy in here that
   # drifts.
   deploy-frontend:
-    needs: [changes, shared, frontend, backend, rules, e2e, deploy-backend]
+    needs: [changes, shared, frontend, backend, rules, e2e, typecheck, deploy-backend]
     if: ${{ always() && !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     env:

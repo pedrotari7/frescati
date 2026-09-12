@@ -12,6 +12,8 @@
 		"build": "pnpm --filter frontend build && pnpm --filter backend build",
 		"lint": "pnpm lint:shared && pnpm --filter frontend lint && pnpm --filter backend lint",
 		"lint:shared": "eslint shared --ext .ts",
+		"typecheck": "tsc --noEmit && pnpm --filter frontend typecheck && pnpm --filter backend typecheck:scripts",
+		"typecheck:root": "tsc --noEmit",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:frontend": "pnpm --filter frontend test",

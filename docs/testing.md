@@ -14,6 +14,24 @@ Four suites, one runner. Vitest runs all of them; jest's configs are still in th
 
 `pnpm test:all` runs the first four. Playwright is untouched by any of this: it was never a jest suite and is still not one.
 
+## Nothing above checks a type
+
+Every runner in that table transpiles. Vitest strips the types and runs the file, `ts-node` does the same in front of every seed, and eslint is configured without `parserOptions.project` here, so no rule it runs can see a type either. `next build` does print "Linting and checking validity of types", and it means the app: the test files are left out of it, so a type error in one of the 71 frontend suites compiles and ships.
+
+So the types are checked separately, by one command per tsconfig, and there are three because each covers what the other two exclude.
+
+| command | config | what it covers |
+| --- | --- | --- |
+| `pnpm typecheck:root` | `tsconfig.json` | `shared/` **including its test files**, `e2e/`, `rules/`, the root configs |
+| `pnpm --filter frontend typecheck` | `frontend/tsconfig.json` | all of `frontend/`, test files included, plus `shared/` |
+| `pnpm --filter backend typecheck:scripts` | `backend/tsconfig.scripts.json` | `backend/src` and `backend/scripts`, plus `shared/` |
+
+`pnpm typecheck` runs all three. The pre-commit hook runs whichever of them the staged files touch, and `typecheck.yml`, `frontend.yml` and `backend.yml` are the three CI jobs that own one each.
+
+The root config is the one that had been missing. `shared/**/*.test.ts` is excluded from both package configs, correctly, since neither package ships a test file, and it used to be excluded here too, which left it checked nowhere at all. The same went for `rules/` and `e2e/`, which are in no package. It also carries the `@shared/*` path alias, which is not for `shared/` itself but for `rules/clientWrites.test.ts`: that suite drives the real client writers through the real rules, so it imports `frontend/lib/db/`, and those files reach `shared/` by their own package's alias.
+
+`jest.setup.ts` is the one file excluded from all three. It calls `jest.spyOn`, and checking it would mean naming `@types/jest`, whose `expect` and vitest's do not agree on a type.
+
 ## The shape of a suite
 
 `vitest.setup.ts` at the root silences `console.log` and `console.warn` for every suite, as a spy rather than a stub so a test can still assert a call happened. The frontend imports it and adds the two observers jsdom does not implement. The backend has its own pair, because `firebase-functions/logger` snapshots the console the moment it is first required and the assignment has to land before that.
