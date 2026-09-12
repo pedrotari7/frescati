@@ -27,7 +27,17 @@ const styles = stylex.create({
 		opacity: { default: null, ':disabled': 0.3 },
 	},
 	stepIcon: { width: 16, height: 16 },
+	/*
+	 * White, both of them, whoever won.
+	 *
+	 * It used to be the scoring team's colour, on the grounds that the number
+	 * itself then said whose it was. The fill says that now, louder, and a team's
+	 * colour on its own fill is about 2:1, so the winner's number had to leave
+	 * for white anyway. One of each was worse than either: a white 1 beside a
+	 * violet 0 reads as two different kinds of thing rather than as a score.
+	 */
 	score: {
+		color: colors.ink,
 		width: 28,
 		textAlign: 'center',
 		fontSize: 20,
@@ -36,10 +46,6 @@ const styles = stylex.create({
 		fontVariantNumeric: 'tabular-nums',
 	},
 	unplayed: { color: colors.faint },
-	/* A score on top of its own side's fill. The team's colour on 55% of that
-	   same colour is about 2:1, so the number goes white and the fill under it
-	   says whose it is. */
-	onFill: { color: colors.ink },
 
 	row: { position: 'relative', borderRadius: 16, padding: 12 },
 	/* Both sit above the bands, which are absolutely positioned and would
@@ -52,9 +58,16 @@ const styles = stylex.create({
 		justifyContent: 'space-between',
 		gap: 8,
 	},
-	meta: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
+	/*
+	 * Muted rather than faint, which is the other half of the fill being
+	 * readable. `colors.faint` is 3.5:1 on the card before any of this and
+	 * between 1.1:1 and 2.2:1 on top of a band, so the fixture's own label was
+	 * the first thing the colour took away. Muted is 7.3:1 on the card and
+	 * clears 4.5:1 everywhere the mask below lets a band reach this line.
+	 */
+	meta: { color: colors.muted, fontSize: 12, lineHeight: '16px' },
 	clear: {
-		color: { default: colors.faint, [bp.hover]: { default: null, ':hover': colors.out } },
+		color: { default: colors.muted, [bp.hover]: { default: null, ':hover': colors.out } },
 		margin: -6,
 		borderRadius: 8,
 		padding: 6,
@@ -78,7 +91,7 @@ const styles = stylex.create({
  *
  * Nothing is lost on a played row. Which stepper belongs to whom was never only
  * this: the bib is a solid 28px block of the team's colour at each end, and the
- * score between them is in the same colour.
+ * fill that replaces the wash is in that colour too.
  *
  * A dynamic style, which is the one thing StyleX compiles to a CSS variable set
  * on the element rather than to a static class. It has to be: the pair of
@@ -129,6 +142,14 @@ const DRAW_REACH = '34%';
  * `overflow: hidden` on the row would have done it in one line and cost the 2px
  * that Clear's `tap44` hit area spills above the card. It sits behind both
  * content rows, which is what their `position: relative` is for.
+ *
+ * The mask is what keeps the fixture's own label readable. The band covers the
+ * whole card, the label is 12px and sits at the top left, and a band strong
+ * enough to see is strong enough to take that line with it. Fading the band in
+ * down the card leaves the header on nearly plain card and the score on the full
+ * fill, which is where the colour was always meant to be. An `insetBlockStart`
+ * below the header would have done the same job and left a hard horizontal edge
+ * across the brightest part of the band.
  */
 const band = stylex.create({
 	base: {
@@ -138,6 +159,13 @@ const band = stylex.create({
 		width: 0,
 		opacity: 0,
 		pointerEvents: 'none',
+		/* A mask reads alpha and throws the rest away, so neither colour in here
+		   is a colour. Spelled `rgb(0 0 0 / 0)` and `/ 1` rather than
+		   `transparent` and a token to say that out loud: nothing in this
+		   declaration is a palette decision, and `tokens.stylex.ts` has no
+		   business in it. */
+		maskImage: 'linear-gradient(to bottom, rgb(0 0 0 / 0) 0%, rgb(0 0 0 / 1) 46%)',
+		WebkitMaskImage: 'linear-gradient(to bottom, rgb(0 0 0 / 0) 0%, rgb(0 0 0 / 1) 46%)',
 		transitionProperty: 'width, opacity',
 		transitionDuration: '0.35s',
 		transitionTimingFunction: 'ease-out',
@@ -157,12 +185,16 @@ const band = stylex.create({
 	 * anybody is actually looking at. Holding near full strength to the 42% mark
 	 * covers the bib and the number, and the tail from there is the fade.
 	 *
-	 * 55% is as strong as it can go. The score sits on top of it, and the number
-	 * has to leave its team's colour for `colors.ink` at anything like this
-	 * strength, because cyan on 55% cyan is about 2:1.
+	 * 38% and 26% are the strongest pair the rest of the row survives, and the
+	 * thing that sets the ceiling is not the score. The score is white and 20px,
+	 * so it clears its threshold at any strength on offer here. It is the 16px
+	 * minus glyph, which sits about a quarter of the way along the band, where a
+	 * 38% peak has decayed to roughly 31%: `colors.muted` reads 3.7:1 there and
+	 * 2.5:1 against the 55% this was before. The control that takes the tap was
+	 * the thing a louder colour was quietly eating.
 	 */
 	fill: (colour: string, towards: 'left' | 'right') => ({
-		backgroundImage: `linear-gradient(to ${towards}, color-mix(in srgb, ${colour} 55%, transparent) 0%, color-mix(in srgb, ${colour} 38%, transparent) 42%, transparent 100%)`,
+		backgroundImage: `linear-gradient(to ${towards}, color-mix(in srgb, ${colour} 38%, transparent) 0%, color-mix(in srgb, ${colour} 26%, transparent) 42%, transparent 100%)`,
 	}),
 
 	start: { insetInlineStart: 0, borderStartStartRadius: 16, borderEndStartRadius: 16 },
@@ -194,18 +226,11 @@ const Stepper = ({
 	onChange,
 	disabled,
 	label,
-	tone,
 }: {
 	value: number | null;
 	onChange: (next: number) => void;
 	disabled: boolean;
 	label: string;
-	/**
-	 * What colour the number is. The scoring team's, so it says whose it is, or
-	 * `colors.ink` where the number sits on that team's own fill and would not
-	 * have the contrast for it.
-	 */
-	tone: StyleXStyles;
 }) => (
 	<div {...stylex.props(styles.stepper)}>
 		<button
@@ -221,7 +246,7 @@ const Stepper = ({
 		{/* Named for the same reason the headcount is: it is a number an
 		    end-to-end test has to read back to know a tap became a write, and
 		    the alternative is finding it by its position between two buttons. */}
-		<span data-testid={`score-${label}`} {...stylex.props(styles.score, value === null ? styles.unplayed : tone)}>
+		<span data-testid={`score-${label}`} {...stylex.props(styles.score, value === null && styles.unplayed)}>
 			{value ?? '–'}
 		</span>
 
@@ -269,12 +294,6 @@ const MatchScore = ({
 	const [styleA, styleB] = [teamStyle(fixture.teamA), teamStyle(fixture.teamB)];
 	const outcome = match ? getMatchOutcome(match.scoreA, match.scoreB) : null;
 
-	// Whether a side's score sits on a fill is the same question as whether that
-	// side has a band, so it is asked once and the tone follows the band. Two
-	// separate readings of the outcome is how a white number ends up on an
-	// unfilled half.
-	const [bandA, bandB] = [reachFor('a', outcome), reachFor('b', outcome)];
-
 	return (
 		// Until there is a result, each half of the row is washed in the colour of
 		// the side that owns it. After it, the wash comes off and the fill below
@@ -287,9 +306,12 @@ const MatchScore = ({
 			    reader should be told twice. */}
 			<span
 				aria-hidden='true'
-				{...stylex.props(band.base, band.start, band.fill(styleA.colour, 'right'), bandA)}
+				{...stylex.props(band.base, band.start, band.fill(styleA.colour, 'right'), reachFor('a', outcome))}
 			/>
-			<span aria-hidden='true' {...stylex.props(band.base, band.end, band.fill(styleB.colour, 'left'), bandB)} />
+			<span
+				aria-hidden='true'
+				{...stylex.props(band.base, band.end, band.fill(styleB.colour, 'left'), reachFor('b', outcome))}
+			/>
 
 			<div {...stylex.props(styles.head)}>
 				<span {...stylex.props(styles.meta)}>
@@ -319,7 +341,6 @@ const MatchScore = ({
 				<Stepper
 					value={scoreA}
 					disabled={!canScore}
-					tone={bandA ? styles.onFill : styleA.text}
 					label={`Team ${teamName(fixture.teamA)}`}
 					onChange={next => onScore(next, scoreB ?? 0)}
 				/>
@@ -329,7 +350,6 @@ const MatchScore = ({
 				<Stepper
 					value={scoreB}
 					disabled={!canScore}
-					tone={bandB ? styles.onFill : styleB.text}
 					label={`Team ${teamName(fixture.teamB)}`}
 					onChange={next => onScore(scoreA ?? 0, next)}
 				/>

@@ -23,12 +23,14 @@ const expected = stylex.create({
 	drew: { width: '34%', opacity: 1 },
 	unpainted: { width: 0, opacity: 0 },
 
-	/* What the two numbers are painted. The team's colour, or white where the
-	   number stands on that team's own fill and would not read in it, or the
+	/* What the two numbers are painted. White, both of them, whoever won, or the
 	   faint of a match with no score at all. */
-	teamB: { color: colors.teamB },
-	onFill: { color: colors.ink },
+	white: { color: colors.ink },
 	unscored: { color: colors.faint },
+	/* The colour a score used to take from the team that scored it, kept here so
+	   the test can say it is gone rather than only that white is there. */
+	teamA: { color: colors.teamA },
+	teamB: { color: colors.teamB },
 });
 
 /**
@@ -281,9 +283,34 @@ describe('MatchScore', () => {
 		expect(rowOf(container)).not.toEqual(washed);
 	});
 
-	it('lifts a score off its own fill and leaves the other in its team colour', () => {
-		// The team's colour on 55% of that same colour is about 2:1, so a number
-		// standing on a fill goes white and the fill under it says whose it is.
+	it.each([
+		['a win', 3, 1],
+		['a defeat', 1, 3],
+		['a draw', 2, 2],
+	])('paints both scores white on %s', (_label, scoreA, scoreB) => {
+		// Both, whoever won. A team's colour on its own fill is about 2:1, so the
+		// winner's number had to go white whatever happened to the loser's, and one
+		// of each read as two different kinds of thing rather than as a score.
+		render(
+			<MatchScore
+				fixture={fixture}
+				match={match({ scoreA, scoreB })}
+				sideSize={5}
+				canScore
+				onScore={vi.fn()}
+				onClear={vi.fn()}
+			/>
+		);
+
+		for (const side of scoresOf()) {
+			expect(side).toEqual(expect.arrayContaining(stylesFor(expected.white)));
+		}
+	});
+
+	it('takes the scoring team colour off the number entirely', () => {
+		// The fill says whose the score is now, so the tone that used to is gone
+		// rather than overridden. Asserted because white being present says
+		// nothing about a team colour still losing to it on priority.
 		render(
 			<MatchScore
 				fixture={fixture}
@@ -297,39 +324,21 @@ describe('MatchScore', () => {
 
 		const [a, b] = scoresOf();
 
-		expect(a).toEqual(expect.arrayContaining(stylesFor(expected.onFill)));
-		expect(b).toEqual(expect.arrayContaining(stylesFor(expected.teamB)));
+		expect(a).not.toEqual(expect.arrayContaining(stylesFor(expected.teamA)));
+		expect(b).not.toEqual(expect.arrayContaining(stylesFor(expected.teamB)));
 	});
 
-	it('lifts both scores off a draw, since both sides are filled', () => {
-		render(
-			<MatchScore
-				fixture={fixture}
-				match={match({ scoreA: 2, scoreB: 2 })}
-				sideSize={5}
-				canScore
-				onScore={vi.fn()}
-				onClear={vi.fn()}
-			/>
-		);
-
-		for (const side of scoresOf()) {
-			expect(side).toEqual(expect.arrayContaining(stylesFor(expected.onFill)));
-		}
-	});
-
-	it('leaves an unscored match dimmed rather than lifted or coloured', () => {
+	it('leaves an unscored match dimmed rather than white', () => {
 		render(
 			<MatchScore fixture={fixture} match={undefined} sideSize={5} canScore onScore={vi.fn()} onClear={vi.fn()} />
 		);
 
-		// The third state, and the reason the tone is picked per side rather than
-		// per row. An en dash in white would read as a side that had won nothing
-		// and an en dash in cyan as one still to play, and only one of those is
-		// what no match document means.
+		// The third state, and the one exception to the rule above. An en dash in
+		// the same white as a score reads as a side that has been scored and got
+		// nothing, which is the one thing no match document does not mean.
 		for (const side of scoresOf()) {
 			expect(side).toEqual(expect.arrayContaining(stylesFor(expected.unscored)));
-			expect(side).not.toEqual(expect.arrayContaining(stylesFor(expected.onFill)));
+			expect(side).not.toEqual(expect.arrayContaining(stylesFor(expected.white)));
 		}
 	});
 
