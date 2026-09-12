@@ -11,15 +11,33 @@
  * the only ranking that doesn't reward whoever happened to get an extra game.
  */
 
-import type { TeamStanding, TournamentMatch } from './types';
+import type { MatchOutcome, TeamStanding, TournamentMatch } from './types';
 
 const WIN_POINTS = 3;
 const DRAW_POINTS = 1;
 
+/**
+ * Which side of a scoreline won it, if either.
+ *
+ * The three-way reading of a scoreline, written once. Two callers depend on it
+ * agreeing with itself: the table turns it into points, and the scoreboard fills
+ * the winning half of the fixture in that side's colour. A 0–0 that one of them
+ * called a draw and the other called nothing would draw a row with no result on
+ * it above a table crediting both teams a point.
+ */
+export const getMatchOutcome = (scoreA: number, scoreB: number): MatchOutcome => {
+	if (scoreA > scoreB) return 'a';
+	if (scoreA < scoreB) return 'b';
+
+	return 'draw';
+};
+
 /** Points from one scoreline, for the first and second team in that order. */
 export const getMatchPoints = (scoreA: number, scoreB: number): [number, number] => {
-	if (scoreA > scoreB) return [WIN_POINTS, 0];
-	if (scoreA < scoreB) return [0, WIN_POINTS];
+	const outcome = getMatchOutcome(scoreA, scoreB);
+
+	if (outcome === 'a') return [WIN_POINTS, 0];
+	if (outcome === 'b') return [0, WIN_POINTS];
 
 	return [DRAW_POINTS, DRAW_POINTS];
 };

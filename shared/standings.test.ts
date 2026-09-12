@@ -1,4 +1,4 @@
-import { getMatchPoints, getPositions, getStandings } from './standings';
+import { getMatchOutcome, getMatchPoints, getPositions, getStandings } from './standings';
 import type { TournamentMatch } from './types';
 
 const match = (order: number, teamA: number, teamB: number, scoreA: number, scoreB: number): TournamentMatch => ({
@@ -12,6 +12,20 @@ const match = (order: number, teamA: number, teamB: number, scoreA: number, scor
 });
 
 const positionsOf = (teamCount: number, matches: TournamentMatch[]) => getPositions(getStandings(teamCount, matches));
+
+describe('getMatchOutcome', () => {
+	// Nil-nil is in the table on purpose. The scoreboard fills both sides of a
+	// draw, so a 0–0 answered with anything falsy would be drawn as a match
+	// nobody played, and no match document at all already means that.
+	it.each([
+		[3, 1, 'a'],
+		[1, 3, 'b'],
+		[2, 2, 'draw'],
+		[0, 0, 'draw'],
+	])('%i–%i went to %s', (scoreA, scoreB, expected) => {
+		expect(getMatchOutcome(scoreA, scoreB)).toBe(expected);
+	});
+});
 
 describe('getMatchPoints', () => {
 	it.each([
