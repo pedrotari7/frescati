@@ -66,7 +66,7 @@ const SeasonHomePage = () => {
 	});
 
 	const { next, upcoming, voting, played } = useMemo(
-		() => (season ? groupGames(games, season, now) : { next: null, upcoming: [], voting: [], played: [] }),
+		() => (season ? groupGames(games, now) : { next: null, upcoming: [], voting: [], played: [] }),
 		[games, season, now]
 	);
 
