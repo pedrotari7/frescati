@@ -402,7 +402,19 @@ service cloud.firestore {
                                                                'motmVotingUntilMillis'])
                       && gameShapeOk();
 
-        allow update: if isSeasonAdmin(seasonId) && !touchesDerivedGameFields() && gameShapeOk();
+        // `seasonId` is pinned on the way through here as well as on create.
+        // It is the only copy of the path a `collectionGroup('games')` query
+        // gets: `finaliseDueTournaments` and `closeMotmVoting` both find a game
+        // that way and then read the field to say which season it belongs to.
+        // Create had always required it to match, update never looked, so a
+        // season admin could point a game at a season it does not live under
+        // and both sweeps would quietly stop finding it. A partial update is
+        // unaffected, because `request.resource.data` here is the document as
+        // it will be rather than the fields being sent.
+        allow update: if isSeasonAdmin(seasonId)
+                      && request.resource.data.seasonId == seasonId
+                      && !touchesDerivedGameFields()
+                      && gameShapeOk();
 
         allow delete: if isSeasonAdmin(seasonId);
 
