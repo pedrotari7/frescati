@@ -440,7 +440,12 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 									</li>
 
 									{(showAllLinks ? links : links.slice(0, INITIAL_LINKS)).map(link => (
-										<LinkRow key={link.uid} link={link} profile={usersById.get(link.uid) ?? null} />
+										<LinkRow
+											key={link.uid}
+											uid={uid}
+											link={link}
+											profile={usersById.get(link.uid) ?? null}
+										/>
 									))}
 								</ul>
 
@@ -520,13 +525,19 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
  * behind these are small enough that "67%" flatters two games out of three. The
  * titles are for a desktop hover, where the column headings are the only other
  * explanation on offer.
+ *
+ * The row opens the head-to-head rather than the other player's profile, which
+ * is a change of destination worth saying out loud: these two fractions *are*
+ * the head-to-head, shortened to fit a row, so the screen behind them is the
+ * long version of what is already being read. It costs a tap to reach the
+ * profile, which that screen puts at the top of itself.
  */
-const LinkRow = ({ link, profile }: { link: PlayerLink; profile: AppUser | null }) => {
+const LinkRow = ({ uid, link, profile }: { uid: string; link: PlayerLink; profile: AppUser | null }) => {
 	const name = displayNameOf(profile);
 
 	return (
 		<li {...stylex.props(styles.item)}>
-			<Link href={`/u/${link.uid}`} {...stylex.props(styles.rowLink)}>
+			<Link href={`/u/${uid}/vs/${link.uid}`} {...stylex.props(styles.rowLink)}>
 				<Avatar displayName={name} photoURL={profile?.photoURL} size='sm' />
 
 				<span {...stylex.props(styles.rowName, utils.truncate)}>{name}</span>
