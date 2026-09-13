@@ -7,20 +7,21 @@ const stylexOptions = require('./stylex.config');
 const CSP_REPORT_PATH = '/api/csp-report';
 
 /*
- * Content Security Policy, shipped in report-only mode.
+ * Content Security Policy, enforcing.
  *
  * The app talks to a lot of Google hosts: Firestore over gRPC-web, the
- * identity toolkit, FCM registration, reCAPTCHA for App Check, avatars on
- * googleusercontent, and Next inlines both its hydration script and its
- * critical CSS. A policy written blind and enforced immediately breaks sign-in
- * or the live listeners in production, which is the one place it can't be
- * debugged safely.
+ * identity toolkit, FCM registration, reCAPTCHA for App Check, Cloud Storage
+ * for the receipts, the callables, avatars on googleusercontent, and Next
+ * inlines both its hydration script and its critical CSS. Enforcing a policy
+ * written blind breaks sign-in or the live listeners in production, which is
+ * the one place it can't be debugged safely. So it shipped report-only first,
+ * with somewhere for violations to go, and this is the other end of that.
  *
- * So this reports rather than blocks. Violations now go somewhere: without a
- * `report-uri` they landed only in the console of whoever happened to have
- * devtools open on the live site, which meant the "watch it for a few days"
- * step could never actually produce evidence, and the switch to enforcing
- * could only ever be made blind.
+ * **The reporting directives stay on.** They work on an enforcing policy too,
+ * and they mean something sharper now: a report used to say "this would have
+ * been blocked", and says "this was blocked" instead. `/api/csp-report` is
+ * still where they land, so the first thing to look at if something breaks in
+ * production is the same place it always was.
  *
  * What this is worth here is worth being honest about. There is no
  * `dangerouslySetInnerHTML` anywhere in the app, every user-supplied string
@@ -31,9 +32,13 @@ const CSP_REPORT_PATH = '/api/csp-report';
  * still run. Removing it needs a nonce, which needs middleware, which would
  * deopt every statically rendered page. That trade hasn't been taken.
  *
- * `frame-ancestors` is the exception, it is ignored in report-only mode, so it
- * ships enforcing in its own header below, alongside X-Frame-Options. That is
- * the clickjacking protection, and it can't break a same-origin app.
+ * `frame-ancestors` moves **into** this policy, having had a header of its own
+ * only because report-only ignores that directive and the clickjacking
+ * protection could not wait. Leaving it outside now would emit two headers both
+ * named `Content-Security-Policy`, which a browser reads as two policies and
+ * enforces the intersection of. That happens to give the right answer here, and
+ * it is a confusing way to write down one policy. `X-Frame-Options` stays
+ * beside it for the browsers that never learned the directive.
  */
 /**
  * Whether this is `next dev`. `headers()` is evaluated once: at build time for
@@ -43,23 +48,50 @@ const CSP_REPORT_PATH = '/api/csp-report';
 const isDev = process.env.NODE_ENV !== 'production';
 
 /**
- * Sources only the dev server needs.
+ * Whether this build points Firebase at the emulators rather than the real
+ * project. The same variable `lib/firebaseClient.ts` reads to decide, so the
+ * policy and the SDK can't disagree about where the app is talking to.
+ *
+ * **Never set on a deploy.** Vercel's project environment does not carry it,
+ * and the two places that do are `dev:seeded` and `scripts/e2e-stack.sh`, so
+ * nothing below can widen the shipped policy.
+ */
+const usesEmulators = process.env.NEXT_PUBLIC_USE_EMULATORS === '1';
+
+/**
+ * Scripts only the dev server needs.
  *
  * `next dev` is a materially different app from the one that ships: webpack
- * hands every module to `eval` and React Refresh evals its patches, Vercel
+ * hands every module to `eval` and React Refresh evals its patches, and Vercel
  * Analytics loads a debug build from `va.vercel-scripts.com` instead of the
- * same-origin `/_vercel/insights/script.js` a deploy serves, and the Firestore,
- * auth and functions emulators each listen on a port of their own, which
- * `'self'` does not cover, since a port is part of an origin.
+ * same-origin `/_vercel/insights/script.js` a deploy serves.
  *
- * Report-only means none of that broke anything. What it broke was the reports:
+ * Report-only meant none of that broke anything. What it broke was the reports:
  * a single local page load buried the console under ~1000 `unsafe-eval`
  * violations, and a policy whose output nobody reads is one nobody will ever
  * dare enforce. The alternative, widening the shipped policy until dev is
  * quiet, pays for that silence in the one place the policy is worth anything.
  */
 const devScriptSrc = ["'unsafe-eval'", 'https://va.vercel-scripts.com'];
-const devConnectSrc = ['http://127.0.0.1:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'ws://localhost:*'];
+
+/**
+ * The emulators, each on a port of its own, which `'self'` does not cover
+ * because a port is part of an origin.
+ *
+ * Gated on **which project the app is talking to** rather than on `isDev`,
+ * which is the distinction report-only was hiding. `scripts/e2e-stack.sh`
+ * builds with `NEXT_PUBLIC_USE_EMULATORS=1` and serves it with `next start`, so
+ * `NODE_ENV` is `production` there and every one of these was being left out of
+ * a build that does nothing but talk to them. Under report-only that cost
+ * nothing but noise. Enforcing, it would have refused every Firestore listener,
+ * every sign-in and every callable in the whole e2e suite, and the suite is the
+ * one thing that can prove this policy lets the real app work.
+ *
+ * `isDev` stays in the condition so a dev server pointed at the live project
+ * keeps them too. A dev server is never deployed, so there is nothing to lose
+ * by being generous there.
+ */
+const emulatorConnectSrc = ['http://127.0.0.1:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'ws://localhost:*'];
 
 /**
  * Where the callable functions answer.
@@ -102,10 +134,10 @@ const connectSrc = [
 	'wss://*.firebaseio.com',
 	'https://*.gstatic.com',
 	...functionsSrc,
-	...(isDev ? devConnectSrc : []),
+	...(isDev || usesEmulators ? emulatorConnectSrc : []),
 ];
 
-const reportOnlyCsp = [
+const contentSecurityPolicy = [
 	"default-src 'self'",
 	`script-src ${scriptSrc.join(' ')}`,
 	// Tailwind and Next both inject style tags.
@@ -120,6 +152,10 @@ const reportOnlyCsp = [
 	"base-uri 'self'",
 	"form-action 'self'",
 	"object-src 'none'",
+	// Was a header of its own while the rest of this was report-only, which
+	// ignores it. Nothing else in the app is ever framed, and the app frames
+	// nothing of its own but the auth helper, which `frame-src` covers.
+	"frame-ancestors 'none'",
 	// Both spellings on purpose: `report-uri` is deprecated but is what most
 	// browsers still act on, and `report-to` is the replacement that needs the
 	// `Reporting-Endpoints` header below. They deliver different payload shapes,
@@ -128,13 +164,9 @@ const reportOnlyCsp = [
 	'report-to csp-endpoint',
 ].join('; ');
 
-/**
- * Headers that can't break anything, so they enforce from the start. The admin
- * screens were framable by any site until now.
- */
+/** Everything the app sends on every response. */
 const securityHeaders = [
-	{ key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
-	{ key: 'Content-Security-Policy-Report-Only', value: reportOnlyCsp },
+	{ key: 'Content-Security-Policy', value: contentSecurityPolicy },
 	// What `report-to csp-endpoint` above resolves to. Same destination as
 	// `report-uri`, declared the way the Reporting API wants it.
 	{

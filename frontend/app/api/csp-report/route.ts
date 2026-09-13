@@ -7,11 +7,17 @@
  * the platform log and answers 204. It reads nothing, writes nothing and
  * authorizes nothing.
  *
- * It exists because the policy in `next.config.js` ships report-only, with a
+ * It exists because the policy in `next.config.js` shipped report-only, with a
  * comment promising to watch real traffic and then tighten. Without somewhere
  * to send reports that promise could not be kept: violations landed only in the
  * console of whoever happened to have devtools open on the live site, so the
  * decision to enforce could only ever have been made blind.
+ *
+ * That policy enforces now, and this stayed, because the reporting directives
+ * work on an enforcing policy too and what arrives here means more than it did.
+ * A report used to say a request would have been blocked; it says one was
+ * blocked instead, which is a thing somebody is looking at a broken screen
+ * about.
  *
  * Unauthenticated by necessity. A browser posts these without credentials, and
  * there is no session to check, which is also why nothing here is trusted:
