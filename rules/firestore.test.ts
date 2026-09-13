@@ -1323,6 +1323,62 @@ describe('responses', () => {
 		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), responseDoc(MEMBER)), { absent: true }));
 	});
 
+	/**
+	 * The admin rule was a bare `write`, so it skipped every bound the two rules
+	 * above apply. These are the three that matter once something reads back what
+	 * it wrote.
+	 *
+	 * The backend trusts the `uid` field rather than the path it found the
+	 * document at, so a response filed under one player naming another charges
+	 * the wrong person in `planGameDues` and puts the wrong person on the sheet
+	 * in `runTeamRebuild`.
+	 */
+	it("stops an admin filing a response under one player's id that names another", async () => {
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), responseDoc(MEMBER)), aResponse(EXTRA, 'member')));
+	});
+
+	it('stops an admin writing a status nothing in the app switches on', async () => {
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), responseDoc(MEMBER)), aResponse(MEMBER, 'member', { status: 'maybe' }))
+		);
+	});
+
+	// Every client on the game screen subscribes to this collection in full, so
+	// it gets the same bound a game note and a season name already have.
+	it('stops an admin parking an unbounded note on a response', async () => {
+		await assertFails(
+			setDoc(
+				doc(authed(SEASON_ADMIN), responseDoc(MEMBER)),
+				aResponse(MEMBER, 'member', { note: 'y'.repeat(50_000) })
+			)
+		);
+	});
+
+	it('stops an admin inventing a field the response schema does not have', async () => {
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), responseDoc(MEMBER)), aResponse(MEMBER, 'member', { payload: 'y' }))
+		);
+	});
+
+	// The point of the bounds is the shape, not the decision. Overriding a spot
+	// on somebody else's answer is still an admin's to make.
+	it('leaves a season admin answering on somebody else behalf alone', async () => {
+		await assertSucceeds(
+			setDoc(
+				doc(authed(SEASON_ADMIN), responseDoc(EXTRA)),
+				aResponse(EXTRA, 'extra', { status: 'out', confirmOverride: true })
+			)
+		);
+	});
+
+	// Tidying up after somebody is a delete, which carries no `request.resource`
+	// for a shape check to read, so it keeps a rule of its own.
+	it('lets a season admin clean up after anyone', async () => {
+		await setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), aResponse(EXTRA, 'extra'));
+
+		await assertSucceeds(deleteDoc(doc(authed(SEASON_ADMIN), responseDoc(EXTRA))));
+	});
+
 	// Changing your mind rewrites the whole document, so without the freeze a
 	// no-show could clear the mark by tapping Out and In again.
 	it("stops a player clearing an admin's mark by answering again", async () => {

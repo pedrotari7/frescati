@@ -762,7 +762,40 @@ service cloud.firestore {
           allow delete: if isSelf(uid) && responsesOpen(gameData());
 
           // Season admins override extras and can clean up after anyone.
-          allow write: if isSeasonAdmin(seasonId);
+          //
+          // Spelled out rather than as `write`, which in this language is
+          // create, update *and* delete: a delete carries no `request.resource`,
+          // so the shape check below would be an error evaluated against
+          // nothing. The same reason `storage.rules` splits its own.
+          //
+          // What an admin *decides* here stays theirs, on anybody's answer and
+          // past the deadline: the spot, the no-show, the status. What they do
+          // not get is a differently shaped document. `write` standing alone
+          // skipped every bound the two rules above apply, and three of them
+          // matter once something else reads the result:
+          //
+          //  * `uid` was free, so a response could be filed under one player's
+          //    id while naming another, and the backend believes the field
+          //    rather than the path. It is who `planGameDues` raises the charge
+          //    against, who `sendReminders` counts as having answered, and who
+          //    `runTeamRebuild` puts on the sheet.
+          //  * `status` was free, and `in` or `out` is what every tally, spot
+          //    and charge in the app switches on.
+          //  * the note was unbounded, on a collection every client watching the
+          //    game screen subscribes to in full.
+          //
+          // `roleMatchesMembership` is deliberately *not* applied. It asks
+          // whether the writer is a member of the season, which is the same
+          // person as the player being written about only on the self path
+          // above. `recountGame` repairs a role that disagrees with the roster
+          // anyway, and it reads the document id rather than this field.
+          allow create, update: if isSeasonAdmin(seasonId)
+                                && request.resource.data.uid == uid
+                                && request.resource.data.status in ['in', 'out']
+                                && request.resource.data.role in ['member', 'extra']
+                                && responseShapeOk();
+
+          allow delete: if isSeasonAdmin(seasonId);
         }
       }
 
