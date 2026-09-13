@@ -5,6 +5,7 @@ import { ChevronRightIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
+import { isShareable } from '@shared/share';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useKit, useResponses, useUsersByUid } from '../hooks/useData';
 import ExtraSpotNote from './ExtraSpotNote';
@@ -12,6 +13,7 @@ import GameKit from './GameKit';
 import HeadcountBar from './HeadcountBar';
 import type { DebtLock } from './RespondControl';
 import RespondControl from './RespondControl';
+import ShareGame from './ShareGame';
 import StatusPill from './StatusPill';
 import WatchToggle from './WatchToggle';
 import { bp, colors, tint } from '../app/tokens.stylex';
@@ -40,6 +42,11 @@ const styles = stylex.create({
 	 */
 	topRow: { marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
 	pills: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+	/* The two icon buttons, kept together as one block so the pills wrap
+	   against the pair rather than between them. Both already carry the
+	   negative margin that keeps a 44px target out of the row's height, so
+	   there is nothing to add here but the row. */
+	tools: { display: 'flex', alignItems: 'center', flexShrink: 0 },
 	relative: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
 
 	link: {
@@ -146,8 +153,9 @@ const NextGameHero = ({
 			<div {...stylex.props(styles.glow)} aria-hidden='true' />
 
 			<div {...stylex.props(styles.inner)}>
-				{/* The pills wrap on a narrow phone; the bell stays pinned to the
-				    top-right of the card rather than wrapping with them. */}
+				{/* The pills wrap on a narrow phone; the two icon buttons stay
+				    pinned to the top-right of the card rather than wrapping
+				    with them. */}
 				<div {...stylex.props(styles.topRow)}>
 					<div {...stylex.props(styles.pills)}>
 						<StatusPill tone='brand'>Next game</StatusPill>
@@ -157,9 +165,16 @@ const NextGameHero = ({
 						{lifecycle === 'live' && <StatusPill tone='in'>Playing now</StatusPill>}
 					</div>
 
-					{onWatchChange && isWatchable(lifecycle) && (
-						<WatchToggle watching={watching} onChange={onWatchChange} />
-					)}
+					<div {...stylex.props(styles.tools)}>
+						{/* Wider than the bell on purpose: a game that is off is
+						    the most useful thing on this card to pass on, and
+						    that is exactly where `isWatchable` goes quiet. */}
+						{isShareable(lifecycle) && <ShareGame game={liveGame} season={season} />}
+
+						{onWatchChange && isWatchable(lifecycle) && (
+							<WatchToggle watching={watching} onChange={onWatchChange} />
+						)}
+					</div>
 				</div>
 
 				{/* The card is the one screen most people ever look at, so the way

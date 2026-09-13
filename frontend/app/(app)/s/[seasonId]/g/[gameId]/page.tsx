@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon, TrophyIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import { canReportAbsence, getExtraSpot, getFormat, getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
+import { isShareable } from '@shared/share';
 import { MIN_TOURNAMENT_PLAYERS } from '@shared/tournament';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
 import { useSeasonContext } from '../../../../../../components/SeasonProvider';
@@ -27,6 +28,7 @@ import GameWatchers from '../../../../../../components/GameWatchers';
 import HeadcountBar from '../../../../../../components/HeadcountBar';
 import RespondControl from '../../../../../../components/RespondControl';
 import RosterList from '../../../../../../components/RosterList';
+import ShareGame from '../../../../../../components/ShareGame';
 import StatusPill from '../../../../../../components/StatusPill';
 import WatchToggle from '../../../../../../components/WatchToggle';
 import { colors } from '../../../../../tokens.stylex';
@@ -39,6 +41,9 @@ const styles = stylex.create({
 	/* The pills wrap; the bell does not. See the comment at the call site. */
 	top: { marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
 	pills: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+	/* The two icon buttons as one block, so the pills wrap against the pair
+	   rather than between them. Both carry their own negative margin. */
+	tools: { display: 'flex', alignItems: 'center', flexShrink: 0 },
 	when: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
 
 	where: {
@@ -192,9 +197,20 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 							{lifecycle === 'finished' && <StatusPill tone='neutral'>Played</StatusPill>}
 						</div>
 
-						{canWatch && isWatchable(lifecycle) && (
-							<WatchToggle watching={isWatching(gameId)} onChange={watch => toggleWatch(gameId, watch)} />
-						)}
+						<div {...stylex.props(styles.tools)}>
+							{/* Still drawn on a game that is off, where the bell
+							    beside it is not: the bell follows answers nobody
+							    is giving any more, and this passes on the one
+							    fact everybody needs. */}
+							{isShareable(lifecycle) && <ShareGame game={game} season={season} />}
+
+							{canWatch && isWatchable(lifecycle) && (
+								<WatchToggle
+									watching={isWatching(gameId)}
+									onChange={watch => toggleWatch(gameId, watch)}
+								/>
+							)}
+						</div>
 					</div>
 
 					<p {...stylex.props(styles.where)}>
