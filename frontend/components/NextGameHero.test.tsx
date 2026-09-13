@@ -11,6 +11,8 @@ import NextGameHero from './NextGameHero';
  */
 const bell = () => screen.queryByRole('switch', { name: /notify/i });
 
+const shareButton = () => screen.queryByRole('button', { name: 'Share this game' });
+
 const season = {
 	id: 'season-1',
 	minPlayers: 10,
@@ -345,5 +347,45 @@ describe('NextGameHero', () => {
 		);
 
 		expect(bell()).not.toBeInTheDocument();
+	});
+
+	// Unlike the bell, this needs nothing from the signed-in player, so it is
+	// drawn here with no watch handler at all: the message is built from the
+	// game and the season, and there is nothing on it to follow.
+	it('offers a way to pass the game on', () => {
+		render(
+			<NextGameHero
+				game={game({})}
+				season={season}
+				myResponse={undefined}
+				isExtra={false}
+				now={now}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
+			/>
+		);
+
+		expect(shareButton()).toBeInTheDocument();
+	});
+
+	// The one case the two icon buttons disagree about, and the reason sharing
+	// has a predicate of its own rather than borrowing `isWatchable`: a game
+	// being off is the most useful thing on this card to tell somebody.
+	it('keeps the share button on a game that is off, where the bell goes', () => {
+		render(
+			<NextGameHero
+				game={game({ status: 'cancelled' })}
+				season={season}
+				myResponse={undefined}
+				isExtra={false}
+				now={now}
+				onRespond={vi.fn()}
+				onClear={vi.fn()}
+				onWatchChange={vi.fn()}
+			/>
+		);
+
+		expect(bell()).not.toBeInTheDocument();
+		expect(shareButton()).toBeInTheDocument();
 	});
 });
