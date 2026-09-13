@@ -155,6 +155,55 @@ describe('runTeamRebuild', () => {
 		expect((await readTeams(SEASON_ID, GAME_ID))?.edited).toBeUndefined();
 	});
 
+	/**
+	 * The repeat penalty is about who somebody has actually played with.
+	 *
+	 * Cancelling a game writes a status and nothing else, so a called-off evening
+	 * keeps whatever lineup had been picked for it, and the history read straight
+	 * off the last few games by kickoff. That put a squad nobody turned out in
+	 * into the weights, and, because `buildRepeatWeights` weights by position in
+	 * the list rather than by date, pushed the game that was really last week
+	 * into the slot for the week before and counted it for less.
+	 *
+	 * Pinned against `pickTeams` with the history the optimiser should have been
+	 * handed, which is the played game alone, at the front.
+	 */
+	it('leaves a called-off evening out of the history the optimiser is weighed against', async () => {
+		const players = uids(8);
+		const playedSquads = [
+			['p1', 'p2', 'p3', 'p4'],
+			['p5', 'p6', 'p7', 'p8'],
+		];
+
+		await writeSeason(SEASON_ID, { memberUids: players });
+
+		await writeGame(SEASON_ID, 'played', { kickoff: '2026-09-01T17:00:00.000Z', status: 'played' });
+		await writeTeams(SEASON_ID, 'played', playedSquads);
+
+		// Teams were picked, then the pitch froze. Deliberately the opposite split
+		// to the one above, so counting it pulls the optimiser the other way.
+		await writeGame(SEASON_ID, 'called-off', { kickoff: '2026-09-08T17:00:00.000Z', status: 'cancelled' });
+		await writeTeams(SEASON_ID, 'called-off', [
+			['p1', 'p3', 'p5', 'p7'],
+			['p2', 'p4', 'p6', 'p8'],
+		]);
+
+		await writeGame(SEASON_ID, GAME_ID, { kickoff: '2026-09-15T17:00:00.000Z', teamsGeneration: 1 });
+		for (const uid of players) await writeResponse(SEASON_ID, GAME_ID, uid, { status: 'in', role: 'member' });
+
+		await runTeamRebuild({ seasonId: SEASON_ID, gameId: GAME_ID, generation: 1 });
+
+		const expected = pickTeams({
+			players: players.map(uid => ({ uid, elo: getElo(undefined, getSeedElo([])) })),
+			squadSizes: getSquadSizes(8, getTeamCount(8)),
+			seed: getSeed(GAME_ID, 0),
+			settings: { randomness: 0.3, repeatPenalty: 0.4, repeatLookback: 4, matchMinutes: 5 },
+			history: [playedSquads],
+		});
+
+		expect((await readTeams(SEASON_ID, GAME_ID))?.teams).toEqual(expected);
+	});
+
 	it('skips a rebuild superseded by a later response', async () => {
 		const players = uids(8);
 		await writeSeason(SEASON_ID, { memberUids: players });

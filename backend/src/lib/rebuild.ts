@@ -53,11 +53,15 @@ const resolveSettings = (season: Season, game: Game): BalanceSettings => ({
 const getRecentSquads = async (seasonId: string, kickoff: string, lookback: number): Promise<string[][][]> => {
 	if (lookback <= 0) return [];
 
+	// Over-fetched so the called-off ones can be dropped below and still leave a
+	// full window. Twice is enough for a season to lose as many evenings as it
+	// looks back over, and past that the history is short rather than wrong,
+	// which is the right way round. These are small documents.
 	const games = await db
 		.collection(`seasons/${seasonId}/games`)
 		.where('kickoff', '<', kickoff)
 		.orderBy('kickoff', 'desc')
-		.limit(lookback)
+		.limit(lookback * 2)
 		.get();
 
 	// `getAll` throws when handed nothing, which is exactly what the very first
@@ -65,7 +69,21 @@ const getRecentSquads = async (seasonId: string, kickoff: string, lookback: numb
 	// history to avoid repeating is the one game that never gets a lineup.
 	if (games.empty) return [];
 
-	const lineups = await db.getAll(...games.docs.map(game => game.ref.collection('tournament').doc('teams')));
+	// Cancelling writes a status and nothing else, so a called-off evening keeps
+	// whatever lineup had been picked for it. Counting that told the optimiser
+	// two people had been on the same team on a night nobody played.
+	//
+	// It cost more than the one wrong pairing. `buildRepeatWeights` weights by
+	// position in this list rather than by date, so a called-off game also pushed
+	// every real one an evening further back and made it count for less. Two
+	// cancellations in a row and the game before them was being weighed as though
+	// it were a month ago.
+	const played = games.docs.filter(game => (game.data() as Game).status !== 'cancelled').slice(0, lookback);
+
+	// And the same guard again, for a run of evenings that were all called off.
+	if (played.length === 0) return [];
+
+	const lineups = await db.getAll(...played.map(game => game.ref.collection('tournament').doc('teams')));
 
 	return lineups
 		.filter(lineup => lineup.exists)
