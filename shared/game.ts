@@ -83,12 +83,19 @@ export interface GameGroups<T> {
  * final whistle exactly as it was before. A vote that never opened is not
  * something to wait on.
  *
- * `next` is the soonest game that hasn't ended whether it is cancelled or not:
- * a cancellation is exactly the thing people open the app to find out.
+ * `next` is the soonest game that has not ended, cancelled or not. A
+ * cancellation is the thing people open the app to find out, so a game called
+ * off tonight still takes the top card tonight.
+ *
+ * The whistle decides that rather than `getGameLifecycle`, which answers
+ * `cancelled` before it ever reads `endsAt`. A cancelled game therefore never
+ * reports `finished`, and grouping on that left one called off in June sitting
+ * on top of the season home for the rest of the year, with the game people came
+ * to answer pushed down into Coming up. `hasBeenPlayed` is the same test the
+ * admin calendar already splits its own list on.
  */
-export const groupGames = <T extends Pick<Game, 'kickoff' | 'endsAt' | 'status' | 'motmVotingUntilMillis'>>(
+export const groupGames = <T extends Pick<Game, 'endsAt' | 'motmVotingUntilMillis'>>(
 	games: T[],
-	season: Pick<Season, 'responseDeadlineHours'>,
 	now: Date = new Date()
 ): GameGroups<T> => {
 	const scheduled: T[] = [];
@@ -96,7 +103,7 @@ export const groupGames = <T extends Pick<Game, 'kickoff' | 'endsAt' | 'status' 
 	const played: T[] = [];
 
 	for (const game of games) {
-		if (getGameLifecycle(game, season, now) !== 'finished') scheduled.push(game);
+		if (!hasBeenPlayed(game, now)) scheduled.push(game);
 		else if (isMotmVotingOpen(game.motmVotingUntilMillis, now.getTime())) voting.push(game);
 		else played.push(game);
 	}
