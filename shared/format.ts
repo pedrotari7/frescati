@@ -28,7 +28,18 @@ export const formatGameDate = (iso: string, timeZone: string): string => {
 	return `${weekdayShort(weekday)} ${day} ${MONTHS_SHORT[month - 1]}`;
 };
 
-/** `Tuesday 1 September`, for headings where the short form reads too terse. */
+/**
+ * `Tuesday 1 Sep`, for headings where the abbreviated weekday reads too terse.
+ *
+ * Long in the weekday and short in the month, which is the point rather than an
+ * oversight. This goes to a top bar title that truncates with an ellipsis and to
+ * three headings on a phone, and "Wednesday 30 September" either wraps under the
+ * hero's 24px or comes back as "Wednesday 30 Septem...". The weekday is the half
+ * worth spelling out, because it is the half somebody checks against their week.
+ *
+ * The comment here used to promise the month in full, which nothing rendered and
+ * no test read. Hence the test.
+ */
 export const formatGameDateLong = (iso: string, timeZone: string): string => {
 	const { weekday, day, month } = getZonedParts(iso, timeZone);
 
