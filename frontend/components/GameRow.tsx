@@ -7,7 +7,6 @@ import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import type { GameLifecycle } from '@shared/game';
 import { getExtraSpot, getFormat, getGameLifecycle, getHeadcountState, isWatchable } from '@shared/game';
 import { formatGameDate, formatGameTime } from '@shared/format';
-import { isMotmVotingOpen } from '@shared/motm';
 import { colors } from '../app/tokens.stylex';
 import { surfaces } from '../lib/styles';
 import type { DebtLock } from './RespondControl';
@@ -78,7 +77,6 @@ const GameRow = ({
 	game,
 	season,
 	myResponse,
-	href,
 	watching = false,
 	debtLock,
 	now,
@@ -89,8 +87,6 @@ const GameRow = ({
 	game: Game;
 	season: Season;
 	myResponse: GameResponse | undefined;
-	/** Where the row leads. Defaults to the game itself. */
-	href?: string;
 	watching?: boolean;
 	/** Set when this player owes the season money. Takes the In half, and only that. */
 	debtLock?: DebtLock;
@@ -108,7 +104,6 @@ const GameRow = ({
 }) => {
 	const lifecycle = getGameLifecycle(game, season, now);
 	const isPast = lifecycle === 'finished';
-	const voting = isMotmVotingOpen(game.motmVotingUntilMillis, now.getTime());
 	const atRisk = getHeadcountState(game, season) === 'at-risk';
 	const timezone = season.slot.timezone;
 	const answer = answerPill(myResponse, lifecycle);
@@ -124,10 +119,11 @@ const GameRow = ({
 				surfaces.glassCard,
 				styles.card,
 				lifecycle === 'cancelled' && styles.cancelled,
-				// Faded because it is behind us, but not while the vote is out, or
-				// the one row on the screen still asking for something would be the
-				// quietest thing on it.
-				isPast && !voting && styles.past
+				// Faded because it is behind us and there is nothing left to do about
+				// it. A game still asking the squad for something is never one of
+				// these. `groupGames` keeps a game with its vote open out of Played
+				// altogether, and `MotmVoteCallout` draws it as a card of its own.
+				isPast && styles.past
 			)}
 		>
 			{/* The bell is the row's second action, so it sits beside the link
@@ -136,7 +132,7 @@ const GameRow = ({
 			    The chevron stays at the end of the link, because it is what says
 			    the row leads somewhere and the bell is not. */}
 			<div {...stylex.props(styles.head)}>
-				<Link href={href ?? `/s/${season.id}/g/${game.id}`} {...stylex.props(styles.link)}>
+				<Link href={`/s/${season.id}/g/${game.id}`} {...stylex.props(styles.link)}>
 					<div {...stylex.props(styles.body)}>
 						<div {...stylex.props(styles.when)}>
 							<span {...stylex.props(styles.date)}>{formatGameDate(game.kickoff, timezone)}</span>
@@ -161,11 +157,6 @@ const GameRow = ({
 									{atRisk && !isPast && <StatusPill tone='pending'>Short</StatusPill>}
 								</>
 							)}
-
-							{/* Says why a played game is still up here, and stays honest
-							    for somebody who wasn't in the lineup: the vote is open,
-							    not that they have one. */}
-							{voting && <StatusPill tone='pending'>Vote open</StatusPill>}
 
 							{answer && <StatusPill tone={answer.tone}>{answer.label}</StatusPill>}
 							{!myResponse && lifecycle === 'open' && <StatusPill tone='pending'>No answer</StatusPill>}

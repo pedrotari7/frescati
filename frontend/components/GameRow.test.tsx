@@ -232,43 +232,25 @@ describe('GameRow', () => {
 		expect(screen.queryByRole('button', { name: /I'm in/ })).not.toBeInTheDocument();
 	});
 
-	it('follows a caller that points the row somewhere else', () => {
+	it('points at the game it is a row for', () => {
 		render(
 			<GameRow
 				game={game({})}
 				season={season}
 				myResponse={undefined}
-				href='/s/season-1/g/game-1/tournament'
 				now={now}
 				onRespond={vi.fn()}
 				onClear={vi.fn()}
 			/>
 		);
 
-		expect(screen.getByRole('link')).toHaveAttribute('href', '/s/season-1/g/game-1/tournament');
+		expect(screen.getByRole('link')).toHaveAttribute('href', '/s/season-1/g/game-1');
 	});
 
-	// A played game is faded, but not while it is still asking the squad for
-	// something, that row is the one thing on the screen with a deadline.
-	it('flags a played game whose man-of-the-match vote is open, undimmed', () => {
-		const afterwards = new Date('2026-09-01T19:00:00.000Z');
-
-		const { container } = render(
-			<GameRow
-				game={game({ motmVotingUntilMillis: new Date('2026-09-03T19:00:00.000Z').getTime() })}
-				season={season}
-				myResponse={undefined}
-				now={afterwards}
-				onRespond={vi.fn()}
-				onClear={vi.fn()}
-			/>
-		);
-
-		expect(screen.getByText('Vote open')).toBeInTheDocument();
-		expect(stylesOf(container.firstElementChild)).not.toEqual(expect.arrayContaining(stylesFor(expected.past)));
-	});
-
-	it('fades a played game once the vote has been counted', () => {
+	// Every played game this row is ever drawn for is one there is nothing left
+	// to do about. A vote still running holds its game out of Played and onto a
+	// card of its own, so there is no undimmed past row any more.
+	it('fades a played game', () => {
 		const afterwards = new Date('2026-09-01T19:00:00.000Z');
 
 		const { container } = render(
@@ -282,7 +264,6 @@ describe('GameRow', () => {
 			/>
 		);
 
-		expect(screen.queryByText('Vote open')).not.toBeInTheDocument();
 		expect(stylesOf(container.firstElementChild)).toEqual(expect.arrayContaining(stylesFor(expected.past)));
 	});
 
