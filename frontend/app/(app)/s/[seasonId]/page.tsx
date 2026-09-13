@@ -16,6 +16,7 @@ import EmptyState from '../../../../components/EmptyState';
 import LoadFailed from '../../../../components/LoadFailed';
 import NextGameHero from '../../../../components/NextGameHero';
 import GameRow from '../../../../components/GameRow';
+import MotmVoteCallout from '../../../../components/MotmVoteCallout';
 import SeasonDebtNotice from '../../../../components/SeasonDebtNotice';
 import Button from '../../../../components/Button';
 import CalendarSubscribeSheet from '../../../../components/CalendarSubscribeSheet';
@@ -128,36 +129,30 @@ const SeasonHomePage = () => {
 						/>
 					)}
 
-					<Button variant='ghost' size='sm' onClick={() => setSubscribeOpen(true)}>
-						<CalendarIcon {...stylex.props(styles.calendar)} aria-hidden='true' />
-						Subscribe to calendar
-					</Button>
+					{/* Straight under the next game, because it is the only thing on
+					    this screen with a deadline on it and the only one that goes
+					    away unanswered. Above Subscribe to calendar, which is here
+					    every week where this is here for two days.
 
-					{/* Above the games still to come, because it is the only thing on
-					    this screen with a deadline on it, and straight to the team
-					    sheet, where the vote is, the same place the notification
-					    lands. The game page is a headcount for a game already
-					    played. */}
+					    Each is a card with a way in rather than a row with a pill,
+					    and it leads to the team sheet, where the ballot is and where
+					    the notification about it lands. The game page is a headcount
+					    for a game already played. */}
 					{voting.length > 0 && (
 						<section>
 							<SectionHeading sx={styles.heading}>Man of the match</SectionHeading>
 							<div {...stylex.props(styles.rows)}>
 								{voting.map(game => (
-									<GameRow
-										key={game.id}
-										game={game}
-										season={season}
-										myResponse={myResponses[game.id]}
-										href={`/s/${seasonId}/g/${game.id}/tournament`}
-										debtLock={debtLock}
-										now={now}
-										onRespond={status => respond(game.id, status)}
-										onClear={() => clear(game.id)}
-									/>
+									<MotmVoteCallout key={game.id} game={game} season={season} now={now} />
 								))}
 							</div>
 						</section>
 					)}
+
+					<Button variant='ghost' size='sm' onClick={() => setSubscribeOpen(true)}>
+						<CalendarIcon {...stylex.props(styles.calendar)} aria-hidden='true' />
+						Subscribe to calendar
+					</Button>
 
 					{/* Above the games still to come, and collapsed by default so it
 					    costs them one row rather than a scroll. Closed it is a
