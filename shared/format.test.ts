@@ -3,6 +3,7 @@ import {
 	counted,
 	formatCivilDate,
 	formatGameDate,
+	formatGameDateLong,
 	formatGameTime,
 	formatGameWhen,
 	formatRelative,
@@ -43,6 +44,17 @@ describe('game date and time formatting', () => {
 	it('rolls over to the next local day when UTC and local disagree', () => {
 		// 22:30 UTC on the 1st is 00:30 on the 2nd in Stockholm.
 		expect(formatGameDate('2026-09-01T22:30:00.000Z', STOCKHOLM)).toBe('Wed 2 Sep');
+	});
+
+	// Long in the weekday, short in the month. Four screens render this and none
+	// of them had a test, which is how the comment above it came to promise a
+	// month in full that nothing has ever printed.
+	it('spells the weekday out and leaves the month abbreviated', () => {
+		expect(formatGameDateLong('2026-09-01T17:00:00.000Z', STOCKHOLM)).toBe('Tuesday 1 Sep');
+	});
+
+	it('reads the long form in the same timezone as the short one', () => {
+		expect(formatGameDateLong('2026-09-01T22:30:00.000Z', STOCKHOLM)).toBe('Wednesday 2 Sep');
 	});
 });
 
