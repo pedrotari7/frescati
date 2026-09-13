@@ -2,6 +2,7 @@ import { deleteDoc, deleteField, getDoc, getDocs, setDoc, updateDoc } from 'fire
 import type { Unsubscribe } from 'firebase/firestore';
 import type { GameResponse, PlayerRole, ResponseStatus } from '@shared/types';
 import type { SeasonResponses } from '@shared/availability';
+import { callFunction } from './call';
 import { responseDoc, responsesCol } from './paths';
 import { asData, subscribeToCollection } from './subscribe';
 
@@ -142,4 +143,36 @@ export const setConfirmOverride = (seasonId: string, gameId: string, uid: string
 	updateDoc(responseDoc(seasonId, gameId, uid), {
 		confirmOverride: confirmed,
 		updatedAt: new Date().toISOString(),
+	});
+
+/** What one nudge did. Zero on both counts means it reached nobody. */
+export interface NudgeResult {
+	/** How many were sent to, after anybody who had answered was dropped. */
+	asked: number;
+	/** Devices FCM accepted it for. */
+	pushed: number;
+	/** People it reached by email instead, having reached none of their devices. */
+	emailed: number;
+}
+
+/**
+ * Ask named people whether they are playing.
+ *
+ * A callable because sending is an FCM call, which only the Admin SDK can make,
+ * and because who still owes an answer has to be decided by something the
+ * client cannot write. `uids` says who and nothing else: every word of the copy
+ * is built from the game at the far end, so this is a way to aim a reminder and
+ * never a way to send somebody a sentence.
+ *
+ * Anybody on the list who has answered since the screen drew is silently
+ * dropped, so a stale roster nudges fewer people rather than chasing somebody
+ * for an answer they have given. A list where nobody is still waiting is
+ * refused outright, which is the screen and the game disagreeing and worth
+ * seeing.
+ */
+export const nudgePlayers = (seasonId: string, gameId: string, uids: string[]): Promise<NudgeResult> =>
+	callFunction<{ seasonId: string; gameId: string; uids: string[] }, NudgeResult>('nudgePlayers', {
+		seasonId,
+		gameId,
+		uids,
 	});

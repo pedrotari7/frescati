@@ -16,7 +16,8 @@ import { useRespondIntent } from '../../../../../../hooks/useRespondIntent';
 import { useWatchGames } from '../../../../../../hooks/useWatchGames';
 import { useWrite } from '../../../../../../hooks/useWrite';
 import { useNow } from '../../../../../../hooks/useNow';
-import { setAbsent, setConfirmOverride } from '../../../../../../lib/db/responses';
+import { nudgePlayers, setAbsent, setConfirmOverride } from '../../../../../../lib/db/responses';
+import { displayNameOf } from '../../../../../../lib/people';
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
@@ -28,6 +29,7 @@ import HeadcountBar from '../../../../../../components/HeadcountBar';
 import RespondControl from '../../../../../../components/RespondControl';
 import RosterList from '../../../../../../components/RosterList';
 import StatusPill from '../../../../../../components/StatusPill';
+import { useToast } from '../../../../../../components/Toast';
 import WatchToggle from '../../../../../../components/WatchToggle';
 import { colors } from '../../../../../tokens.stylex';
 import { surfaces } from '../../../../../../lib/styles';
@@ -83,6 +85,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 	const { isWatching, canWatch, toggleWatch } = useWatchGames(seasonId);
 	const { user } = useAuth();
 	const write = useWrite();
+	const { notify } = useToast();
 	const now = useNow();
 
 	// The global role, not `isAdmin` from the season, that one is true for a
@@ -281,6 +284,35 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 								absent ? "Couldn't mark them as a no-show." : "Couldn't take that back."
 							);
 						}}
+						/* Only while the game can still be answered. Past the
+						   deadline this asks a question the app will not take an
+						   answer to, and the callable refuses one anyway, so
+						   offering the button would be offering an error. */
+						onNudge={
+							isAdmin && lifecycle === 'open'
+								? async uid => {
+										const name = displayNameOf(usersByUid.get(uid));
+
+										const ok = await write(async () => {
+											const { pushed, emailed } = await nudgePlayers(seasonId, gameId, [uid]);
+
+											// Worth saying while the admin is still
+											// looking at the screen. A nudge that
+											// reached nobody looks exactly like one
+											// that worked, and the alternative is
+											// waiting a day for an answer nobody was
+											// ever asked for.
+											notify(
+												pushed + emailed > 0
+													? `Asked ${name}.`
+													: `The app cannot reach ${name}.`
+											);
+										}, `Couldn't nudge ${name}.`);
+
+										return ok;
+									}
+								: undefined
+						}
 					/>
 				</div>
 

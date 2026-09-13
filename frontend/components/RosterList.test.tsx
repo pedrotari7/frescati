@@ -381,4 +381,81 @@ describe('RosterList', () => {
 
 		expect(onToggleExtra).toHaveBeenCalledWith('carol', false);
 	});
+	it('offers an admin no way to nudge without a handler', () => {
+		render(<RosterList memberUids={['carol']} responses={[]} usersByUid={usersByUid} />);
+
+		expect(screen.getByText('Yet to answer')).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Nudge' })).not.toBeInTheDocument();
+	});
+
+	it('lets an admin ask somebody who has not answered', async () => {
+		const onNudge = vi.fn().mockResolvedValue(true);
+
+		render(<RosterList memberUids={['carol']} responses={[]} usersByUid={usersByUid} onNudge={onNudge} />);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Nudge' }));
+		});
+
+		expect(onNudge).toHaveBeenCalledWith('carol');
+	});
+
+	// Nothing anywhere records that somebody was nudged, so the button's own
+	// memory of it is the whole of the record. It is there to stop the same
+	// thumb on the same row twice, wondering whether the first one worked.
+	it('stops offering the same person a second time once one has landed', async () => {
+		render(
+			<RosterList
+				memberUids={['carol']}
+				responses={[]}
+				usersByUid={usersByUid}
+				onNudge={vi.fn().mockResolvedValue(true)}
+			/>
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Nudge' }));
+		});
+
+		expect(screen.queryByRole('button', { name: 'Nudge' })).not.toBeInTheDocument();
+		expect(screen.getByText('Nudged')).toBeInTheDocument();
+	});
+
+	// A send that failed has been toasted by the caller, and the row must not
+	// also claim it happened: the only way to try again is this button.
+	it('keeps the button when the send did not land', async () => {
+		render(
+			<RosterList
+				memberUids={['carol']}
+				responses={[]}
+				usersByUid={usersByUid}
+				onNudge={vi.fn().mockResolvedValue(false)}
+			/>
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Nudge' }));
+		});
+
+		expect(screen.getByRole('button', { name: 'Nudge' })).toBeInTheDocument();
+		expect(screen.queryByText('Nudged')).not.toBeInTheDocument();
+	});
+
+	// The people in every other group have already said something. Asking them
+	// again is asking a question they have answered.
+	it('offers it only to the people who have not answered', () => {
+		render(
+			<RosterList
+				memberUids={['alice', 'bob', 'carol']}
+				responses={[
+					response({ uid: 'alice', status: 'in', role: 'member' }),
+					response({ uid: 'bob', status: 'out', role: 'member' }),
+				]}
+				usersByUid={usersByUid}
+				onNudge={vi.fn().mockResolvedValue(true)}
+			/>
+		);
+
+		expect(screen.getAllByRole('button', { name: 'Nudge' })).toHaveLength(1);
+	});
 });
