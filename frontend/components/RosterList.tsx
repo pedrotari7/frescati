@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import * as stylex from '@stylexjs/stylex';
 import type { AppUser, GameResponse } from '@shared/types';
@@ -164,6 +165,38 @@ const Section = ({
 	);
 };
 
+/**
+ * Ask one person, once.
+ *
+ * The state is deliberately this component's and nothing more: it lasts as long
+ * as the screen is open and is gone on a reload. There is nowhere to store it.
+ * The natural home would be a mark on their response document, and these are
+ * exactly the people who have no response document, which is the third state
+ * the whole app rests on. A placeholder written to carry a timestamp would
+ * break that for a footnote, so the button remembers instead.
+ *
+ * It stops the obvious misuse anyway, which is not a second admin an hour later
+ * but the same thumb on the same row twice, half a second apart, wondering
+ * whether the first one worked.
+ */
+const NudgeButton = ({ uid, onNudge }: { uid: string; onNudge: (uid: string) => Promise<boolean> }) => {
+	const [nudged, setNudged] = useState(false);
+
+	if (nudged) return <StatusPill tone='neutral'>Nudged</StatusPill>;
+
+	return (
+		<Button
+			size='sm'
+			variant='ghost'
+			onClick={async () => {
+				if (await onNudge(uid)) setNudged(true);
+			}}
+		>
+			Nudge
+		</Button>
+	);
+};
+
 const RosterList = ({
 	memberUids,
 	responses,
@@ -173,6 +206,7 @@ const RosterList = ({
 	played = false,
 	onToggleExtra,
 	onToggleAbsent,
+	onNudge,
 }: {
 	memberUids: string[];
 	responses: GameResponse[];
@@ -192,6 +226,19 @@ const RosterList = ({
 	played?: boolean;
 	onToggleExtra?: (uid: string, confirmed: boolean) => Promise<void>;
 	onToggleAbsent?: (uid: string, absent: boolean) => Promise<void>;
+	/**
+	 * Ask one person whether they are playing. Absent unless an admin is looking
+	 * at a game that can still be answered, which is the only time the question
+	 * means anything: the handler is the permission, the same way `onToggleAbsent`
+	 * is, so there is no second boolean to get out of step with it.
+	 *
+	 * Reports whether the send landed, unlike its two neighbours, because this is
+	 * the one row action with an afterwards. Nothing anywhere records that a
+	 * player was nudged, see `nudgePlayers`, so the button's own memory of it is
+	 * the whole of the record, and a failed send must not leave the row claiming
+	 * one happened.
+	 */
+	onNudge?: (uid: string) => Promise<boolean>;
 }) => {
 	const { playing, extras, absent, out, awaiting } = buildRoster(memberUids, responses, usersByUid);
 	const byUid = new Map(responses.map(response => [response.uid, response]));
@@ -292,7 +339,18 @@ const RosterList = ({
 				}
 			/>
 
-			<Section title={played ? 'Never answered' : 'Yet to answer'} tone='pending' entries={awaiting} />
+			{/* The one group on this screen that is an open question rather than a
+			    report, and until now the only one an admin could do nothing about.
+			    The hourly sweep asks these people at the season's fixed distances
+			    from kickoff; this is the same question aimed by hand, for the
+			    evening before a game that is two short and the next window a day
+			    off or already behind. */}
+			<Section
+				title={played ? 'Never answered' : 'Yet to answer'}
+				tone='pending'
+				entries={awaiting}
+				renderTrailing={onNudge ? entry => <NudgeButton uid={entry.uid} onNudge={onNudge} /> : undefined}
+			/>
 
 			<Section title='Out' tone='out' entries={out} />
 		</div>
