@@ -17,28 +17,72 @@ import type { Game, Season } from './types';
 
 const CRLF = '\r\n';
 
-/** RFC 5545 §3.3.11. These four characters need a backslash in TEXT values. */
+/**
+ * RFC 5545 §3.3.11. These four characters need a backslash in TEXT values.
+ *
+ * A line break is any of the three spellings, not just the bare LF this used to
+ * look for. A pasted cancellation reason can carry CRLF, and escaping only the
+ * LF half of it left the CR in the value, where it is not legal and where a
+ * strict parser is entitled to treat it as the end of a line. Matched longest
+ * first so a CRLF becomes one escape rather than a stray CR and an escape.
+ */
 const escapeText = (value: string): string =>
-	value.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+	value
+		.replace(/\\/g, '\\\\')
+		.replace(/;/g, '\\;')
+		.replace(/,/g, '\\,')
+		.replace(/\r\n|[\r\n]/g, '\\n');
+
+/** What RFC 5545 §3.1 counts a folded line in. */
+const FOLD_OCTETS = 75;
+
+/** UTF-8 bytes in one code point, which is what that 75 is measured in. */
+const octetsOf = (character: string): number => {
+	const code = character.codePointAt(0) ?? 0;
+
+	if (code < 0x80) return 1;
+	if (code < 0x800) return 2;
+	if (code < 0x10000) return 3;
+
+	return 4;
+};
 
 /**
  * Folds a line at 75 octets as RFC 5545 §3.1 requires, continuing on the next
- * line with a single leading space. Splits on UTF-16 code units rather than
- * bytes, good enough here since venue names and notes are typically ASCII,
- * and a slightly-early fold on a multibyte character costs nothing a reader
- * would notice.
+ * line with a single leading space.
+ *
+ * Counted in octets rather than in UTF-16 code units, and iterated by code point
+ * rather than sliced. Both of those were wrong in the same direction, on a
+ * Swedish football calendar:
+ *
+ *  * a venue in Ostermalm or Arsta is two bytes per accented letter, so a line
+ *    of 75 of them went out at up to 150 octets, twice what the fold is for.
+ *  * an emoji in a season name is a surrogate pair, and `slice` was free to cut
+ *    between its halves. Each half alone is not a character, so encoding the
+ *    result to UTF-8 replaced it, and the name came back mangled on the far end.
+ *
+ * The continuation space counts towards its own line's 75, which is the
+ * conservative reading and what every parser worth worrying about assumes.
  */
 const foldLine = (line: string): string => {
-	if (line.length <= 75) return line;
-
 	const parts: string[] = [];
-	let rest = line;
+	let current = '';
+	let octets = 0;
 
-	while (rest.length > 75) {
-		parts.push(rest.slice(0, 75));
-		rest = ' ' + rest.slice(75);
+	for (const character of line) {
+		const size = octetsOf(character);
+
+		if (octets + size > FOLD_OCTETS) {
+			parts.push(current);
+			current = ' ';
+			octets = 1;
+		}
+
+		current += character;
+		octets += size;
 	}
-	parts.push(rest);
+
+	parts.push(current);
 
 	return parts.join(CRLF);
 };
