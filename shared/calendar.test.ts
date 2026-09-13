@@ -145,4 +145,57 @@ describe('buildIcsFeed', () => {
 
 		expect(ics).not.toContain('LOCATION');
 	});
+
+	/**
+	 * The fold is measured in octets, and an accented letter is two of them.
+	 *
+	 * Counting UTF-16 code units instead sent a line of Swedish place names out
+	 * at up to 150 octets, twice what folding is for. Every physical line in the
+	 * feed has to come in under 75 once it is encoded, which is what a
+	 * subscriber's parser actually reads.
+	 */
+	it('folds a line of accented characters by octets, not by code units', () => {
+		// 'o' with a diaeresis, two octets each, as in Ostermalms IP.
+		const address = '\u00f6'.repeat(100);
+		const ics = buildIcsFeed(season, [game({ venue: { name: 'Frescati IP', address } })], { appUrl: APP_URL });
+
+		const utf8 = new TextEncoder();
+
+		for (const physical of ics.split('\r\n')) {
+			expect(utf8.encode(physical).length, `"${physical}" went out over the fold`).toBeLessThanOrEqual(75);
+		}
+	});
+
+	// A fold used to be a `slice`, which is free to cut a surrogate pair in half.
+	// Neither half is a character on its own, so encoding the result replaced it
+	// and the name came back mangled.
+	it('never folds through the middle of an astral character', () => {
+		// `X-WR-CALNAME:` plus `Frescati - ` is 24, so 50 more puts the trophy's
+		// two halves either side of the 75th code unit, exactly where a `slice`
+		// used to cut.
+		const ics = buildIcsFeed({ ...season, name: 'a'.repeat(50) + '\u{1F3C6}' }, [], { appUrl: APP_URL });
+
+		// A lone surrogate is still a JS string. It only becomes a replacement
+		// character on the way out as UTF-8, which is how the feed is served, so
+		// that is where this has to look.
+		const served = new TextDecoder().decode(new TextEncoder().encode(ics));
+
+		expect(served).not.toContain('\uFFFD');
+		expect(served).toContain('\u{1F3C6}');
+	});
+
+	// A pasted reason can carry CRLF. Escaping only the LF half left the CR in
+	// the value, where it is not legal and where a strict parser is entitled to
+	// read it as the end of the line.
+	it('escapes every spelling of a line break, leaving no bare carriage return', () => {
+		const ics = buildIcsFeed(season, [game({ cancelledReason: 'Frozen pitch.\r\nTry Thursday.\rOr not.' })], {
+			appUrl: APP_URL,
+		});
+
+		const description = ics.split('\r\n').find(entry => entry.startsWith('DESCRIPTION:'));
+
+		expect(description).toContain('Frozen pitch.\\nTry Thursday.\\nOr not.');
+		// Every CR left in the feed belongs to a CRLF that ends a line.
+		expect(ics.replace(/\r\n/g, '')).not.toContain('\r');
+	});
 });
