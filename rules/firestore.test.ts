@@ -821,6 +821,22 @@ describe('games', () => {
 	it('stops a member reshuffling the teams', async () => {
 		await assertFails(updateDoc(doc(authed(MEMBER), gameDoc()), { reshuffleCount: 1 }));
 	});
+
+	// Create had always pinned this and update never looked, so a game could be
+	// pointed at a season it does not live under. `seasonId` is the only copy of
+	// the path a `collectionGroup('games')` query gets, and both hourly sweeps
+	// read it to find the season, so a wrong one takes the game out of the
+	// auto-confirm and out of the vote count without anything reporting it.
+	it('stops a game being moved to another season by hand', async () => {
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { seasonId: 'some-other-season' }));
+	});
+
+	// The same partial updates the app actually sends still go through: what a
+	// rule sees on an update is the document as it will be, not the fields on
+	// the wire, so a write that never mentions `seasonId` still carries it.
+	it('lets a season admin edit a game without resending its season', async () => {
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), gameDoc()), { note: 'Bring a bib' }));
+	});
 });
 
 describe('the generated lineup', () => {
