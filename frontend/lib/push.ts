@@ -1,5 +1,4 @@
 import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
-import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { getFirebaseApp } from './firebaseClient';
 import { isIos, isStandalone } from './device';
 import { pushTokensCol } from './db/paths';
@@ -11,6 +10,18 @@ import { pushTokensCol } from './db/paths';
  * them; `sw.js` owns rendering and click handling. That keeps everything in one
  * worker instead of also shipping `firebase-messaging-sw.js`.
  */
+
+/**
+ * The messaging SDK, fetched when somebody goes looking for notifications.
+ *
+ * Imported at the top of this file it ended up in the Firebase vendor chunk
+ * that every route loads before it can hydrate, so every screen in the app paid
+ * for a module only `/me` and `/debug` can reach. Nothing here is reachable
+ * without one of those two screens, and every call below already sits inside an
+ * `async` function, so deferring it costs a fetch on a screen somebody opened
+ * on purpose and nothing anywhere else.
+ */
+const loadMessaging = () => import('firebase/messaging');
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 
@@ -27,6 +38,9 @@ export const checkPushSupport = async (): Promise<PushSupport> => {
 	}
 
 	if (isIos() && !isStandalone()) return 'needs-install';
+
+	// Last, so the two answers above are still given without fetching anything.
+	const { isSupported } = await loadMessaging();
 
 	return (await isSupported()) ? 'supported' : 'unsupported';
 };
@@ -48,6 +62,7 @@ export const isPushEnabled = async (uid: string): Promise<boolean> => {
 	if (!VAPID_KEY || getPermission() !== 'granted') return false;
 	if ((await checkPushSupport()) !== 'supported') return false;
 
+	const { getMessaging, getToken } = await loadMessaging();
 	const registration = await navigator.serviceWorker.ready;
 	const token = await getToken(getMessaging(getFirebaseApp()), {
 		vapidKey: VAPID_KEY,
@@ -76,6 +91,7 @@ export const enablePush = async (uid: string): Promise<{ ok: boolean; reason?: s
 	const permission = await Notification.requestPermission();
 	if (permission !== 'granted') return { ok: false, reason: 'Notifications are blocked in your browser settings.' };
 
+	const { getMessaging, getToken } = await loadMessaging();
 	const registration = await navigator.serviceWorker.ready;
 
 	const token = await getToken(getMessaging(getFirebaseApp()), {
@@ -100,6 +116,7 @@ export const enablePush = async (uid: string): Promise<{ ok: boolean; reason?: s
 export const disablePush = async (uid: string): Promise<void> => {
 	if (!VAPID_KEY) return;
 
+	const { deleteToken, getMessaging, getToken } = await loadMessaging();
 	const messaging = getMessaging(getFirebaseApp());
 	const registration = await navigator.serviceWorker.ready;
 
