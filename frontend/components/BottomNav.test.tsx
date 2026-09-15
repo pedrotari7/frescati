@@ -1,11 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { activeIndexFor, matchesHref, seasonAdminHref, seasonNavItems } from './BottomNav';
 import BottomNav from './BottomNav';
 
 const mockUsePathname = vi.fn();
+const mockPush = vi.fn();
 
 vi.mock('next/navigation', () => ({
 	usePathname: () => mockUsePathname(),
+	useRouter: () => ({ push: mockPush }),
 }));
 
 describe('seasonNavItems', () => {
@@ -83,6 +85,22 @@ describe('BottomNav', () => {
 
 		expect(screen.getByRole('link', { name: 'Table' })).toHaveAttribute('aria-current', 'page');
 		expect(screen.getByRole('link', { name: 'Games' })).not.toHaveAttribute('aria-current');
+	});
+
+	// The reported bug: a press on a tab while the page was still coasting from a
+	// flick never became a click, so the tab had to be pressed a second time.
+	it('changes tab on a press that no click follows', () => {
+		mockUsePathname.mockReturnValue('/s/season-1');
+
+		render(<BottomNav items={seasonNavItems('season-1')} />);
+
+		const club = screen.getByRole('link', { name: 'Club' });
+		const touch = { pointerId: 1, pointerType: 'touch', isPrimary: true, clientX: 0, clientY: 0 };
+
+		fireEvent.pointerDown(club, touch);
+		fireEvent.pointerUp(club, touch);
+
+		expect(mockPush).toHaveBeenCalledWith('/s/season-1/members');
 	});
 
 	it('leaves every tab un-current while inside a section href', () => {

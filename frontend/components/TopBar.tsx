@@ -1,12 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ChevronLeftIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import { useAuth } from '../lib/auth';
+import { useTap } from '../hooks/useTap';
 import { useAppHistory } from './AppHistory';
 import Avatar from './Avatar';
+import TapLink from './TapLink';
 import { activeIndexFor, matchesHref } from './BottomNav';
 import type { NavItem } from './BottomNav';
 import { bp, colors, tint } from '../app/tokens.stylex';
@@ -143,6 +144,13 @@ const TopBar = ({
 	const activeIndex = activeIndexFor(navItems, pathname, sectionHrefs);
 	const adminIsActive = !!adminHref && matchesHref(pathname, adminHref);
 
+	// Every control in this bar is `position: fixed` over a page that may still
+	// be coasting, so all of them go through `useTap`. See the hook.
+	const back = useTap(() => {
+		if (canGoBack) router.back();
+		else if (backHref) router.push(backHref);
+	});
+
 	return (
 		<header {...stylex.props(utils.ptSafe, surfaces.glass, styles.header)}>
 			<div {...stylex.props(styles.inner)}>
@@ -155,12 +163,7 @@ const TopBar = ({
 				    with no way out at all bar the browser's own Back, which an
 				    installed desktop window does not have. */}
 				{backHref ? (
-					<button
-						type='button'
-						onClick={() => (canGoBack ? router.back() : router.push(backHref))}
-						aria-label='Back'
-						{...stylex.props(styles.round, styles.back)}
-					>
+					<button type='button' {...back} aria-label='Back' {...stylex.props(styles.round, styles.back)}>
 						<ChevronLeftIcon {...stylex.props(styles.icon)} />
 					</button>
 				) : (
@@ -188,14 +191,14 @@ const TopBar = ({
 							const isActive = index === activeIndex;
 
 							return (
-								<Link
+								<TapLink
 									key={item.href}
 									href={item.href}
 									aria-current={isActive ? 'page' : undefined}
 									{...stylex.props(styles.tab, isActive ? styles.on : styles.off)}
 								>
 									{item.label}
-								</Link>
+								</TapLink>
 							);
 						})}
 					</nav>
@@ -205,20 +208,20 @@ const TopBar = ({
 				    with the rest of the season, and then holds the same slot on
 				    every screen below it, so moving around never moves it. */}
 				{adminHref && (
-					<Link
+					<TapLink
 						href={adminHref}
 						aria-label='Season admin'
 						aria-current={adminIsActive ? 'page' : undefined}
 						{...stylex.props(styles.round, adminIsActive ? styles.on : styles.off)}
 					>
 						<Cog6ToothIcon {...stylex.props(styles.icon)} aria-hidden='true' />
-					</Link>
+					</TapLink>
 				)}
 
 				{user && (
-					<Link href='/me' aria-label='Your profile' {...stylex.props(styles.avatar)}>
+					<TapLink href='/me' aria-label='Your profile' {...stylex.props(styles.avatar)}>
 						<Avatar displayName={user.displayName} photoURL={user.photoURL} size='md' />
-					</Link>
+					</TapLink>
 				)}
 			</div>
 		</header>
