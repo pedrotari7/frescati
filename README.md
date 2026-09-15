@@ -9,13 +9,13 @@ Mobile-first PWA for running a recurring football group. A **season** defines a 
 
 ## Stack
 
-|          |                                                                                                       |
-| -------- | ----------------------------------------------------------------------------------------------------- |
-| Frontend | Next.js 15 App Router, React 19, Tailwind 4 → Vercel                                                  |
+|          |                                                                                                      |
+| -------- | ---------------------------------------------------------------------------------------------------- |
+| Frontend | Next.js 15 App Router, React 19, Tailwind 4 → Vercel                                                 |
 | Data     | Firestore, read and written **directly from the client**, security rules are the authorization layer |
-| Backend  | Firebase Cloud Functions v2 (`nodejs24`, `europe-west1`) for counters, push and reminders only        |
-| Auth     | Google popup. `admin` custom claim for app admins; `adminUids` on a season for season admins          |
-| Push     | FCM data-only messages rendered by our own service worker                                             |
+| Backend  | Firebase Cloud Functions v2 (`nodejs24`, `europe-west1`) for counters, push and reminders only       |
+| Auth     | Google popup. `admin` custom claim for app admins; `adminUids` on a season for season admins         |
+| Push     | FCM data-only messages rendered by our own service worker                                            |
 
 ```
 shared/     plain TS, compiled into both sides, types + pure domain logic, unit tested
@@ -112,6 +112,7 @@ Project: **`footballfrescati`**.
     1. **Project settings → App Check → Apps →** your web app **→ reCAPTCHA Enterprise.** Register it, and put the **site key** in `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY`, in `frontend/.env.local`, in Vercel's environment variables, and as a repo variable for CI. It is public, like every other `NEXT_PUBLIC_` value.
 
         The key has an allowed-domains list of its own, under **Google Cloud → Security → reCAPTCHA Enterprise →** your key. It matches subdomains the same way authorized domains does, so the apex belongs there and individual hosts do not. **Never widen it to `vercel.app`.** That is one `vercel deploy` away from letting anybody mint App Check tokens for this project, which is the whole thing App Check exists to stop.
+
     2. Deploy the frontend and leave it alone for a few days. App Check starts in **monitoring** mode: tokens are collected and nothing is rejected. **Project settings → App Check → APIs** then shows the share of verified requests per service.
     3. Only once Firestore reads **and** Cloud Functions calls are showing ~100% verified, switch **Enforce** on, one service at a time. Cloud Storage is a fourth service on that page, and it goes the same way: the app starts App Check before it reaches for the bucket, so receipt uploads and downloads carry a token like everything else, but its share only climbs once somebody has actually opened the receipts.
 
@@ -139,7 +140,7 @@ Project: **`footballfrescati`**.
 
     **Check it works** from **You → Debug → Break something on purpose**, which fails deliberately in seven different ways and is safe to fire in production. Nothing there touches a game, a rating or anybody's data. Six should appear in Sentry within a few seconds; the seventh, `HttpsError`, must **not**, since that is the filter keeping the authorization layer out of the inbox. Worth doing once on a phone as well as a laptop: it is the only way to find out whether a content blocker is eating the reports, and the tunnel exists precisely because they do.
 
-    **Then set up an issue alert**, because none of the above tells you anything by itself, Sentry collects silently until something is configured to speak. **Alerts → Create Alert → Issues**, fire on *a new issue is created*, deliver wherever you'll actually see it. Without this the inbox is a thing you have to remember to visit, which is the same failure as reading logs.
+    **Then set up an issue alert**, because none of the above tells you anything by itself, Sentry collects silently until something is configured to speak. **Alerts → Create Alert → Issues**, fire on _a new issue is created_, deliver wherever you'll actually see it. Without this the inbox is a thing you have to remember to visit, which is the same failure as reading logs.
 
     ### Knowing a scheduled sweep has stopped
 
@@ -211,14 +212,14 @@ NEXT_PUBLIC_USE_EMULATORS=1 pnpm dev
 
 Then tap the flask in the bottom-right of the app and pick somebody. That switcher only exists when `NEXT_PUBLIC_USE_EMULATORS=1`, and it signs in without Google: the Auth emulator accepts an unsigned identity, and the seeder imports a matching provider link for every player, so you land on the uid the seeded data is actually about. Two taps to go from app admin to season admin to a member to a stranger who has never signed in.
 
-|                              |                                                                      |
-| ---------------------------- | -------------------------------------------------------------------- |
+|                              |                                                                     |
+| ---------------------------- | ------------------------------------------------------------------- |
 | `pnpm seed`                  | the `full` scenario: three seasons, a full ladder, every game state |
-| `pnpm seed --scenario=big`   | 26 members, four-team games, a season of history                     |
-| `pnpm seed --scenario=fresh` | day one: no history, no ratings, every empty state                   |
-| `pnpm seed --list`           | what else is there                                                   |
-| `pnpm seed --keep`           | seed alongside what's already there instead of wiping                |
-| `pnpm seed --origin=…`       | if the app isn't on `localhost:3000` (avatars are served from it)    |
+| `pnpm seed --scenario=big`   | 26 members, four-team games, a season of history                    |
+| `pnpm seed --scenario=fresh` | day one: no history, no ratings, every empty state                  |
+| `pnpm seed --list`           | what else is there                                                  |
+| `pnpm seed --keep`           | seed alongside what's already there instead of wiping               |
+| `pnpm seed --origin=…`       | if the app isn't on `localhost:3000` (avatars are served from it)   |
 
 Scenarios live in `backend/scripts/seed/scenarios.ts` and are declarative, a season is an entry in a list, and a game that should be cancelled, at risk, played-but-unconfirmed or answered by nobody is a line in its `pins`. Everything is positioned relative to today, so a seed is as useful in six months as it is now.
 
@@ -277,13 +278,13 @@ Idempotent, so a half-finished run can just be repeated, and it accepts a uid as
 
 Enabled on `footballfrescati` and needing nothing further day to day. Written down because the restore is the half nobody thinks about until they need it, and it does not work the way people assume.
 
-|  |  |
-| --- | --- |
+|                            |                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------- |
 | **Point-in-time recovery** | 7-day continuous window. Read the database as it was at any timestamp inside it. |
-| **Daily backup** | kept 7 days |
-| **Weekly backup** (Sunday) | kept 14 weeks |
+| **Daily backup**           | kept 7 days                                                                      |
+| **Weekly backup** (Sunday) | kept 14 weeks                                                                    |
 
-The two cover different failures, which is why both are on. PITR is for *"I deleted a season an hour ago"*, precise, immediate, and useless once the week is up. The weekly is for *"`ratingLedger` has been quietly wrong since some point last month"*, which is the failure this database is genuinely exposed to: a replay bug corrupts history rather than losing it, nothing alarms, and by the time the table looks wrong every backup inside a 7-day window contains the same corruption. Fourteen weeks is how far back there is still something clean to compare against.
+The two cover different failures, which is why both are on. PITR is for _"I deleted a season an hour ago"_, precise, immediate, and useless once the week is up. The weekly is for _"`ratingLedger` has been quietly wrong since some point last month"_, which is the failure this database is genuinely exposed to: a replay bug corrupts history rather than losing it, nothing alarms, and by the time the table looks wrong every backup inside a 7-day window contains the same corruption. Fourteen weeks is how far back there is still something clean to compare against.
 
 `ratingLedger` is the reason any of this exists. It is the undo history for the **whole** ladder, `replayRatingsFrom` rebuilds each game from the state the one before it left, so it cannot be reconstructed from the games, only the other way round.
 
@@ -329,7 +330,7 @@ curl -X POST "$DB/backupSchedules" -H "Authorization: Bearer $TOKEN" \
 
     `frontend/vercel.json` is what stops that second trigger, and it disables **only `main`**. Every other branch still deploys a preview the moment it is pushed, which is what the integration is genuinely good at; `pr.yml` is what gates the merge.
 
-- **Frontend** → `deploy-frontend` runs `vercel deploy --prod`, which uploads the source and lets **Vercel** build it. The project settings still own everything about that build: root directory `frontend`, install command run from the repo root, and the `NEXT_PUBLIC_FIREBASE_*` vars (see `frontend/.env.local.example`) in the project's Environment Variables. CI decides *when* to deploy and nothing else.
+- **Frontend** → `deploy-frontend` runs `vercel deploy --prod`, which uploads the source and lets **Vercel** build it. The project settings still own everything about that build: root directory `frontend`, install command run from the repo root, and the `NEXT_PUBLIC_FIREBASE_*` vars (see `frontend/.env.local.example`) in the project's Environment Variables. CI decides _when_ to deploy and nothing else.
 
     Building in CI instead, `vercel pull && vercel build --prod && vercel deploy --prebuilt`, which is the usual recipe, **does not work on this project**, and fails in the worst available way. Every production variable here is marked **Sensitive**, and `vercel pull` returns the literal string `[SENSITIVE]` for those rather than a value. The build then succeeds, reports nothing, and ships a bundle whose Firebase api key is `[SENSITIVE]`, an app that loads and cannot reach the database. Un-marking them would fix it, since all but `SENTRY_AUTH_TOKEN` are public values inlined into the client bundle anyway, but there is nothing to gain: a remote build reads them natively, keeps the one real credential somewhere CI never sees, and leaves a single build definition rather than a second copy in the workflow.
 
@@ -343,7 +344,9 @@ curl -X POST "$DB/backupSchedules" -H "Authorization: Bearer $TOKEN" \
 
 - **Functions and rules** → the `deploy-backend` job, which still only runs when `backend/`, `shared/` or `firestore.rules` moved. See setup step 9 above for the repo variables and the `GCP_SA_KEY`, `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` secrets the two jobs need.
 - The deploy is **non-interactive**, which makes two things hard requirements rather than conveniences: every `defineSecret` must already exist in Secret Manager, and every `defineString` must have a value in `backend/.env`. Neither falls back to a default, the deploy just fails. That is why `backend/.env` is committed and why `RESEND_API_KEY` has to exist even on a project sending no email.
-- The **Content-Security-Policy still ships report-only.** Violations post to `/api/csp-report` and come out in Vercel's function logs (`vercel logs`, or the Logs tab, filtered on `CSP violation`). Watch those through a few days of real use: sign-in, notifications, the tournament screen, and once nothing legitimate is being reported, switch the header key in `frontend/next.config.js` from `Content-Security-Policy-Report-Only` to `Content-Security-Policy`. `frame-ancestors` already enforces in its own header, because it is ignored in report-only mode.
+- The **Content-Security-Policy enforces.** Violations still post to `/api/csp-report` and come out in Vercel's function logs (`vercel logs`, or the Logs tab, filtered on `CSP violation`), and they mean something sharper now than they did: a report used to say a request would have been blocked, and says it was blocked instead. So that is the first place to look if something in production stops loading. `frame-ancestors` lives in the policy rather than in a header of its own, having been split out only because report-only ignores it.
+
+    Two things to know before touching it. The emulator origins in `connect-src` are gated on **`NEXT_PUBLIC_USE_EMULATORS`, not on `NODE_ENV`**: `scripts/e2e-stack.sh` builds and serves a _production_ bundle that talks to nothing else, so gating them on a dev server, as they were, left the whole e2e suite outside the policy. Vercel never sets that variable, so it cannot widen the deployed policy. And `pnpm test:e2e` is how a change here gets checked, because it is the only thing that drives the real built app through sign-in, the listeners, a callable and the receipts in Cloud Storage; a unit test cannot see a header at all.
 
 ## Notes for future work
 
