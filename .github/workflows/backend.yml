@@ -30,6 +30,7 @@ jobs:
           restore-keys: ${{ runner.os }}-firebase-emulators-
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter backend lint
+      - run: pnpm --filter backend format:check
       - run: pnpm --filter backend build
       # `backend/scripts` is excluded from the build above, because none of it is
       # deployed with the functions, so until this step the only thing checking

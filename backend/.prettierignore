@@ -1,0 +1,4 @@
+# Compiled output, the same directory `.eslintrc.json` ignores here. See the
+# note in `frontend/.prettierignore` for why this is a local file rather than
+# a `--ignore-path ../.gitignore` in the package.json script.
+lib/

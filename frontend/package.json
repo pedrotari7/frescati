@@ -8,6 +8,8 @@
 		"build": "next build",
 		"start": "next start",
 		"lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+		"format": "prettier --write --cache .",
+		"format:check": "prettier --check --cache .",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run --passWithNoTests",
 		"test:watch": "vitest"

@@ -20,6 +20,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter frontend lint
+      - run: pnpm --filter frontend format:check
       # Before the build rather than after it, because the build does not stand
       # in for this. `next build` prints "Checking validity of types" and means
       # the app: it leaves the test files out, so a type error in one of the 71

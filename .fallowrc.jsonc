@@ -54,6 +54,17 @@
 		"maxCrap": 10000,
 	},
 
+	"rules": {
+		// A suppression has to say why. Off by default in fallow; on here
+		// because the escape hatch from a strict gate is the one place where
+		// "it was easier" quietly becomes the reason, and a bare
+		// `fallow-ignore-next-line` reads the same whether it was thought
+		// about or not. `pnpm fallow suppressions` lists every one with its
+		// reason, and the `stale-suppressions` rule reports the ones that have
+		// stopped being needed.
+		"require-suppression-reason": "error",
+	},
+
 	"audit": {
 		// Every finding in a file the change touches, not just the ones the
 		// change introduced. The looser `new-only` default is for a repo

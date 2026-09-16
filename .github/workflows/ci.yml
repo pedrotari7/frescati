@@ -54,6 +54,9 @@ jobs:
     with:
       isFallow: ${{ needs.changes.outputs.fallow }}
 
+  format:
+    uses: ./.github/workflows/format.yml
+
   # Deploys functions and rules together, so it must wait on both suites, and
   # on `shared`, whose code is compiled into the functions being deployed. Left
   # out, a red shared suite still shipped the backend that embeds it. `frontend`

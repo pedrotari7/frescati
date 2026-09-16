@@ -27,12 +27,13 @@ echo "$changed_files" | grep -vE '^(frontend/|backend/)' | grep -q . && other_ch
 # the check it does run, and eslint is not type-aware here.
 run_root() {
   echo "Running shared checks..."
-  pnpm install && pnpm lint:shared && pnpm typecheck:root && pnpm test
+  pnpm install && pnpm lint:shared && pnpm format:shared && pnpm typecheck:root && pnpm test
 }
 
 run_frontend() {
   echo "Running frontend checks..."
   pnpm --filter frontend lint \
+    && pnpm --filter frontend format:check \
     && pnpm --filter frontend typecheck \
     && pnpm --filter frontend build \
     && pnpm --filter frontend test
@@ -45,6 +46,7 @@ run_frontend() {
 run_backend() {
   echo "Running backend checks..."
   pnpm --filter backend lint \
+    && pnpm --filter backend format:check \
     && pnpm --filter backend typecheck:scripts \
     && pnpm --filter backend build
 }
@@ -67,6 +69,25 @@ run_fallow() {
   scripts/bin/fallow audit --quiet
 }
 
+# Unconditional, and not redundant with the three branches above even though
+# they each format their own package now. Those cover `shared/`, `frontend/`
+# and `backend/`; this is the only thing that has an opinion about the workflow
+# files, the docs, the README, `e2e/`, `rules/` and `scripts/`, which belong to
+# no package and are where 25 of the 31 files that were unformatted lived.
+#
+# `--cache` keeps it at about a second on a warm tree, so running it after the
+# scoped checks have already passed over part of the tree costs almost nothing.
+# The cache lives in node_modules and keys on the options as well as the file,
+# so editing .prettierrc invalidates it rather than hiding behind it.
+#
+# `--check`, never `--write`: a hook that reformats files mid-commit stages
+# nothing and leaves the working tree disagreeing with what was committed.
+# `pnpm format` is the one that writes.
+run_format() {
+  echo "Checking formatting..."
+  pnpm format:check
+}
+
 if [ "$other_changed" = true ] || { [ "$frontend_changed" = true ] && [ "$backend_changed" = true ]; }; then
   run_root || exit 1
   run_frontend || exit 1
@@ -79,4 +100,5 @@ else
   echo "No tracked changes, skipping pre-commit checks."
 fi
 
+run_format || exit 1
 run_fallow || exit 1
