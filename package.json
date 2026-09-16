@@ -46,6 +46,7 @@
 		"@types/node": "24.12.4",
 		"@typescript-eslint/eslint-plugin": "8.60.0",
 		"@typescript-eslint/parser": "8.60.0",
+		"@vitest/coverage-istanbul": "^5.0.1",
 		"@vitest/coverage-v8": "^5.0.0",
 		"eslint": "8.57.1",
 		"fallow": "3.26.0",

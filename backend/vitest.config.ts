@@ -24,6 +24,19 @@ export default defineConfig({
 		testTimeout: 20000,
 		hookTimeout: 20000,
 		fileParallelism: false,
-		coverage: { enabled: false },
+		/**
+		 * On, and Istanbul, only because `fallow health` reads coverage in that
+		 * format to score CRAP and has nothing to read for `backend/src` otherwise.
+		 * No thresholds: this suite needs the emulators, so it is the one that does
+		 * not run on every commit, and a threshold nobody meets on the usual path
+		 * is a threshold that only ever fails in CI.
+		 */
+		coverage: {
+			enabled: true,
+			provider: 'istanbul',
+			include: ['backend/src/**/*.ts'],
+			reporter: ['text-summary', 'json'],
+			reportsDirectory: './backend/coverage',
+		},
 	},
 });

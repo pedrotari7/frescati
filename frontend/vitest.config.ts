@@ -37,10 +37,17 @@ export default defineConfig({
 		pool: 'threads',
 		coverage: {
 			enabled: true,
-			provider: 'v8',
+			/**
+			 * Istanbul, for the reason the root config gives at length: it is the
+			 * only format `fallow health` can read coverage from, and without it
+			 * fallow estimates the coverage half of every CRAP score. The `json`
+			 * reporter is here for the same reason, since that is the
+			 * `coverage-final.json` fallow is pointed at.
+			 */
+			provider: 'istanbul',
 			include: ['{components,hooks,lib}/**/*.{ts,tsx}'],
 			exclude: ['**/*.test.{ts,tsx}'],
-			reporter: ['text-summary', 'lcov'],
+			reporter: ['text-summary', 'lcov', 'json'],
 			/**
 			 * Set just below where this actually sits today, so it ratchets rather
 			 * than aspires, the same reasoning as the `shared/` thresholds.
