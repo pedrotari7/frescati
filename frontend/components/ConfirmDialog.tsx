@@ -8,7 +8,7 @@ import Button from './Button';
 import { bp, colors, tint } from '../app/tokens.stylex';
 import { animations, elevation, surfaces, utils } from '../lib/styles';
 
-export interface ConfirmOptions {
+interface ConfirmOptions {
 	title: string;
 	/** What will actually happen. Say the irreversible part out loud. */
 	message?: string;

@@ -1,5 +1,6 @@
 import { collectionGroup, deleteDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
+import type { GameWatcher } from '@shared/types';
 import { getDb } from '../firebaseClient';
 import { watcherDoc } from './paths';
 import { callFunction } from './call';
@@ -52,7 +53,10 @@ export const subscribeToMyWatching = (
 	);
 
 export const watchGame = (seasonId: string, gameId: string, uid: string): Promise<void> =>
-	setDoc(watcherDoc(seasonId, gameId, uid), { uid, createdAt: new Date().toISOString() });
+	setDoc(watcherDoc(seasonId, gameId, uid), {
+		uid,
+		createdAt: new Date().toISOString(),
+	} satisfies GameWatcher);
 
 export const unwatchGame = (seasonId: string, gameId: string, uid: string): Promise<void> =>
 	deleteDoc(watcherDoc(seasonId, gameId, uid));

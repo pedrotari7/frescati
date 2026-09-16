@@ -245,7 +245,7 @@ export const getSeedElo = (ratedElos: number[]): number =>
 export const getElo = (rating: PlayerRating | undefined, seedElo: number): number => rating?.elo ?? seedElo;
 
 /** A team is as strong as its squad's average. */
-export const getTeamElo = (squadElos: number[]): number =>
+const getTeamElo = (squadElos: number[]): number =>
 	squadElos.length === 0 ? BASE_ELO : squadElos.reduce((total, elo) => total + elo, 0) / squadElos.length;
 
 /** Probability that a team on `elo` beats one on `opponentElo`. */

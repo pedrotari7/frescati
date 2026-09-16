@@ -17,7 +17,7 @@ const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 
 export const weekdayName = (weekday: number): string => WEEKDAYS[weekday] ?? '';
 
-export const weekdayShort = (weekday: number): string => WEEKDAYS_SHORT[weekday] ?? '';
+const weekdayShort = (weekday: number): string => WEEKDAYS_SHORT[weekday] ?? '';
 
 const pad = (value: number): string => String(value).padStart(2, '0');
 

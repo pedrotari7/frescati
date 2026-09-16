@@ -31,7 +31,7 @@ export const checkPushSupport = async (): Promise<PushSupport> => {
 	return (await isSupported()) ? 'supported' : 'unsupported';
 };
 
-export const getPermission = (): NotificationPermission =>
+const getPermission = (): NotificationPermission =>
 	typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'denied';
 
 /**

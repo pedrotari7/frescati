@@ -28,7 +28,7 @@ const formatterFor = (timeZone: string): Intl.DateTimeFormat => {
 };
 
 /** The zone's UTC offset in milliseconds *at the given instant*. */
-export const getTimezoneOffsetMs = (instant: Date, timeZone: string): number => {
+const getTimezoneOffsetMs = (instant: Date, timeZone: string): number => {
 	const parts = formatterFor(timeZone).formatToParts(instant);
 	const read = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(p => p.type === type)?.value ?? 0);
 
@@ -145,6 +145,3 @@ export const addCivilDays = (date: string, days: number): string => {
 
 export const addHours = (iso: string, hours: number): string =>
 	new Date(new Date(iso).getTime() + hours * 60 * 60 * 1000).toISOString();
-
-export const addMinutes = (iso: string, minutes: number): string =>
-	new Date(new Date(iso).getTime() + minutes * 60 * 1000).toISOString();

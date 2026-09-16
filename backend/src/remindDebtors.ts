@@ -10,7 +10,7 @@ import { requireSeasonAdmin } from './lib/auth';
 import { instrument } from './lib/sentry';
 
 /** What one chase managed to do, for the row it was sent from to report. */
-export interface DuesReminderOutcome {
+interface DuesReminderOutcome {
 	uid: string;
 	/** What they were told they owe, so the screen reports the figure that went out. */
 	outstanding: number;
@@ -20,7 +20,7 @@ export interface DuesReminderOutcome {
 	emailed: number;
 }
 
-export interface DuesReminderResult {
+interface DuesReminderResult {
 	reminded: DuesReminderOutcome[];
 }
 
