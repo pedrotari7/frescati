@@ -15,6 +15,8 @@ on:
         value: ${{ jobs.changes.outputs.e2e }}
       typecheck:
         value: ${{ jobs.changes.outputs.typecheck }}
+      fallow:
+        value: ${{ jobs.changes.outputs.fallow }}
 
 jobs:
   changes:
@@ -26,6 +28,7 @@ jobs:
       rules: ${{ steps.filter.outputs.rules }}
       e2e: ${{ steps.filter.outputs.e2e }}
       typecheck: ${{ steps.filter.outputs.typecheck }}
+      fallow: ${{ steps.filter.outputs.fallow }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4.0.1
@@ -101,6 +104,24 @@ jobs:
               - 'tsconfig.json'
               - 'playwright.config.ts'
               - 'vitest.config.ts'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - '.github/**'
+            # Every directory holding code that is part of the module graph,
+            # which is nearly the whole repo, plus the manifests fallow reads
+            # dependencies out of and the config that tunes it. The exclusions
+            # are what it cannot have an opinion about: the rulesets, the
+            # emulator config, the docs. It reads `shared/` through both
+            # packages rather than on its own, so there is no separate line for
+            # it beyond the one below.
+            fallow:
+              - 'frontend/**'
+              - 'backend/**'
+              - 'shared/**'
+              - 'e2e/**'
+              - 'rules/**'
+              - 'scripts/**'
+              - '.fallowrc.jsonc'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - '.github/**'

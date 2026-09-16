@@ -48,6 +48,12 @@ jobs:
     with:
       isTypecheck: ${{ needs.changes.outputs.typecheck }}
 
+  fallow:
+    needs: changes
+    uses: ./.github/workflows/fallow.yml
+    with:
+      isFallow: ${{ needs.changes.outputs.fallow }}
+
   # Deploys functions and rules together, so it must wait on both suites, and
   # on `shared`, whose code is compiled into the functions being deployed. Left
   # out, a red shared suite still shipped the backend that embeds it. `frontend`
@@ -60,6 +66,14 @@ jobs:
   # it is the only job that reads `shared/`'s test files and the two suites that
   # live outside any package, and a deploy is exactly when nobody is going to
   # notice that nothing did.
+  #
+  # `fallow` is the one job deliberately left out of this list. Everything above
+  # answers "does this work", and a deploy that ignores any of them ships
+  # something broken. Fallow answers "is this tidy": an export nothing imports,
+  # a clone group, a function that got harder to read. None of that is a reason
+  # to hold a working commit back from the group, and the place to catch it is
+  # the PR, where the job already gates. Its run on main is unconditional and
+  # never fails; see fallow.yml.
   deploy-backend:
     needs: [changes, shared, frontend, backend, rules, e2e, typecheck]
     if: >-

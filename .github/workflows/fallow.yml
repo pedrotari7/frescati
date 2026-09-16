@@ -1,0 +1,84 @@
+name: fallow
+
+on:
+  workflow_call:
+    inputs:
+      isFallow:
+        required: true
+        type: string
+
+# `security-events` is what puts findings on the diff as annotations rather than
+# leaving them in a log nobody opens. The other three are for the PR comment:
+# `id-token` buys a short-lived Fallow app token so the comment is authored by
+# `fallow-cloud[bot]` instead of `github-actions[bot]`, and without it the run
+# still works, it just posts under the generic identity.
+permissions:
+  contents: read
+  security-events: write
+  id-token: write
+  pull-requests: write
+  checks: write
+
+jobs:
+  fallow:
+    if: ${{ inputs.isFallow == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      # `fetch-depth: 0` rather than the default shallow clone. `fallow audit`
+      # compares against the merge-base with the target branch, and a clone one
+      # commit deep has no merge-base to find; it fails the job outright rather
+      # than quietly auditing everything.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # The gate, on pull requests only. The action scopes itself to the files
+      # the PR touches and reads `.fallowrc.jsonc` for everything else, with two
+      # exceptions that have to be repeated here: `gate` and `max-crap` are
+      # action inputs with defaults of their own, and an input always reaches
+      # fallow as a CLI flag, which outranks the config file. Left out, CI would
+      # gate on `new-only` and a CRAP threshold of 30 while the commit hook and
+      # the Claude Code hook gate on `all` and no CRAP at all, and the first
+      # anybody would hear of it is a PR that is red for something that passed
+      # cleanly on the machine that wrote it.
+      #
+      # No `version` input, deliberately: with none the action uses the `fallow`
+      # spec in package.json, so the binary CI runs is the one the lockfile
+      # pins, and there is one place to bump it.
+      - name: Audit the pull request
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+        uses: fallow-rs/fallow@v3.26.0
+        with:
+          command: audit
+          gate: all
+          max-crap: 10000
+          format: sarif
+          comment: true
+          fail-on-issues: true
+
+      # On a push to main there is no pull request and so no base to compare
+      # against, which `audit` treats as an error rather than a reason to scan
+      # nothing. This is the whole-repo picture instead: it never fails the job,
+      # it exists to keep code scanning current and to record the health score
+      # so the next run can say which way it moved. A finding here has already
+      # been merged, so failing on it would only paint main red without telling
+      # anybody something the PR run had not already said.
+      - name: Scan main
+        if: ${{ github.event_name == 'push' }}
+        uses: fallow-rs/fallow@v3.26.0
+        with:
+          max-crap: 10000
+          format: sarif
+          fail-on-issues: false
+          score: true
+          trend: true
+          save-snapshot: true
+
+      # Runs even when the step above failed the job, because the findings that
+      # failed it are exactly the ones worth reading on the diff.
+      - name: Upload to code scanning
+        if: ${{ !cancelled() }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: fallow-results.sarif
+          category: fallow
