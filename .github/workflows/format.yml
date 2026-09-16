@@ -1,0 +1,26 @@
+name: format
+
+on:
+  workflow_call:
+
+# No `is<Name>` input and no paths filter, unlike every other reusable workflow
+# here. Those gate on the package a change touched, and formatting has no
+# package: prettier has an opinion about the workflow files, the docs, the
+# README and the JSON as well as the source. A filter wide enough to be correct
+# would be one that matches everything, which is this. It is also the cheapest
+# job in the repo, a few seconds on a cold checkout.
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # `--check`, so a red job names the files and changes nothing. The fix is
+      # `pnpm format` locally. Running the writing form in CI would produce a
+      # commit nobody asked for, or a green job over a dirty tree.
+      - run: pnpm format:check

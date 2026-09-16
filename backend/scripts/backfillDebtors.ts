@@ -31,6 +31,7 @@ import { runScript } from './lib/script';
 import type { ScriptContext } from './lib/script';
 import type { DebtorMarkChange } from '../src/onDueWrite';
 
+// fallow-ignore-next-line complexity -- cognitive 16 against a ceiling of 15, all of it the two nested loops this script exists to be: seasons, then the uids with dues in one. Splitting it would mean threading the dynamically imported markWhatIsOwed and the running totals through a helper, which is more moving parts than the thing it measures. Revisit if it grows a third loop.
 export const main = async ({ db, dryRun }: ScriptContext) => {
 	// Imported after initializeApp: the shared helper builds its Firestore handle
 	// at module load, and there has to be an app for it to bind to.

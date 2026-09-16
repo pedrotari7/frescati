@@ -32,6 +32,27 @@ The root config is the one that had been missing. `shared/**/*.test.ts` is exclu
 
 `jest.setup.ts` is the one file excluded from all three. It calls `jest.spyOn`, and checking it would mean naming `@types/jest`, whose `expect` and vitest's do not agree on a type.
 
+## Nothing above checked formatting either
+
+The same hole, found the same way. `frontend/.eslintrc.json` extends `"prettier"`, which is `eslint-config-prettier`: it turns off the eslint rules that would fight Prettier and reports nothing itself. `eslint-plugin-prettier`, the one that would report, was installed for years and wired into nothing, and no `prettier --check` ran in any script, any hook or any job. So the style in `.prettierrc.json` was enforced by editors saving files and by nothing else, and 31 committed files did not match it.
+
+`pnpm format` writes and `pnpm format:check` checks, and they are split per component the same way lint and typecheck are, because the pre-commit hook routes on which half of the repo a commit touched and a whole-repo pass on a one-line frontend change is waste.
+
+| command                               | what it covers                                                         |
+| ------------------------------------- | ---------------------------------------------------------------------- |
+| `pnpm format:shared`                  | `shared/`                                                              |
+| `pnpm --filter frontend format:check` | all of `frontend/`                                                     |
+| `pnpm --filter backend format:check`  | all of `backend/`                                                      |
+| `pnpm format:check`                   | the whole repo, which is the three above plus everything in no package |
+
+That last row is the one that matters most, and it is the reason the eslint-shaped answer was the wrong one. `eslint-plugin-prettier` would have reported formatting as lint errors, inline in the editor, which is genuinely nicer feedback. It would also have covered **6** of those 31 files. The other 25 are the workflow files, the docs, the README, `offline.html` and the YAML, none of which eslint is pointed at, plus `scripts/bench-test.mjs`, which is missed twice over: `.mjs` is in no `--ext` list and `scripts/` is in no lint path. A formatting gate covering a fifth of the unformatted files is not a gate.
+
+The pre-commit hook runs the scoped ones in the branch that owns them and the whole-repo one after, which is nearly free because `--cache` has already seen most of the tree. In CI `shared.yml`, `frontend.yml` and `backend.yml` each run their own, and `format.yml` runs the whole repo with no paths filter at all, since formatting has no package to filter on.
+
+Two things had to change before any of it could pass. Prettier wanted four-space YAML, because `tabWidth` is 4 and YAML cannot use tabs, while all ten workflow files were written with two; the override in `.prettierrc.json` makes Prettier agree with the files rather than the other way round. The root `.prettierignore` then holds the two things that are committed and should still never be rewritten, `pnpm-lock.yaml` and `.claude/`.
+
+One thing bites when adding a fourth component. Prettier resolves `.gitignore` and `.prettierignore` from its own working directory and does not walk up, so a package checking itself sees none of the root's ignores and cheerfully starts formatting `.next/`. That is what `frontend/.prettierignore` and `backend/.prettierignore` are for, and they list the same build directories each package's `.eslintrc.json` already ignores. Passing `--ignore-path ../.gitignore` works too and was the first attempt, but it puts a `../` path in a package.json script, and fallow reads those scripts for entry points and warns about every one it cannot resolve, on every run.
+
 ## The shape of a suite
 
 `vitest.setup.ts` at the root silences `console.log` and `console.warn` for every suite, as a spy rather than a stub so a test can still assert a call happened. The frontend imports it and adds the two observers jsdom does not implement. The backend has its own pair, because `firebase-functions/logger` snapshots the console the moment it is first required and the assignment has to land before that.

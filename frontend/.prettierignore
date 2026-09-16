@@ -1,0 +1,11 @@
+# Build output and generated files, the same two directories
+# `.eslintrc.json` ignores here and for the same reason.
+#
+# This file exists rather than pointing prettier at the root `.gitignore` with
+# `--ignore-path ../.gitignore`, which works but puts a `../` path in a
+# package.json script, and fallow reads those scripts looking for entry points
+# and warns about every one it cannot resolve. A warning on every run that
+# nobody can act on is one everybody stops reading.
+.next/
+coverage/
+next-env.d.ts
