@@ -6,29 +6,11 @@ import * as stylex from '@stylexjs/stylex';
 import type { KitItem } from '@shared/types';
 import Button from './Button';
 import { TextInput } from './Field';
-import { bp, colors, tint } from '../app/tokens.stylex';
-import { animations, elevation, surfaces, utils } from '../lib/styles';
+import { colors } from '../app/tokens.stylex';
+import { animations, elevation, sheet, surfaces, utils } from '../lib/styles';
 
 const styles = stylex.create({
-	dialog: { position: 'relative', zIndex: 50 },
-	scrim: {
-		backgroundColor: tint.canvas80,
-		position: 'fixed',
-		inset: 0,
-		backdropFilter: 'blur(4px)',
-		WebkitBackdropFilter: 'blur(4px)',
-	},
 	/* Sheet from the bottom on a phone, centred once there's room. */
-	positioner: {
-		position: 'fixed',
-		inset: 0,
-		display: 'flex',
-		alignItems: { default: 'flex-end', [bp.sm]: 'center' },
-		justifyContent: 'center',
-		padding: 16,
-	},
-	panel: { width: '100%', maxWidth: 384, borderRadius: 24, padding: 20 },
-	title: { color: colors.ink, fontSize: 18, lineHeight: '28px', fontWeight: 600 },
 	blurb: { color: colors.muted, marginTop: 4, fontSize: 14, lineHeight: '20px' },
 	field: { marginTop: 16 },
 	actions: { marginTop: 16, display: 'flex', gap: 12 },
@@ -77,14 +59,14 @@ const KitRenameSheet = ({
 	};
 
 	return (
-		<Dialog open={open && !!item} onClose={onClose} {...stylex.props(styles.dialog)}>
-			<div {...stylex.props(styles.scrim)} aria-hidden='true' />
+		<Dialog open={open && !!item} onClose={onClose} {...stylex.props(sheet.dialog)}>
+			<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
 
-			<div {...stylex.props(styles.positioner)}>
+			<div {...stylex.props(sheet.positioner)}>
 				<DialogPanel
-					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, styles.panel)}
+					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, sheet.panel)}
 				>
-					<DialogTitle {...stylex.props(styles.title)}>Rename {item?.name}</DialogTitle>
+					<DialogTitle {...stylex.props(sheet.title)}>Rename {item?.name}</DialogTitle>
 
 					<p {...stylex.props(styles.blurb)}>
 						Only what it&apos;s called. What kind of kit it is, and who has it, stay as they are.

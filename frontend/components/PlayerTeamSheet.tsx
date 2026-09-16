@@ -8,36 +8,10 @@ import { counted } from '@shared/format';
 import Button from './Button';
 import StatusPill from './StatusPill';
 import TeamBadge, { teamName } from './TeamBadge';
-import { bp, colors, tint } from '../app/tokens.stylex';
-import { animations, elevation, press, surfaces, utils } from '../lib/styles';
+import { colors } from '../app/tokens.stylex';
+import { animations, elevation, press, sheet, surfaces, utils } from '../lib/styles';
 
 const styles = stylex.create({
-	dialog: { position: 'relative', zIndex: 50 },
-	scrim: {
-		backgroundColor: tint.canvas80,
-		position: 'fixed',
-		inset: 0,
-		backdropFilter: 'blur(4px)',
-		WebkitBackdropFilter: 'blur(4px)',
-	},
-	positioner: {
-		position: 'fixed',
-		inset: 0,
-		display: 'flex',
-		alignItems: { default: 'flex-end', [bp.sm]: 'center' },
-		justifyContent: 'center',
-		padding: 16,
-	},
-	panel: {
-		display: 'flex',
-		maxHeight: '80vh',
-		width: '100%',
-		maxWidth: 384,
-		flexDirection: 'column',
-		borderRadius: 24,
-		padding: 20,
-	},
-	title: { color: colors.ink, fontSize: 18, lineHeight: '28px', fontWeight: 600 },
 	blurb: { color: colors.muted, marginTop: 4, fontSize: 14, lineHeight: '20px' },
 
 	list: {
@@ -118,14 +92,14 @@ const PlayerTeamSheet = ({
 	const isTheirLastTeammate = currentIndex >= 0 && teams[currentIndex]?.uids.length === 1;
 
 	return (
-		<Dialog open={open} onClose={onClose} {...stylex.props(styles.dialog)}>
-			<div {...stylex.props(styles.scrim)} aria-hidden='true' />
+		<Dialog open={open} onClose={onClose} {...stylex.props(sheet.dialog)}>
+			<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
 
-			<div {...stylex.props(styles.positioner)}>
+			<div {...stylex.props(sheet.positioner)}>
 				<DialogPanel
-					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, styles.panel)}
+					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, sheet.column)}
 				>
-					<DialogTitle {...stylex.props(styles.title)}>Where is {displayName}?</DialogTitle>
+					<DialogTitle {...stylex.props(sheet.title)}>Where is {displayName}?</DialogTitle>
 
 					<p {...stylex.props(styles.blurb)}>
 						{isTheirLastTeammate

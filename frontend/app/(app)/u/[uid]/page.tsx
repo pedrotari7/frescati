@@ -15,6 +15,7 @@ import { displayNameOf, nameByUid } from '../../../../lib/people';
 import { useAuth } from '../../../../lib/auth';
 import { useSeasonScope } from '../../../../components/SeasonScope';
 import { seasonNavItems } from '../../../../components/BottomNav';
+import Stat from '../../../../components/Stat';
 import PageShell from '../../../../components/PageShell';
 import Skeleton from '../../../../components/Skeleton';
 import EmptyState from '../../../../components/EmptyState';
@@ -48,16 +49,6 @@ const styles = stylex.create({
 		gridTemplateColumns: { default: 'repeat(2, minmax(0, 1fr))', [bp.sm]: 'repeat(4, minmax(0, 1fr))' },
 		gap: 12,
 	},
-	stat: { borderRadius: 16, padding: 12, textAlign: 'center' },
-	statValue: {
-		color: colors.ink,
-		fontSize: 24,
-		lineHeight: '32px',
-		fontWeight: 700,
-		fontVariantNumeric: 'tabular-nums',
-	},
-	statLabel: { marginTop: 2 },
-	statHint: { color: colors.faint, marginTop: 4, fontSize: 11 },
 
 	profile: { display: 'flex', alignItems: 'center', gap: 16, borderRadius: 24, padding: 20 },
 	identity: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
@@ -192,14 +183,7 @@ const INITIAL_LINKS = 6;
  */
 const MIN_LINK_GAMES = 4;
 
-const Stat = ({ label, value, hint }: { label: string; value: string; hint?: string }) => (
-	<div {...stylex.props(surfaces.glass, styles.stat)}>
-		<p {...stylex.props(styles.statValue)}>{value}</p>
-		<p {...stylex.props(styles.caption, styles.statLabel)}>{label}</p>
-		{hint && <p {...stylex.props(styles.statHint)}>{hint}</p>}
-	</div>
-);
-
+// fallow-ignore-next-line complexity -- cyclomatic 35 and cognitive 49 against ceilings of 20 and 15, and the highest of either in the app. It is one screen assembling a whole career: record, chemistry, ladder rank, ledger and dues, each with its own empty and loading branch. Real work, not a suppression that should stand: this and HeadToHeadPage are the two refactor targets `fallow health --targets` names first. Extracting Stat took a little out of it and nowhere near enough.
 const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 	const { uid } = use(params);
 	const { user } = useAuth();

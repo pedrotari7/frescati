@@ -12,28 +12,10 @@ import { captureError } from '../lib/sentry';
 import Button from './Button';
 import Spinner from './Spinner';
 import { CONTROL } from './Field';
-import { bp, colors, fonts, tint } from '../app/tokens.stylex';
-import { animations, elevation, surfaces, utils } from '../lib/styles';
+import { bp, colors, fonts } from '../app/tokens.stylex';
+import { animations, elevation, sheet, surfaces, utils } from '../lib/styles';
 
 const styles = stylex.create({
-	dialog: { position: 'relative', zIndex: 50 },
-	scrim: {
-		backgroundColor: tint.canvas80,
-		position: 'fixed',
-		inset: 0,
-		backdropFilter: 'blur(4px)',
-		WebkitBackdropFilter: 'blur(4px)',
-	},
-	positioner: {
-		position: 'fixed',
-		inset: 0,
-		display: 'flex',
-		alignItems: { default: 'flex-end', [bp.sm]: 'center' },
-		justifyContent: 'center',
-		padding: 16,
-	},
-	panel: { width: '100%', maxWidth: 384, borderRadius: 24, padding: 20 },
-	title: { color: colors.ink, fontSize: 18, lineHeight: '28px', fontWeight: 600 },
 	blurb: { color: colors.muted, marginTop: 8, fontSize: 14, lineHeight: 1.625 },
 	failed: { color: colors.out, marginTop: 16, fontSize: 14, lineHeight: '20px' },
 
@@ -142,14 +124,14 @@ const CalendarSubscribeSheet = ({
 	const webcalUrl = url?.replace(/^https?:\/\//, 'webcal://');
 
 	return (
-		<Dialog open={open} onClose={onClose} {...stylex.props(styles.dialog)}>
-			<div {...stylex.props(styles.scrim)} aria-hidden='true' />
+		<Dialog open={open} onClose={onClose} {...stylex.props(sheet.dialog)}>
+			<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
 
-			<div {...stylex.props(styles.positioner)}>
+			<div {...stylex.props(sheet.positioner)}>
 				<DialogPanel
-					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, styles.panel)}
+					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, sheet.panel)}
 				>
-					<DialogTitle {...stylex.props(styles.title)}>Subscribe to this season</DialogTitle>
+					<DialogTitle {...stylex.props(sheet.title)}>Subscribe to this season</DialogTitle>
 
 					<p {...stylex.props(styles.blurb)}>
 						Add this to your phone or laptop&apos;s calendar and it keeps itself up to date: kickoff times,
