@@ -64,14 +64,14 @@ The mock-factory hoisting rule people warn about turned out not to bite. Vitest 
 
 Medians of three runs on an otherwise idle ten-core M-series laptop, 654 frontend tests and 659 shared, the two runners measured minutes apart. `node scripts/bench-test.mjs jest 3`, then the same for `vitest`, then `--table`. One runner per invocation, because the test files call `vi.*` or they call `jest.*` and never both, so measuring the other side means checking its files back out first.
 
-| scenario | suite | jest | vitest | change |
-| --- | --- | --- | --- | --- |
-| cold | shared | 3.47s | 1.41s | -59% |
-| cold | frontend | 16.14s | 12.79s | -21% |
-| warm | shared | 2.49s | 1.41s | -43% |
-| warm | frontend | 13.79s | 11.58s | -16% |
-| single file | shared | 2.03s | 0.94s | -54% |
-| single file | frontend | 3.44s | 2.59s | -25% |
+| scenario    | suite    | jest   | vitest | change |
+| ----------- | -------- | ------ | ------ | ------ |
+| cold        | shared   | 3.47s  | 1.41s  | -59%   |
+| cold        | frontend | 16.14s | 12.79s | -21%   |
+| warm        | shared   | 2.49s  | 1.41s  | -43%   |
+| warm        | frontend | 13.79s | 11.58s | -16%   |
+| single file | shared   | 2.03s  | 0.94s  | -54%   |
+| single file | frontend | 3.44s  | 2.59s  | -25%   |
 
 Cold is caches cleared, which is what CI pays every run. Warm is the second run of the day. Single file is the inner loop, where startup is the whole bill.
 

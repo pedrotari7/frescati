@@ -23,6 +23,13 @@
 			"options": {
 				"parser": "scss"
 			}
+		},
+		{
+			"files": ["*.yml", "*.yaml"],
+			"options": {
+				"useTabs": false,
+				"tabWidth": 2
+			}
 		}
 	]
 }

@@ -23,7 +23,10 @@ describe('StandingsTable', () => {
 			/>
 		);
 
-		const teamCells = screen.getAllByRole('row').slice(1).map(row => row.querySelectorAll('td')[1]?.textContent);
+		const teamCells = screen
+			.getAllByRole('row')
+			.slice(1)
+			.map(row => row.querySelectorAll('td')[1]?.textContent);
 		expect(teamCells).toEqual(['A', 'B']);
 	});
 
@@ -73,7 +76,9 @@ describe('StandingsTable', () => {
 	});
 
 	it('explains points-per-match ordering only when the games played are unequal', () => {
-		const { rerender } = render(<StandingsTable standings={[standing({ team: 0, position: 0 })]} unequal={false} />);
+		const { rerender } = render(
+			<StandingsTable standings={[standing({ team: 0, position: 0 })]} unequal={false} />
+		);
 
 		expect(screen.queryByText(/points per match/)).not.toBeInTheDocument();
 

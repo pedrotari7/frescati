@@ -102,7 +102,11 @@ describe('onSeasonWrite', () => {
 describe('onSeasonWrite, only touching what the change could have affected', () => {
 	const addMember = (uid: string) =>
 		onSeasonWrite.run(
-			writtenEvent({ seasonId: SEASON_ID }, aSeason({ memberUids: [MEMBER] }), aSeason({ memberUids: [MEMBER, uid] }))
+			writtenEvent(
+				{ seasonId: SEASON_ID },
+				aSeason({ memberUids: [MEMBER] }),
+				aSeason({ memberUids: [MEMBER, uid] })
+			)
 		);
 
 	it('does nothing at all when the new member has answered nothing', async () => {
