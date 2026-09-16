@@ -73,7 +73,9 @@ describe('sendTestEmail', () => {
 
 	it('builds the same payload the push debug screen would, from a named game', async () => {
 		configure();
-		await writeSeason(SEASON_ID, { slot: { weekday: 2, time: '19:00', durationMinutes: 90, timezone: 'Europe/Stockholm' } });
+		await writeSeason(SEASON_ID, {
+			slot: { weekday: 2, time: '19:00', durationMinutes: 90, timezone: 'Europe/Stockholm' },
+		});
 		await writeGame(SEASON_ID, GAME_ID, {
 			kickoff: '2026-09-01T17:00:00.000Z',
 			counts: { membersIn: 4, membersOut: 0, extrasIn: 0, extrasOut: 0, extrasConfirmed: 0, playing: 4 },
@@ -82,7 +84,10 @@ describe('sendTestEmail', () => {
 		await createAuthUser(ANNA, { email: 'anna@example.test' });
 
 		const result = await sendTestEmail.run(
-			callRequest({ kind: 'reminder', uids: [ANNA], seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN, admin: true })
+			callRequest(
+				{ kind: 'reminder', uids: [ANNA], seasonId: SEASON_ID, gameId: GAME_ID },
+				{ uid: ADMIN, admin: true }
+			)
 		);
 
 		expect(result.payload).toEqual(
@@ -103,7 +108,9 @@ describe('sendTestEmail', () => {
 		await writeUser(ANNA);
 		await createAuthUser(ANNA, { email: 'anna@example.test' });
 
-		const result = await sendTestEmail.run(callRequest({ kind: 'newPlayer', uids: [ANNA] }, { uid: ADMIN, admin: true }));
+		const result = await sendTestEmail.run(
+			callRequest({ kind: 'newPlayer', uids: [ANNA] }, { uid: ADMIN, admin: true })
+		);
 
 		expect(result.payload).toEqual(buildNewPlayerPush({ uid: ADMIN, displayName: 'Pedro Alvito', seasonId: null }));
 	});
@@ -113,7 +120,9 @@ describe('sendTestEmail', () => {
 		await writeUser(ANNA);
 		await createAuthUser(ANNA, { email: 'anna@example.test' });
 
-		const result = await sendTestEmail.run(callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true }));
+		const result = await sendTestEmail.run(
+			callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true })
+		);
 
 		expect(result.sent).toBe(1);
 		expect(result.results).toEqual([{ uid: ANNA, displayName: 'Test Player', status: 'sent' }]);
@@ -123,7 +132,9 @@ describe('sendTestEmail', () => {
 		configure();
 		await writeUser(ANNA);
 
-		const result = await sendTestEmail.run(callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true }));
+		const result = await sendTestEmail.run(
+			callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true })
+		);
 
 		expect(result.sent).toBe(0);
 		expect(result.results).toEqual([{ uid: ANNA, displayName: 'Test Player', status: 'noAddress' }]);
@@ -136,7 +147,9 @@ describe('sendTestEmail', () => {
 		await writeUser(ANNA);
 		await createAuthUser(ANNA, { email: 'anna@example.test', emailVerified: false });
 
-		const result = await sendTestEmail.run(callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true }));
+		const result = await sendTestEmail.run(
+			callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true })
+		);
 
 		expect(result.results[0].status).toBe('noAddress');
 	});
@@ -146,7 +159,9 @@ describe('sendTestEmail', () => {
 		await writeUser(ANNA, { notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS, emailFallback: false } });
 		await createAuthUser(ANNA, { email: 'anna@example.test' });
 
-		const result = await sendTestEmail.run(callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true }));
+		const result = await sendTestEmail.run(
+			callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true })
+		);
 
 		expect(result.sent).toBe(0);
 		expect(result.results).toEqual([{ uid: ANNA, displayName: 'Test Player', status: 'emailOff' }]);
@@ -160,7 +175,9 @@ describe('sendTestEmail', () => {
 		await writeUser(ANNA, { notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS, reminders: false } });
 		await createAuthUser(ANNA, { email: 'anna@example.test' });
 
-		const result = await sendTestEmail.run(callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true }));
+		const result = await sendTestEmail.run(
+			callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true })
+		);
 
 		expect(result.sent).toBe(1);
 		expect(result.results[0].status).toBe('sent');
@@ -203,7 +220,9 @@ describe('sendTestEmail', () => {
 		await writeUser(ANNA);
 		await createAuthUser(ANNA, { email: 'anna@example.test' });
 
-		const result = await sendTestEmail.run(callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true }));
+		const result = await sendTestEmail.run(
+			callRequest({ kind: 'reminder', uids: [ANNA] }, { uid: ADMIN, admin: true })
+		);
 
 		// Eligibility is still reported honestly. Only the transport is inert.
 		expect(result.results[0].status).toBe('sent');

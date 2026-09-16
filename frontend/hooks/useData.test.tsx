@@ -43,9 +43,7 @@ vi.mock('../lib/db/tournament', () =>
 		'subscribeToPlayerLedger'
 	)
 );
-vi.mock('../lib/db/motm', () =>
-	mockSubscriptions('subscribeToMotm', 'subscribeToMotmVoters', 'subscribeToMyMotmVote')
-);
+vi.mock('../lib/db/motm', () => mockSubscriptions('subscribeToMotm', 'subscribeToMotmVoters', 'subscribeToMyMotmVote'));
 vi.mock('../lib/db/users', () => mockSubscriptions('subscribeToUsers', 'subscribeToUser'));
 
 import * as games from '../lib/db/games';

@@ -60,7 +60,12 @@ const cellsFor = runner =>
 					command: ['pnpm', 'exec', 'jest', '--config', 'jest.config.ts'],
 					single: [ONE_SHARED],
 				},
-				{ suite: 'frontend', cwd: join(root, 'frontend'), command: ['pnpm', 'exec', 'jest'], single: [ONE_FRONTEND] },
+				{
+					suite: 'frontend',
+					cwd: join(root, 'frontend'),
+					command: ['pnpm', 'exec', 'jest'],
+					single: [ONE_FRONTEND],
+				},
 			]
 		: [
 				{
@@ -141,10 +146,7 @@ const printTable = () => {
 	const pick = (scenario, suite, runner) =>
 		rows.filter(r => r.scenario === scenario && r.suite === suite && r.runner === runner).at(-1);
 
-	const table = [
-		'| scenario | suite | jest | vitest | change | tests |',
-		'| --- | --- | --- | --- | --- | --- |',
-	];
+	const table = ['| scenario | suite | jest | vitest | change | tests |', '| --- | --- | --- | --- | --- | --- |'];
 
 	for (const scenario of ['cold', 'warm', 'single']) {
 		for (const suite of ['shared', 'frontend']) {

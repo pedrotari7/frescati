@@ -1,0 +1,14 @@
+# Prettier already skips everything in .gitignore, so the build output, the
+# emulator debug logs and the seeded fixtures need no line here. This file is
+# only for the things that are committed and still should not be reformatted.
+
+# pnpm writes it and pnpm reads it. Prettier reformatting a lockfile would
+# produce a diff on every install, and a merge conflict in a file nobody can
+# usefully resolve by hand.
+pnpm-lock.yaml
+
+# Agent state and vendored skills rather than source. `skills/fallow` is a copy
+# of what ships in node_modules and is rewritten by `fallow agent install`,
+# `RESUME.md` is session scratch, and `settings.local.json` is machine-local.
+# Formatting any of them would be a diff that comes straight back.
+.claude/

@@ -62,7 +62,8 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 			console.log(`  ${seasonDoc.id}/${uid}: ${verb} (${result.outstanding} across ${result.charges} charges)`);
 		}
 
-		if (seasonChanges > 0) console.log(`${seasonDoc.data().name ?? seasonDoc.id}: ${seasonChanges} mark(s) touched`);
+		if (seasonChanges > 0)
+			console.log(`${seasonDoc.data().name ?? seasonDoc.id}: ${seasonChanges} mark(s) touched`);
 	}
 
 	const total = changed.created + changed.updated + changed.cleared;

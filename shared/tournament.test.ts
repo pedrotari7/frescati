@@ -263,7 +263,9 @@ describe('getRoundLength', () => {
 			for (let start = 0; start + roundLength <= fixtures.length; start += roundLength) {
 				const pairs = fixtures
 					.slice(start, start + roundLength)
-					.map(fixture => `${Math.min(fixture.teamA, fixture.teamB)}v${Math.max(fixture.teamA, fixture.teamB)}`);
+					.map(
+						fixture => `${Math.min(fixture.teamA, fixture.teamB)}v${Math.max(fixture.teamA, fixture.teamB)}`
+					);
 
 				expect(new Set(pairs).size).toBe(roundLength);
 			}
