@@ -91,3 +91,9 @@ Each of these is deep and specific to one part of the app, deliberately kept out
 - **Styling is StyleX**, not classes. A component declares a `stylex.create` above itself and spreads `stylex.props(...)` onto the element; a conditional style is another argument to that call, `cond && styles.x`, so there is no `classNames`, clsx or cva. Anything two components need is an export in `frontend/lib/styles.ts`, and a component that takes styling from its caller takes an `sx` prop typed `StyleXStyles`. Media queries nest inside a property rather than wrapping a block, and every hover in the app sits inside `bp.hover`. A jsdom test cannot read a colour off a hashed class, so it compares compiled class lists with `stylesOf` and `stylesFor` from `frontend/test/stylex.ts`. Read `docs/stylex.md` before changing the build, the vitest config or anything in `globals.css`.
 - Prettier: tabs, width 4, printWidth 120, single quotes (including JSX), `arrowParens: avoid`.
 - Pure domain logic (dates, game state, sorting) belongs in `shared/` with unit tests, not in components.
+
+<!-- fallow:agent-install v1 claude-import:start -->
+
+@AGENTS.md
+
+<!-- fallow:agent-install v1 claude-import:end -->

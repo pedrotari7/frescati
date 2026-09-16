@@ -1,8 +1,13 @@
 {
-  "mcpServers": {
-    "sentry": {
-      "type": "http",
-      "url": "https://mcp.sentry.dev/mcp"
-    }
-  }
+	"mcpServers": {
+		"sentry": {
+			"type": "http",
+			"url": "https://mcp.sentry.dev/mcp"
+		},
+		"fallow": {
+			"type": "stdio",
+			"command": "npx",
+			"args": ["--no", "fallow-mcp"]
+		}
+	}
 }

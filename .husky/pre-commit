@@ -44,7 +44,27 @@ run_frontend() {
 # meets a `--transpile-only` ts-node in front of every seed.
 run_backend() {
   echo "Running backend checks..."
-  pnpm --filter backend lint && pnpm --filter backend typecheck:scripts && pnpm --filter backend build
+  pnpm --filter backend lint \
+    && pnpm --filter backend typecheck:scripts \
+    && pnpm --filter backend build
+}
+
+# Unconditional, unlike the three above, and cheap enough to be: fallow scopes
+# itself to the files this commit touches and the whole repo takes about a
+# second. It is also the only check here that reads the repo as a graph rather
+# than a file at a time, so it is the only one that can see an export nothing
+# imports any more, a dependency nothing needs, or an import cycle. None of
+# those is a type error or a lint error, which is why every suite above can be
+# green while they pile up.
+#
+# `scripts/bin/fallow` rather than `pnpm exec fallow`, because a git hook runs
+# with whatever node the login shell resolves and the launcher in
+# `node_modules/.bin` refuses to start when that node's architecture does not
+# match the installed binary. The script skips the launcher; see the comment in
+# it. Same gate as the Claude Code hook and the CI job, so all three agree.
+run_fallow() {
+  echo "Running fallow audit..."
+  scripts/bin/fallow audit --quiet
 }
 
 if [ "$other_changed" = true ] || { [ "$frontend_changed" = true ] && [ "$backend_changed" = true ]; }; then
@@ -58,3 +78,5 @@ elif [ "$backend_changed" = true ]; then
 else
   echo "No tracked changes, skipping pre-commit checks."
 fi
+
+run_fallow || exit 1
