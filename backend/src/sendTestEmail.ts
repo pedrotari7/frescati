@@ -9,9 +9,9 @@ import { buildTestPayload } from './lib/testNotifications';
 import { requireAppAdmin } from './lib/auth';
 import { instrument } from './lib/sentry';
 
-export type EmailTestStatus = 'sent' | 'noAddress' | 'emailOff';
+type EmailTestStatus = 'sent' | 'noAddress' | 'emailOff';
 
-export interface EmailTestOutcome {
+interface EmailTestOutcome {
 	uid: string;
 	displayName: string;
 	status: EmailTestStatus;

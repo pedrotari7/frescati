@@ -17,7 +17,7 @@ import { instrument } from './lib/sentry';
  * is one FCM call and one result. Aimed at a single name, which is what the
  * roster's button does, the totals *are* that person's outcome.
  */
-export interface NudgeResult {
+interface NudgeResult {
 	/** How many were actually sent to, after the filter dropped anybody who had answered. */
 	asked: number;
 	/** Devices FCM accepted it for. */

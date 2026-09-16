@@ -96,7 +96,7 @@ export const buildTestPayload = async (
  * test what the notification does when tapped, including the service worker's
  * "I'm in" action handing `?respond=in` back to the app.
  */
-export const buildTestContext = async (seasonId?: string, gameId?: string): Promise<GameNotificationContext> => {
+const buildTestContext = async (seasonId?: string, gameId?: string): Promise<GameNotificationContext> => {
 	if (!seasonId || !gameId) {
 		return { when: 'Tue 1 Sep · 19:00', url: '/seasons', gameId: 'sample', shortBy: 2, playing: 6 };
 	}

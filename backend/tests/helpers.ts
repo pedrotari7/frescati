@@ -13,7 +13,7 @@ import type {
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_NOTIFICATION_PREFS, EMPTY_COUNTS } from '../../shared/types';
 import { db } from '../src/lib/firebase';
 
-export const PROJECT_ID = 'demo-frescati';
+const PROJECT_ID = 'demo-frescati';
 
 const FIRESTORE_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
 const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
@@ -170,7 +170,7 @@ export const readUser = async (uid: string): Promise<AppUser | undefined> => {
  * halves of an `onDocumentWritten` event by hand, the tests never go through
  * the real Functions emulator, so nothing else produces these for them.
  */
-export const snap = <T>(data: T) => ({ data: () => data });
+const snap = <T>(data: T) => ({ data: () => data });
 
 /**
  * Every exported Cloud Function carries a `.run()` that *is* the handler we

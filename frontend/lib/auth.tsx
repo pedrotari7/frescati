@@ -11,7 +11,7 @@ import { captureError, setSentryUser } from './sentry';
 import type { AppUser, ClientInfo } from '@shared/types';
 import { normaliseNotificationPrefs } from '@shared/notifications';
 
-export interface AuthUser {
+interface AuthUser {
 	uid: string;
 	displayName: string;
 	email: string;
@@ -25,7 +25,7 @@ export interface AuthUser {
  * The distinction is load-bearing: without it the app flashes the login screen
  * on every refresh before Firebase has restored the session.
  */
-export type AuthState = AuthUser | null | undefined;
+type AuthState = AuthUser | null | undefined;
 
 const AuthContext = createContext<{ user: AuthState }>({ user: null });
 

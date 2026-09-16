@@ -24,7 +24,7 @@ export const KIT_KINDS: KitKind[] = ['ball', 'vests', 'other'];
  * would train everybody to ignore the one week the ball is genuinely stuck in a
  * hallway. You can only be missing something you have.
  */
-export const REQUIRED_KIT_KINDS: KitKind[] = ['ball', 'vests'];
+const REQUIRED_KIT_KINDS: KitKind[] = ['ball', 'vests'];
 
 /** Heading case, for a section title. */
 export const KIT_KIND_LABELS: Record<KitKind, string> = {
