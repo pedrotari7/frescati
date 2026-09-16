@@ -1,0 +1,68 @@
+{
+	"$schema": "./node_modules/fallow/schema.json",
+
+	// Everything else here is auto-detected and deliberately left alone. Fallow
+	// finds the pnpm workspace, both packages, and `shared/`, `e2e/` and
+	// `rules/` on its own, and its Next.js plugin already treats every
+	// `app/**/page.tsx` as an entry point. `pnpm exec fallow list --plugins`
+	// prints the thirteen it turns on here; a config that restated any of that
+	// would be a second copy to keep in sync.
+
+	// The one entry point nothing imports. `public/` is served as static files,
+	// so the service worker is reached by `navigator.serviceWorker.register`
+	// at runtime and by no import anywhere. Named here rather than ignored,
+	// which keeps it in the module graph instead of out of the analysis.
+	"entry": ["frontend/public/sw.js"],
+
+	// Three packages that are used, just not by an import fallow can follow.
+	// Everything else it called unused on the first run really was, and was
+	// deleted rather than listed here.
+	"ignoreDependencies": [
+		// Nothing imports it, and removing it breaks the deployed container.
+		// `firebase-admin`'s RTDB module loads `@firebase/database-compat`,
+		// which declares this as an *optional* peer, so npm skips it. pnpm's
+		// `auto-install-peers` hides that locally; Cloud Build runs npm, and
+		// the function dies at startup with `Cannot find module '@firebase/app'`.
+		// The long version is under "Dependencies" in the README.
+		"@firebase/app",
+		// Both are reached through `frontend/.eslintrc.json` rather than an
+		// import: `extends: ["next/core-web-vitals"]` is this package, and the
+		// `react-hooks/*` rules below it come from the other. Fallow's eslint
+		// plugin reads the config but does not resolve either spelling back to
+		// the package that provides it.
+		"eslint-config-next",
+		"eslint-plugin-react-hooks",
+	],
+
+	"health": {
+		// CRAP is off as a gate, and it is the only one of these that is off.
+		// The score is complexity weighted by how well tested the function is,
+		// which makes it the most useful number here and the one this repo
+		// cannot feed: fallow reads coverage in Istanbul format, and
+		// `vitest.config.ts` picks the v8 provider on purpose, because it
+		// instruments nothing and needs no extra package. So fallow estimates
+		// the coverage half from the module graph instead, and on the first
+		// run 70 of 101 complexity findings breached CRAP and nothing else,
+		// every one of them scored off an estimate. Cyclomatic and cognitive
+		// are counted from the syntax tree rather than guessed, so those two
+		// still gate at their defaults, 20 and 15.
+		//
+		// This is a threshold that cannot fail, which is documentation rather
+		// than a check. It is written down as one deliberately: `fallow health`
+		// still prints the CRAP column, and it becomes gateable the day the
+		// coverage provider changes.
+		"maxCrap": 10000,
+	},
+
+	"audit": {
+		// Every finding in a file the change touches, not just the ones the
+		// change introduced. The looser `new-only` default is for a repo
+		// adopting fallow on top of a backlog; this one has no backlog, the
+		// first run's findings were fixed rather than grandfathered, so the
+		// stricter gate costs nothing and is the one that keeps it that way.
+		// Only error-tier findings fail: unused files, exports and
+		// dependencies, circular dependencies, unresolved imports, boundary
+		// violations. Complexity and duplication stay advisory.
+		"gate": "all",
+	},
+}
