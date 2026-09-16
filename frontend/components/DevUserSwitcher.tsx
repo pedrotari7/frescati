@@ -10,7 +10,7 @@ import type { DevUser, DevUserFile } from '../lib/devUsers';
 import Avatar from './Avatar';
 import Button from './Button';
 import { bp, colors, tint } from '../app/tokens.stylex';
-import { animations, elevation, surfaces, utils } from '../lib/styles';
+import { animations, elevation, sheet, surfaces, utils } from '../lib/styles';
 
 const styles = stylex.create({
 	/* Clear of the bottom bar on a phone, and of nothing in particular once the
@@ -30,22 +30,6 @@ const styles = stylex.create({
 	},
 	beaker: { width: 20, height: 20 },
 
-	dialog: { position: 'relative', zIndex: 50 },
-	scrim: {
-		backgroundColor: tint.canvas80,
-		position: 'fixed',
-		inset: 0,
-		backdropFilter: 'blur(4px)',
-		WebkitBackdropFilter: 'blur(4px)',
-	},
-	positioner: {
-		position: 'fixed',
-		inset: 0,
-		display: 'flex',
-		alignItems: { default: 'flex-end', [bp.sm]: 'center' },
-		justifyContent: 'center',
-		padding: 16,
-	},
 	/* Capped rather than sized, so a short list stays short and a long one
 	   scrolls inside the panel instead of pushing the buttons off screen. */
 	panel: {
@@ -57,7 +41,6 @@ const styles = stylex.create({
 		borderRadius: 24,
 		padding: 20,
 	},
-	title: { color: colors.ink, fontSize: 18, lineHeight: '28px', fontWeight: 600 },
 	blurb: { color: colors.muted, marginTop: 4, fontSize: 12, lineHeight: 1.625 },
 	current: { color: colors.faint, marginTop: 8, fontSize: 12, lineHeight: '16px' },
 
@@ -187,14 +170,21 @@ const DevUserSwitcher = () => {
 				<BeakerIcon {...stylex.props(styles.beaker)} aria-hidden='true' />
 			</button>
 
-			<Dialog open={open} onClose={() => setOpen(false)} {...stylex.props(styles.dialog)}>
-				<div {...stylex.props(styles.scrim)} aria-hidden='true' />
+			<Dialog open={open} onClose={() => setOpen(false)} {...stylex.props(sheet.dialog)}>
+				<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
 
-				<div {...stylex.props(styles.positioner)}>
+				<div {...stylex.props(sheet.positioner)}>
 					<DialogPanel
-						{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, styles.panel)}
+						{...stylex.props(
+							surfaces.glass,
+							elevation.lift,
+							animations.rise,
+							utils.mbSafe,
+							sheet.column,
+							styles.panel
+						)}
 					>
-						<DialogTitle {...stylex.props(styles.title)}>Sign in as</DialogTitle>
+						<DialogTitle {...stylex.props(sheet.title)}>Sign in as</DialogTitle>
 
 						<p {...stylex.props(styles.blurb)}>
 							{file

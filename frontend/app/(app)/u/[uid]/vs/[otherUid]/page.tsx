@@ -12,6 +12,7 @@ import { usePlayerLedger, useSeasons, useUsersByUid } from '../../../../../../ho
 import { displayNameOf } from '../../../../../../lib/people';
 import { useSeasonScope } from '../../../../../../components/SeasonScope';
 import { seasonNavItems } from '../../../../../../components/BottomNav';
+import Stat from '../../../../../../components/Stat';
 import PageShell from '../../../../../../components/PageShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
@@ -68,16 +69,6 @@ const styles = stylex.create({
 		gridTemplateColumns: { default: 'repeat(2, minmax(0, 1fr))', [bp.sm]: 'repeat(4, minmax(0, 1fr))' },
 		gap: 12,
 	},
-	stat: { borderRadius: 16, padding: 12, textAlign: 'center' },
-	statValue: {
-		color: colors.ink,
-		fontSize: 24,
-		lineHeight: '32px',
-		fontWeight: 700,
-		fontVariantNumeric: 'tabular-nums',
-	},
-	statLabel: { marginTop: 2 },
-	statHint: { color: colors.faint, marginTop: 4, fontSize: 11 },
 
 	headingRow: {
 		marginBottom: 8,
@@ -157,14 +148,6 @@ const styles = stylex.create({
 /** Games listed before the list asks whether you really want the rest. */
 const INITIAL_GAMES = 12;
 
-const Stat = ({ label, value, hint }: { label: string; value: string; hint?: string }) => (
-	<div {...stylex.props(surfaces.glass, styles.stat)}>
-		<p {...stylex.props(styles.statValue)}>{value}</p>
-		<p {...stylex.props(styles.caption, styles.statLabel)}>{label}</p>
-		{hint && <p {...stylex.props(styles.statHint)}>{hint}</p>}
-	</div>
-);
-
 /**
  * One of the two, over the score.
  *
@@ -230,6 +213,7 @@ const GameRow = ({ game, timezone, theirName }: { game: HeadToHeadGame; timezone
 	</li>
 );
 
+// fallow-ignore-next-line complexity -- cyclomatic 26 and cognitive 36 against ceilings of 20 and 15. Same shape as PlayerPage, which it is reached from, and the same answer: it needs splitting rather than silencing. Recorded here so `pnpm fallow suppressions` lists both together.
 const HeadToHeadPage = ({ params }: { params: Promise<{ uid: string; otherUid: string }> }) => {
 	const { uid, otherUid } = use(params);
 	const { seasonId } = useSeasonScope();

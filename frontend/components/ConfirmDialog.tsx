@@ -5,8 +5,8 @@ import { createContext, useCallback, useContext, useRef, useState } from 'react'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import * as stylex from '@stylexjs/stylex';
 import Button from './Button';
-import { bp, colors, tint } from '../app/tokens.stylex';
-import { animations, elevation, surfaces, utils } from '../lib/styles';
+import { colors } from '../app/tokens.stylex';
+import { animations, elevation, sheet, surfaces, utils } from '../lib/styles';
 
 interface ConfirmOptions {
 	title: string;
@@ -19,25 +19,7 @@ interface ConfirmOptions {
 type Ask = (options: ConfirmOptions) => Promise<boolean>;
 
 const styles = stylex.create({
-	dialog: { position: 'relative', zIndex: 50 },
-	scrim: {
-		backgroundColor: tint.canvas80,
-		position: 'fixed',
-		inset: 0,
-		backdropFilter: 'blur(4px)',
-		WebkitBackdropFilter: 'blur(4px)',
-	},
 	/* Sheet from the bottom on a phone, centred once there's room. */
-	positioner: {
-		position: 'fixed',
-		inset: 0,
-		display: 'flex',
-		alignItems: { default: 'flex-end', [bp.sm]: 'center' },
-		justifyContent: 'center',
-		padding: 16,
-	},
-	panel: { width: '100%', maxWidth: 384, borderRadius: 24, padding: 20 },
-	title: { color: colors.ink, fontSize: 18, lineHeight: '28px', fontWeight: 600 },
 	message: { color: colors.muted, marginTop: 8, fontSize: 14, lineHeight: 1.625 },
 	actions: { marginTop: 20, display: 'flex', gap: 12 },
 });
@@ -79,14 +61,14 @@ export const ConfirmProvider = ({ children }: { children: ReactNode }) => {
 		<ConfirmContext.Provider value={ask}>
 			{children}
 
-			<Dialog open={options !== null} onClose={() => close(false)} {...stylex.props(styles.dialog)}>
-				<div {...stylex.props(styles.scrim)} aria-hidden='true' />
+			<Dialog open={options !== null} onClose={() => close(false)} {...stylex.props(sheet.dialog)}>
+				<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
 
-				<div {...stylex.props(styles.positioner)}>
+				<div {...stylex.props(sheet.positioner)}>
 					<DialogPanel
-						{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, styles.panel)}
+						{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, sheet.panel)}
 					>
-						<DialogTitle {...stylex.props(styles.title)}>{options?.title}</DialogTitle>
+						<DialogTitle {...stylex.props(sheet.title)}>{options?.title}</DialogTitle>
 
 						{options?.message && <p {...stylex.props(styles.message)}>{options.message}</p>}
 

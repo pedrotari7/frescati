@@ -10,6 +10,23 @@ export NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
 # - backend/-only changes  -> backend checks
 # - anything else (shared/root files, or both) -> run everything
 
+# Use the node this repo pins, not whatever the login shell resolves. A git
+# hook inherits the caller's PATH, and on a machine with more than one node
+# that is not always the one `pnpm install` built the tree with. The failure is
+# never about node: it is `next build` dying on "Cannot find native binding"
+# because `@stylexswc/rs-compiler` ships one binary per architecture and only
+# the matching one was installed, or the same thing one layer down in fallow.
+# Same problem as the JDK in `scripts/emulators.sh`, and fixed the same way,
+# by looking rather than by hoping. Both version managers are tried because
+# this machine has both; a machine with neither falls through to its PATH.
+if [ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]; then
+  . "${NVM_DIR:-$HOME/.nvm}/nvm.sh" >/dev/null 2>&1 || true
+  nvm use >/dev/null 2>&1 || true
+elif command -v fnm >/dev/null 2>&1; then
+  eval "$(fnm env)" >/dev/null 2>&1 || true
+  fnm use >/dev/null 2>&1 || true
+fi
+
 changed_files=$(git diff --cached --name-only)
 
 frontend_changed=false
