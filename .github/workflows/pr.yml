@@ -47,3 +47,9 @@ jobs:
     uses: ./.github/workflows/typecheck.yml
     with:
       isTypecheck: ${{ needs.changes.outputs.typecheck }}
+
+  fallow:
+    needs: changes
+    uses: ./.github/workflows/fallow.yml
+    with:
+      isFallow: ${{ needs.changes.outputs.fallow }}
