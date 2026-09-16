@@ -354,7 +354,7 @@ export type DueStatus = 'owing' | 'paid' | 'waived';
  * changing the fee in March must not re-price February, and an extra who is
  * later added to `memberUids` still owes for the games they played as an extra.
  */
-interface DueBase {
+export interface DueBase {
 	id: string;
 	uid: string;
 	kind: DueKind;
@@ -368,11 +368,11 @@ interface DueBase {
 }
 
 /** Nobody has marked it yet, so there is nothing to sign. */
-interface DueOwing {
+export interface DueOwing {
 	status: 'owing';
 }
 
-interface DueSettled {
+export interface DueSettled {
 	status: 'paid' | 'waived';
 	/** Who marked it, and when. Present exactly when it is settled. */
 	settledAt: string;

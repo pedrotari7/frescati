@@ -32,7 +32,7 @@ import { reportError } from './sentry';
  * before each game was written down rather than inferred afterwards.
  */
 
-interface GameRatings {
+export interface GameRatings {
 	standings: TournamentResult['standings'];
 	changes: TournamentResult['changes'];
 	before: Record<string, PlayerRating | null>;

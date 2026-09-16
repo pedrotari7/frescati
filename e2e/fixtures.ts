@@ -22,7 +22,7 @@ export interface DevUser {
 	hint: string;
 }
 
-interface DevUserFile {
+export interface DevUserFile {
 	scenario: string;
 	users: DevUser[];
 }

@@ -55,6 +55,62 @@
 	},
 
 	"rules": {
+		// Nothing is left at "warn". Fallow ships 29 of these at warn, which
+		// means reported and never failing, and a finding that cannot fail is
+		// one that accumulates. Promoting all 29 cost nothing on the day it was
+		// done, 0 findings across the repo, so the whole of what this buys is
+		// the next one: a dead dev dependency, a re-export cycle, a broken CSS
+		// reference or a stale suppression now stops a commit instead of
+		// scrolling past in a list nobody reads.
+		//
+		// The seven below them are off in fallow by default and also report
+		// nothing here. They are on for the same reason: free today, and a gate
+		// the day something trips them.
+		// The last one fallow leaves off, and the only one that needed work
+		// rather than a line: it flags an exported signature that names a type
+		// the file keeps to itself, which a consumer then cannot name. Turning it
+		// on reported 16, across 11 types, and every one was fixed by exporting
+		// the type beside the signature that already leaked it. None of them
+		// became an unused export, because a type a public signature references
+		// is used by definition.
+		"private-type-leaks": "error",
+		"css-broken-reference": "error",
+		"css-dead-surface": "error",
+		"css-duplicate-block": "error",
+		"css-selector-complexity": "error",
+		"css-token-drift": "error",
+		"dev-dependencies-in-production": "error",
+		"empty-catalog-groups": "error",
+		"invalid-client-export": "error",
+		"misplaced-directive": "error",
+		"mixed-client-server-barrel": "error",
+		"policy-violation": "error",
+		"re-export-cycle": "error",
+		"stale-suppressions": "error",
+		"test-only-dependencies": "error",
+		"type-only-dependencies": "error",
+		"unprovided-injects": "error",
+		"unrendered-components": "error",
+		"unused-catalog-entries": "error",
+		"unused-component-emits": "error",
+		"unused-component-inputs": "error",
+		"unused-component-outputs": "error",
+		"unused-component-props": "error",
+		"unused-dependency-overrides": "error",
+		"unused-dev-dependencies": "error",
+		"unused-load-data-keys": "error",
+		"unused-optional-dependencies": "error",
+		"unused-server-actions": "error",
+		"unused-store-members": "error",
+		"unused-svelte-events": "error",
+		"prop-drilling": "error",
+		"thin-wrapper": "error",
+		"duplicate-prop-shape": "error",
+		"coverage-gaps": "error",
+		"feature-flags": "error",
+		"security-client-server-leak": "error",
+		"security-sink": "error",
+
 		// A suppression has to say why. Off by default in fallow; on here
 		// because the escape hatch from a strict gate is the one place where
 		// "it was easier" quietly becomes the reason, and a bare

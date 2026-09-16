@@ -12,7 +12,7 @@ export interface SubscriptionResult<T> {
 	retry: () => void;
 }
 
-type Subscribe<T> = (onChange: (value: T) => void, onError: (error: Error) => void) => Unsubscribe;
+export type Subscribe<T> = (onChange: (value: T) => void, onError: (error: Error) => void) => Unsubscribe;
 
 /** React's own deps comparison: same length, `Object.is` on each. */
 const sameDeps = (settled: unknown[] | null, current: unknown[]): boolean =>

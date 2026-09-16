@@ -8,7 +8,7 @@ import * as Sentry from '@sentry/node';
  * the function but not this type, and reaching into `@sentry/core` for it would
  * mean depending on a package we don't declare.
  */
-type MonitorConfig = NonNullable<Parameters<typeof Sentry.withMonitor>[2]>;
+export type MonitorConfig = NonNullable<Parameters<typeof Sentry.withMonitor>[2]>;
 
 /**
  * Where function failures go, alongside the ones from the browser.

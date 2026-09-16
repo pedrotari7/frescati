@@ -25,8 +25,8 @@ export interface GameShare {
 	url: string;
 }
 
-type ShareGame = Pick<Game, 'id' | 'kickoff' | 'venue' | 'status' | 'counts' | 'minPlayers' | 'cancelledReason'>;
-type ShareSeason = Pick<Season, 'id' | 'minPlayers'> & { slot: Pick<Season['slot'], 'timezone'> };
+export type ShareGame = Pick<Game, 'id' | 'kickoff' | 'venue' | 'status' | 'counts' | 'minPlayers' | 'cancelledReason'>;
+export type ShareSeason = Pick<Season, 'id' | 'minPlayers'> & { slot: Pick<Season['slot'], 'timezone'> };
 
 /**
  * Whether there is any point sharing this game.
