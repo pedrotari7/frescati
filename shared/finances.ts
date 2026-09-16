@@ -159,7 +159,7 @@ export const missingDues = (planned: PlannedDue[], existing: Pick<Due, 'id'>[]):
 };
 
 /** What has been raised, and how much of it has come in. Common to both sides. */
-interface Collection {
+export interface Collection {
 	/** Raised, ignoring whether it was ever collected. */
 	charged: number;
 	collected: number;

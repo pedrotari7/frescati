@@ -54,7 +54,7 @@ export interface KitPlan {
  * which is the same rule the rest of the seeder follows: nothing is invented
  * that the app could work out for itself.
  */
-interface FeesPlan {
+export interface FeesPlan {
 	/** SEK the season costs to run, split equally between the members. */
 	total: number;
 	/** SEK an extra pays for each game they played. */
@@ -71,11 +71,11 @@ interface FeesPlan {
  * stops existing the moment an admin presses it. It carries no settlement counts,
  * because a charge nobody has raised cannot have been paid.
  */
-interface UnraisedCharges {
+export interface UnraisedCharges {
 	charges: 'unraised';
 }
 
-interface RaisedCharges {
+export interface RaisedCharges {
 	/**
 	 * Which charges have been settled, counted rather than named, the way
 	 * `KitPlan` declares a holder by state rather than by person. Taken off the
