@@ -163,6 +163,86 @@ const deal = (players: OptimizerPlayer[], squadSizes: number[]): OptimizerPlayer
 };
 
 /**
+ * How much cheaper a swap has to be to count as an improvement. Floating point
+ * slack, not a tolerance: without it two arrangements that cost the same to the
+ * last bit can each look like an improvement on the other and the descent never
+ * terminates.
+ */
+const COST_EPSILON = 1e-9;
+
+/** One player from each of two squads, by index. */
+interface Pair {
+	a: number;
+	ai: number;
+	b: number;
+	bi: number;
+}
+
+/** A pair worth swapping, and what the split would cost afterwards. */
+type Swap = Pair & { cost: number };
+
+/** Swap two players between squads, in place. */
+const swapPlayers = (squads: OptimizerPlayer[][], { a, ai, b, bi }: Pair): void => {
+	[squads[a][ai], squads[b][bi]] = [squads[b][bi], squads[a][ai]];
+};
+
+/** What the split would cost with this pair swapped. Puts them back. */
+const costWithSwap = (
+	squads: OptimizerPlayer[][],
+	pair: Pair,
+	weights: Map<string, number>,
+	repeatPenalty: number
+): number => {
+	swapPlayers(squads, pair);
+	const cost = getCost(squads, weights, repeatPenalty);
+	swapPlayers(squads, pair);
+
+	return cost;
+};
+
+/** The best swap between these two squads, or `null` where none beats `cost`. */
+const bestSwapBetween = (
+	squads: OptimizerPlayer[][],
+	{ a, b }: Pick<Pair, 'a' | 'b'>,
+	weights: Map<string, number>,
+	repeatPenalty: number,
+	cost: number
+): Swap | null => {
+	let best: Swap | null = null;
+
+	for (let ai = 0; ai < squads[a].length; ai++) {
+		for (let bi = 0; bi < squads[b].length; bi++) {
+			const candidate = costWithSwap(squads, { a, ai, b, bi }, weights, repeatPenalty);
+
+			if (candidate < cost - COST_EPSILON && (!best || candidate < best.cost))
+				best = { a, ai, b, bi, cost: candidate };
+		}
+	}
+
+	return best;
+};
+
+/** The best swap anywhere in the split, or `null` where none beats `cost`. */
+const bestSwap = (
+	squads: OptimizerPlayer[][],
+	weights: Map<string, number>,
+	repeatPenalty: number,
+	cost: number
+): Swap | null => {
+	let best: Swap | null = null;
+
+	for (let a = 0; a < squads.length; a++) {
+		for (let b = a + 1; b < squads.length; b++) {
+			const candidate = bestSwapBetween(squads, { a, b }, weights, repeatPenalty, cost);
+
+			if (candidate && (!best || candidate.cost < best.cost)) best = candidate;
+		}
+	}
+
+	return best;
+};
+
+/**
  * Steepest-descent swapping: repeatedly take the single best swap available
  * between two squads, until nothing improves.
  *
@@ -173,27 +253,11 @@ const improve = (squads: OptimizerPlayer[][], weights: Map<string, number>, repe
 	let cost = getCost(squads, weights, repeatPenalty);
 
 	for (;;) {
-		let best: { a: number; ai: number; b: number; bi: number; cost: number } | null = null;
-
-		for (let a = 0; a < squads.length; a++) {
-			for (let b = a + 1; b < squads.length; b++) {
-				for (let ai = 0; ai < squads[a].length; ai++) {
-					for (let bi = 0; bi < squads[b].length; bi++) {
-						[squads[a][ai], squads[b][bi]] = [squads[b][bi], squads[a][ai]];
-						const candidate = getCost(squads, weights, repeatPenalty);
-						[squads[a][ai], squads[b][bi]] = [squads[b][bi], squads[a][ai]];
-
-						if (candidate < cost - 1e-9 && (!best || candidate < best.cost)) {
-							best = { a, ai, b, bi, cost: candidate };
-						}
-					}
-				}
-			}
-		}
+		const best = bestSwap(squads, weights, repeatPenalty, cost);
 
 		if (!best) return cost;
 
-		[squads[best.a][best.ai], squads[best.b][best.bi]] = [squads[best.b][best.bi], squads[best.a][best.ai]];
+		swapPlayers(squads, best);
 		cost = best.cost;
 	}
 };
