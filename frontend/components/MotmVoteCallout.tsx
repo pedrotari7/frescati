@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRightIcon, TrophyIcon } from '@heroicons/react/24/outline';
+import { TrophyIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import MoreLink from './MoreLink';
 import type { Game, Season } from '@shared/types';
 import { formatGameDateLong, formatRelative } from '@shared/format';
 import { isMotmVotingOpen } from '@shared/motm';
@@ -11,7 +12,7 @@ import { useAuth } from '../lib/auth';
 import { nameByUid } from '../lib/people';
 import StatusPill from './StatusPill';
 import { bp, colors, tint } from '../app/tokens.stylex';
-import { animations, elevation, focus, nudge, surfaces, utils } from '../lib/styles';
+import { animations, elevation, focus, surfaces, utils } from '../lib/styles';
 
 const styles = stylex.create({
 	card: { display: 'flex', flexDirection: 'column', gap: 12, borderRadius: 24, padding: 20 },
@@ -70,29 +71,8 @@ const styles = stylex.create({
 
 	/* The way through for everybody with nothing outstanding, which is the people
 	   who have voted and the people who were never on the pitch. */
-	more: {
-		marginInline: -8,
-		marginBlock: -4,
-		display: 'flex',
-		alignItems: 'center',
-		gap: 8,
-		borderRadius: 12,
-		paddingInline: 8,
-		paddingBlock: 8,
-		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
-		transitionProperty: 'background-color',
-		transitionDuration: '0.2s',
-	},
-	moreLabel: {
-		color: colors.brand,
-		minWidth: 0,
-		flexGrow: 1,
-		flexBasis: '0%',
-		fontSize: 14,
-		lineHeight: '20px',
-		fontWeight: 600,
-	},
-	moreIcon: { color: colors.faint, width: 16, height: 16, flexShrink: 0 },
+	/* The rows above it already carry a gap, so this one pulls back into it. */
+	more: { marginBlock: -4 },
 });
 
 /**
@@ -128,6 +108,59 @@ const styles = stylex.create({
  * card instead would be `MotmPanel`'s ballot drawn a second time, over a lineup
  * the season's home page has no other reason to know the names of.
  */
+/**
+ * The sentence under the heading, which is the whole of what this card says to
+ * the person reading it and the only part that differs between them.
+ *
+ * Its own component because the three states are mutually exclusive and reading
+ * them as three guards inside the card put that function over the complexity
+ * ceiling on its own. `settled` false renders nothing: until both listeners
+ * have landed the card must not claim either stance, and asking somebody who
+ * has already voted to vote is the wrong way round to be wrong.
+ */
+const Blurb = ({ settled, played, votedFor }: { settled: boolean; played: boolean; votedFor: string | null }) => {
+	if (!settled) return null;
+
+	if (!played) return <p {...stylex.props(styles.blurb)}>The players are voting. The result is on the team sheet.</p>;
+
+	if (!votedFor)
+		return (
+			<p {...stylex.props(styles.blurb)}>
+				Who stood out? One vote each, and nobody sees the count until it closes.
+			</p>
+		);
+
+	return (
+		<p {...stylex.props(styles.blurb)}>
+			You voted for <span {...stylex.props(styles.who)}>{votedFor}</span>.
+		</p>
+	);
+};
+
+/**
+ * The last row: a button while the question is still out to you, and a quiet
+ * link once it is not.
+ *
+ * Drawn as a link rather than a button because it is a link, and sized like a
+ * button because it is the thing being asked for. Split out for the same reason
+ * as `Blurb`: three states read as nested ternaries inside the card, and the
+ * card was over the cognitive ceiling carrying them.
+ */
+const Action = ({ href, asking, canChange }: { href: string; asking: boolean; canChange: boolean }) => {
+	if (asking)
+		return (
+			<Link href={href} {...stylex.props(focus.ring, styles.vote)}>
+				Vote
+			</Link>
+		);
+
+	return (
+		<MoreLink href={href} sx={styles.more}>
+			{canChange ? 'Change your vote' : 'See the team sheet'}
+		</MoreLink>
+	);
+};
+
 const MotmVoteCallout = ({ game, season, now }: { game: Game; season: Season; now: Date }) => {
 	const { user } = useAuth();
 	const uid = user?.uid ?? null;
@@ -156,6 +189,7 @@ const MotmVoteCallout = ({ game, season, now }: { game: Game; season: Season; no
 	const played = !!uid && (teams?.teams ?? []).some(team => team.uids.includes(uid));
 	const asking = settled && played && !vote;
 
+	const votedFor = vote ? nameByUid(usersByUid, vote.votedFor) : null;
 	const href = `/s/${season.id}/g/${game.id}/tournament`;
 
 	return (
@@ -176,34 +210,9 @@ const MotmVoteCallout = ({ game, season, now }: { game: Game; season: Season; no
 				</StatusPill>
 			</div>
 
-			{settled && !played && (
-				<p {...stylex.props(styles.blurb)}>The players are voting. The result is on the team sheet.</p>
-			)}
+			<Blurb settled={settled} played={played} votedFor={votedFor} />
 
-			{settled && played && !vote && (
-				<p {...stylex.props(styles.blurb)}>
-					Who stood out? One vote each, and nobody sees the count until it closes.
-				</p>
-			)}
-
-			{settled && played && vote && (
-				<p {...stylex.props(styles.blurb)}>
-					You voted for <span {...stylex.props(styles.who)}>{nameByUid(usersByUid, vote.votedFor)}</span>.
-				</p>
-			)}
-
-			{asking ? (
-				<Link href={href} {...stylex.props(focus.ring, styles.vote)}>
-					Vote
-				</Link>
-			) : (
-				<Link href={href} {...stylex.props(focus.ring, nudge.row, styles.more)}>
-					<span {...stylex.props(styles.moreLabel)}>
-						{settled && played ? 'Change your vote' : 'See the team sheet'}
-					</span>
-					<ChevronRightIcon {...stylex.props(styles.moreIcon, nudge.chevron)} aria-hidden='true' />
-				</Link>
-			)}
+			<Action href={href} asking={asking} canChange={settled && played} />
 		</div>
 	);
 };

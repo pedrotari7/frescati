@@ -1,16 +1,16 @@
 'use client';
 
-import Link from 'next/link';
-import { ChevronRightIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import MoreLink from './MoreLink';
 import type { Game, Season } from '@shared/types';
 import type { DebtStanding } from '@shared/finances';
 import { dueLabel, feesFor, paymentReference } from '@shared/finances';
 import { formatSek } from '@shared/format';
 import StatusPill from './StatusPill';
 import SwishPay from './SwishPay';
-import { bp, colors, tint } from '../app/tokens.stylex';
-import { animations, elevation, focus, nudge, surfaces } from '../lib/styles';
+import { colors } from '../app/tokens.stylex';
+import { animations, elevation, surfaces } from '../lib/styles';
 
 const styles = stylex.create({
 	card: { display: 'flex', flexDirection: 'column', gap: 16, borderRadius: 24, padding: 20 },
@@ -36,29 +36,6 @@ const styles = stylex.create({
 	dueAmount: { color: colors.ink, flexShrink: 0, fontWeight: 600, fontVariantNumeric: 'tabular-nums' },
 
 	footnote: { color: colors.faint, fontSize: 12, lineHeight: 1.625 },
-
-	more: {
-		marginInline: -8,
-		display: 'flex',
-		alignItems: 'center',
-		gap: 8,
-		borderRadius: 12,
-		paddingInline: 8,
-		paddingBlock: 8,
-		backgroundColor: { default: null, [bp.hover]: { default: null, ':hover': tint.white5 } },
-		transitionProperty: 'background-color',
-		transitionDuration: '0.2s',
-	},
-	moreLabel: {
-		color: colors.brand,
-		minWidth: 0,
-		flexGrow: 1,
-		flexBasis: '0%',
-		fontSize: 14,
-		lineHeight: '20px',
-		fontWeight: 600,
-	},
-	moreIcon: { color: colors.faint, width: 16, height: 16, flexShrink: 0 },
 });
 
 /**
@@ -153,10 +130,7 @@ const SeasonDebtNotice = ({
 				An admin has to mark the payment before this clears. It is not automatic.
 			</p>
 
-			<Link href={`/s/${season.id}/finances`} {...stylex.props(focus.ring, nudge.row, styles.more)}>
-				<span {...stylex.props(styles.moreLabel)}>See the whole book</span>
-				<ChevronRightIcon {...stylex.props(styles.moreIcon, nudge.chevron)} aria-hidden='true' />
-			</Link>
+			<MoreLink href={`/s/${season.id}/finances`}>See the whole book</MoreLink>
 		</section>
 	);
 };
