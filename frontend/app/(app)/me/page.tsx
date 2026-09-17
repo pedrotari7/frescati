@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRightStartOnRectangleIcon, BellIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import { signOutOfApp, useAuth } from '../../../lib/auth';
 import { buildCommitUrl, buildLabel } from '../../../lib/build';
-import { checkPushSupport, disablePush, enablePush, isPushEnabled } from '../../../lib/push';
-import type { PushSupport } from '../../../lib/push';
+import { disablePush, enablePush } from '../../../lib/push';
+import { usePushRegistration } from '../../../hooks/usePushRegistration';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
 import type { NotificationPrefs } from '@shared/types';
 import { useUser } from '../../../hooks/useData';
@@ -139,13 +139,13 @@ const MePage = () => {
 	const { seasonId } = useSeasonScope();
 	const write = useWrite();
 
-	const [support, setSupport] = useState<PushSupport | null>(null);
-	// `null` while we're still asking. Reflects whether this device holds a
-	// registered token, not whether the browser has granted permission, those
-	// diverge the moment somebody turns notifications off.
-	const [enabled, setEnabled] = useState<boolean | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
 	const uid = user?.uid;
+
+	// `enabled` is `null` while we're still asking. It reflects whether this
+	// device holds a registered token, not whether the browser has granted
+	// permission, those diverge the moment somebody turns notifications off.
+	const { support, enabled, setEnabled } = usePushRegistration(uid);
 
 	// The stored preferences, which apply to the account rather than this
 	// device. The backend checks them before sending anything.
@@ -176,23 +176,6 @@ const MePage = () => {
 
 		void write(() => setNotificationPrefs(uid, { ...prefs, [key]: next }), "Couldn't save that preference.");
 	};
-
-	useEffect(() => {
-		checkPushSupport().then(setSupport);
-	}, []);
-
-	useEffect(() => {
-		if (!uid) return;
-
-		let cancelled = false;
-		isPushEnabled(uid).then(on => {
-			if (!cancelled) setEnabled(on);
-		});
-
-		return () => {
-			cancelled = true;
-		};
-	}, [uid]);
 
 	if (!user) return null;
 

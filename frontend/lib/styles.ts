@@ -334,3 +334,21 @@ export const elevation = stylex.create({
 	card: { boxShadow: shadows.card },
 	lift: { boxShadow: shadows.lift },
 });
+
+/**
+ * The header of a panel that opens with an icon, a heading and a sentence
+ * saying what the thing below it does.
+ *
+ * `ErrorTriggers` and `PaymentTriggers` had declared these five identically,
+ * down to both margins, which is what put them here. `/debug` draws four more
+ * cards of the same family and keeps its own spacing: they sit in a tighter
+ * stack and one opens on a form rather than a sentence, so the gaps belong to
+ * the page rather than to this.
+ */
+export const panel = stylex.create({
+	card: { borderRadius: 16, padding: 20 },
+	head: { marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 },
+	headIcon: { color: colors.muted, width: 20, height: 20 },
+	title: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	blurb: { color: colors.muted, marginBottom: 16, fontSize: 14, lineHeight: 1.625 },
+});

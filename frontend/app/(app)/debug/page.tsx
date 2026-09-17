@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BellAlertIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { AnyNotification, PushPayload } from '@shared/notifications';
@@ -15,8 +15,7 @@ import { getSilentMembers } from '@shared/game';
 import { SAMPLE_CHARGE, SAMPLE_DEBT } from '@shared/debug';
 import { counted, formatGameWhen, plural } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
-import { checkPushSupport, isPushEnabled } from '../../../lib/push';
-import type { PushSupport } from '../../../lib/push';
+import { usePushRegistration } from '../../../hooks/usePushRegistration';
 import { sendTestPush } from '../../../lib/db/testPush';
 import { sendTestEmail } from '../../../lib/db/testEmail';
 import type { EmailTestOutcome, EmailTestStatus, TestEmailResult } from '../../../lib/db/testEmail';
@@ -210,8 +209,7 @@ const DebugPage = () => {
 	const { seasons } = useSeasons();
 	const { users } = useUsers();
 
-	const [support, setSupport] = useState<PushSupport | null>(null);
-	const [enabled, setEnabled] = useState<boolean | null>(null);
+	const { support, enabled } = usePushRegistration(user?.uid);
 	const [chosenSeason, setChosenSeason] = useState<string | null>(null);
 	const [chosenGame, setChosenGame] = useState<string | null>(null);
 	const [sentPayloads, setSentPayloads] = useState<Partial<Record<AnyNotification, PushPayload>>>({});
@@ -254,25 +252,6 @@ const DebugPage = () => {
 	// into "email exactly the people who haven't answered" without hand-picking
 	// them from the full roster.
 	const silentUids = useMemo(() => (season ? getSilentMembers(season, responses) : []), [season, responses]);
-
-	const uid = user?.uid;
-
-	useEffect(() => {
-		checkPushSupport().then(setSupport);
-	}, []);
-
-	useEffect(() => {
-		if (!uid) return;
-
-		let cancelled = false;
-		isPushEnabled(uid).then(on => {
-			if (!cancelled) setEnabled(on);
-		});
-
-		return () => {
-			cancelled = true;
-		};
-	}, [uid]);
 
 	if (!user?.isAppAdmin) {
 		return (
