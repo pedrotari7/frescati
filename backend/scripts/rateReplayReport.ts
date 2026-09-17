@@ -53,6 +53,7 @@
  *   2. GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
  */
 
+import type { Firestore } from 'firebase-admin/firestore';
 import type { RatingLedgerEntry, Season, TournamentMatch, TournamentTeams } from '../../shared/types';
 import { applyMotmBonus, fromDisplayRating, getRatingChanges, isProvisional, BASE_ELO } from '../../shared/rating';
 import type { RatingInput } from '../../shared/rating';
@@ -140,6 +141,106 @@ const num = (value: number, width: number) => value.toFixed(1).padStart(width);
 const biggest = (deltas: number[]): number | null =>
 	deltas.length === 0 ? null : deltas.reduce((most, delta) => Math.max(most, Math.abs(delta)), 0);
 
+/**
+ * A season, read once however many of its games are in the ledger.
+ *
+ * `undefined` is a season that has been deleted, cached as firmly as one that
+ * is there, so a whole season's worth of gone games costs one read rather than
+ * one each.
+ */
+const seasonReader = (db: Firestore) => {
+	const cache = new Map<string, Season | undefined>();
+
+	return async (seasonId: string): Promise<Season | undefined> => {
+		if (!cache.has(seasonId)) {
+			const snapshot = await db.doc(`seasons/${seasonId}`).get();
+			cache.set(seasonId, snapshot.exists ? (snapshot.data() as Season) : undefined);
+		}
+
+		return cache.get(seasonId);
+	};
+};
+
+/**
+ * One ledger entry recomputed, or the reason it cannot be.
+ *
+ * Five things have to be there, and none of them is guessable. Without the
+ * lineup there is no squad to average and without the slot there is no way to
+ * know which orders the rotation ever reached, which is the same list
+ * `computeGameRatings` needs. A game rated off a seed nobody recorded cannot be
+ * priced at all until `backfill-ledger-seed` has run. And a team sheet with
+ * nobody on it, against scorelines that survived the fixture check, is where a
+ * NaN would enter the report and quietly poison every median after it.
+ */
+const priceEntry = async (
+	db: Firestore,
+	entry: RatingLedgerEntry,
+	season: Season | undefined
+): Promise<GameRow | { skip: string }> => {
+	const gamePath = `seasons/${entry.seasonId}/games/${entry.gameId}`;
+	const [teamsSnap, matchesSnap] = await Promise.all([
+		db.doc(`${gamePath}/tournament/teams`).get(),
+		db.collection(`${gamePath}/matches`).get(),
+	]);
+
+	if (!season) return { skip: 'season is gone' };
+	if (!teamsSnap.exists) return { skip: 'no team sheet' };
+
+	const lineup = teamsSnap.data() as TournamentTeams;
+	const matches = selectPlayedMatches(
+		lineup.teams.length,
+		lineup.settings.matchMinutes,
+		season.slot.durationMinutes,
+		matchesSnap.docs.map(match => match.data() as TournamentMatch)
+	);
+
+	if (matches.length === 0) return { skip: 'no scores survive the fixture check' };
+
+	const unrated = Object.values(entry.before).some(rating => rating === null);
+
+	if (unrated && entry.seedElo === undefined)
+		return { skip: 'rated somebody unrated with no seed recorded, run backfill-ledger-seed' };
+
+	const players: RatingInput[] = lineup.teams.flatMap(team =>
+		team.uids.map(uid => ({ uid, rating: entry.before[uid] ?? undefined, team: team.index }))
+	);
+
+	const positions = getPositions(getStandings(lineup.teams.length, matches));
+	const changes = applyMotmBonus(
+		getRatingChanges(players, matches, positions, entry.seedElo ?? BASE_ELO),
+		entry.motm ?? []
+	);
+
+	const anybody = biggest(changes.map(change => change.delta));
+
+	if (anybody === null) return { skip: 'scores but nobody on the team sheet' };
+
+	const settledUids = new Set(
+		changes.map(change => change.uid).filter(uid => !isProvisional(entry.before[uid] ?? undefined))
+	);
+
+	/** What the game paid at the time, read off the entry, never recomputed. */
+	const paid = (uids: string[]) =>
+		biggest(
+			uids.map(uid => {
+				const before = entry.before[uid]?.elo ?? entry.seedElo ?? BASE_ELO;
+
+				return (entry.after[uid]?.elo ?? before) - before;
+			})
+		);
+
+	return {
+		kickoff: entry.kickoff,
+		teams: lineup.teams.length,
+		matches: matches.length,
+		settled: biggest(changes.filter(change => settledUids.has(change.uid)).map(change => change.delta)),
+		anybody,
+		asRated: paid([...settledUids]),
+		// Never null: `anybody` above already refused an empty team sheet.
+		asRatedAnybody: paid(changes.map(change => change.uid)) ?? 0,
+	};
+};
+
 export const main = async ({ db, args }: ScriptContext) => {
 	const candidates = args.length > 0 ? args.map(Number) : DEFAULT_KS;
 
@@ -153,99 +254,16 @@ export const main = async ({ db, args }: ScriptContext) => {
 
 	if (ledger.empty) return;
 
-	const seasons = new Map<string, Season | undefined>();
+	const readSeason = seasonReader(db);
 	const rows: GameRow[] = [];
 	const skipped: string[] = [];
 
 	for (const doc of ledger.docs) {
 		const entry = doc.data() as RatingLedgerEntry;
-		const label = `${entry.kickoff.slice(0, 10)}  ${entry.gameId}`;
-		const gamePath = `seasons/${entry.seasonId}/games/${entry.gameId}`;
+		const priced = await priceEntry(db, entry, await readSeason(entry.seasonId));
 
-		if (!seasons.has(entry.seasonId)) {
-			const snapshot = await db.doc(`seasons/${entry.seasonId}`).get();
-			seasons.set(entry.seasonId, snapshot.exists ? (snapshot.data() as Season) : undefined);
-		}
-
-		const season = seasons.get(entry.seasonId);
-		const [teamsSnap, matchesSnap] = await Promise.all([
-			db.doc(`${gamePath}/tournament/teams`).get(),
-			db.collection(`${gamePath}/matches`).get(),
-		]);
-
-		// The same three things `computeGameRatings` needs, and the same reason
-		// each is fatal rather than guessable: without the lineup there is no
-		// squad to average, and without the slot there is no way to know which
-		// orders the rotation ever reached.
-		if (!season || !teamsSnap.exists) {
-			skipped.push(`${label}: ${season ? 'no team sheet' : 'season is gone'}`);
-			continue;
-		}
-
-		const lineup = teamsSnap.data() as TournamentTeams;
-		const matches = selectPlayedMatches(
-			lineup.teams.length,
-			lineup.settings.matchMinutes,
-			season.slot.durationMinutes,
-			matchesSnap.docs.map(match => match.data() as TournamentMatch)
-		);
-
-		if (matches.length === 0) {
-			skipped.push(`${label}: no scores survive the fixture check`);
-			continue;
-		}
-
-		const unrated = Object.values(entry.before).some(rating => rating === null);
-
-		if (unrated && entry.seedElo === undefined) {
-			skipped.push(`${label}: rated somebody unrated with no seed recorded, run backfill-ledger-seed`);
-			continue;
-		}
-
-		const players: RatingInput[] = lineup.teams.flatMap(team =>
-			team.uids.map(uid => ({ uid, rating: entry.before[uid] ?? undefined, team: team.index }))
-		);
-
-		const positions = getPositions(getStandings(lineup.teams.length, matches));
-		const changes = applyMotmBonus(
-			getRatingChanges(players, matches, positions, entry.seedElo ?? BASE_ELO),
-			entry.motm ?? []
-		);
-
-		// A team sheet with nobody on it, against scorelines that survived the
-		// fixture check. Nothing to price, and averaging an empty squad is where
-		// a NaN would enter the report and quietly poison every median after it.
-		const anybody = biggest(changes.map(change => change.delta));
-
-		if (anybody === null) {
-			skipped.push(`${label}: scores but nobody on the team sheet`);
-			continue;
-		}
-
-		const settledUids = new Set(
-			changes.map(change => change.uid).filter(uid => !isProvisional(entry.before[uid] ?? undefined))
-		);
-
-		/** What the game paid at the time, read off the entry, never recomputed. */
-		const paid = (uids: string[]) =>
-			biggest(
-				uids.map(uid => {
-					const before = entry.before[uid]?.elo ?? entry.seedElo ?? BASE_ELO;
-
-					return (entry.after[uid]?.elo ?? before) - before;
-				})
-			);
-
-		rows.push({
-			kickoff: entry.kickoff,
-			teams: lineup.teams.length,
-			matches: matches.length,
-			settled: biggest(changes.filter(change => settledUids.has(change.uid)).map(change => change.delta)),
-			anybody,
-			asRated: paid([...settledUids]),
-			// Never null: `anybody` above already refused an empty team sheet.
-			asRatedAnybody: paid(changes.map(change => change.uid)) ?? 0,
-		});
+		if ('skip' in priced) skipped.push(`${entry.kickoff.slice(0, 10)}  ${entry.gameId}: ${priced.skip}`);
+		else rows.push(priced);
 	}
 
 	if (rows.length === 0) {
