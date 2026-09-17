@@ -1,15 +1,15 @@
 'use client';
 
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { CheckIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import Sheet from './Sheet';
 import type { AppUser, TournamentTeam } from '@shared/types';
 import { displayNameOf } from '../lib/people';
 import Button from './Button';
 import StatusPill from './StatusPill';
 import TeamBadge, { teamName } from './TeamBadge';
 import { colors } from '../app/tokens.stylex';
-import { animations, elevation, press, sheet, surfaces, utils } from '../lib/styles';
+import { press, utils } from '../lib/styles';
 
 const styles = stylex.create({
 	/* Bottom of the screen on a phone, where a thumb is. Centred once there is
@@ -92,62 +92,50 @@ const TeamLetterSheet = ({
 	};
 
 	return (
-		<Dialog open={open && !!team} onClose={onClose} {...stylex.props(sheet.dialog)}>
-			<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
+		<Sheet open={open && !!team} onClose={onClose} title={<>Which team is {team ? nameFew(team) : ''}?</>} scroll>
+			<p {...stylex.props(styles.blurb)}>
+				The first two teams kick off, so this is how you start with a side that is ready. They swap letters.
+				Nobody changes team.
+			</p>
 
-			<div {...stylex.props(sheet.positioner)}>
-				<DialogPanel
-					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, sheet.column)}
-				>
-					<DialogTitle {...stylex.props(sheet.title)}>Which team is {team ? nameFew(team) : ''}?</DialogTitle>
+			<ul {...stylex.props(styles.list)}>
+				{teams.map(candidate => {
+					const isCurrent = candidate.index === team?.index;
 
-					<p {...stylex.props(styles.blurb)}>
-						The first two teams kick off, so this is how you start with a side that is ready. They swap
-						letters. Nobody changes team.
-					</p>
+					return (
+						<li key={candidate.index}>
+							<button
+								type='button'
+								disabled={isCurrent}
+								onClick={async () => {
+									await onSwap(candidate.index);
+									onClose();
+								}}
+								{...stylex.props(styles.option, isCurrent ? styles.current : press.wash)}
+							>
+								<TeamBadge index={candidate.index} size='md' />
+								<span {...stylex.props(styles.optionBody)}>
+									<span {...stylex.props(styles.letter)}>Team {teamName(candidate.index)}</span>
+									<span {...stylex.props(styles.swaps, utils.truncate)}>
+										{isCurrent ? 'Where they are now' : `Swaps with ${nameFew(candidate)}`}
+									</span>
+								</span>
+								{isCurrent && (
+									<StatusPill tone='brand'>
+										<CheckIcon {...stylex.props(styles.check)} aria-hidden='true' />
+										Now
+									</StatusPill>
+								)}
+							</button>
+						</li>
+					);
+				})}
+			</ul>
 
-					<ul {...stylex.props(styles.list)}>
-						{teams.map(candidate => {
-							const isCurrent = candidate.index === team?.index;
-
-							return (
-								<li key={candidate.index}>
-									<button
-										type='button'
-										disabled={isCurrent}
-										onClick={async () => {
-											await onSwap(candidate.index);
-											onClose();
-										}}
-										{...stylex.props(styles.option, isCurrent ? styles.current : press.wash)}
-									>
-										<TeamBadge index={candidate.index} size='md' />
-										<span {...stylex.props(styles.optionBody)}>
-											<span {...stylex.props(styles.letter)}>
-												Team {teamName(candidate.index)}
-											</span>
-											<span {...stylex.props(styles.swaps, utils.truncate)}>
-												{isCurrent ? 'Where they are now' : `Swaps with ${nameFew(candidate)}`}
-											</span>
-										</span>
-										{isCurrent && (
-											<StatusPill tone='brand'>
-												<CheckIcon {...stylex.props(styles.check)} aria-hidden='true' />
-												Now
-											</StatusPill>
-										)}
-									</button>
-								</li>
-							);
-						})}
-					</ul>
-
-					<Button variant='ghost' fullWidth onClick={onClose} sx={styles.cancel}>
-						Cancel
-					</Button>
-				</DialogPanel>
-			</div>
-		</Dialog>
+			<Button variant='ghost' fullWidth onClick={onClose} sx={styles.cancel}>
+				Cancel
+			</Button>
+		</Sheet>
 	);
 };
 

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import Sheet from './Sheet';
 import { getCalendarLink, rotateCalendarToken } from '../lib/db/calendar';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
@@ -13,7 +13,7 @@ import Button from './Button';
 import Spinner from './Spinner';
 import { CONTROL } from './Field';
 import { bp, colors, fonts } from '../app/tokens.stylex';
-import { animations, elevation, sheet, surfaces, utils } from '../lib/styles';
+import { surfaces } from '../lib/styles';
 
 const styles = stylex.create({
 	blurb: { color: colors.muted, marginTop: 8, fontSize: 14, lineHeight: 1.625 },
@@ -124,69 +124,57 @@ const CalendarSubscribeSheet = ({
 	const webcalUrl = url?.replace(/^https?:\/\//, 'webcal://');
 
 	return (
-		<Dialog open={open} onClose={onClose} {...stylex.props(sheet.dialog)}>
-			<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
+		<Sheet open={open} onClose={onClose} title={<>Subscribe to this season</>}>
+			<p {...stylex.props(styles.blurb)}>
+				Add this to your phone or laptop&apos;s calendar and it keeps itself up to date: kickoff times, venue
+				changes and cancellations all show up without reopening the app. Most calendar apps only re-check a
+				subscribed link every several hours, so a change here won&apos;t appear instantly.
+			</p>
 
-			<div {...stylex.props(sheet.positioner)}>
-				<DialogPanel
-					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, sheet.panel)}
-				>
-					<DialogTitle {...stylex.props(sheet.title)}>Subscribe to this season</DialogTitle>
+			{loadFailed && <p {...stylex.props(styles.failed)}>Couldn&apos;t get a link. Try again in a moment.</p>}
 
-					<p {...stylex.props(styles.blurb)}>
-						Add this to your phone or laptop&apos;s calendar and it keeps itself up to date: kickoff times,
-						venue changes and cancellations all show up without reopening the app. Most calendar apps only
-						re-check a subscribed link every several hours, so a change here won&apos;t appear instantly.
-					</p>
+			{!url && !loadFailed && (
+				<div {...stylex.props(styles.loading)}>
+					<Spinner sx={styles.spinner} />
+					<span {...stylex.props(styles.loadingLabel)}>Getting your link…</span>
+				</div>
+			)}
 
-					{loadFailed && (
-						<p {...stylex.props(styles.failed)}>Couldn&apos;t get a link. Try again in a moment.</p>
-					)}
+			{url && (
+				<>
+					<input
+						readOnly
+						value={url}
+						onFocus={e => e.currentTarget.select()}
+						aria-label='Calendar subscription link'
+						{...stylex.props(CONTROL, styles.link)}
+					/>
 
-					{!url && !loadFailed && (
-						<div {...stylex.props(styles.loading)}>
-							<Spinner sx={styles.spinner} />
-							<span {...stylex.props(styles.loadingLabel)}>Getting your link…</span>
-						</div>
-					)}
-
-					{url && (
-						<>
-							<input
-								readOnly
-								value={url}
-								onFocus={e => e.currentTarget.select()}
-								aria-label='Calendar subscription link'
-								{...stylex.props(CONTROL, styles.link)}
-							/>
-
-							<div {...stylex.props(styles.actions)}>
-								<Button variant='primary' fullWidth onClick={copy}>
-									Copy link
-								</Button>
-								{/* A plain `<a>`, not a `Button`, `webcal://` needs real
+					<div {...stylex.props(styles.actions)}>
+						<Button variant='primary' fullWidth onClick={copy}>
+							Copy link
+						</Button>
+						{/* A plain `<a>`, not a `Button`, `webcal://` needs real
 								    navigation, and an anchor nested inside a `<button>`
 								    is invalid HTML that browsers handle inconsistently. */}
-								<a href={webcalUrl} {...stylex.props(surfaces.glassCard, styles.subscribe)}>
-									Subscribe
-								</a>
-							</div>
+						<a href={webcalUrl} {...stylex.props(surfaces.glassCard, styles.subscribe)}>
+							Subscribe
+						</a>
+					</div>
 
-							{canRotate && (
-								<button type='button' onClick={rotate} {...stylex.props(styles.rotate)}>
-									<ArrowPathIcon {...stylex.props(styles.rotateIcon)} aria-hidden='true' />
-									Rotate link, invalidates every copy already out there
-								</button>
-							)}
-						</>
+					{canRotate && (
+						<button type='button' onClick={rotate} {...stylex.props(styles.rotate)}>
+							<ArrowPathIcon {...stylex.props(styles.rotateIcon)} aria-hidden='true' />
+							Rotate link, invalidates every copy already out there
+						</button>
 					)}
+				</>
+			)}
 
-					<Button variant='ghost' fullWidth onClick={onClose} sx={styles.close}>
-						Close
-					</Button>
-				</DialogPanel>
-			</div>
-		</Dialog>
+			<Button variant='ghost' fullWidth onClick={onClose} sx={styles.close}>
+				Close
+			</Button>
+		</Sheet>
 	);
 };
 

@@ -2,11 +2,10 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import * as stylex from '@stylexjs/stylex';
+import Sheet from './Sheet';
 import Button from './Button';
 import { colors } from '../app/tokens.stylex';
-import { animations, elevation, sheet, surfaces, utils } from '../lib/styles';
 
 interface ConfirmOptions {
 	title: string;
@@ -61,32 +60,22 @@ export const ConfirmProvider = ({ children }: { children: ReactNode }) => {
 		<ConfirmContext.Provider value={ask}>
 			{children}
 
-			<Dialog open={options !== null} onClose={() => close(false)} {...stylex.props(sheet.dialog)}>
-				<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
+			<Sheet open={options !== null} onClose={() => close(false)} title={<>{options?.title}</>}>
+				{options?.message && <p {...stylex.props(styles.message)}>{options.message}</p>}
 
-				<div {...stylex.props(sheet.positioner)}>
-					<DialogPanel
-						{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, sheet.panel)}
+				<div {...stylex.props(styles.actions)}>
+					<Button variant='ghost' fullWidth onClick={() => close(false)}>
+						Cancel
+					</Button>
+					<Button
+						variant={options?.tone === 'danger' ? 'danger' : 'primary'}
+						fullWidth
+						onClick={() => close(true)}
 					>
-						<DialogTitle {...stylex.props(sheet.title)}>{options?.title}</DialogTitle>
-
-						{options?.message && <p {...stylex.props(styles.message)}>{options.message}</p>}
-
-						<div {...stylex.props(styles.actions)}>
-							<Button variant='ghost' fullWidth onClick={() => close(false)}>
-								Cancel
-							</Button>
-							<Button
-								variant={options?.tone === 'danger' ? 'danger' : 'primary'}
-								fullWidth
-								onClick={() => close(true)}
-							>
-								{options?.confirmLabel ?? 'Confirm'}
-							</Button>
-						</div>
-					</DialogPanel>
+						{options?.confirmLabel ?? 'Confirm'}
+					</Button>
 				</div>
-			</Dialog>
+			</Sheet>
 		</ConfirmContext.Provider>
 	);
 };
