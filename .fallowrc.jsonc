@@ -130,7 +130,7 @@
 		//
 		// The destination is 0.01, which is how zero tolerance has to be spelled:
 		// fallow reads a literal 0 as "no threshold at all".
-		"threshold": 2.45,
+		"threshold": 1.25,
 	},
 
 	"audit": {

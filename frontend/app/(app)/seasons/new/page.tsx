@@ -4,16 +4,17 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import * as stylex from '@stylexjs/stylex';
 import type { Weekday } from '@shared/types';
-import { weekdayName } from '@shared/format';
+
 import { parseCount } from '@shared/game';
 import { useAuth } from '../../../../lib/auth';
 import { captureError } from '../../../../lib/sentry';
 import { createSeason } from '../../../../lib/db/seasons';
+import SeasonSlotFields from '../../../../components/SeasonSlotFields';
 import PageShell from '../../../../components/PageShell';
 import AppAdminOnly from '../../../../components/AppAdminOnly';
 import Button from '../../../../components/Button';
-import DatePicker from '../../../../components/DatePicker';
-import { Field, Select, TextInput } from '../../../../components/Field';
+
+import { Field, TextInput } from '../../../../components/Field';
 import { colors } from '../../../tokens.stylex';
 import { surfaces } from '../../../../lib/styles';
 
@@ -133,55 +134,7 @@ const NewSeasonPage = () => {
 						/>
 					</Field>
 
-					<Field label='Venue'>
-						<TextInput
-							value={form.venueName}
-							onChange={e => setForm({ ...form, venueName: e.target.value })}
-						/>
-					</Field>
-
-					<Field label='Address' hint='Optional, shown on the game screen.'>
-						<TextInput
-							value={form.venueAddress}
-							onChange={e => setForm({ ...form, venueAddress: e.target.value })}
-						/>
-					</Field>
-
-					<div {...stylex.props(styles.pair)}>
-						<Field label='Day'>
-							<Select
-								value={form.weekday}
-								onChange={e => setForm({ ...form, weekday: Number(e.target.value) as Weekday })}
-							>
-								{[1, 2, 3, 4, 5, 6, 0].map(day => (
-									<option key={day} value={day}>
-										{weekdayName(day)}
-									</option>
-								))}
-							</Select>
-						</Field>
-
-						<Field label='Kick-off'>
-							<TextInput
-								type='time'
-								value={form.time}
-								onChange={e => setForm({ ...form, time: e.target.value })}
-							/>
-						</Field>
-					</div>
-
-					<div {...stylex.props(styles.pair)}>
-						<Field label='Starts'>
-							<DatePicker
-								value={form.startDate}
-								onChange={startDate => setForm({ ...form, startDate })}
-							/>
-						</Field>
-
-						<Field label='Ends'>
-							<DatePicker value={form.endDate} onChange={endDate => setForm({ ...form, endDate })} />
-						</Field>
-					</div>
+					<SeasonSlotFields form={form} setForm={setForm} startLabel='Starts' endLabel='Ends' />
 
 					<div {...stylex.props(styles.pair)}>
 						<Field label='Minutes'>
