@@ -4,7 +4,7 @@ import type { AppUser, NotificationPrefs } from '../../shared/types';
 import type { AnyNotification } from '../../shared/notifications';
 import { NOTIFICATIONS, canEmail } from '../../shared/notifications';
 import { db, REGION } from './lib/firebase';
-import { EMAIL_SECRETS, lookUpVerifiedEmails, sendEmail } from './lib/email';
+import { EMAIL_SECRETS, readProfilesAndEmails, sendEmail } from './lib/email';
 import { buildTestPayload } from './lib/testNotifications';
 import { requireAppAdmin } from './lib/auth';
 import { instrument } from './lib/sentry';
@@ -99,12 +99,7 @@ export const sendTestEmail = onCall<{
  * that's the only way this can't disagree with what actually happens next.
  */
 const describeReach = async (uids: string[]): Promise<EmailTestOutcome[]> => {
-	// `lookUpVerifiedEmails` already chunks internally against Auth's per-call
-	// limit, so this only has to fan out the two sources, not the pagination.
-	const [profiles, addresses] = await Promise.all([
-		Promise.all(uids.map(uid => db.doc(`users/${uid}`).get())),
-		lookUpVerifiedEmails(uids),
-	]);
+	const { profiles, addresses } = await readProfilesAndEmails(uids);
 
 	return profiles.map(snapshot => {
 		const user = snapshot.data() as AppUser | undefined;

@@ -27,10 +27,22 @@ const formatterFor = (timeZone: string): Intl.DateTimeFormat => {
 	return formatter;
 };
 
+/**
+ * A reader for one numeric field of a formatted instant.
+ *
+ * Both callers want the same thing out of `formatToParts`: a number by field
+ * name, and 0 rather than NaN for a field the formatter did not emit. Written
+ * twice it was the only clone group in `shared/`.
+ */
+const partsReaderFor = (instant: Date, timeZone: string) => {
+	const parts = formatterFor(timeZone).formatToParts(instant);
+
+	return (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(p => p.type === type)?.value ?? 0);
+};
+
 /** The zone's UTC offset in milliseconds *at the given instant*. */
 const getTimezoneOffsetMs = (instant: Date, timeZone: string): number => {
-	const parts = formatterFor(timeZone).formatToParts(instant);
-	const read = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(p => p.type === type)?.value ?? 0);
+	const read = partsReaderFor(instant, timeZone);
 
 	// Some ICU builds render midnight as hour 24 under hour12:false.
 	const asIfUtc = Date.UTC(
@@ -88,9 +100,7 @@ export interface ZonedParts {
  * versions ("Sep" vs "Sept") and we want the same output everywhere.
  */
 export const getZonedParts = (iso: string, timeZone: string): ZonedParts => {
-	const instant = new Date(iso);
-	const parts = formatterFor(timeZone).formatToParts(instant);
-	const read = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(p => p.type === type)?.value ?? 0);
+	const read = partsReaderFor(new Date(iso), timeZone);
 
 	const year = read('year');
 	const month = read('month');
