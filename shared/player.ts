@@ -179,6 +179,31 @@ const emptyLink = (uid: string): PlayerLink => ({
 });
 
 /**
+ * One shared game folded into a pairing, in place.
+ *
+ * Positions are the finishing order of the two teams, counting from the top, so
+ * 0 is the win and a lower number is the better finish. Same team and the only
+ * question is whether they won it; opposing teams and the three outcomes are
+ * read off the two positions.
+ */
+const countShared = (link: PlayerLink, sameTeam: boolean, position: number, theirPosition: number): void => {
+	link.shared++;
+
+	if (sameTeam) {
+		link.together++;
+		if (position === 0) link.wonTogether++;
+
+		return;
+	}
+
+	link.against++;
+
+	if (position < theirPosition) link.beat++;
+	else if (position === theirPosition) link.drewWith++;
+	else link.lostTo++;
+};
+
+/**
  * Everybody this player has shared a rated game with, most games first.
  *
  * Entries with no `teams` map are skipped rather than guessed at, which is what
@@ -209,18 +234,7 @@ export const getPlayerLinks = (entries: RatingLedgerEntry[], uid: string): Playe
 
 			const link = links.get(other) ?? emptyLink(other);
 
-			link.shared++;
-
-			if (theirTeam === team) {
-				link.together++;
-				if (position === 0) link.wonTogether++;
-			} else {
-				link.against++;
-				if (position < theirPosition) link.beat++;
-				else if (position === theirPosition) link.drewWith++;
-				else link.lostTo++;
-			}
-
+			countShared(link, theirTeam === team, position, theirPosition);
 			links.set(other, link);
 		}
 	}

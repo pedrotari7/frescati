@@ -313,33 +313,29 @@ export const getAvailabilityChange = (
 /**
  * Recompute a game's counters from its responses. Lives here so the Cloud
  * Function and any client-side preview can never drift apart.
+ *
+ * The Out counts are what is left over rather than a tally of their own, which
+ * is exact because a stored response says In or Out and nothing else. No
+ * response at all is the third state and never reaches here: it has no
+ * document, so it is not in this list.
  */
 export const tallyResponses = (responses: Pick<GameResponse, 'status' | 'role' | 'confirmOverride'>[]): GameCounts => {
-	const counts: GameCounts = {
-		membersIn: 0,
-		membersOut: 0,
-		extrasIn: 0,
-		extrasOut: 0,
-		extrasConfirmed: 0,
-		playing: 0,
+	const isIn = (response: Pick<GameResponse, 'status'>) => response.status === 'in';
+
+	const members = responses.filter(response => response.role === 'member');
+	const extras = responses.filter(response => response.role !== 'member');
+	const membersIn = members.filter(isIn).length;
+	const extrasIn = extras.filter(isIn);
+	const extrasConfirmed = extrasIn.filter(isConfirmed).length;
+
+	return {
+		membersIn,
+		membersOut: members.length - membersIn,
+		extrasIn: extrasIn.length,
+		extrasOut: extras.length - extrasIn.length,
+		extrasConfirmed,
+		playing: membersIn + extrasConfirmed,
 	};
-
-	for (const response of responses) {
-		const isIn = response.status === 'in';
-
-		if (response.role === 'member') {
-			if (isIn) counts.membersIn++;
-			else counts.membersOut++;
-		} else {
-			if (isIn) counts.extrasIn++;
-			else counts.extrasOut++;
-			if (isIn && isConfirmed(response)) counts.extrasConfirmed++;
-		}
-	}
-
-	counts.playing = counts.membersIn + counts.extrasConfirmed;
-
-	return counts;
 };
 
 /** One stored counter that disagrees with the responses underneath it. */
