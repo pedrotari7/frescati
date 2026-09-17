@@ -524,3 +524,30 @@ export const applyRatingChange = (
 	games: (rating?.games ?? 0) + 1,
 	updatedAt: at,
 });
+
+/**
+ * The four per-player maps a ledger entry carries about one game.
+ *
+ * Kept together because they are written together, by the function that rates a
+ * game and by the seeder that has to arrive at the same entry. Two copies of
+ * this drifted apart once already: `teams` was added to the real writer and the
+ * seeded ladder looked right while every profile's teammates panel was empty.
+ *
+ * Why each one is stored per player rather than derived is on
+ * `RatingLedgerEntry`, which is the document these become.
+ */
+export const getLedgerBreakdown = (
+	players: { uid: string; team: number }[],
+	positions: number[],
+	changes: RatingChange[]
+): {
+	positions: Record<string, number>;
+	teams: Record<string, number>;
+	rate: Record<string, number>;
+	expected: Record<string, number>;
+} => ({
+	positions: Object.fromEntries(players.map(player => [player.uid, positions[player.team]])),
+	teams: Object.fromEntries(players.map(player => [player.uid, player.team])),
+	rate: Object.fromEntries(changes.map(change => [change.uid, change.rate])),
+	expected: Object.fromEntries(changes.map(change => [change.uid, change.expected])),
+});

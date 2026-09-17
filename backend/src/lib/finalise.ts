@@ -10,7 +10,13 @@ import type {
 	TournamentTeams,
 } from '../../../shared/types';
 import type { RatingInput } from '../../../shared/rating';
-import { applyMotmBonus, applyRatingChange, getRatingChanges, getSeedElo } from '../../../shared/rating';
+import {
+	applyMotmBonus,
+	applyRatingChange,
+	getLedgerBreakdown,
+	getRatingChanges,
+	getSeedElo,
+} from '../../../shared/rating';
 import { getPositions, getStandings } from '../../../shared/standings';
 import { selectPlayedMatches } from '../../../shared/tournament';
 import { db } from './firebase';
@@ -138,16 +144,10 @@ export const computeGameRatings = async (
 		after: Object.fromEntries(
 			changes.map(change => [change.uid, applyRatingChange(profiles.get(change.uid)?.rating, change, at)])
 		),
-		positions: Object.fromEntries(players.map(player => [player.uid, positions[player.team]])),
-		// The team itself, not only where it came. `positions` is shared on a tie,
-		// so it cannot say who somebody actually played alongside, see
-		// `RatingLedgerEntry.teams`.
-		teams: Object.fromEntries(players.map(player => [player.uid, player.team])),
-		// The two halves of the swing. A position no longer explains a delta on
-		// its own, and the matches that would are in a subcollection the ledger
-		// deliberately never reads. See `RatingLedgerEntry.rate`.
-		rate: Object.fromEntries(changes.map(change => [change.uid, change.rate])),
-		expected: Object.fromEntries(changes.map(change => [change.uid, change.expected])),
+		// Where each player finished, who they were actually alongside, and the
+		// two halves of the swing. The seeder writes the same four, which is why
+		// they are built in one place.
+		...getLedgerBreakdown(players, positions, changes),
 	};
 };
 

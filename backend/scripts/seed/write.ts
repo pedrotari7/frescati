@@ -41,10 +41,16 @@ import { addCivilDays, addHours, getZonedParts } from '../../../shared/datetime'
 import { generateGameDates } from '../../../shared/schedule';
 import { getMinPlayers, hasBeenPlayed, isConfirmed, tallyResponses } from '../../../shared/game';
 import { planDues } from '../../../shared/finances';
-import { getSeed, pickTeams } from '../../../shared/optimizer';
+import { createRng, getSeed, pickTeams } from '../../../shared/optimizer';
 import type { OptimizerPlayer } from '../../../shared/optimizer';
 import { getFixtures, getSquadSizes, getTeamCount } from '../../../shared/tournament';
-import { applyMotmBonus, applyRatingChange, getRatingChanges, getSeedElo } from '../../../shared/rating';
+import {
+	applyMotmBonus,
+	applyRatingChange,
+	getLedgerBreakdown,
+	getRatingChanges,
+	getSeedElo,
+} from '../../../shared/rating';
 import type { RatingInput } from '../../../shared/rating';
 import { MOTM_VOTING_HOURS, tallyMotmVotes } from '../../../shared/motm';
 import { getPositions, getStandings } from '../../../shared/standings';
@@ -57,9 +63,7 @@ import { commitInBatches } from '../../src/lib/batch';
 const MINIMUM_WATCH = 12;
 
 /**
- * Mulberry32, the same generator the optimizer uses.
- *
- * Seeded from the scenario rather than the clock, so who is a member, who
+ * A seed off a scenario key rather than the clock, so who is a member, who
  * answered and how the fixtures are shaped come out the same on every run and a
  * layout you saw once can be looked at twice. The lineups and scorelines do
  * move, because those hang off the game's document id and that carries the run
@@ -67,19 +71,6 @@ const MINIMUM_WATCH = 12;
  * different teams from the ones the seed wrote, which is exactly the kind of
  * quiet disagreement a fixture is supposed to be free of.
  */
-const createRng = (seed: number): (() => number) => {
-	let state = seed >>> 0;
-
-	return () => {
-		state = (state + 0x6d2b79f5) >>> 0;
-		let t = state;
-		t = Math.imul(t ^ (t >>> 15), t | 1);
-		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
-};
-
 const hashSeed = (text: string): number => {
 	let hash = 2166136261;
 
@@ -908,16 +899,9 @@ const playGame = (
 			finalisedAt,
 			before,
 			after,
-			positions: Object.fromEntries(inputs.map(input => [input.uid, positions[input.team]])),
-			// The team itself as well as where it came, because a shared place
-			// cannot say which side of it two players were on, see
-			// `RatingLedgerEntry.teams`. Without this the seeded ladder looks
-			// right and every profile's teammates panel is empty.
-			teams: Object.fromEntries(inputs.map(input => [input.uid, input.team])),
-			// What the movement was read off, since a finishing position no longer
-			// explains one on its own, see `RatingLedgerEntry.rate`.
-			rate: Object.fromEntries(changes.map(change => [change.uid, change.rate])),
-			expected: Object.fromEntries(changes.map(change => [change.uid, change.expected])),
+			// The same four maps `commitGameRatings` writes, from the same
+			// function, so a seeded entry and a real one cannot drift.
+			...getLedgerBreakdown(inputs, positions, changes),
 			// Only where somebody arrived unrated, exactly as `commitGameRatings`
 			// decides it. A seeded first appearance has to move a season table by
 			// the same amount the real thing would.
