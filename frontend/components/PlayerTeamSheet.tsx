@@ -1,15 +1,14 @@
 'use client';
 
-import { CheckIcon, UserMinusIcon } from '@heroicons/react/24/outline';
+import { UserMinusIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import Sheet from './Sheet';
+import TeamOption from './TeamOption';
 import type { TournamentTeam } from '@shared/types';
 import { counted } from '@shared/format';
 import Button from './Button';
-import StatusPill from './StatusPill';
-import TeamBadge, { teamName } from './TeamBadge';
+
 import { colors } from '../app/tokens.stylex';
-import { press } from '../lib/styles';
 
 const styles = stylex.create({
 	blurb: { color: colors.muted, marginTop: 4, fontSize: 14, lineHeight: '20px' },
@@ -26,27 +25,8 @@ const styles = stylex.create({
 		overflowY: 'auto',
 		paddingInline: 4,
 	},
-	option: {
-		display: 'flex',
-		width: '100%',
-		alignItems: 'center',
-		gap: 12,
-		borderRadius: 12,
-		borderWidth: 0,
-		backgroundColor: 'transparent',
-		paddingInline: 8,
-		paddingBlock: 10,
-		textAlign: 'left',
-		transitionProperty: 'background-color',
-		transitionDuration: '0.2s',
-	},
 	/* Every row that would refuse the tap, which is the squad they are already
 	   on and, when they are the last one on it, all of them. */
-	shut: { opacity: 0.6 },
-	optionBody: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
-	letter: { color: colors.ink, display: 'block', fontSize: 14, lineHeight: '20px', fontWeight: 600 },
-	size: { color: colors.faint, display: 'block', fontSize: 12, lineHeight: '16px' },
-	check: { width: 12, height: 12 },
 	icon: { width: 16, height: 16 },
 
 	off: { marginTop: 12, flexShrink: 0 },
@@ -102,32 +82,19 @@ const PlayerTeamSheet = ({
 			<ul {...stylex.props(styles.list)}>
 				{teams.map(team => {
 					const isCurrent = team.index === currentIndex;
-					const shut = isCurrent || isTheirLastTeammate;
 
 					return (
-						<li key={team.index}>
-							<button
-								type='button'
-								disabled={shut}
-								onClick={async () => {
-									await onMove(team.index);
-									onClose();
-								}}
-								{...stylex.props(styles.option, shut ? styles.shut : press.wash)}
-							>
-								<TeamBadge index={team.index} size='md' />
-								<span {...stylex.props(styles.optionBody)}>
-									<span {...stylex.props(styles.letter)}>Team {teamName(team.index)}</span>
-									<span {...stylex.props(styles.size)}>{counted(team.uids.length, 'player')}</span>
-								</span>
-								{isCurrent && (
-									<StatusPill tone='brand'>
-										<CheckIcon {...stylex.props(styles.check)} aria-hidden='true' />
-										Here now
-									</StatusPill>
-								)}
-							</button>
-						</li>
+						<TeamOption
+							key={team.index}
+							index={team.index}
+							note={counted(team.uids.length, 'player')}
+							pill={isCurrent ? 'Here now' : undefined}
+							disabled={isCurrent || isTheirLastTeammate}
+							onPick={async () => {
+								await onMove(team.index);
+								onClose();
+							}}
+						/>
 					);
 				})}
 			</ul>
