@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import type { Game, Season } from '@shared/types';
+import type { GeneratedGame } from '@shared/schedule';
 import { diffGeneratedGames, generateGameDates } from '@shared/schedule';
 import { getGameLifecycle, hasBeenPlayed, splitOnWhistle } from '@shared/game';
 import { counted, formatGameDate, formatGameTime } from '@shared/format';
@@ -140,14 +141,154 @@ const CalendarRow = ({
 	);
 };
 
-const AdminGamesPage = () => {
-	// fallow-ignore-next-line code-duplication -- the same five hook calls as the top of SeasonAdminPage, and they are not shared logic, only the same dependencies in the same order. Eleven screens read `useSeasonContext` and each takes a different subset of the rest, 0 to 5 of them, so the two that happen to take all five are a coincidence rather than a pattern. A hook bundling them would hand nine callers things they do not use and hide, from the two it fits, that they open a confirmation dialog at all. Same reasoning as the note on `Section.tsx` about not folding its three primitives into one component.
-	const { user } = useAuth();
-	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
+/** Why there is no calendar to manage, drawn as the screen. */
+const NoCalendar = ({
+	reason,
+	backHref,
+	onRetry,
+}: {
+	reason: 'loading' | 'error' | 'denied';
+	backHref: string;
+	onRetry: () => void;
+}) => (
+	<SeasonShell title='Games' backHref={backHref}>
+		{reason === 'loading' && <Skeleton />}
+		{reason === 'error' && <LoadFailed what='the calendar' onRetry={onRetry} />}
+		{reason === 'denied' && <EmptyState title='Admins only' />}
+	</SeasonShell>
+);
+
+/** What generating would do, and the button to do it. */
+const GenerateButton = ({
+	preview,
+	onGenerate,
+}: {
+	preview: ReturnType<typeof diffGeneratedGames> | null;
+	onGenerate: (toCreate: GeneratedGame[]) => Promise<void>;
+}) => {
+	const toCreate = preview?.toCreate ?? [];
+
+	return (
+		<>
+			{preview && (
+				<div {...stylex.props(styles.preview)}>
+					<StatusPill tone={toCreate.length > 0 ? 'in' : 'neutral'}>{toCreate.length} new</StatusPill>
+					<StatusPill tone='neutral'>{preview.alreadyExisting.length} already there</StatusPill>
+				</div>
+			)}
+
+			<Button variant='primary' fullWidth disabled={toCreate.length === 0} onClick={() => onGenerate(toCreate)}>
+				{toCreate.length > 0 ? `Add ${counted(toCreate.length, 'game')}` : 'Nothing to add'}
+			</Button>
+		</>
+	);
+};
+
+/**
+ * Everything an admin can do to this season's calendar.
+ *
+ * Calling a game off and putting it back on both ask first, because both send a
+ * notification to everybody the game affects: `onGameWrite` pushes the moment
+ * `status` moves. Cancel was the one button on a row doing that unguarded, and
+ * it is the smaller and quieter of the two beside a Delete that has always
+ * confirmed.
+ */
+const useCalendarActions = (season: Season | null, uid: string | undefined) => {
 	const write = useWrite();
 	const confirm = useConfirm();
 	const { notify } = useToast();
+
+	const when = (game: Game) => formatGameDate(game.kickoff, season?.slot.timezone ?? 'UTC');
+
+	const generate = async (toCreate: GeneratedGame[]) => {
+		if (!season || !uid || toCreate.length === 0) return;
+
+		const ok = await write(
+			() => createGames(season, toCreate, uid),
+			"Couldn't add the games. Nothing was created."
+		);
+
+		if (ok) notify(`Added ${counted(toCreate.length, 'game')}.`);
+	};
+
+	const addOneOff = async ({ date, time }: { date: string; time: string }) => {
+		if (!season || !uid || !date || !time) return false;
+
+		const { year, month, day } = parseCivilDate(date);
+		const [hours, minutes] = time.split(':').map(Number);
+		const kickoff = zonedTimeToUtc(year, month, day, hours, minutes, season.slot.timezone);
+
+		const ok = await write(
+			() =>
+				createOneOffGame(
+					season,
+					{
+						kickoff: kickoff.toISOString(),
+						endsAt: new Date(kickoff.getTime() + season.slot.durationMinutes * 60 * 1000).toISOString(),
+					},
+					uid
+				),
+			"Couldn't add that game."
+		);
+
+		if (ok) notify('One-off game added.');
+
+		return ok;
+	};
+
+	const cancel = async (game: Game) => {
+		if (!season) return;
+
+		const ok = await confirm({
+			title: `Call off ${when(game)}?`,
+			message:
+				'Everybody this game affects gets a notification. Answers are kept, so putting it back on is one tap.',
+			confirmLabel: 'Call it off',
+			tone: 'danger',
+		});
+
+		if (!ok) return;
+
+		await write(() => cancelGame(season.id, game.id, 'Called off by an admin'), "Couldn't cancel that game.");
+	};
+
+	const remove = async (game: Game) => {
+		if (!season) return;
+
+		const ok = await confirm({
+			title: `Delete ${when(game)}?`,
+			message: describeDeletion(game),
+			confirmLabel: 'Delete',
+			tone: 'danger',
+		});
+
+		if (!ok) return;
+
+		await write(() => deleteGame(season.id, game.id), "Couldn't delete that game.");
+	};
+
+	const restore = async (game: Game) => {
+		if (!season) return;
+
+		const ok = await confirm({
+			title: `Put ${when(game)} back on?`,
+			message: 'Everybody this game affects gets a notification saying it is on again.',
+			confirmLabel: 'Put it back on',
+		});
+
+		if (!ok) return;
+
+		await write(() => restoreGame(season.id, game.id), "Couldn't put that game back on.");
+	};
+
+	return { generate, addOneOff, cancel, remove, restore };
+};
+
+const AdminGamesPage = () => {
+	const { user } = useAuth();
+	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
 	const now = useNow();
+	const { generate, addOneOff, cancel, remove, restore } = useCalendarActions(season, user?.uid);
 
 	const [oneOff, setOneOff] = useState({ date: '', time: '' });
 	const [showPast, setShowPast] = useState(false);
@@ -176,118 +317,11 @@ const AdminGamesPage = () => {
 		}
 	}, [season, games]);
 
-	if (loading) {
-		return (
-			<SeasonShell title='Games' backHref={`/s/${seasonId}/admin`}>
-				<Skeleton />
-			</SeasonShell>
-		);
-	}
+	const up = `/s/${seasonId}/admin`;
 
-	if (error) {
-		return (
-			<SeasonShell title='Games' backHref={`/s/${seasonId}/admin`}>
-				<LoadFailed what='the calendar' onRetry={retry} />
-			</SeasonShell>
-		);
-	}
-
-	if (!season || !isAdmin || !user) {
-		return (
-			<SeasonShell title='Games' backHref={`/s/${seasonId}/admin`}>
-				<EmptyState title='Admins only' />
-			</SeasonShell>
-		);
-	}
-
-	const handleGenerate = async () => {
-		if (!preview || preview.toCreate.length === 0) return;
-
-		const created = preview.toCreate.length;
-		const ok = await write(
-			() => createGames(season, preview.toCreate, user.uid),
-			"Couldn't add the games. Nothing was created."
-		);
-
-		if (ok) notify(`Added ${counted(created, 'game')}.`);
-	};
-
-	const handleAddOneOff = async () => {
-		if (!oneOff.date || !oneOff.time) return;
-
-		const { year, month, day } = parseCivilDate(oneOff.date);
-		const [hours, minutes] = oneOff.time.split(':').map(Number);
-		const kickoff = zonedTimeToUtc(year, month, day, hours, minutes, season.slot.timezone);
-
-		const ok = await write(
-			() =>
-				createOneOffGame(
-					season,
-					{
-						kickoff: kickoff.toISOString(),
-						endsAt: new Date(kickoff.getTime() + season.slot.durationMinutes * 60 * 1000).toISOString(),
-					},
-					user.uid
-				),
-			"Couldn't add that game."
-		);
-
-		if (!ok) return;
-
-		setOneOff({ date: '', time: '' });
-		notify('One-off game added.');
-	};
-
-	/**
-	 * Calling a game off, and putting it back on.
-	 *
-	 * Both ask first, because both send a notification to everybody the game
-	 * affects. `onGameWrite` pushes the moment `status` moves. Cancel was the
-	 * one button on this row doing that unguarded, and it is the smaller and
-	 * quieter of the two beside a Delete that has always confirmed.
-	 */
-	const handleCancel = async (game: Game) => {
-		const when = formatGameDate(game.kickoff, season.slot.timezone);
-
-		const ok = await confirm({
-			title: `Call off ${when}?`,
-			message:
-				'Everybody this game affects gets a notification. Answers are kept, so putting it back on is one tap.',
-			confirmLabel: 'Call it off',
-			tone: 'danger',
-		});
-
-		if (!ok) return;
-
-		await write(() => cancelGame(seasonId, game.id, 'Called off by an admin'), "Couldn't cancel that game.");
-	};
-
-	const handleDelete = async (game: Game) => {
-		const ok = await confirm({
-			title: `Delete ${formatGameDate(game.kickoff, season.slot.timezone)}?`,
-			message: describeDeletion(game),
-			confirmLabel: 'Delete',
-			tone: 'danger',
-		});
-
-		if (!ok) return;
-
-		await write(() => deleteGame(seasonId, game.id), "Couldn't delete that game.");
-	};
-
-	const handleRestore = async (game: Game) => {
-		const when = formatGameDate(game.kickoff, season.slot.timezone);
-
-		const ok = await confirm({
-			title: `Put ${when} back on?`,
-			message: 'Everybody this game affects gets a notification saying it is on again.',
-			confirmLabel: 'Put it back on',
-		});
-
-		if (!ok) return;
-
-		await write(() => restoreGame(seasonId, game.id), "Couldn't put that game back on.");
-	};
+	if (loading) return <NoCalendar reason='loading' backHref={up} onRetry={retry} />;
+	if (error) return <NoCalendar reason='error' backHref={up} onRetry={retry} />;
+	if (!season || !isAdmin || !user) return <NoCalendar reason='denied' backHref={up} onRetry={retry} />;
 
 	return (
 		<SeasonShell title='Games' subtitle={`${games.length} on the calendar`} backHref={`/s/${seasonId}/admin`}>
@@ -300,25 +334,7 @@ const AdminGamesPage = () => {
 						after extending the season.
 					</p>
 
-					{preview && (
-						<div {...stylex.props(styles.preview)}>
-							<StatusPill tone={preview.toCreate.length > 0 ? 'in' : 'neutral'}>
-								{preview.toCreate.length} new
-							</StatusPill>
-							<StatusPill tone='neutral'>{preview.alreadyExisting.length} already there</StatusPill>
-						</div>
-					)}
-
-					<Button
-						variant='primary'
-						fullWidth
-						disabled={!preview || preview.toCreate.length === 0}
-						onClick={handleGenerate}
-					>
-						{preview && preview.toCreate.length > 0
-							? `Add ${counted(preview.toCreate.length, 'game')}`
-							: 'Nothing to add'}
-					</Button>
+					<GenerateButton preview={preview} onGenerate={generate} />
 				</section>
 
 				<section {...stylex.props(surfaces.glass, styles.card)}>
@@ -343,7 +359,9 @@ const AdminGamesPage = () => {
 						fullWidth
 						sx={styles.add}
 						disabled={!oneOff.date || !oneOff.time}
-						onClick={handleAddOneOff}
+						onClick={async () => {
+							if (await addOneOff(oneOff)) setOneOff({ date: '', time: '' });
+						}}
 					>
 						Add game
 					</Button>
@@ -365,9 +383,9 @@ const AdminGamesPage = () => {
 								game={game}
 								season={season}
 								now={now}
-								onCancel={handleCancel}
-								onRestore={handleRestore}
-								onDelete={handleDelete}
+								onCancel={cancel}
+								onRestore={restore}
+								onDelete={remove}
 							/>
 						))}
 					</ListCard>
@@ -386,9 +404,9 @@ const AdminGamesPage = () => {
 								game={game}
 								season={season}
 								now={now}
-								onCancel={handleCancel}
-								onRestore={handleRestore}
-								onDelete={handleDelete}
+								onCancel={cancel}
+								onRestore={restore}
+								onDelete={remove}
 							/>
 						))}
 					</ListCard>

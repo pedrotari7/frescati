@@ -11,6 +11,7 @@ import {
 	UsersIcon,
 } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import type { KitItem, Season } from '@shared/types';
 import { KIT_KIND_LABELS, groupKitByKind } from '@shared/kit';
 import { entryShare, feesFor } from '@shared/finances';
 import { byDisplayName, formatSek } from '@shared/format';
@@ -172,6 +173,192 @@ const PlayerRow = ({
 	</Link>
 );
 
+/** Why there is no club to show, drawn as the screen. A tab root, so no chevron. */
+const NoClub = ({ reason, onRetry }: { reason: 'loading' | 'error' | 'missing'; onRetry: () => void }) => (
+	<SeasonShell title='Club'>
+		{reason === 'loading' && <Skeleton />}
+		{reason === 'error' && <LoadFailed what='the club' onRetry={onRetry} />}
+		{reason === 'missing' && <EmptyState title='Season not found' />}
+	</SeasonShell>
+);
+
+/**
+ * Kit and finances, which live behind the Club tab rather than a fifth and
+ * sixth one of their own.
+ *
+ * Both are the club's rather than any one game's, who is holding what and who
+ * has paid what, and the tab bar deliberately never grows or reflows, so a new
+ * tab would move every tab beside it on every screen in the app. The tab is
+ * called Club rather than Squad for the same reason: the roster is one of the
+ * three things on it, not the whole screen. Both are shown to everyone, because
+ * anybody in the squad can hand a bag on, and an extra who owes for a game
+ * needs somewhere to go and pay it.
+ *
+ * Above the roster rather than under it. A full squad is eighteen rows, so
+ * underneath meant scrolling past every one of them to find the two things on
+ * this screen that are somewhere to go rather than something to read.
+ */
+const ClubLinks = ({ seasonId, kit, season }: { seasonId: string; kit: KitItem[]; season: Season }) => {
+	const fees = feesFor(season);
+
+	return (
+		<div {...stylex.props(styles.links)}>
+			<NavCard
+				href={`/s/${seasonId}/kit`}
+				icon={<ShoppingBagIcon {...stylex.props(styles.linkIcon)} aria-hidden='true' />}
+				title='Kit'
+				// Which kinds, not how many of each, "1 vests" is the sort of thing a
+				// count cannot say. The screen itself has the detail.
+				note={
+					kit.length === 0
+						? 'Nothing listed yet'
+						: groupKitByKind(kit)
+								.map(group => KIT_KIND_LABELS[group.kind])
+								.join(' · ')
+				}
+			/>
+
+			{/* What each person owes rather than a balance, because a balance would
+			    mean subscribing to the whole book from a screen that does not
+			    otherwise read it, and an extra is not allowed to anyway. A member's
+			    share is the bill divided by the squad, so it moves when somebody
+			    joins or leaves. */}
+			<NavCard
+				href={`/s/${seasonId}/finances`}
+				icon={<BanknotesIcon {...stylex.props(styles.linkIcon)} aria-hidden='true' />}
+				title='Finances'
+				note={
+					fees.total === 0 && fees.perGame === 0
+						? 'Nothing is being collected'
+						: `${formatSek(entryShare(fees.total, season.memberUids.length))} each, ${formatSek(fees.perGame)} a game as an extra`
+				}
+			/>
+		</div>
+	);
+};
+
+/**
+ * What the dots underneath mean, or why there are none.
+ *
+ * A failed read takes the dots away and leaves the roster, which is what the
+ * screen is for. It says so out loud rather than drawing nothing, because a
+ * season nobody has answered anything in and a read that never landed are the
+ * same picture, and only one of them is worth pressing something about.
+ */
+const Dots = ({ failed, onRetry }: { failed: boolean; onRetry: () => void }) => {
+	if (!failed) return <AvailabilityLegend sx={styles.legend} />;
+
+	return (
+		<div {...stylex.props(styles.failed)}>
+			<span {...stylex.props(styles.failedText)}>Couldn&apos;t load who has been playing.</span>
+			<button type='button' onClick={onRetry} {...stylex.props(styles.retry)}>
+				Try again
+			</button>
+		</div>
+	);
+};
+
+/**
+ * Nobody on the roster at all, which for an admin is a job and for everybody
+ * else is a fact about somebody else's.
+ */
+const NoSquad = ({ isAdmin, manageLink }: { isAdmin: boolean; manageLink: ReactNode }) => (
+	<EmptyState
+		icon={<UsersIcon />}
+		title='No squad yet'
+		message={isAdmin ? 'Add players to build the roster.' : 'An admin has not added anyone to this season yet.'}
+		action={manageLink}
+	/>
+);
+
+/**
+ * The squad, and the way to change it.
+ *
+ * An empty squad is only reachable with extras below it, which is a real state a
+ * new season passes through: a game is up, an admin has added nobody, and the
+ * first person to answer is an extra by definition. Managing the squad stays
+ * under the list it manages.
+ */
+const SquadSection = ({
+	members,
+	adminUids,
+	timezone,
+	showAvailability,
+	pending,
+	manageLink,
+}: {
+	members: Player[];
+	adminUids: string[];
+	timezone: string;
+	showAvailability: boolean;
+	pending: boolean;
+	manageLink: ReactNode;
+}) => (
+	<section>
+		<SectionHeading sx={styles.heading}>Squad ({members.length})</SectionHeading>
+
+		<ListCard>
+			{members.length === 0 && <ListEmpty>Nobody in the squad yet.</ListEmpty>}
+
+			{members.map(member => (
+				<PlayerRow
+					key={member.uid}
+					player={member}
+					timezone={timezone}
+					showAvailability={showAvailability}
+					pending={pending}
+					trailing={adminUids.includes(member.uid) ? <StatusPill tone='brand'>Admin</StatusPill> : null}
+				/>
+			))}
+		</ListCard>
+
+		{manageLink && <div {...stylex.props(styles.manageWrap)}>{manageLink}</div>}
+	</section>
+);
+
+/**
+ * Below the squad, where extras sort on every other list of people in this app,
+ * and gone entirely when there are none: an empty Extras card on a season
+ * nobody has guested in answers a question nobody asked.
+ */
+const ExtrasSection = ({
+	extras,
+	timezone,
+	showAvailability,
+	pending,
+}: {
+	extras: Player[];
+	timezone: string;
+	showAvailability: boolean;
+	pending: boolean;
+}) => {
+	if (extras.length === 0) return null;
+
+	return (
+		<section {...stylex.props(styles.extras)}>
+			<SectionHeading sx={styles.heading}>Extras ({extras.length})</SectionHeading>
+
+			{/* Says what put somebody here, since this is a list the app works out
+			    rather than one anybody keeps. It also accounts for the dots
+			    underneath, which are mostly grey on this half: an extra answers the
+			    odd game, not the season. */}
+			<p {...stylex.props(styles.blurb)}>Not in the squad, but they have answered a game this season.</p>
+
+			<ListCard>
+				{extras.map(extra => (
+					<PlayerRow
+						key={extra.uid}
+						player={extra}
+						timezone={timezone}
+						showAvailability={showAvailability}
+						pending={pending}
+					/>
+				))}
+			</ListCard>
+		</section>
+	);
+};
+
 const MembersPage = () => {
 	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
 	const { usersByUid } = useUsersByUid();
@@ -213,78 +400,9 @@ const MembersPage = () => {
 			.sort(byDisplayName);
 	}, [season, usersByUid, dotted, responses]);
 
-	if (loading) {
-		return (
-			<SeasonShell title='Club'>
-				<Skeleton />
-			</SeasonShell>
-		);
-	}
-
-	if (error) {
-		return (
-			<SeasonShell title='Club'>
-				<LoadFailed what='the club' onRetry={retry} />
-			</SeasonShell>
-		);
-	}
-
-	if (!season) {
-		return (
-			<SeasonShell title='Club'>
-				<EmptyState title='Season not found' />
-			</SeasonShell>
-		);
-	}
-
-	const fees = feesFor(season);
-
-	// Kit and finances live behind the Club tab rather than a fifth and sixth one
-	// of their own: both are the club's rather than any one game's, who is holding
-	// what and who has paid what, and the tab bar deliberately never grows or
-	// reflows, so a new tab would move every tab beside it on every screen in the
-	// app. The tab is called Club rather than Squad for the same reason. The
-	// roster is one of the three things on it, not the whole screen. All three are
-	// shown to everyone:
-	// anybody in the squad can hand a bag on, and an extra who owes for a game
-	// needs somewhere to go and pay it.
-	//
-	// Above the roster rather than under it. A full squad is eighteen rows, so
-	// underneath meant scrolling past every one of them to find the two things on
-	// this screen that are somewhere to go rather than something to read.
-	const kitLink = (
-		<NavCard
-			href={`/s/${seasonId}/kit`}
-			icon={<ShoppingBagIcon {...stylex.props(styles.linkIcon)} aria-hidden='true' />}
-			title='Kit'
-			// Which kinds, not how many of each, "1 vests" is the sort of thing a
-			// count can't say. The screen itself has the detail.
-			note={
-				kit.length === 0
-					? 'Nothing listed yet'
-					: groupKitByKind(kit)
-							.map(group => KIT_KIND_LABELS[group.kind])
-							.join(' · ')
-			}
-		/>
-	);
-
-	// The summary line is what each person owes rather than a balance, because a
-	// balance would mean subscribing to the whole book from a screen that does not
-	// otherwise read it, and an extra is not allowed to anyway. A member's share is
-	// the bill divided by the squad, so it moves when somebody joins or leaves.
-	const financesLink = (
-		<NavCard
-			href={`/s/${seasonId}/finances`}
-			icon={<BanknotesIcon {...stylex.props(styles.linkIcon)} aria-hidden='true' />}
-			title='Finances'
-			note={
-				fees.total === 0 && fees.perGame === 0
-					? 'Nothing is being collected'
-					: `${formatSek(entryShare(fees.total, season.memberUids.length))} each, ${formatSek(fees.perGame)} a game as an extra`
-			}
-		/>
-	);
+	if (loading) return <NoClub reason='loading' onRetry={retry} />;
+	if (error) return <NoClub reason='error' onRetry={retry} />;
+	if (!season) return <NoClub reason='missing' onRetry={retry} />;
 
 	// In the body rather than the top bar: an admin-only control up there appears
 	// on this screen and no other, which drags the tabs beside it around.
@@ -298,102 +416,35 @@ const MembersPage = () => {
 		</Link>
 	) : null;
 
-	// A failed read takes the dots away and leaves the roster, which is what the
-	// screen is for. It says so out loud rather than drawing nothing, because a
-	// season nobody has answered anything in and a read that never landed are
-	// the same picture, and only one of them is worth pressing something about.
-	const availabilityFailed = (
-		<div {...stylex.props(styles.failed)}>
-			<span {...stylex.props(styles.failedText)}>Couldn&apos;t load who has been playing.</span>
-			<button type='button' onClick={retryAnswers} {...stylex.props(styles.retry)}>
-				Try again
-			</button>
-		</div>
-	);
-
 	return (
 		<SeasonShell title='Club' subtitle={season.name}>
 			{members.length === 0 && extras.length === 0 ? (
-				<EmptyState
-					icon={<UsersIcon />}
-					title='No squad yet'
-					message={
-						isAdmin
-							? 'Add players to build the roster.'
-							: 'An admin has not added anyone to this season yet.'
-					}
-					action={manageLink}
-				/>
+				<NoSquad isAdmin={isAdmin} manageLink={manageLink} />
 			) : (
 				<div {...stylex.props(styles.page)}>
-					<div {...stylex.props(styles.links)}>
-						{kitLink}
-						{financesLink}
-					</div>
+					<ClubLinks seasonId={seasonId} kit={kit} season={season} />
 
-					{dotted.length > 0 &&
-						(answersError ? availabilityFailed : <AvailabilityLegend sx={styles.legend} />)}
+					{dotted.length > 0 && <Dots failed={Boolean(answersError)} onRetry={retryAnswers} />}
 
-					<section>
-						<SectionHeading sx={styles.heading}>Squad ({members.length})</SectionHeading>
-
-						<ListCard>
-							{/* Only reachable with extras below it, which is a real
-							    state a new season passes through: a game is up, an
-							    admin has added nobody, and the first person to answer
-							    is an extra by definition. */}
-							{members.length === 0 && <ListEmpty>Nobody in the squad yet.</ListEmpty>}
-
-							{members.map(member => (
-								<PlayerRow
-									key={member.uid}
-									player={member}
-									timezone={season.slot.timezone}
-									showAvailability={!answersError}
-									pending={answersLoading}
-									trailing={
-										season.adminUids.includes(member.uid) ? (
-											<StatusPill tone='brand'>Admin</StatusPill>
-										) : null
-									}
-								/>
-							))}
-						</ListCard>
-
-						{/* Managing the squad stays under the list it manages. */}
-						{manageLink && <div {...stylex.props(styles.manageWrap)}>{manageLink}</div>}
-					</section>
+					<SquadSection
+						members={members}
+						adminUids={season.adminUids}
+						timezone={season.slot.timezone}
+						showAvailability={!answersError}
+						pending={answersLoading}
+						manageLink={manageLink}
+					/>
 
 					{/* Below the squad, where extras sort on every other list of
 					    people in this app, and gone entirely when there are none: an
 					    empty Extras card on a season nobody has guested in answers a
 					    question nobody asked. */}
-					{extras.length > 0 && (
-						<section {...stylex.props(styles.extras)}>
-							<SectionHeading sx={styles.heading}>Extras ({extras.length})</SectionHeading>
-
-							{/* Says what put somebody here, since this is a list the
-							    app works out rather than one anybody keeps. It also
-							    accounts for the dots underneath, which are mostly grey
-							    on this half: an extra answers the odd game, not the
-							    season. */}
-							<p {...stylex.props(styles.blurb)}>
-								Not in the squad, but they have answered a game this season.
-							</p>
-
-							<ListCard>
-								{extras.map(extra => (
-									<PlayerRow
-										key={extra.uid}
-										player={extra}
-										timezone={season.slot.timezone}
-										showAvailability={!answersError}
-										pending={answersLoading}
-									/>
-								))}
-							</ListCard>
-						</section>
-					)}
+					<ExtrasSection
+						extras={extras}
+						timezone={season.slot.timezone}
+						showAvailability={!answersError}
+						pending={answersLoading}
+					/>
 
 					<p {...stylex.props(styles.note)}>
 						Anyone signed in can put their hand up for a game without being in the squad. A season admin
