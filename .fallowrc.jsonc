@@ -121,6 +121,18 @@
 		"require-suppression-reason": "error",
 	},
 
+	"duplicates": {
+		// A ratchet on the way to zero, not the destination. Duplication reports
+		// and never fails until a threshold exists, which is what left it advisory
+		// while every rule above it was an error. The repo was at 3.99% when this
+		// started; each commit that removes a clone group lowers this number to
+		// just above wherever it now sits, so the figure can only go one way.
+		//
+		// The destination is 0.01, which is how zero tolerance has to be spelled:
+		// fallow reads a literal 0 as "no threshold at all".
+		"threshold": 2.45,
+	},
+
 	"audit": {
 		// Every finding in a file the change touches, not just the ones the
 		// change introduced. The looser `new-only` default is for a repo

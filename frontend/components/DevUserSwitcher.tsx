@@ -1,16 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { BeakerIcon } from '@heroicons/react/24/solid';
 import * as stylex from '@stylexjs/stylex';
+import Sheet from './Sheet';
 import { useAuth, signOutOfApp } from '../lib/auth';
 import { DEV_MODE, loadDevUsers, signInAsDevUser } from '../lib/devUsers';
 import type { DevUser, DevUserFile } from '../lib/devUsers';
 import Avatar from './Avatar';
 import Button from './Button';
 import { bp, colors, tint } from '../app/tokens.stylex';
-import { animations, elevation, sheet, surfaces, utils } from '../lib/styles';
+import { elevation, surfaces } from '../lib/styles';
 
 const styles = stylex.create({
 	/* Clear of the bottom bar on a phone, and of nothing in particular once the
@@ -170,90 +170,73 @@ const DevUserSwitcher = () => {
 				<BeakerIcon {...stylex.props(styles.beaker)} aria-hidden='true' />
 			</button>
 
-			<Dialog open={open} onClose={() => setOpen(false)} {...stylex.props(sheet.dialog)}>
-				<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
+			<Sheet open={open} onClose={() => setOpen(false)} title={<>Sign in as</>} scroll sx={styles.panel}>
+				<p {...stylex.props(styles.blurb)}>
+					{file
+						? `Scenario "${file.scenario}" · ${file.users.length} seeded accounts`
+						: 'No seeded accounts found. Run pnpm seed.'}
+				</p>
 
-				<div {...stylex.props(sheet.positioner)}>
-					<DialogPanel
-						{...stylex.props(
-							surfaces.glass,
-							elevation.lift,
-							animations.rise,
-							utils.mbSafe,
-							sheet.column,
-							styles.panel
-						)}
-					>
-						<DialogTitle {...stylex.props(sheet.title)}>Sign in as</DialogTitle>
+				{user && (
+					<p {...stylex.props(styles.current)}>
+						Currently {user.displayName}
+						{user.isAppAdmin && ' · app admin'}
+					</p>
+				)}
 
-						<p {...stylex.props(styles.blurb)}>
-							{file
-								? `Scenario "${file.scenario}" · ${file.users.length} seeded accounts`
-								: 'No seeded accounts found. Run pnpm seed.'}
-						</p>
+				{file && (
+					<input
+						type='search'
+						value={query}
+						onChange={event => setQuery(event.target.value)}
+						placeholder='Filter by name, email or role'
+						{...stylex.props(styles.filter)}
+					/>
+				)}
 
-						{user && (
-							<p {...stylex.props(styles.current)}>
-								Currently {user.displayName}
-								{user.isAppAdmin && ' · app admin'}
-							</p>
-						)}
-
-						{file && (
-							<input
-								type='search'
-								value={query}
-								onChange={event => setQuery(event.target.value)}
-								placeholder='Filter by name, email or role'
-								{...stylex.props(styles.filter)}
-							/>
-						)}
-
-						<div {...stylex.props(styles.list)}>
-							{matches.map(candidate => (
-								<button
-									key={candidate.uid}
-									type='button'
-									onClick={() => become(candidate)}
-									{...stylex.props(
-										styles.row,
-										candidate.uid === user?.uid ? styles.rowCurrent : styles.rowOther
-									)}
-								>
-									<Avatar displayName={candidate.displayName} photoURL={candidate.photoURL} />
-
-									<span {...stylex.props(styles.rowBody)}>
-										<span {...stylex.props(styles.name)}>{candidate.displayName}</span>
-										<span {...stylex.props(styles.hint)}>{candidate.hint}</span>
-									</span>
-								</button>
-							))}
-
-							{file && matches.length === 0 && (
-								<p {...stylex.props(styles.none)}>Nobody matches &quot;{query}&quot;.</p>
+				<div {...stylex.props(styles.list)}>
+					{matches.map(candidate => (
+						<button
+							key={candidate.uid}
+							type='button'
+							onClick={() => become(candidate)}
+							{...stylex.props(
+								styles.row,
+								candidate.uid === user?.uid ? styles.rowCurrent : styles.rowOther
 							)}
-						</div>
+						>
+							<Avatar displayName={candidate.displayName} photoURL={candidate.photoURL} />
 
-						<div {...stylex.props(styles.actions)}>
-							<Button variant='ghost' fullWidth onClick={() => setOpen(false)}>
-								Close
-							</Button>
-							{user && (
-								<Button
-									variant='secondary'
-									fullWidth
-									onClick={async () => {
-										await signOutOfApp();
-										setOpen(false);
-									}}
-								>
-									Sign out
-								</Button>
-							)}
-						</div>
-					</DialogPanel>
+							<span {...stylex.props(styles.rowBody)}>
+								<span {...stylex.props(styles.name)}>{candidate.displayName}</span>
+								<span {...stylex.props(styles.hint)}>{candidate.hint}</span>
+							</span>
+						</button>
+					))}
+
+					{file && matches.length === 0 && (
+						<p {...stylex.props(styles.none)}>Nobody matches &quot;{query}&quot;.</p>
+					)}
 				</div>
-			</Dialog>
+
+				<div {...stylex.props(styles.actions)}>
+					<Button variant='ghost' fullWidth onClick={() => setOpen(false)}>
+						Close
+					</Button>
+					{user && (
+						<Button
+							variant='secondary'
+							fullWidth
+							onClick={async () => {
+								await signOutOfApp();
+								setOpen(false);
+							}}
+						>
+							Sign out
+						</Button>
+					)}
+				</div>
+			</Sheet>
 		</>
 	);
 };

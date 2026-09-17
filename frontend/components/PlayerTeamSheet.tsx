@@ -1,15 +1,15 @@
 'use client';
 
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { CheckIcon, UserMinusIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import Sheet from './Sheet';
 import type { TournamentTeam } from '@shared/types';
 import { counted } from '@shared/format';
 import Button from './Button';
 import StatusPill from './StatusPill';
 import TeamBadge, { teamName } from './TeamBadge';
 import { colors } from '../app/tokens.stylex';
-import { animations, elevation, press, sheet, surfaces, utils } from '../lib/styles';
+import { press } from '../lib/styles';
 
 const styles = stylex.create({
 	blurb: { color: colors.muted, marginTop: 4, fontSize: 14, lineHeight: '20px' },
@@ -92,78 +92,66 @@ const PlayerTeamSheet = ({
 	const isTheirLastTeammate = currentIndex >= 0 && teams[currentIndex]?.uids.length === 1;
 
 	return (
-		<Dialog open={open} onClose={onClose} {...stylex.props(sheet.dialog)}>
-			<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
+		<Sheet open={open} onClose={onClose} title={<>Where is {displayName}?</>} scroll>
+			<p {...stylex.props(styles.blurb)}>
+				{isTheirLastTeammate
+					? 'They are the last one on their team, so this is a swap for another day, a team with nobody on it still gets a fixture.'
+					: 'The teams stop being re-picked once you move somebody, so from here the sheet is yours to keep straight.'}
+			</p>
 
-			<div {...stylex.props(sheet.positioner)}>
-				<DialogPanel
-					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, sheet.column)}
+			<ul {...stylex.props(styles.list)}>
+				{teams.map(team => {
+					const isCurrent = team.index === currentIndex;
+					const shut = isCurrent || isTheirLastTeammate;
+
+					return (
+						<li key={team.index}>
+							<button
+								type='button'
+								disabled={shut}
+								onClick={async () => {
+									await onMove(team.index);
+									onClose();
+								}}
+								{...stylex.props(styles.option, shut ? styles.shut : press.wash)}
+							>
+								<TeamBadge index={team.index} size='md' />
+								<span {...stylex.props(styles.optionBody)}>
+									<span {...stylex.props(styles.letter)}>Team {teamName(team.index)}</span>
+									<span {...stylex.props(styles.size)}>{counted(team.uids.length, 'player')}</span>
+								</span>
+								{isCurrent && (
+									<StatusPill tone='brand'>
+										<CheckIcon {...stylex.props(styles.check)} aria-hidden='true' />
+										Here now
+									</StatusPill>
+								)}
+							</button>
+						</li>
+					);
+				})}
+			</ul>
+
+			{currentIndex >= 0 && (
+				<Button
+					variant='danger'
+					fullWidth
+					disabled={isTheirLastTeammate}
+					sx={styles.off}
+					onClick={async () => {
+						await onMove(null);
+						onClose();
+					}}
 				>
-					<DialogTitle {...stylex.props(sheet.title)}>Where is {displayName}?</DialogTitle>
+					<UserMinusIcon {...stylex.props(styles.icon)} aria-hidden='true' />
+					Off the team sheet
+				</Button>
+			)}
 
-					<p {...stylex.props(styles.blurb)}>
-						{isTheirLastTeammate
-							? 'They are the last one on their team, so this is a swap for another day, a team with nobody on it still gets a fixture.'
-							: 'The teams stop being re-picked once you move somebody, so from here the sheet is yours to keep straight.'}
-					</p>
-
-					<ul {...stylex.props(styles.list)}>
-						{teams.map(team => {
-							const isCurrent = team.index === currentIndex;
-							const shut = isCurrent || isTheirLastTeammate;
-
-							return (
-								<li key={team.index}>
-									<button
-										type='button'
-										disabled={shut}
-										onClick={async () => {
-											await onMove(team.index);
-											onClose();
-										}}
-										{...stylex.props(styles.option, shut ? styles.shut : press.wash)}
-									>
-										<TeamBadge index={team.index} size='md' />
-										<span {...stylex.props(styles.optionBody)}>
-											<span {...stylex.props(styles.letter)}>Team {teamName(team.index)}</span>
-											<span {...stylex.props(styles.size)}>
-												{counted(team.uids.length, 'player')}
-											</span>
-										</span>
-										{isCurrent && (
-											<StatusPill tone='brand'>
-												<CheckIcon {...stylex.props(styles.check)} aria-hidden='true' />
-												Here now
-											</StatusPill>
-										)}
-									</button>
-								</li>
-							);
-						})}
-					</ul>
-
-					{currentIndex >= 0 && (
-						<Button
-							variant='danger'
-							fullWidth
-							disabled={isTheirLastTeammate}
-							sx={styles.off}
-							onClick={async () => {
-								await onMove(null);
-								onClose();
-							}}
-						>
-							<UserMinusIcon {...stylex.props(styles.icon)} aria-hidden='true' />
-							Off the team sheet
-						</Button>
-					)}
-
-					<Button variant='ghost' fullWidth onClick={onClose} sx={styles.cancel}>
-						Cancel
-					</Button>
-				</DialogPanel>
-			</div>
-		</Dialog>
+			<Button variant='ghost' fullWidth onClick={onClose} sx={styles.cancel}>
+				Cancel
+			</Button>
+		</Sheet>
 	);
 };
 

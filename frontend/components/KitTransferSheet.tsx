@@ -1,16 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { CheckIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import Sheet from './Sheet';
 import type { AppUser, KitItem } from '@shared/types';
 import Avatar from './Avatar';
 import Button from './Button';
 import StatusPill from './StatusPill';
 import { SearchInput } from './Field';
 import { colors } from '../app/tokens.stylex';
-import { animations, elevation, press, sheet, surfaces, utils } from '../lib/styles';
+import { press, utils } from '../lib/styles';
 
 const styles = stylex.create({
 	blurb: { color: colors.muted, marginTop: 4, fontSize: 14, lineHeight: '20px' },
@@ -99,64 +99,54 @@ const KitTransferSheet = ({
 	}, [squad, search]);
 
 	return (
-		<Dialog open={open && !!item} onClose={onClose} {...stylex.props(sheet.dialog)}>
-			<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
+		<Sheet open={open && !!item} onClose={onClose} title={<>Who has {item?.name}?</>} scroll>
+			<p {...stylex.props(styles.blurb)}>
+				Pick whoever is taking it home. Anyone in the squad can change this later.
+			</p>
 
-			<div {...stylex.props(sheet.positioner)}>
-				<DialogPanel
-					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, sheet.column)}
-				>
-					<DialogTitle {...stylex.props(sheet.title)}>Who has {item?.name}?</DialogTitle>
+			<SearchInput
+				label='Search the squad'
+				value={search}
+				onChange={e => setSearch(e.target.value)}
+				placeholder='Search the squad'
+				sx={styles.field}
+			/>
 
-					<p {...stylex.props(styles.blurb)}>
-						Pick whoever is taking it home. Anyone in the squad can change this later.
-					</p>
+			<ul {...stylex.props(styles.list)}>
+				{matches.length === 0 && <li {...stylex.props(styles.none)}>Nobody matches that search.</li>}
 
-					<SearchInput
-						label='Search the squad'
-						value={search}
-						onChange={e => setSearch(e.target.value)}
-						placeholder='Search the squad'
-						sx={styles.field}
-					/>
+				{matches.map(member => {
+					const isHolder = member.uid === item?.holderUid;
 
-					<ul {...stylex.props(styles.list)}>
-						{matches.length === 0 && <li {...stylex.props(styles.none)}>Nobody matches that search.</li>}
+					return (
+						<li key={member.uid}>
+							<button
+								type='button'
+								disabled={isHolder}
+								onClick={async () => {
+									await onTransfer(member.uid);
+									onClose();
+								}}
+								{...stylex.props(styles.option, isHolder ? styles.holder : press.wash)}
+							>
+								<Avatar displayName={member.displayName} photoURL={member.photoURL} size='sm' />
+								<span {...stylex.props(styles.name, utils.truncate)}>{member.displayName}</span>
+								{isHolder && (
+									<StatusPill tone='brand'>
+										<CheckIcon {...stylex.props(styles.check)} aria-hidden='true' />
+										Has it
+									</StatusPill>
+								)}
+							</button>
+						</li>
+					);
+				})}
+			</ul>
 
-						{matches.map(member => {
-							const isHolder = member.uid === item?.holderUid;
-
-							return (
-								<li key={member.uid}>
-									<button
-										type='button'
-										disabled={isHolder}
-										onClick={async () => {
-											await onTransfer(member.uid);
-											onClose();
-										}}
-										{...stylex.props(styles.option, isHolder ? styles.holder : press.wash)}
-									>
-										<Avatar displayName={member.displayName} photoURL={member.photoURL} size='sm' />
-										<span {...stylex.props(styles.name, utils.truncate)}>{member.displayName}</span>
-										{isHolder && (
-											<StatusPill tone='brand'>
-												<CheckIcon {...stylex.props(styles.check)} aria-hidden='true' />
-												Has it
-											</StatusPill>
-										)}
-									</button>
-								</li>
-							);
-						})}
-					</ul>
-
-					<Button variant='ghost' fullWidth onClick={onClose} sx={styles.cancel}>
-						Cancel
-					</Button>
-				</DialogPanel>
-			</div>
-		</Dialog>
+			<Button variant='ghost' fullWidth onClick={onClose} sx={styles.cancel}>
+				Cancel
+			</Button>
+		</Sheet>
 	);
 };
 

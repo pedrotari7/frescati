@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import * as stylex from '@stylexjs/stylex';
+import Sheet from './Sheet';
 import type { KitItem } from '@shared/types';
 import Button from './Button';
 import { TextInput } from './Field';
 import { colors } from '../app/tokens.stylex';
-import { animations, elevation, sheet, surfaces, utils } from '../lib/styles';
 
 const styles = stylex.create({
 	/* Sheet from the bottom on a phone, centred once there's room. */
@@ -59,51 +58,41 @@ const KitRenameSheet = ({
 	};
 
 	return (
-		<Dialog open={open && !!item} onClose={onClose} {...stylex.props(sheet.dialog)}>
-			<div {...stylex.props(sheet.scrim)} aria-hidden='true' />
+		<Sheet open={open && !!item} onClose={onClose} title={<>Rename {item?.name}</>}>
+			<p {...stylex.props(styles.blurb)}>
+				Only what it&apos;s called. What kind of kit it is, and who has it, stay as they are.
+			</p>
 
-			<div {...stylex.props(sheet.positioner)}>
-				<DialogPanel
-					{...stylex.props(surfaces.glass, elevation.lift, animations.rise, utils.mbSafe, sheet.panel)}
-				>
-					<DialogTitle {...stylex.props(sheet.title)}>Rename {item?.name}</DialogTitle>
-
-					<p {...stylex.props(styles.blurb)}>
-						Only what it&apos;s called. What kind of kit it is, and who has it, stay as they are.
-					</p>
-
-					{/* A form so the phone keyboard's Go key saves, this is a
+			{/* A form so the phone keyboard's Go key saves, this is a
 					    one-field sheet and reaching for a button is the long way
 					    round. Save submits it rather than carrying its own
 					    handler, so a tap and the Go key go down one path. */}
-					<form
-						onSubmit={event => {
-							event.preventDefault();
-							void save();
-						}}
-					>
-						<TextInput
-							value={name}
-							onChange={e => setName(e.target.value)}
-							aria-label='Name'
-							placeholder='Match ball'
-							maxLength={60}
-							autoFocus
-							sx={styles.field}
-						/>
+			<form
+				onSubmit={event => {
+					event.preventDefault();
+					void save();
+				}}
+			>
+				<TextInput
+					value={name}
+					onChange={e => setName(e.target.value)}
+					aria-label='Name'
+					placeholder='Match ball'
+					maxLength={60}
+					autoFocus
+					sx={styles.field}
+				/>
 
-						<div {...stylex.props(styles.actions)}>
-							<Button variant='primary' type='submit' fullWidth disabled={!savable}>
-								Save
-							</Button>
-							<Button variant='ghost' fullWidth onClick={onClose}>
-								Cancel
-							</Button>
-						</div>
-					</form>
-				</DialogPanel>
-			</div>
-		</Dialog>
+				<div {...stylex.props(styles.actions)}>
+					<Button variant='primary' type='submit' fullWidth disabled={!savable}>
+						Save
+					</Button>
+					<Button variant='ghost' fullWidth onClick={onClose}>
+						Cancel
+					</Button>
+				</div>
+			</form>
+		</Sheet>
 	);
 };
 
