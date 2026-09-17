@@ -39,8 +39,9 @@
  */
 
 import type { RatingLedgerEntry, TournamentTeams } from '../../shared/types';
-import { counted, plural } from '../../shared/format';
-import { applyUpdates, runScript } from './lib/script';
+import { backfillLedger } from './lib/ledger';
+import type { Derived } from './lib/ledger';
+import { runScript } from './lib/script';
 import type { ScriptContext } from './lib/script';
 
 const sameSquad = (a: string[], b: string[]): boolean => {
@@ -50,32 +51,11 @@ const sameSquad = (a: string[], b: string[]): boolean => {
 	return sortedA.length === sortedB.length && sortedA.every((uid, index) => uid === sortedB[index]);
 };
 
-export const main = async ({ db, dryRun }: ScriptContext) => {
-	// The whole collection, which is one document per rated game. A group
-	// playing weekly takes twenty years to make this a page worth splitting.
-	const ledger = await db.collection('ratingLedger').get();
-	const missing = ledger.docs.filter(doc => !(doc.data() as RatingLedgerEntry).teams);
+export const main = async (context: ScriptContext): Promise<void> => {
+	const teamsFor = async (entry: RatingLedgerEntry): Promise<Derived<Record<string, number>>> => {
+		const sheet = await context.db.doc(`seasons/${entry.seasonId}/games/${entry.gameId}/tournament/teams`).get();
 
-	console.log(`${counted(ledger.size, 'rated game')}, ${missing.length} with no team map.`);
-
-	if (missing.length === 0) {
-		console.log('Nothing to do.');
-		return;
-	}
-
-	const writes: { ref: FirebaseFirestore.DocumentReference; teams: Record<string, number>; label: string }[] = [];
-	let skipped = 0;
-
-	for (const doc of missing) {
-		const entry = doc.data() as RatingLedgerEntry;
-		const label = `${entry.kickoff.slice(0, 10)}  ratingLedger/${doc.id}`;
-		const sheet = await db.doc(`seasons/${entry.seasonId}/games/${entry.gameId}/tournament/teams`).get();
-
-		if (!sheet.exists) {
-			skipped++;
-			console.error(`  no team sheet, skipped: ${label}`);
-			continue;
-		}
+		if (!sheet.exists) return { skip: 'no team sheet' };
 
 		const teams = Object.fromEntries(
 			(sheet.data() as TournamentTeams).teams.flatMap(team => team.uids.map(uid => [uid, team.index]))
@@ -85,34 +65,20 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 		// somehow rewritten after the ratings were applied, in which case the
 		// sheet is no longer what this entry was computed against, and copying it
 		// across would record teams nobody played on.
-		if (!sameSquad(Object.keys(teams), Object.keys(entry.positions ?? {}))) {
-			skipped++;
-			console.error(`  team sheet disagrees with the ledger, skipped: ${label}`);
-			continue;
-		}
+		if (!sameSquad(Object.keys(teams), Object.keys(entry.positions ?? {})))
+			return { skip: 'team sheet disagrees with the ledger' };
 
-		writes.push({ ref: doc.ref, teams, label });
-	}
+		return { value: teams };
+	};
 
-	if (dryRun) {
-		for (const write of writes.slice(0, 10)) {
-			console.log(`  would write ${Object.keys(write.teams).length} players: ${write.label}`);
-		}
-		if (writes.length > 10) console.log(`  ...and ${writes.length - 10} more`);
-		console.log('\nDry run, nothing written.');
-		return;
-	}
-
-	await applyUpdates(
-		db,
-		writes.map(write => ({ ref: write.ref, data: { teams: write.teams } }))
-	);
-
-	console.log(
-		`\nDone. ${counted(writes.length, 'entry', 'entries')} now ${plural(writes.length, 'says', 'say')} who played with whom` +
-			`${skipped > 0 ? `, ${skipped} skipped` : ''}.`
-	);
-	if (skipped > 0) console.error(`${skipped} could not be filled in, see above.`);
+	await backfillLedger(context, {
+		field: 'teams',
+		needs: entry => !entry.teams,
+		found: missing => `${missing} with no team map.`,
+		derive: teamsFor,
+		describe: teams => `${Object.keys(teams).length} players`,
+		wrote: 'who played with whom',
+	});
 };
 
 // Only when run as a command, so a test can import `main` and drive it
