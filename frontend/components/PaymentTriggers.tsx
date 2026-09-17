@@ -13,16 +13,11 @@ import Button from './Button';
 import SwishPay from './SwishPay';
 import { Field, TextInput } from './Field';
 import { colors, fonts } from '../app/tokens.stylex';
-import { surfaces, text } from '../lib/styles';
+import { panel, surfaces, text } from '../lib/styles';
 
 const NOTHING: SwishPayment = { payee: '', amount: 0, message: '' };
 
 const styles = stylex.create({
-	card: { borderRadius: 16, padding: 20 },
-	head: { marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 },
-	headIcon: { color: colors.muted, width: 20, height: 20 },
-	title: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
-	blurb: { color: colors.muted, marginBottom: 16, fontSize: 14, lineHeight: 1.625 },
 	warning: { color: colors.pending, marginBottom: 20, fontSize: 12, lineHeight: 1.625 },
 
 	fields: { display: 'flex', flexDirection: 'column', gap: 16 },
@@ -119,13 +114,13 @@ const PaymentTriggers = ({ season, displayName }: { season: Season | null; displ
 	const link = payable ? swishAppUrl(payment) : null;
 
 	return (
-		<section {...stylex.props(surfaces.glass, styles.card)}>
-			<div {...stylex.props(styles.head)}>
-				<BanknotesIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
-				<h2 {...stylex.props(styles.title)}>Take a payment on purpose</h2>
+		<section {...stylex.props(surfaces.glass, panel.card)}>
+			<div {...stylex.props(panel.head)}>
+				<BanknotesIcon {...stylex.props(panel.headIcon)} aria-hidden='true' />
+				<h2 {...stylex.props(panel.title)}>Take a payment on purpose</h2>
 			</div>
 
-			<p {...stylex.props(styles.blurb)}>
+			<p {...stylex.props(panel.blurb)}>
 				The same panel a player sees when they owe money, built from the season you picked above, with no charge
 				raised against anybody. Scan it with the phone you want to test. Nothing here writes to the books.
 			</p>

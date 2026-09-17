@@ -11,14 +11,9 @@ import { useWrite } from '../hooks/useWrite';
 import { useToast } from '../components/Toast';
 import Button from './Button';
 import { colors, fonts, tint } from '../app/tokens.stylex';
-import { surfaces, text } from '../lib/styles';
+import { panel, surfaces, text } from '../lib/styles';
 
 const styles = stylex.create({
-	card: { borderRadius: 16, padding: 20 },
-	head: { marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 },
-	headIcon: { color: colors.muted, width: 20, height: 20 },
-	title: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
-	blurb: { color: colors.muted, marginBottom: 16, fontSize: 14, lineHeight: 1.625 },
 	/* A script name in the middle of a sentence. `1em` because the browser draws
 	   its own `<code>` a size smaller than whatever it sits in, and there is no
 	   preflight rule putting that back any more. */
@@ -74,6 +69,26 @@ interface Trigger {
 	description: string;
 	run: () => void | Promise<void>;
 }
+
+/**
+ * One thing that can be broken, and the button that breaks it.
+ *
+ * The two lists below draw the same row and differ only in where the break
+ * happens, here or in the functions, so the handler comes from the caller and
+ * the row knows nothing about either.
+ */
+const TriggerRow = ({ trigger, onRun }: { trigger: Pick<Trigger, 'label' | 'description'>; onRun: () => void }) => (
+	<div {...stylex.props(styles.row)}>
+		<div {...stylex.props(styles.rowBody)}>
+			<p {...stylex.props(styles.label)}>{trigger.label}</p>
+			<p {...stylex.props(styles.description)}>{trigger.description}</p>
+		</div>
+
+		<Button size='sm' variant='secondary' onClick={onRun}>
+			Break it
+		</Button>
+	</div>
+);
 
 const ErrorTriggers = () => {
 	const { notify } = useToast();
@@ -162,13 +177,13 @@ const ErrorTriggers = () => {
 	};
 
 	return (
-		<section {...stylex.props(surfaces.glass, styles.card)}>
-			<div {...stylex.props(styles.head)}>
-				<BugAntIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
-				<h2 {...stylex.props(styles.title)}>Break something on purpose</h2>
+		<section {...stylex.props(surfaces.glass, panel.card)}>
+			<div {...stylex.props(panel.head)}>
+				<BugAntIcon {...stylex.props(panel.headIcon)} aria-hidden='true' />
+				<h2 {...stylex.props(panel.title)}>Break something on purpose</h2>
 			</div>
 
-			<p {...stylex.props(styles.blurb)}>
+			<p {...stylex.props(panel.blurb)}>
 				Each of these fails a different way, on purpose, so you can watch it arrive in Sentry. Nothing here
 				changes a game, a rating or anybody&apos;s data.
 			</p>
@@ -177,16 +192,7 @@ const ErrorTriggers = () => {
 
 			<div>
 				{frontend.map(trigger => (
-					<div key={trigger.id} {...stylex.props(styles.row)}>
-						<div {...stylex.props(styles.rowBody)}>
-							<p {...stylex.props(styles.label)}>{trigger.label}</p>
-							<p {...stylex.props(styles.description)}>{trigger.description}</p>
-						</div>
-
-						<Button size='sm' variant='secondary' onClick={() => void trigger.run()}>
-							Break it
-						</Button>
-					</div>
+					<TriggerRow key={trigger.id} trigger={trigger} onRun={() => void trigger.run()} />
 				))}
 			</div>
 
@@ -194,16 +200,7 @@ const ErrorTriggers = () => {
 
 			<div>
 				{backend.map(trigger => (
-					<div key={trigger.kind} {...stylex.props(styles.row)}>
-						<div {...stylex.props(styles.rowBody)}>
-							<p {...stylex.props(styles.label)}>{trigger.label}</p>
-							<p {...stylex.props(styles.description)}>{trigger.description}</p>
-						</div>
-
-						<Button size='sm' variant='secondary' onClick={() => void fireBackend(trigger.kind)}>
-							Break it
-						</Button>
-					</div>
+					<TriggerRow key={trigger.kind} trigger={trigger} onRun={() => void fireBackend(trigger.kind)} />
 				))}
 			</div>
 
