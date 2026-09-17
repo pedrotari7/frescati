@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { CheckCircleIcon, CheckIcon, XCircleIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import * as stylex from '@stylexjs/stylex';
 import type { StyleXStyles } from '@stylexjs/stylex';
-import type { GameResponse, ResponseStatus } from '@shared/types';
+import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { getExtraSpot } from '@shared/game';
 import { formatSek } from '@shared/format';
 import { bp, colors, shadows, tint } from '../app/tokens.stylex';
@@ -182,6 +182,38 @@ export interface DebtLock {
 	outstanding: number;
 	/** The season's books, where the charge behind the lock is. */
 	href: string;
+}
+
+/**
+ * What a card has to be handed to show one game and let somebody answer it.
+ *
+ * `NextGameHero` at the top of a season and the `GameRow`s under it are the two
+ * that do, and they take the same nine things. They were two copies of this
+ * list, comments and all, which is two places to add the next one to and one of
+ * them to forget.
+ *
+ * Here rather than in either of them because they already share this file's
+ * vocabulary: both import `DebtLock` from it to say what an unpaid charge does
+ * to the button they are wrapped around.
+ */
+export interface GameAnswer {
+	game: Game;
+	season: Season;
+	myResponse: GameResponse | undefined;
+	watching?: boolean;
+	/** Set when this player owes the season money. Takes the In half, and only that. */
+	debtLock?: DebtLock;
+	/** Passed in rather than read here, so everything on a screen agrees on the time. */
+	now: Date;
+	onRespond: (status: ResponseStatus) => Promise<void>;
+	onClear: () => Promise<void>;
+	/**
+	 * Left off when nobody is signed in, no handler, no bell, rather than a dead
+	 * one. The state behind it belongs to the screen rather than to the card: one
+	 * that fetched its own would be a listener per row, which is the whole reason
+	 * these are drawn off the denormalised `counts` in the first place.
+	 */
+	onWatchChange?: (next: boolean) => void;
 }
 
 /**

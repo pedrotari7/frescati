@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarDaysIcon, CalendarIcon, UsersIcon } from '@heroicons/react/24/outline';
@@ -85,6 +86,22 @@ const styles = stylex.create({
 
 	error: { color: colors.out, fontSize: 14, lineHeight: '20px' },
 });
+
+/**
+ * One headed group of settings on this form, above a rule.
+ *
+ * Team selection and the money are both a title, a sentence saying what the
+ * fields under it change, and a stack of them. The rule at the top is what
+ * separates a group from the plain fields above it.
+ */
+const SettingsBlock = ({ title, note, children }: { title: string; note: ReactNode; children: ReactNode }) => (
+	<div {...stylex.props(styles.block)}>
+		<h3 {...stylex.props(styles.blockTitle)}>{title}</h3>
+		<p {...stylex.props(styles.blockNote)}>{note}</p>
+
+		<div {...stylex.props(styles.stack)}>{children}</div>
+	</div>
+);
 
 // fallow-ignore-next-line complexity -- cognitive 26 against a ceiling of 15, pre-existing and untouched by this change: sharing the slot fields shortened the file without moving any of its branching. 455 lines, 14 hooks and JSX eight deep, which is four screens of settings in one component. It wants splitting along the headings it already has, and that is its own change with its own review.
 const SeasonAdminPage = () => {
@@ -367,114 +384,105 @@ const SeasonAdminPage = () => {
 							/>
 						</Field>
 
-						<div {...stylex.props(styles.block)}>
-							<h3 {...stylex.props(styles.blockTitle)}>Team selection</h3>
-							<p {...stylex.props(styles.blockNote)}>
-								Teams are picked automatically from who is in and re-picked whenever somebody changes
-								their answer. These change how.
-							</p>
+						<SettingsBlock
+							title='Team selection'
+							note='Teams are picked automatically from who is in and re-picked whenever somebody changes their answer. These change how.'
+						>
+							<Field
+								label='Match length'
+								hint='Minutes per match. The rotation repeats to fill the slot, so shorter matches mean more of them.'
+							>
+								<TextInput
+									type='number'
+									inputMode='numeric'
+									min={1}
+									value={form.matchMinutes}
+									onChange={e => setForm({ ...form, matchMinutes: e.target.value })}
+								/>
+							</Field>
 
-							<div {...stylex.props(styles.stack)}>
-								<Field
-									label='Match length'
-									hint='Minutes per match. The rotation repeats to fill the slot, so shorter matches mean more of them.'
-								>
-									<TextInput
-										type='number'
-										inputMode='numeric'
-										min={1}
-										value={form.matchMinutes}
-										onChange={e => setForm({ ...form, matchMinutes: e.target.value })}
-									/>
-								</Field>
+							<Field
+								label='Variety'
+								hint='At zero the same players get the same teams every week. Higher accepts slightly less even sides in exchange for a fresh mix.'
+							>
+								<RangeInput
+									min={0}
+									max={100}
+									step={5}
+									value={form.randomness}
+									valueLabel={`${form.randomness}%`}
+									onChange={e => setForm({ ...form, randomness: Number(e.target.value) })}
+								/>
+							</Field>
 
-								<Field
-									label='Variety'
-									hint='At zero the same players get the same teams every week. Higher accepts slightly less even sides in exchange for a fresh mix.'
-								>
-									<RangeInput
-										min={0}
-										max={100}
-										step={5}
-										value={form.randomness}
-										valueLabel={`${form.randomness}%`}
-										onChange={e => setForm({ ...form, randomness: Number(e.target.value) })}
-									/>
-								</Field>
+							<Field
+								label='Split up regulars'
+								hint='How hard to avoid pairing players who were teammates recently.'
+							>
+								<RangeInput
+									min={0}
+									max={100}
+									step={5}
+									value={form.repeatPenalty}
+									valueLabel={`${form.repeatPenalty}%`}
+									onChange={e => setForm({ ...form, repeatPenalty: Number(e.target.value) })}
+								/>
+							</Field>
 
-								<Field
-									label='Split up regulars'
-									hint='How hard to avoid pairing players who were teammates recently.'
-								>
-									<RangeInput
-										min={0}
-										max={100}
-										step={5}
-										value={form.repeatPenalty}
-										valueLabel={`${form.repeatPenalty}%`}
-										onChange={e => setForm({ ...form, repeatPenalty: Number(e.target.value) })}
-									/>
-								</Field>
+							<Field label='Looking back' hint='How many past games count as recent.'>
+								<TextInput
+									type='number'
+									inputMode='numeric'
+									min={1}
+									value={form.repeatLookback}
+									onChange={e => setForm({ ...form, repeatLookback: e.target.value })}
+								/>
+							</Field>
+						</SettingsBlock>
 
-								<Field label='Looking back' hint='How many past games count as recent.'>
-									<TextInput
-										type='number'
-										inputMode='numeric'
-										min={1}
-										value={form.repeatLookback}
-										onChange={e => setForm({ ...form, repeatLookback: e.target.value })}
-									/>
-								</Field>
-							</div>
-						</div>
+						<SettingsBlock
+							title='The money'
+							note='What the season costs and what an extra pays. Who has paid it is on the finances screen.'
+						>
+							<Field
+								label='Season cost'
+								hint={`Kronor for the whole season, split equally between the members. ${describeShare}`}
+							>
+								<TextInput
+									type='number'
+									inputMode='numeric'
+									min={0}
+									value={form.seasonCost}
+									onChange={e => setForm({ ...form, seasonCost: e.target.value })}
+								/>
+							</Field>
 
-						<div {...stylex.props(styles.block)}>
-							<h3 {...stylex.props(styles.blockTitle)}>The money</h3>
-							<p {...stylex.props(styles.blockNote)}>
-								What the season costs and what an extra pays. Who has paid it is on the finances screen.
-							</p>
+							<Field
+								label="An extra's fee"
+								hint='Kronor per game, charged to an extra who was confirmed and turned up. Zero if extras play free.'
+							>
+								<TextInput
+									type='number'
+									inputMode='numeric'
+									min={0}
+									value={form.perGameFee}
+									onChange={e => setForm({ ...form, perGameFee: e.target.value })}
+								/>
+							</Field>
 
-							<div {...stylex.props(styles.stack)}>
-								<Field
-									label='Season cost'
-									hint={`Kronor for the whole season, split equally between the members. ${describeShare}`}
-								>
-									<TextInput
-										type='number'
-										inputMode='numeric'
-										min={0}
-										value={form.seasonCost}
-										onChange={e => setForm({ ...form, seasonCost: e.target.value })}
-									/>
-								</Field>
-
-								<Field
-									label="An extra's fee"
-									hint='Kronor per game, charged to an extra who was confirmed and turned up. Zero if extras play free.'
-								>
-									<TextInput
-										type='number'
-										inputMode='numeric'
-										min={0}
-										value={form.perGameFee}
-										onChange={e => setForm({ ...form, perGameFee: e.target.value })}
-									/>
-								</Field>
-
-								<Field
-									label='Swish number'
-									hint='The number that collects. Anybody paying gets a QR code for it with the amount and the reference already filled in.'
-								>
-									<TextInput
-										value={form.swish}
-										onChange={e => setForm({ ...form, swish: e.target.value })}
-										placeholder='0701234567'
-										inputMode='tel'
-										maxLength={20}
-									/>
-								</Field>
-							</div>
-						</div>
+							<Field
+								label='Swish number'
+								hint='The number that collects. Anybody paying gets a QR code for it with the amount and the reference already filled in.'
+							>
+								<TextInput
+									value={form.swish}
+									onChange={e => setForm({ ...form, swish: e.target.value })}
+									placeholder='0701234567'
+									inputMode='tel'
+									maxLength={20}
+								/>
+							</Field>
+						</SettingsBlock>
 
 						{/* Seeding once means this form can go stale, so it says so
 						    rather than letting an admin save an hour-old copy over
