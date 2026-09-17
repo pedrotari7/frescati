@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { CalendarDaysIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { groupGames } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
 import { useAuth } from '../../../../lib/auth';
@@ -16,6 +17,7 @@ import EmptyState from '../../../../components/EmptyState';
 import LoadFailed from '../../../../components/LoadFailed';
 import NextGameHero from '../../../../components/NextGameHero';
 import GameRow from '../../../../components/GameRow';
+import type { DebtLock } from '../../../../components/RespondControl';
 import MotmVoteCallout from '../../../../components/MotmVoteCallout';
 import SeasonDebtNotice from '../../../../components/SeasonDebtNotice';
 import Button from '../../../../components/Button';
@@ -34,6 +36,149 @@ const styles = stylex.create({
 	playedHead: { marginBottom: 12 },
 });
 
+/**
+ * Everything a game row needs that is the same for every game on this screen.
+ *
+ * Bundled rather than threaded one prop at a time, because the two lists below
+ * differ in exactly one thing, whether the games in them can still be followed,
+ * and a shape that says so keeps that the only difference.
+ */
+interface Answering {
+	season: Season;
+	myResponses: Record<string, GameResponse | undefined>;
+	debtLock?: DebtLock;
+	now: Date;
+	onRespond: (gameId: string, status: ResponseStatus) => Promise<void>;
+	onClear: (gameId: string) => Promise<void>;
+}
+
+/** Following games, where somebody is signed in to follow them. */
+interface Watching {
+	isWatching: (gameId: string) => boolean;
+	toggle: (gameId: string, next: boolean) => void;
+}
+
+/** Why there is no season home yet, drawn as the screen. A tab root, so no chevron. */
+const NoHome = ({ reason, onRetry }: { reason: 'loading' | 'error' | 'missing'; onRetry: () => void }) => (
+	<SeasonShell title={reason === 'missing' ? 'Season' : 'Frescati'}>
+		{reason === 'loading' && <Skeleton />}
+		{reason === 'error' && <LoadFailed what='this season' onRetry={onRetry} />}
+		{reason === 'missing' && (
+			<EmptyState title='Season not found' message='It may have been deleted, or the link is wrong.' />
+		)}
+	</SeasonShell>
+);
+
+/**
+ * The next game, or the reason there isn't one, which reads differently to the
+ * person who can do something about it.
+ */
+const NextUp = ({
+	next,
+	answering,
+	isExtra,
+	isAdmin,
+	watch,
+}: {
+	next: Game | null;
+	answering: Answering;
+	isExtra: boolean;
+	isAdmin: boolean;
+	watch?: Watching;
+}) => {
+	if (!next) {
+		return (
+			<EmptyState
+				icon={<CalendarDaysIcon />}
+				title='No games scheduled'
+				message={
+					isAdmin
+						? 'Generate the season calendar from the admin settings.'
+						: 'Nothing on the calendar yet. An admin will add games soon.'
+				}
+			/>
+		);
+	}
+
+	return (
+		<NextGameHero
+			game={next}
+			season={answering.season}
+			myResponse={answering.myResponses[next.id]}
+			isExtra={isExtra}
+			watching={watch ? watch.isWatching(next.id) : false}
+			debtLock={answering.debtLock}
+			now={answering.now}
+			onRespond={status => answering.onRespond(next.id, status)}
+			onClear={() => answering.onClear(next.id)}
+			onWatchChange={watch && (following => watch.toggle(next.id, following))}
+		/>
+	);
+};
+
+/** A stack of games, with a bell on them only where one would do anything. */
+const GameRows = ({ games, answering, watch }: { games: Game[]; answering: Answering; watch?: Watching }) => (
+	<div {...stylex.props(styles.rows)}>
+		{games.map(game => (
+			<GameRow
+				key={game.id}
+				game={game}
+				season={answering.season}
+				myResponse={answering.myResponses[game.id]}
+				watching={watch ? watch.isWatching(game.id) : false}
+				debtLock={answering.debtLock}
+				now={answering.now}
+				onRespond={status => answering.onRespond(game.id, status)}
+				onClear={() => answering.onClear(game.id)}
+				onWatchChange={watch && (following => watch.toggle(game.id, following))}
+			/>
+		))}
+	</div>
+);
+
+/**
+ * The votes still open, straight under the next game, because they are the only
+ * things on this screen with a deadline on them and the only ones that go away
+ * unanswered. Above Subscribe to calendar, which is here every week where this
+ * is here for two days.
+ *
+ * Each is a card with a way in rather than a row with a pill, and it leads to
+ * the team sheet, where the ballot is and where the notification about it lands.
+ * The game page is a headcount for a game already played.
+ */
+const VotingSection = ({ games, season, now }: { games: Game[]; season: Season; now: Date }) => {
+	if (games.length === 0) return null;
+
+	return (
+		<section>
+			<SectionHeading sx={styles.heading}>Man of the match</SectionHeading>
+			<div {...stylex.props(styles.rows)}>
+				{games.map(game => (
+					<MotmVoteCallout key={game.id} game={game} season={season} now={now} />
+				))}
+			</div>
+		</section>
+	);
+};
+
+/**
+ * The games still to come, and the only list here handed a bell.
+ *
+ * `voting` and `played` are finished by construction, the same fact
+ * `isWatchable` reads to refuse one, so a game already behind us would draw
+ * nothing with the props anyway.
+ */
+const ComingUp = ({ games, answering, watch }: { games: Game[]; answering: Answering; watch?: Watching }) => {
+	if (games.length === 0) return null;
+
+	return (
+		<section>
+			<SectionHeading sx={styles.heading}>Coming up</SectionHeading>
+			<GameRows games={games} answering={answering} watch={watch} />
+		</section>
+	);
+};
+
 const SeasonHomePage = () => {
 	const { seasonId, season, games, myResponses, loading, error, retry, isAdmin, role, debt, debtLock } =
 		useSeasonContext();
@@ -46,6 +191,7 @@ const SeasonHomePage = () => {
 	// row would put back exactly the listener-per-row that arrangement exists to
 	// avoid, so this asks once, for every game followed anywhere.
 	const { isWatching, canWatch, toggleWatch } = useWatchGames(seasonId);
+	const watch = canWatch ? { isWatching, toggle: toggleWatch } : undefined;
 	const [showPast, setShowPast] = useState(false);
 	const [subscribeOpen, setSubscribeOpen] = useState(false);
 	const now = useNow();
@@ -66,29 +212,11 @@ const SeasonHomePage = () => {
 		[games, season, now]
 	);
 
-	if (loading) {
-		return (
-			<SeasonShell title='Frescati'>
-				<Skeleton />
-			</SeasonShell>
-		);
-	}
+	if (loading) return <NoHome reason='loading' onRetry={retry} />;
+	if (error) return <NoHome reason='error' onRetry={retry} />;
+	if (!season) return <NoHome reason='missing' onRetry={retry} />;
 
-	if (error) {
-		return (
-			<SeasonShell title='Frescati'>
-				<LoadFailed what='this season' onRetry={retry} />
-			</SeasonShell>
-		);
-	}
-
-	if (!season) {
-		return (
-			<SeasonShell title='Season'>
-				<EmptyState title='Season not found' message='It may have been deleted, or the link is wrong.' />
-			</SeasonShell>
-		);
-	}
+	const answering = { season, myResponses, debtLock, now, onRespond: respond, onClear: clear };
 
 	return (
 		<>
@@ -100,50 +228,15 @@ const SeasonHomePage = () => {
 					    to decide whether paying is worth it. */}
 					<SeasonDebtNotice debt={debt} season={season} games={games} displayName={user?.displayName ?? ''} />
 
-					{next ? (
-						<NextGameHero
-							game={next}
-							season={season}
-							myResponse={myResponses[next.id]}
-							isExtra={role === 'extra'}
-							watching={isWatching(next.id)}
-							debtLock={debtLock}
-							now={now}
-							onRespond={status => respond(next.id, status)}
-							onClear={() => clear(next.id)}
-							onWatchChange={canWatch ? watch => toggleWatch(next.id, watch) : undefined}
-						/>
-					) : (
-						<EmptyState
-							icon={<CalendarDaysIcon />}
-							title='No games scheduled'
-							message={
-								isAdmin
-									? 'Generate the season calendar from the admin settings.'
-									: 'Nothing on the calendar yet. An admin will add games soon.'
-							}
-						/>
-					)}
+					<NextUp
+						next={next}
+						answering={answering}
+						isExtra={role === 'extra'}
+						isAdmin={isAdmin}
+						watch={watch}
+					/>
 
-					{/* Straight under the next game, because it is the only thing on
-					    this screen with a deadline on it and the only one that goes
-					    away unanswered. Above Subscribe to calendar, which is here
-					    every week where this is here for two days.
-
-					    Each is a card with a way in rather than a row with a pill,
-					    and it leads to the team sheet, where the ballot is and where
-					    the notification about it lands. The game page is a headcount
-					    for a game already played. */}
-					{voting.length > 0 && (
-						<section>
-							<SectionHeading sx={styles.heading}>Man of the match</SectionHeading>
-							<div {...stylex.props(styles.rows)}>
-								{voting.map(game => (
-									<MotmVoteCallout key={game.id} game={game} season={season} now={now} />
-								))}
-							</div>
-						</section>
-					)}
+					<VotingSection games={voting} season={season} now={now} />
 
 					<Button variant='ghost' size='sm' onClick={() => setSubscribeOpen(true)}>
 						<CalendarIcon {...stylex.props(styles.calendar)} aria-hidden='true' />
@@ -158,47 +251,10 @@ const SeasonHomePage = () => {
 						onToggle={() => setShowPast(!showPast)}
 						sx={styles.playedHead}
 					>
-						<div {...stylex.props(styles.rows)}>
-							{played.map(game => (
-								<GameRow
-									key={game.id}
-									game={game}
-									season={season}
-									myResponse={myResponses[game.id]}
-									debtLock={debtLock}
-									now={now}
-									onRespond={status => respond(game.id, status)}
-									onClear={() => clear(game.id)}
-								/>
-							))}
-						</div>
+						<GameRows games={played} answering={answering} />
 					</PlayedSection>
 
-					{upcoming.length > 0 && (
-						<section>
-							<SectionHeading sx={styles.heading}>Coming up</SectionHeading>
-							{/* The only list here handed a bell. `voting` and `played` are
-							    finished by construction, the same fact `isWatchable` reads to
-							    refuse one, so a game already behind us would draw nothing with
-							    the props anyway. */}
-							<div {...stylex.props(styles.rows)}>
-								{upcoming.map(game => (
-									<GameRow
-										key={game.id}
-										game={game}
-										season={season}
-										myResponse={myResponses[game.id]}
-										watching={isWatching(game.id)}
-										debtLock={debtLock}
-										now={now}
-										onRespond={status => respond(game.id, status)}
-										onClear={() => clear(game.id)}
-										onWatchChange={canWatch ? watch => toggleWatch(game.id, watch) : undefined}
-									/>
-								))}
-							</div>
-						</section>
-					)}
+					<ComingUp games={upcoming} answering={answering} watch={watch} />
 				</div>
 			</SeasonShell>
 

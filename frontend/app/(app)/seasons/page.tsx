@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { CalendarDaysIcon, PlusIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import type { Season } from '@shared/types';
 import { SEASON_STATUS_LABELS } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
 import { useSeasons } from '../../../hooks/useData';
@@ -29,6 +30,53 @@ const styles = stylex.create({
 	where: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
 	plus: { width: 16, height: 16 },
 });
+
+/** The way to a new season, from the two places that offer one. */
+const NewSeasonButton = ({ variant, fullWidth }: { variant: 'primary' | 'secondary'; fullWidth?: boolean }) => {
+	const router = useRouter();
+
+	return (
+		<Button variant={variant} fullWidth={fullWidth} onClick={() => router.push('/seasons/new')}>
+			<PlusIcon {...stylex.props(styles.plus)} />
+			New season
+		</Button>
+	);
+};
+
+/**
+ * Nothing to pick from, which for an admin is an invitation and for everybody
+ * else is a fact about somebody else's job.
+ */
+const NoSeasons = ({ isAppAdmin }: { isAppAdmin: boolean }) => (
+	<EmptyState
+		icon={<CalendarDaysIcon />}
+		title='No seasons yet'
+		message={
+			isAppAdmin
+				? 'Create one to start scheduling games.'
+				: 'An admin needs to set one up before there is anything to see here.'
+		}
+		action={isAppAdmin ? <NewSeasonButton variant='primary' /> : undefined}
+	/>
+);
+
+/** One season to go into, and enough about it to tell them apart. */
+const SeasonCard = ({ season }: { season: Season }) => (
+	<Link href={`/s/${season.id}`} {...stylex.props(surfaces.glassCard, styles.card)}>
+		<div {...stylex.props(styles.row)}>
+			<div {...stylex.props(styles.body)}>
+				<p {...stylex.props(styles.name, utils.truncate)}>{season.name}</p>
+				<p {...stylex.props(styles.where)}>
+					{season.venue.name} · {season.memberUids.length} in the squad
+				</p>
+			</div>
+
+			<StatusPill tone={season.status === 'active' ? 'in' : 'neutral'}>
+				{SEASON_STATUS_LABELS[season.status]}
+			</StatusPill>
+		</div>
+	</Link>
+);
 
 const SeasonsPage = () => {
 	const router = useRouter();
@@ -61,52 +109,14 @@ const SeasonsPage = () => {
 			{loading ? (
 				<Skeleton />
 			) : seasons.length === 0 ? (
-				<EmptyState
-					icon={<CalendarDaysIcon />}
-					title='No seasons yet'
-					message={
-						user?.isAppAdmin
-							? 'Create one to start scheduling games.'
-							: 'An admin needs to set one up before there is anything to see here.'
-					}
-					action={
-						user?.isAppAdmin ? (
-							<Button variant='primary' onClick={() => router.push('/seasons/new')}>
-								<PlusIcon {...stylex.props(styles.plus)} />
-								New season
-							</Button>
-						) : undefined
-					}
-				/>
+				<NoSeasons isAppAdmin={Boolean(user?.isAppAdmin)} />
 			) : (
 				<div {...stylex.props(styles.list)}>
 					{seasons.map(season => (
-						<Link
-							key={season.id}
-							href={`/s/${season.id}`}
-							{...stylex.props(surfaces.glassCard, styles.card)}
-						>
-							<div {...stylex.props(styles.row)}>
-								<div {...stylex.props(styles.body)}>
-									<p {...stylex.props(styles.name, utils.truncate)}>{season.name}</p>
-									<p {...stylex.props(styles.where)}>
-										{season.venue.name} · {season.memberUids.length} in the squad
-									</p>
-								</div>
-
-								<StatusPill tone={season.status === 'active' ? 'in' : 'neutral'}>
-									{SEASON_STATUS_LABELS[season.status]}
-								</StatusPill>
-							</div>
-						</Link>
+						<SeasonCard key={season.id} season={season} />
 					))}
 
-					{user?.isAppAdmin && (
-						<Button variant='secondary' fullWidth onClick={() => router.push('/seasons/new')}>
-							<PlusIcon {...stylex.props(styles.plus)} />
-							New season
-						</Button>
-					)}
+					{user?.isAppAdmin && <NewSeasonButton variant='secondary' fullWidth />}
 				</div>
 			)}
 		</PageShell>
