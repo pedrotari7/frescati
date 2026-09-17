@@ -42,8 +42,9 @@
  */
 
 import type { RatingLedgerEntry, TournamentResult } from '../../shared/types';
-import { counted, plural } from '../../shared/format';
-import { applyUpdates, runScript } from './lib/script';
+import { backfillLedger } from './lib/ledger';
+import type { Derived } from './lib/ledger';
+import { runScript } from './lib/script';
 import type { ScriptContext } from './lib/script';
 
 /**
@@ -58,49 +59,17 @@ const unratedUids = (entry: RatingLedgerEntry): string[] =>
 		.filter(([, rating]) => rating === null)
 		.map(([uid]) => uid);
 
-export const main = async ({ db, dryRun }: ScriptContext) => {
-	// The whole collection, which is one document per rated game. A group
-	// playing weekly takes twenty years to make this a page worth splitting.
-	const ledger = await db.collection('ratingLedger').get();
+export const main = async (context: ScriptContext): Promise<void> => {
+	const seedFor = async (entry: RatingLedgerEntry): Promise<Derived<number>> => {
+		const result = await context.db.doc(`seasons/${entry.seasonId}/games/${entry.gameId}/tournament/result`).get();
 
-	const missing = ledger.docs.filter(doc => {
-		const entry = doc.data() as RatingLedgerEntry;
-
-		return entry.seedElo === undefined && unratedUids(entry).length > 0;
-	});
-
-	console.log(
-		`${counted(ledger.size, 'rated game')}, ` + `${missing.length} rated somebody unrated with no seed recorded.`
-	);
-
-	if (missing.length === 0) {
-		console.log('Nothing to do.');
-		return;
-	}
-
-	const writes: { ref: FirebaseFirestore.DocumentReference; seedElo: number; label: string }[] = [];
-	let skipped = 0;
-
-	for (const doc of missing) {
-		const entry = doc.data() as RatingLedgerEntry;
-		const label = `${entry.kickoff.slice(0, 10)}  ratingLedger/${doc.id}`;
-		const uids = unratedUids(entry);
-		const result = await db.doc(`seasons/${entry.seasonId}/games/${entry.gameId}/tournament/result`).get();
-
-		if (!result.exists) {
-			skipped++;
-			console.error(`  no result document, skipped: ${label}`);
-			continue;
-		}
+		if (!result.exists) return { skip: 'no result document' };
 
 		const rated = new Map((result.data() as TournamentResult).changes.map(change => [change.uid, change.before]));
-		const seeds = uids.map(uid => rated.get(uid));
+		const seeds = unratedUids(entry).map(uid => rated.get(uid));
 
-		if (seeds.some(seed => typeof seed !== 'number')) {
-			skipped++;
-			console.error(`  result document does not cover every unrated player, skipped: ${label}`);
-			continue;
-		}
+		if (seeds.some(seed => typeof seed !== 'number'))
+			return { skip: 'result document does not cover every unrated player' };
 
 		// Everybody unrated in one game seeds at the same average, so these are
 		// copies of one number. Disagreeing means the result is no longer the one
@@ -108,34 +77,23 @@ export const main = async ({ db, dryRun }: ScriptContext) => {
 		// seed the ladder actually used.
 		const [seedElo] = seeds as number[];
 
-		if ((seeds as number[]).some(seed => Math.abs(seed - seedElo) > TOLERANCE)) {
-			skipped++;
-			console.error(`  result document disagrees with itself about the seed, skipped: ${label}`);
-			continue;
-		}
+		if ((seeds as number[]).some(seed => Math.abs(seed - seedElo) > TOLERANCE))
+			return { skip: 'result document disagrees with itself about the seed' };
 
-		writes.push({ ref: doc.ref, seedElo, label });
-	}
+		return { value: seedElo };
+	};
 
-	if (dryRun) {
-		for (const write of writes.slice(0, 10)) {
-			console.log(`  would write seedElo ${write.seedElo.toFixed(1)}: ${write.label}`);
-		}
-		if (writes.length > 10) console.log(`  ...and ${writes.length - 10} more`);
-		console.log('\nDry run, nothing written.');
-		return;
-	}
-
-	await applyUpdates(
-		db,
-		writes.map(write => ({ ref: write.ref, data: { seedElo: write.seedElo } }))
-	);
-
-	console.log(
-		`\nDone. ${counted(writes.length, 'entry', 'entries')} now ${plural(writes.length, 'says', 'say')} what the unrated started on` +
-			`${skipped > 0 ? `, ${skipped} skipped` : ''}.`
-	);
-	if (skipped > 0) console.error(`${skipped} could not be filled in, see above.`);
+	await backfillLedger(context, {
+		field: 'seedElo',
+		// Entries where nobody was unrated are left alone: there was no seed to
+		// record, and an absent field says so where a stored one would claim
+		// otherwise.
+		needs: entry => entry.seedElo === undefined && unratedUids(entry).length > 0,
+		found: missing => `${missing} rated somebody unrated with no seed recorded.`,
+		derive: seedFor,
+		describe: seedElo => `seedElo ${seedElo.toFixed(1)}`,
+		wrote: 'what the unrated started on',
+	});
 };
 
 // Only when run as a command, so a test can import `main` and drive it
