@@ -73,6 +73,49 @@ const styles = stylex.create({
 	respond: { marginTop: 12 },
 });
 
+/**
+ * The row's second line: how many are playing, whether that is enough, and what
+ * you told it. A cancelled game gets the one pill that makes the rest moot.
+ */
+const Pills = ({
+	playing,
+	lifecycle,
+	atRisk,
+	isPast,
+	myResponse,
+}: {
+	playing: number;
+	lifecycle: GameLifecycle;
+	atRisk: boolean;
+	isPast: boolean;
+	myResponse: GameResponse | undefined;
+}) => {
+	const format = getFormat(playing);
+	const answer = answerPill(myResponse, lifecycle);
+
+	return (
+		<div {...stylex.props(styles.pills)}>
+			{lifecycle === 'cancelled' ? (
+				<StatusPill tone='out'>Cancelled</StatusPill>
+			) : (
+				<>
+					{/* A turnout once the game is behind us, not a headcount: the same
+					    number, but nobody is going to add to it. The row already drops
+					    the "Short" pill for the same reason. */}
+					<span {...stylex.props(styles.count, atRisk ? styles.countShort : styles.countOk)}>
+						{playing} {isPast ? 'played' : 'playing'}
+					</span>
+					{!atRisk && format && <span {...stylex.props(styles.format)}>· {format}</span>}
+					{atRisk && !isPast && <StatusPill tone='pending'>Short</StatusPill>}
+				</>
+			)}
+
+			{answer && <StatusPill tone={answer.tone}>{answer.label}</StatusPill>}
+			{!myResponse && lifecycle === 'open' && <StatusPill tone='pending'>No answer</StatusPill>}
+		</div>
+	);
+};
+
 const GameRow = ({
 	game,
 	season,
@@ -88,7 +131,6 @@ const GameRow = ({
 	const isPast = lifecycle === 'finished';
 	const atRisk = getHeadcountState(game, season) === 'at-risk';
 	const timezone = season.slot.timezone;
-	const answer = answerPill(myResponse, lifecycle);
 
 	return (
 		<div
@@ -122,27 +164,13 @@ const GameRow = ({
 							{game.isOneOff && <StatusPill tone='extra'>One-off</StatusPill>}
 						</div>
 
-						<div {...stylex.props(styles.pills)}>
-							{lifecycle === 'cancelled' ? (
-								<StatusPill tone='out'>Cancelled</StatusPill>
-							) : (
-								<>
-									{/* A turnout once the game is behind us, not a headcount:
-									    the same number, but nobody is going to add to it. The
-									    row already drops the "Short" pill for the same reason. */}
-									<span {...stylex.props(styles.count, atRisk ? styles.countShort : styles.countOk)}>
-										{game.counts.playing} {isPast ? 'played' : 'playing'}
-									</span>
-									{!atRisk && getFormat(game.counts.playing) && (
-										<span {...stylex.props(styles.format)}>· {getFormat(game.counts.playing)}</span>
-									)}
-									{atRisk && !isPast && <StatusPill tone='pending'>Short</StatusPill>}
-								</>
-							)}
-
-							{answer && <StatusPill tone={answer.tone}>{answer.label}</StatusPill>}
-							{!myResponse && lifecycle === 'open' && <StatusPill tone='pending'>No answer</StatusPill>}
-						</div>
+						<Pills
+							playing={game.counts.playing}
+							lifecycle={lifecycle}
+							atRisk={atRisk}
+							isPast={isPast}
+							myResponse={myResponse}
+						/>
 					</div>
 
 					<ChevronRightIcon {...stylex.props(styles.chevron)} aria-hidden='true' />

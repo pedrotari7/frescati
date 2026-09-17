@@ -149,6 +149,166 @@ const styles = stylex.create({
 });
 
 /**
+ * The list the panel draws, in the order it draws it.
+ *
+ * Decided, the list stops being a ballot and becomes a result: the people the
+ * group named, most votes first. Everybody else drops off, because a name with
+ * nothing beside it says only that nobody picked them, and the team sheet is
+ * already on this screen for anyone who wants the full lineup. While the vote is
+ * open it is that whole lineup in team order, minus yourself, since there is
+ * nothing to rank by that anybody is allowed to see and nothing you are allowed
+ * to do with your own name. The sort is stable, so names level on votes keep the
+ * team order they were drawn in.
+ */
+const orderCandidates = (
+	candidates: { uid: string; team: number }[],
+	{
+		motm,
+		votes,
+		live,
+		meUid,
+	}: { motm: TournamentMotm | null; votes: Map<string, number>; live: boolean; meUid: string | null }
+): { uid: string; team: number }[] => {
+	if (!motm) return candidates.filter(candidate => live === false || candidate.uid !== meUid);
+
+	const votesFor = (uid: string) => votes.get(uid) ?? 0;
+
+	return candidates
+		.filter(candidate => votesFor(candidate.uid) > 0)
+		.sort((a, b) => votesFor(b.uid) - votesFor(a.uid));
+};
+
+/**
+ * Who voted, and the one line saying what you can still do about it.
+ *
+ * While the vote runs the turnout comes off `tournament/motmVoters`, which the
+ * count deletes. After it, off the copy on the decision, so the strip stays
+ * where it was rather than disappearing at the deadline, which is the moment
+ * people start asking who never voted. A game decided before that copy existed
+ * has neither, and gets no strip.
+ */
+const Footer = ({
+	teams,
+	usersByUid,
+	voterUids,
+	motm,
+	vote,
+	open,
+	live,
+}: {
+	teams: TournamentTeam[];
+	usersByUid: Map<string, AppUser>;
+	voterUids: string[];
+	motm: TournamentMotm | null;
+	vote: MotmVote | null;
+	open: boolean;
+	live: boolean;
+}) => (
+	<>
+		{open && <Turnout teams={teams} usersByUid={usersByUid} voterUids={voterUids} />}
+		{!open && motm?.voterUids !== undefined && (
+			<Turnout teams={teams} usersByUid={usersByUid} voterUids={motm.voterUids} closed />
+		)}
+
+		{live && (
+			<p {...stylex.props(styles.footnote)}>
+				{vote
+					? 'Tap another name to change your mind, or the same one to take it back.'
+					: 'You can change your mind until it closes.'}
+			</p>
+		)}
+	</>
+);
+
+/** The trophy, and how long is left to decide who gets it. */
+const Header = ({ open, votingUntil, now }: { open: boolean; votingUntil?: number; now: Date }) => (
+	<div {...stylex.props(styles.head)}>
+		<div {...stylex.props(styles.title)}>
+			<TrophyIcon {...stylex.props(styles.trophy)} aria-hidden='true' />
+			<h2 {...stylex.props(styles.heading)}>Man of the match</h2>
+		</div>
+
+		{open ? (
+			<StatusPill tone='pending'>
+				{/* The deadline as a countdown rather than a date: two days from now is
+				    the only thing anybody needs from it. */}
+				Closes {formatRelative(new Date(votingUntil!).toISOString(), now)}
+			</StatusPill>
+		) : (
+			<StatusPill tone='neutral'>Decided</StatusPill>
+		)}
+	</div>
+);
+
+/**
+ * One name on the ballot, which is one name in the result once the vote is
+ * counted. The same row either way, which is why the styling turns on whether
+ * they won and whether you picked them rather than on the button being live.
+ */
+const Candidate = ({
+	candidate,
+	usersByUid,
+	name,
+	motm,
+	vote,
+	votes,
+	live,
+	onVote,
+}: {
+	candidate: { uid: string; team: number };
+	usersByUid: Map<string, AppUser>;
+	name: (uid: string) => string;
+	motm: TournamentMotm | null;
+	vote: MotmVote | null;
+	votes: Map<string, number>;
+	live: boolean;
+	onVote: (uid: string) => void;
+}) => {
+	const { uid, team } = candidate;
+	const picked = vote?.votedFor === uid;
+	const won = motm?.winners.includes(uid) ?? false;
+	const washed = won || picked;
+
+	return (
+		<li>
+			<button
+				type='button'
+				disabled={!live}
+				aria-pressed={picked}
+				onClick={() => {
+					hapticLight();
+					onVote(uid);
+				}}
+				{...stylex.props(
+					styles.option,
+					focus.ring,
+					won && picked && styles.wonPicked,
+					won && !picked && styles.won,
+					!won && picked && styles.picked,
+					// Not a disabled control once the vote is over. It is a list again,
+					// and greying every name would read as something being unavailable
+					// rather than finished.
+					live && !washed && styles.hoverable,
+					live && styles.press
+				)}
+			>
+				<Avatar displayName={name(uid)} photoURL={usersByUid.get(uid)?.photoURL} size='sm' />
+				<span {...stylex.props(styles.name, utils.truncate)}>{name(uid)}</span>
+
+				{won && <TrophyIcon {...stylex.props(styles.badge)} aria-hidden='true' />}
+				{picked && !motm && <CheckCircleIcon {...stylex.props(styles.mine)} aria-hidden='true' />}
+
+				{/* Counts only exist once it is decided, and by then everybody still on
+				    the list has at least one. */}
+				{motm && <span {...stylex.props(styles.count)}>{votes.get(uid) ?? 0}</span>}
+
+				<TeamBadge index={team} size='sm' />
+			</button>
+		</li>
+	);
+};
+
+/**
  * Man of the match: the vote while it is open, the result once it is decided.
  *
  * Deliberately shows **no running total**. Until the vote is counted, what is on
@@ -217,8 +377,6 @@ const MotmPanel = ({
 	const candidates = teams.flatMap(team => team.uids.map(uid => ({ uid, team: team.index })));
 	const votes = new Map((motm?.counts ?? []).map(count => [count.uid, count.votes]));
 
-	const votesFor = (uid: string) => votes.get(uid) ?? 0;
-
 	// Only the team sheet gets a vote, which is what the rules enforce too, and
 	// being an admin is not being on the pitch. Read off the lineup this panel is
 	// already drawing rather than passed in beside it, so there is one answer to
@@ -226,36 +384,11 @@ const MotmPanel = ({
 	const canVote = candidates.some(candidate => candidate.uid === meUid);
 	const live = open && canVote;
 
-	// Decided, the list stops being a ballot and becomes a result: the people the
-	// group named, most votes first. Everybody else drops off, because a name with
-	// nothing beside it says only that nobody picked them, and the team sheet is
-	// already on this screen for anyone who wants the full lineup. While the vote
-	// is open it is that whole lineup in team order, minus yourself, since there
-	// is nothing to rank by that anybody is allowed to see and nothing you are
-	// allowed to do with your own name. The sort is stable, so names level on
-	// votes keep the team order they were drawn in.
-	const ordered = motm
-		? candidates.filter(candidate => votesFor(candidate.uid) > 0).sort((a, b) => votesFor(b.uid) - votesFor(a.uid))
-		: candidates.filter(candidate => !live || candidate.uid !== meUid);
+	const ordered = orderCandidates(candidates, { motm, votes, live, meUid });
 
 	return (
 		<section {...stylex.props(surfaces.glass, styles.card)}>
-			<div {...stylex.props(styles.head)}>
-				<div {...stylex.props(styles.title)}>
-					<TrophyIcon {...stylex.props(styles.trophy)} aria-hidden='true' />
-					<h2 {...stylex.props(styles.heading)}>Man of the match</h2>
-				</div>
-
-				{open ? (
-					<StatusPill tone='pending'>
-						{/* The deadline as a countdown rather than a date: two days
-						    from now is the only thing anybody needs from it. */}
-						Closes {formatRelative(new Date(votingUntil!).toISOString(), now)}
-					</StatusPill>
-				) : (
-					<StatusPill tone='neutral'>Decided</StatusPill>
-				)}
-			</div>
+			<Header open={open} votingUntil={votingUntil} now={now} />
 
 			{motm ? (
 				<Decided motm={motm} usersByUid={usersByUid} name={name} votes={votes} />
@@ -273,77 +406,31 @@ const MotmPanel = ({
 			    nobody voted: the line above has already said so. */}
 			{ordered.length > 0 && (
 				<ul {...stylex.props(styles.ballot)}>
-					{ordered.map(candidate => {
-						const picked = vote?.votedFor === candidate.uid;
-						const won = motm?.winners.includes(candidate.uid) ?? false;
-						const count = votesFor(candidate.uid);
-						const washed = won || picked;
-
-						return (
-							<li key={candidate.uid}>
-								<button
-									type='button'
-									disabled={!live}
-									aria-pressed={picked}
-									onClick={() => {
-										hapticLight();
-										onVote(candidate.uid);
-									}}
-									{...stylex.props(
-										styles.option,
-										focus.ring,
-										won && picked && styles.wonPicked,
-										won && !picked && styles.won,
-										!won && picked && styles.picked,
-										// Not a disabled control once the vote is over.
-										// It is a list again, and greying every name
-										// would read as something being unavailable
-										// rather than finished.
-										live && !washed && styles.hoverable,
-										live && styles.press
-									)}
-								>
-									<Avatar
-										displayName={name(candidate.uid)}
-										photoURL={usersByUid.get(candidate.uid)?.photoURL}
-										size='sm'
-									/>
-									<span {...stylex.props(styles.name, utils.truncate)}>{name(candidate.uid)}</span>
-
-									{won && <TrophyIcon {...stylex.props(styles.badge)} aria-hidden='true' />}
-									{picked && !motm && (
-										<CheckCircleIcon {...stylex.props(styles.mine)} aria-hidden='true' />
-									)}
-
-									{/* Counts only exist once it is decided, and by then
-									    everybody still on the list has at least one. */}
-									{motm && <span {...stylex.props(styles.count)}>{count}</span>}
-
-									<TeamBadge index={candidate.team} size='sm' />
-								</button>
-							</li>
-						);
-					})}
+					{ordered.map(candidate => (
+						<Candidate
+							key={candidate.uid}
+							candidate={candidate}
+							usersByUid={usersByUid}
+							name={name}
+							motm={motm}
+							vote={vote}
+							votes={votes}
+							live={live}
+							onVote={onVote}
+						/>
+					))}
 				</ul>
 			)}
 
-			{/* While the vote runs this comes off `tournament/motmVoters`, which the
-			    count deletes. After it, off the copy on the decision, so the strip
-			    stays where it was rather than disappearing at the deadline, which
-			    is the moment people start asking who never voted. A game decided
-			    before that copy existed has neither, and gets no strip. */}
-			{open && <Turnout teams={teams} usersByUid={usersByUid} voterUids={voterUids} />}
-			{!open && motm?.voterUids !== undefined && (
-				<Turnout teams={teams} usersByUid={usersByUid} voterUids={motm.voterUids} closed />
-			)}
-
-			{live && (
-				<p {...stylex.props(styles.footnote)}>
-					{vote
-						? 'Tap another name to change your mind, or the same one to take it back.'
-						: 'You can change your mind until it closes.'}
-				</p>
-			)}
+			<Footer
+				teams={teams}
+				usersByUid={usersByUid}
+				voterUids={voterUids}
+				motm={motm}
+				vote={vote}
+				open={open}
+				live={live}
+			/>
 		</section>
 	);
 };
