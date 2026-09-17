@@ -18,13 +18,13 @@ import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
 import LoadFailed from '../../../../../../components/LoadFailed';
-import Avatar from '../../../../../../components/Avatar';
+import Person from '../../../../../../components/Person';
 import Button from '../../../../../../components/Button';
 import StatusPill from '../../../../../../components/StatusPill';
-import { SearchInput } from '../../../../../../components/Field';
+import { NameSearch } from '../../../../../../components/Field';
 import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../../../components/Section';
+import { searchByName } from '../../../../../../lib/people';
 import { colors } from '../../../../../tokens.stylex';
-import { utils } from '../../../../../../lib/styles';
 
 const styles = stylex.create({
 	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
@@ -37,9 +37,9 @@ const styles = stylex.create({
 	 */
 	person: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingBlock: 12 },
 	/* Wide enough to force the buttons onto their own line rather than into a
-	   column one word wide. */
-	body: { minWidth: 160, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
-	name: { color: colors.ink, fontSize: 14, lineHeight: '20px' },
+	   column one word wide. Overrides `Person`'s own body, which shrinks to
+	   nothing, because this is the only row here carrying two of them. */
+	body: { minWidth: 160 },
 	note: { color: colors.faint, marginTop: 12, paddingInline: 4, fontSize: 12, lineHeight: 1.625 },
 });
 
@@ -54,8 +54,7 @@ const AdminMembersPage = () => {
 	const { members, others } = useMemo(() => {
 		if (!season) return { members: [], others: [] };
 
-		const term = search.trim().toLowerCase();
-		const matches = users.filter(user => !term || user.displayName.toLowerCase().includes(term));
+		const matches = searchByName(users, search);
 
 		return {
 			members: matches.filter(user => season.memberUids.includes(user.uid)),
@@ -135,12 +134,7 @@ const AdminMembersPage = () => {
 			backHref={`/s/${seasonId}/admin`}
 		>
 			<div {...stylex.props(styles.page)}>
-				<SearchInput
-					label='Search by name'
-					value={search}
-					onChange={e => setSearch(e.target.value)}
-					placeholder='Search by name'
-				/>
+				<NameSearch value={search} onChange={setSearch} />
 
 				<section>
 					<SectionHeading sx={styles.heading}>In the squad ({members.length})</SectionHeading>
@@ -153,12 +147,9 @@ const AdminMembersPage = () => {
 
 							return (
 								<div key={user.uid} {...stylex.props(listRow, styles.person)}>
-									<Avatar displayName={user.displayName} photoURL={user.photoURL} />
-
-									<div {...stylex.props(styles.body)}>
-										<p {...stylex.props(styles.name, utils.truncate)}>{user.displayName}</p>
+									<Person person={user} sx={styles.body}>
 										{isSeasonAdmin && <StatusPill tone='brand'>Admin</StatusPill>}
-									</div>
+									</Person>
 
 									<Button
 										size='sm'
@@ -205,11 +196,7 @@ const AdminMembersPage = () => {
 
 						{others.map(user => (
 							<div key={user.uid} {...stylex.props(listRow, styles.person)}>
-								<Avatar displayName={user.displayName} photoURL={user.photoURL} />
-
-								<div {...stylex.props(styles.body)}>
-									<p {...stylex.props(styles.name, utils.truncate)}>{user.displayName}</p>
-								</div>
+								<Person person={user} sx={styles.body} />
 
 								<Button
 									size='sm'

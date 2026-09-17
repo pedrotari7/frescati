@@ -49,3 +49,19 @@ export const personRow = (usersByUid: Map<string, AppUser>, uid: string): Person
 
 	return { uid, displayName: displayNameOf(user), photoURL: user?.photoURL ?? null };
 };
+
+/**
+ * The people whose name contains what was typed, or all of them when nothing
+ * was.
+ *
+ * The three admin screens that hand you a list of everybody signed up each
+ * declared this, and each then splits the result two ways: admins and everyone
+ * else, in the squad and not, rated and estimated. The split is the screen's
+ * business; matching a name is not, and a fourth screen should not have to
+ * rediscover that the term wants trimming and lowercasing before it is any use.
+ */
+export const searchByName = <T extends Pick<AppUser, 'displayName'>>(people: T[], search: string): T[] => {
+	const term = search.trim().toLowerCase();
+
+	return term ? people.filter(person => person.displayName.toLowerCase().includes(term)) : people;
+};

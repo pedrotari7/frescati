@@ -14,7 +14,7 @@ import AppAdminOnly from '../../../../components/AppAdminOnly';
 import Skeleton from '../../../../components/Skeleton';
 import Avatar from '../../../../components/Avatar';
 import StatusPill from '../../../../components/StatusPill';
-import { SearchInput } from '../../../../components/Field';
+import { NameSearch } from '../../../../components/Field';
 import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../components/Section';
 import { bp, colors, tint } from '../../../tokens.stylex';
 import { surfaces, utils } from '../../../../lib/styles';
@@ -161,12 +161,7 @@ const ActivityAdminPage = () => {
 					)}
 				</section>
 
-				<SearchInput
-					label='Search by name'
-					value={search}
-					onChange={e => setSearch(e.target.value)}
-					placeholder='Search by name'
-				/>
+				<NameSearch value={search} onChange={setSearch} />
 
 				{SECTIONS.filter(({ key, whenEmpty }) => whenEmpty !== 'hide' || buckets[key].length > 0).map(
 					({ key, title, blurb }) => (

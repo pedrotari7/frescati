@@ -1,5 +1,5 @@
 import type { AppUser } from '@shared/types';
-import { UNKNOWN_PLAYER, displayNameOf, nameByUid, personRow } from './people';
+import { UNKNOWN_PLAYER, displayNameOf, nameByUid, personRow, searchByName } from './people';
 
 const user = (overrides: Partial<AppUser>): AppUser =>
 	({ uid: 'anna', displayName: 'Anna Bergström', photoURL: null, ...overrides }) as AppUser;
@@ -61,5 +61,32 @@ describe('personRow', () => {
 			displayName: UNKNOWN_PLAYER,
 			photoURL: null,
 		});
+	});
+});
+
+describe('searchByName', () => {
+	const squad = [user({ uid: 'anna' }), user({ uid: 'marco', displayName: 'Marco Rossi' })];
+
+	it('matches on any part of the name, ignoring case', () => {
+		expect(searchByName(squad, 'ross').map(person => person.uid)).toEqual(['marco']);
+		expect(searchByName(squad, 'MARCO').map(person => person.uid)).toEqual(['marco']);
+		expect(searchByName(squad, 'berg').map(person => person.uid)).toEqual(['anna']);
+	});
+
+	// An empty box is not a filter that matches nothing. Every screen using this
+	// opens with one.
+	it('returns everybody when nothing has been typed', () => {
+		expect(searchByName(squad, '')).toBe(squad);
+		expect(searchByName(squad, '   ')).toBe(squad);
+	});
+
+	// A soft keyboard adds one of these on the way to the next word, and a search
+	// that goes blank on a trailing space reads as broken.
+	it('ignores space around the term', () => {
+		expect(searchByName(squad, '  marco  ').map(person => person.uid)).toEqual(['marco']);
+	});
+
+	it('matches nobody when the name is not in the list', () => {
+		expect(searchByName(squad, 'zlatan')).toEqual([]);
 	});
 });
