@@ -7,7 +7,6 @@ import {
 	CheckIcon,
 	ChevronDownIcon,
 	NoSymbolIcon,
-	TrashIcon,
 } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { AppUser, Due, DueStatus } from '@shared/types';
@@ -16,6 +15,7 @@ import { formatRelative, formatSek } from '@shared/format';
 import { displayNameOf } from '../lib/people';
 import Avatar from './Avatar';
 import Button from './Button';
+import RemoveButton from './RemoveButton';
 import StatusPill from './StatusPill';
 import { ListCard, ListEmpty, listRow } from './Section';
 import { colors } from '../app/tokens.stylex';
@@ -242,14 +242,10 @@ const DuesBook = ({
 													</Button>
 												)}
 
-												<Button
-													size='sm'
-													variant='ghost'
-													aria-label={`Remove ${name}'s ${labelFor(due)} charge`}
-													onClick={() => onDelete(due)}
-												>
-													<TrashIcon {...stylex.props(styles.icon)} aria-hidden='true' />
-												</Button>
+												<RemoveButton
+													what={`${name}'s ${labelFor(due)} charge`}
+													onRemove={() => onDelete(due)}
+												/>
 											</div>
 										)}
 									</li>

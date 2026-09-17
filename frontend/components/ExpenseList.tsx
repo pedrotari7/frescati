@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { Expense } from '@shared/types';
 import { formatCivilDate, formatSek } from '@shared/format';
-import Button from './Button';
+import AddPanel from './AddPanel';
+import RemoveButton from './RemoveButton';
 import { Field, TextInput } from './Field';
 import { ListCard, ListEmpty, listRow } from './Section';
 import { colors } from '../app/tokens.stylex';
-import { surfaces, utils } from '../lib/styles';
+import { utils } from '../lib/styles';
 
 const styles = stylex.create({
 	stack: { display: 'flex', flexDirection: 'column', gap: 12 },
@@ -19,12 +19,8 @@ const styles = stylex.create({
 	description: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 500 },
 	date: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
 	amount: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontVariantNumeric: 'tabular-nums' },
-	icon: { width: 16, height: 16 },
 
-	form: { display: 'flex', flexDirection: 'column', gap: 16, borderRadius: 16, padding: 20 },
-	formTitle: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
 	/* Side by side at every width. Two short words each, so they fit a phone. */
-	actions: { display: 'flex', gap: 12 },
 });
 
 /** Today as a civil date, which is what an expense carries. */
@@ -97,67 +93,49 @@ const ExpenseList = ({
 
 							<span {...stylex.props(styles.amount)}>{formatSek(expense.amount)}</span>
 
-							{canEdit && (
-								<Button
-									size='sm'
-									variant='ghost'
-									aria-label={`Remove ${expense.description}`}
-									onClick={() => onDelete(expense)}
-								>
-									<TrashIcon {...stylex.props(styles.icon)} aria-hidden='true' />
-								</Button>
-							)}
+							{canEdit && <RemoveButton what={expense.description} onRemove={() => onDelete(expense)} />}
 						</div>
 					))
 				)}
 			</ListCard>
 
-			{canEdit &&
-				(adding ? (
-					<section {...stylex.props(surfaces.glass, styles.form)}>
-						<h3 {...stylex.props(styles.formTitle)}>Record a purchase</h3>
+			{canEdit && (
+				<AddPanel
+					open={adding}
+					onOpen={() => setAdding(true)}
+					onCancel={close}
+					onSubmit={handleAdd}
+					label='Record a purchase'
+					action='Record it'
+					canSubmit={valid}
+				>
+					<Field label='What was it'>
+						<TextInput
+							value={form.description}
+							onChange={e => setForm({ ...form, description: e.target.value })}
+							placeholder='Match ball'
+							maxLength={100}
+						/>
+					</Field>
 
-						<Field label='What was it'>
-							<TextInput
-								value={form.description}
-								onChange={e => setForm({ ...form, description: e.target.value })}
-								placeholder='Match ball'
-								maxLength={100}
-							/>
-						</Field>
+					<Field label='How much, in kronor'>
+						<TextInput
+							value={form.amount}
+							onChange={e => setForm({ ...form, amount: e.target.value })}
+							inputMode='numeric'
+							placeholder='450'
+						/>
+					</Field>
 
-						<Field label='How much, in kronor'>
-							<TextInput
-								value={form.amount}
-								onChange={e => setForm({ ...form, amount: e.target.value })}
-								inputMode='numeric'
-								placeholder='450'
-							/>
-						</Field>
-
-						<Field label='When the money left'>
-							<TextInput
-								type='date'
-								value={form.date}
-								onChange={e => setForm({ ...form, date: e.target.value })}
-							/>
-						</Field>
-
-						<div {...stylex.props(styles.actions)}>
-							<Button variant='primary' fullWidth onClick={handleAdd} disabled={!valid}>
-								Record it
-							</Button>
-							<Button variant='ghost' fullWidth onClick={close}>
-								Cancel
-							</Button>
-						</div>
-					</section>
-				) : (
-					<Button variant='secondary' fullWidth onClick={() => setAdding(true)}>
-						<PlusIcon {...stylex.props(styles.icon)} aria-hidden='true' />
-						Record a purchase
-					</Button>
-				))}
+					<Field label='When the money left'>
+						<TextInput
+							type='date'
+							value={form.date}
+							onChange={e => setForm({ ...form, date: e.target.value })}
+						/>
+					</Field>
+				</AddPanel>
+			)}
 		</div>
 	);
 };
