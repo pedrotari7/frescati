@@ -114,6 +114,61 @@ const styles = stylex.create({
 	avatar: { flexShrink: 0 },
 });
 
+/**
+ * The way back, or the space one would take up.
+ *
+ * Drawn on both viewports, because the tabs are not the way back. Desktop used
+ * to hide this on any screen carrying them, on the grounds that they were up
+ * here instead, and they are, but they lead to four places, none of which is
+ * the screen you came from. A team sheet, a player, the kit register and every
+ * admin screen sit below a tab rather than on one, so hiding it left them with
+ * no way out at all bar the browser's own Back, which an installed desktop
+ * window does not have.
+ *
+ * A tab root has nowhere above it to go, and on a phone that is simply no
+ * chevron. Up here it has to be a held slot, or the tabs would sit a chevron's
+ * width further left on the three screens without one and jump sideways every
+ * time you left them.
+ */
+const BackSlot = ({ backHref, hasTabs }: { backHref?: string; hasTabs: boolean }) => {
+	const router = useRouter();
+	const { canGoBack } = useAppHistory();
+
+	if (!backHref) return hasTabs ? <div {...stylex.props(styles.slot)} aria-hidden='true' /> : null;
+
+	return (
+		<button
+			type='button'
+			onClick={() => (canGoBack ? router.back() : router.push(backHref))}
+			aria-label='Back'
+			{...stylex.props(styles.round, styles.back)}
+		>
+			<ChevronLeftIcon {...stylex.props(styles.icon)} />
+		</button>
+	);
+};
+
+/**
+ * On desktop the bottom nav is hidden, so the tabs live up here. They start at
+ * a fixed offset and absorb the leftover width themselves, which is what pins
+ * them: anything that comes and goes on the right, the admin gear, a page
+ * action, eats into that slack instead of shoving the tabs sideways.
+ */
+const Tabs = ({ navItems, activeIndex }: { navItems: NavItem[]; activeIndex: number }) => (
+	<nav {...stylex.props(styles.tabs)}>
+		{navItems.map((item, index) => (
+			<Link
+				key={item.href}
+				href={item.href}
+				aria-current={index === activeIndex ? 'page' : undefined}
+				{...stylex.props(styles.tab, index === activeIndex ? styles.on : styles.off)}
+			>
+				{item.label}
+			</Link>
+		))}
+	</nav>
+);
+
 const TopBar = ({
 	title,
 	subtitle,
@@ -135,10 +190,8 @@ const TopBar = ({
 	/** Season admins only. Kept out of the tab bar so the tabs never reflow. */
 	adminHref?: string;
 }) => {
-	const router = useRouter();
 	const pathname = usePathname();
 	const { user } = useAuth();
-	const { canGoBack } = useAppHistory();
 	const sectionHrefs = adminHref ? [adminHref] : [];
 	const activeIndex = activeIndexFor(navItems, pathname, sectionHrefs);
 	const adminIsActive = !!adminHref && matchesHref(pathname, adminHref);
@@ -146,60 +199,14 @@ const TopBar = ({
 	return (
 		<header {...stylex.props(utils.ptSafe, surfaces.glass, styles.header)}>
 			<div {...stylex.props(styles.inner)}>
-				{/* Drawn on both, because the tabs are not the way back. Desktop
-				    used to hide this on any screen carrying them, on the grounds
-				    that they were up here instead, and they are, but they lead
-				    to four places, none of which is the screen you came from. A
-				    team sheet, a player, the kit register and every admin screen
-				    sit below a tab rather than on one, so hiding it left them
-				    with no way out at all bar the browser's own Back, which an
-				    installed desktop window does not have. */}
-				{backHref ? (
-					<button
-						type='button'
-						onClick={() => (canGoBack ? router.back() : router.push(backHref))}
-						aria-label='Back'
-						{...stylex.props(styles.round, styles.back)}
-					>
-						<ChevronLeftIcon {...stylex.props(styles.icon)} />
-					</button>
-				) : (
-					// A tab root has nowhere above it to go, and on a phone that is
-					// simply no chevron. Up here it has to be a held slot, or the
-					// tabs would sit a chevron's width further left on the three
-					// screens without one and jump sideways every time you left
-					// them.
-					navItems.length > 0 && <div {...stylex.props(styles.slot)} aria-hidden='true' />
-				)}
+				<BackSlot backHref={backHref} hasTabs={navItems.length > 0} />
 
 				<div {...stylex.props(navItems.length > 0 ? styles.titleFixed : styles.title)}>
 					<h1 {...stylex.props(styles.heading)}>{title}</h1>
 					{subtitle && <p {...stylex.props(styles.subtitle)}>{subtitle}</p>}
 				</div>
 
-				{/* On desktop the bottom nav is hidden, so the tabs live up here.
-				    They start at a fixed offset and absorb the leftover width
-				    themselves, which is what pins them: anything that comes and goes
-				    on the right, the admin gear, a page action, eats into that
-				    slack instead of shoving the tabs sideways. */}
-				{navItems.length > 0 && (
-					<nav {...stylex.props(styles.tabs)}>
-						{navItems.map((item, index) => {
-							const isActive = index === activeIndex;
-
-							return (
-								<Link
-									key={item.href}
-									href={item.href}
-									aria-current={isActive ? 'page' : undefined}
-									{...stylex.props(styles.tab, isActive ? styles.on : styles.off)}
-								>
-									{item.label}
-								</Link>
-							);
-						})}
-					</nav>
-				)}
+				{navItems.length > 0 && <Tabs navItems={navItems} activeIndex={activeIndex} />}
 
 				{/* Admin lives here rather than in the tab bar. It resolves once,
 				    with the rest of the season, and then holds the same slot on

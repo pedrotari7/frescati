@@ -60,6 +60,96 @@ const fill = stylex.create({
 });
 
 /**
+ * The big number and what it counts, which is a different sentence depending on
+ * whether the game is short, on, or already played.
+ */
+const Headline = ({
+	playing,
+	minimum,
+	format,
+	atRisk,
+	played,
+	reached,
+}: {
+	playing: number;
+	minimum: number;
+	format: string | null;
+	atRisk: boolean;
+	played: boolean;
+	reached: boolean;
+}) => (
+	<div {...stylex.props(styles.head)}>
+		<div {...stylex.props(styles.count)}>
+			{/* The number an end-to-end test watches for the response trigger's
+			    answer coming back down the listener. It is a bare numeral with no
+			    accessible name of its own, and matching on its text alone would
+			    find the scoreline and the squad count too. */}
+			<span
+				data-testid='headcount-playing'
+				{...stylex.props(styles.number, atRisk ? styles.short : styles.ok, reached && animations.swell)}
+			>
+				{playing}
+			</span>
+			<span {...stylex.props(styles.unit)}>
+				{played ? 'played' : atRisk ? `of ${minimum} needed` : 'playing'}
+			</span>
+		</div>
+
+		{/* This pill is not the "Need n more" one restyled, it replaces it, so on
+		    the crossing it is a genuinely new thing arriving and pops in as one.
+		    Every other time it is simply what the card says, and popping it then
+		    would be motion for its own sake. */}
+		{format && !atRisk && (
+			<StatusPill tone='brand' sx={reached ? animations.pop : undefined}>
+				{format}
+			</StatusPill>
+		)}
+		{atRisk && (
+			<StatusPill tone='pending'>
+				{played ? `${minimum - playing} short` : `Need ${minimum - playing} more`}
+			</StatusPill>
+		)}
+	</div>
+);
+
+/**
+ * Who the number above is made of, and who it is still waiting on. Every line
+ * is dropped rather than shown as a zero, so the strip reads as a sentence
+ * about this game instead of a form with blanks in it.
+ */
+const Breakdown = ({
+	counts,
+	awaiting,
+	awaitingSpot,
+	played,
+}: {
+	counts: Game['counts'];
+	awaiting: number;
+	awaitingSpot: number;
+	played: boolean;
+}) => (
+	<div {...stylex.props(styles.strip)}>
+		<span>{counts.membersIn} squad</span>
+		{counts.extrasConfirmed > 0 && <span>{counts.extrasConfirmed} extra</span>}
+		{/* The one item on this strip that is a request rather than a report, and
+		    coloured for it: these are the people the number above deliberately did
+		    not move for, and an admin is the only one who can. Without it, an extra
+		    tapping In changes nothing anybody can see. */}
+		{awaitingSpot > 0 && (
+			<span {...stylex.props(styles.awaiting)}>
+				{awaitingSpot} {played ? 'never got a spot' : 'awaiting a spot'}
+			</span>
+		)}
+		{counts.membersOut > 0 && <span>{counts.membersOut} out</span>}
+		{awaiting > 0 && (
+			<span>
+				{awaiting} {played ? 'never answered' : 'yet to answer'}
+			</span>
+		)}
+	</div>
+);
+
+/**
  * Progress towards the season minimum. There is no cap. The bar fills to the
  * minimum and then simply reads "ready", because more players is never a
  * problem, only fewer is.
@@ -135,39 +225,14 @@ const HeadcountBar = ({
 
 	return (
 		<div {...stylex.props(sx)}>
-			<div {...stylex.props(styles.head)}>
-				<div {...stylex.props(styles.count)}>
-					{/* The number an end-to-end test watches for the response
-					    trigger's answer coming back down the listener. It is a
-					    bare numeral with no accessible name of its own, and
-					    matching on its text alone would find the scoreline and
-					    the squad count too. */}
-					<span
-						data-testid='headcount-playing'
-						{...stylex.props(styles.number, atRisk ? styles.short : styles.ok, reached && animations.swell)}
-					>
-						{playing}
-					</span>
-					<span {...stylex.props(styles.unit)}>
-						{played ? 'played' : atRisk ? `of ${minimum} needed` : 'playing'}
-					</span>
-				</div>
-
-				{/* This pill is not the "Need n more" one restyled, it replaces it, so
-				    on the crossing it is a genuinely new thing arriving and pops in
-				    as one. Every other time it is simply what the card says, and
-				    popping it then would be motion for its own sake. */}
-				{format && !atRisk && (
-					<StatusPill tone='brand' sx={reached ? animations.pop : undefined}>
-						{format}
-					</StatusPill>
-				)}
-				{atRisk && (
-					<StatusPill tone='pending'>
-						{played ? `${minimum - playing} short` : `Need ${minimum - playing} more`}
-					</StatusPill>
-				)}
-			</div>
+			<Headline
+				playing={playing}
+				minimum={minimum}
+				format={format}
+				atRisk={atRisk}
+				played={played}
+				reached={reached}
+			/>
 
 			<div {...stylex.props(styles.track)}>
 				<div
@@ -189,26 +254,7 @@ const HeadcountBar = ({
 				)}
 			</div>
 
-			<div {...stylex.props(styles.strip)}>
-				<span>{game.counts.membersIn} squad</span>
-				{game.counts.extrasConfirmed > 0 && <span>{game.counts.extrasConfirmed} extra</span>}
-				{/* The one item on this strip that is a request rather than a
-				    report, and coloured for it: these are the people the number
-				    above deliberately did not move for, and an admin is the only
-				    one who can. Without it, an extra tapping In changes nothing
-				    anybody can see. */}
-				{awaitingSpot > 0 && (
-					<span {...stylex.props(styles.awaiting)}>
-						{awaitingSpot} {played ? 'never got a spot' : 'awaiting a spot'}
-					</span>
-				)}
-				{game.counts.membersOut > 0 && <span>{game.counts.membersOut} out</span>}
-				{awaiting > 0 && (
-					<span>
-						{awaiting} {played ? 'never answered' : 'yet to answer'}
-					</span>
-				)}
-			</div>
+			<Breakdown counts={game.counts} awaiting={awaiting} awaitingSpot={awaitingSpot} played={played} />
 		</div>
 	);
 };

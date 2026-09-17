@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { DragEvent } from 'react';
+import type { DragEvent, RefObject } from 'react';
 import { ArrowDownTrayIcon, LinkIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { Receipt } from '@shared/types';
@@ -85,6 +85,183 @@ const styles = stylex.create({
 });
 
 /**
+ * The receipt an admin is filling in: which file, what to call it, and whether
+ * the pair is ready to send.
+ *
+ * `storage.rules` refuses an oversized or wrong-typed file from the far side
+ * and is what actually decides. `receiptProblem` is here so that picking a
+ * 40 MB photo is a sentence rather than a failed upload, which on a phone is a
+ * spinner followed by a toast that cannot say why.
+ *
+ * The name follows the file until somebody writes their own, and then it stops
+ * for good. `written` is the whole of that: whether the admin has touched the
+ * field, which is not the same question as whether it has anything in it.
+ * Reading emptiness instead got both halves wrong. A field cleared on purpose
+ * filled itself back in from the next file, which is precisely the typing this
+ * is meant to protect; and a name left as the first file's suggestion stayed
+ * put when the file was swapped, so picking the wrong file first filed the
+ * right one under the wrong name.
+ */
+const useReceiptDraft = () => {
+	const [file, setFile] = useState<File | null>(null);
+	const [name, setName] = useState('');
+	const [written, setWritten] = useState(false);
+	const [problem, setProblem] = useState<string | null>(null);
+	const input = useRef<HTMLInputElement>(null);
+
+	const pick = (picked: File | null) => {
+		setFile(picked);
+		setProblem(picked ? receiptProblem(picked) : null);
+
+		if (picked && !written) setName(defaultReceiptName(picked.name));
+	};
+
+	const rename = (next: string) => {
+		setName(next);
+		setWritten(true);
+	};
+
+	// The input is cleared through the DOM as well as through state, since a file
+	// input holds its own value and picking the same file twice after a failed
+	// upload raises no change event at all.
+	const clear = () => {
+		setFile(null);
+		setName('');
+		setWritten(false);
+		setProblem(null);
+		if (input.current) input.current.value = '';
+	};
+
+	return {
+		file,
+		name,
+		problem,
+		input,
+		valid: Boolean(file) && !problem && name.trim().length > 0,
+		pick,
+		rename,
+		clear,
+	};
+};
+
+/**
+ * The whole area takes a dropped file, not just the picker inside the form.
+ *
+ * On a desktop the receipt is a PDF sitting in a folder behind the browser
+ * window, and dragging it across is one gesture where the picker is three, the
+ * last of which is finding the file again in a dialog. Dropping opens the form
+ * with the file already in it, so what is left is checking the name and
+ * pressing the button.
+ *
+ * A phone has no drag and never fires any of this, which is why the line
+ * advertising it is drawn only where there is a pointer to do it with.
+ *
+ * Nothing is handed over until a file actually arrives, so a drag carrying
+ * anything else, or one over a list nobody may edit, leaves the caller's state
+ * alone and the browser's own handling of it with it.
+ */
+const useFileDrop = (enabled: boolean, onFiles: (files: FileList) => void) => {
+	const [over, setOver] = useState(false);
+
+	const carriesFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files');
+
+	const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+		if (!enabled || !carriesFiles(event)) return;
+
+		// Without the first the browser keeps the drop and opens the file in a tab
+		// of its own. Without the second the cursor says this is a move.
+		event.preventDefault();
+		event.dataTransfer.dropEffect = 'copy';
+
+		setOver(true);
+	};
+
+	const onDragLeave = (event: DragEvent<HTMLDivElement>) => {
+		// Crossing from one row to the next leaves a child rather than the area, and
+		// everything under the pointer here is a child.
+		if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+
+		setOver(false);
+	};
+
+	const onDrop = (event: DragEvent<HTMLDivElement>) => {
+		if (!enabled || !carriesFiles(event)) return;
+
+		event.preventDefault();
+		setOver(false);
+
+		// The first of however many, since a receipt is one file. Nothing is hidden
+		// by that: the form fills its name in from the file it took.
+		if (!event.dataTransfer.files?.[0]) return;
+
+		onFiles(event.dataTransfer.files);
+	};
+
+	return { over, onDragOver, onDragLeave, onDrop };
+};
+
+/**
+ * The two things an admin says about a receipt: which file, and what to call it.
+ *
+ * The chosen line under the picker is the receipt as the app reads it, kind and
+ * size, so a photo of the wrong thing is caught before the upload rather than
+ * after. It gives way to the problem, since a file that will be refused has
+ * nothing worth describing.
+ */
+const ReceiptFields = ({
+	input,
+	file,
+	name,
+	problem,
+	onPick,
+	onName,
+}: {
+	input: RefObject<HTMLInputElement | null>;
+	file: File | null;
+	name: string;
+	problem: string | null;
+	onPick: (picked: File | null) => void;
+	onName: (next: string) => void;
+}) => (
+	<>
+		<Field
+			label='The file'
+			hint={`A PDF, or a photo of a paper receipt. Up to ${formatFileSize(RECEIPT_MAX_BYTES)}.`}
+		>
+			{/* The native input rather than a button in front of a hidden one: it is
+			    the control a phone knows how to open its own files and camera roll
+			    with, and the only one a screen reader announces as a file picker
+			    without help. */}
+			<input
+				ref={input}
+				type='file'
+				accept={RECEIPT_CONTENT_TYPES.join(',')}
+				aria-label='Receipt file'
+				onChange={event => onPick(event.target.files?.[0] ?? null)}
+				{...stylex.props(styles.picker)}
+			/>
+		</Field>
+
+		{problem && <p {...stylex.props(styles.problem)}>{problem}</p>}
+
+		{file && !problem && (
+			<p {...stylex.props(styles.chosen)}>
+				{receiptKindLabel(file.type)} · {formatFileSize(file.size)}
+			</p>
+		)}
+
+		<Field label='What it is' hint='What people will see in the list, and what the file downloads as.'>
+			<TextInput
+				value={name}
+				onChange={event => onName(event.target.value)}
+				placeholder='Pitch invoice, spring 2026'
+				maxLength={RECEIPT_NAME_MAX}
+			/>
+		</Field>
+	</>
+);
+
+/**
  * The season's paperwork, and the two things anybody does with it.
  *
  * Download is why any of this exists. A Swedish employer pays a
@@ -116,15 +293,8 @@ const ReceiptList = ({
 	onDelete: (receipt: Receipt) => void;
 }) => {
 	const [adding, setAdding] = useState(false);
-	const [file, setFile] = useState<File | null>(null);
-	const [name, setName] = useState('');
-	const [written, setWritten] = useState(false);
-	const [problem, setProblem] = useState<string | null>(null);
-	const [over, setOver] = useState(false);
 	const [dropped, setDropped] = useState<FileList | null>(null);
-	const input = useRef<HTMLInputElement>(null);
-
-	const valid = Boolean(file) && !problem && name.trim().length > 0;
+	const { file, name, problem, input, valid, pick, rename, clear } = useReceiptDraft();
 
 	/**
 	 * Put a dropped file into the picker as well as into the form.
@@ -146,42 +316,11 @@ const ReceiptList = ({
 		if (input.current && dropped instanceof FileList && dropped.length === 1) input.current.files = dropped;
 
 		setDropped(null);
-	}, [dropped]);
+	}, [dropped, input]);
 
-	// The input is cleared through the DOM as well as through state, since a
-	// file input holds its own value and picking the same file twice after a
-	// failed upload raises no change event at all.
 	const close = () => {
-		setFile(null);
-		setName('');
-		setWritten(false);
-		setProblem(null);
+		clear();
 		setAdding(false);
-		if (input.current) input.current.value = '';
-	};
-
-	/**
-	 * Say what is wrong with a file while it can still be swapped.
-	 *
-	 * `storage.rules` refuses the same two things from the far side and is what
-	 * actually decides. This is here so that picking a 40 MB photo is a sentence
-	 * rather than a failed upload, which on a phone is a spinner followed by a
-	 * toast that cannot say why.
-	 *
-	 * The name follows the file until somebody writes their own, and then it
-	 * stops for good. `written` is the whole of that: whether the admin has
-	 * touched the field, which is not the same question as whether it has
-	 * anything in it. Reading emptiness instead got both halves wrong. A field
-	 * cleared on purpose filled itself back in from the next file, which is
-	 * precisely the typing this is meant to protect; and a name left as the
-	 * first file's suggestion stayed put when the file was swapped, so picking
-	 * the wrong file first filed the right one under the wrong name.
-	 */
-	const pick = (picked: File | null) => {
-		setFile(picked);
-		setProblem(picked ? receiptProblem(picked) : null);
-
-		if (picked && !written) setName(defaultReceiptName(picked.name));
 	};
 
 	const handleUpload = async () => {
@@ -192,62 +331,18 @@ const ReceiptList = ({
 		if (ok) close();
 	};
 
-	/**
-	 * The whole area takes a dropped file, not just the picker inside the form.
-	 *
-	 * On a desktop the receipt is a PDF sitting in a folder behind the browser
-	 * window, and dragging it across is one gesture where the picker is three,
-	 * the last of which is finding the file again in a dialog. Dropping opens
-	 * the form with the file already in it, so what is left is checking the name
-	 * and pressing the button.
-	 *
-	 * A phone has no drag and never fires any of this, which is why the line
-	 * advertising it is drawn only where there is a pointer to do it with.
-	 */
-	const carriesFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files');
-
-	const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-		if (!canEdit || !carriesFiles(event)) return;
-
-		// Without the first the browser keeps the drop and opens the file in a
-		// tab of its own. Without the second the cursor says this is a move.
-		event.preventDefault();
-		event.dataTransfer.dropEffect = 'copy';
-
-		setOver(true);
-	};
-
-	const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
-		// Crossing from one row to the next leaves a child rather than the area,
-		// and everything under the pointer here is a child.
-		if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
-
-		setOver(false);
-	};
-
-	const handleDrop = (event: DragEvent<HTMLDivElement>) => {
-		if (!canEdit || !carriesFiles(event)) return;
-
-		event.preventDefault();
-		setOver(false);
-
-		const files = event.dataTransfer.files;
-
-		// The first of however many, since a receipt is one file. Nothing is
-		// hidden by that: the form fills its name in from the file it took.
-		if (!files?.[0]) return;
-
+	const { over, onDragOver, onDragLeave, onDrop } = useFileDrop(canEdit, files => {
 		setAdding(true);
 		pick(files[0]);
 		setDropped(files);
-	};
+	});
 
 	return (
 		<div
 			{...stylex.props(styles.zone, over && styles.zoneOver)}
-			onDragOver={handleDragOver}
-			onDragLeave={handleDragLeave}
-			onDrop={handleDrop}
+			onDragOver={onDragOver}
+			onDragLeave={onDragLeave}
+			onDrop={onDrop}
 		>
 			<ListCard>
 				{receipts.length === 0 ? (
@@ -298,46 +393,14 @@ const ReceiptList = ({
 						action='Upload it'
 						canSubmit={valid}
 					>
-						<Field
-							label='The file'
-							hint={`A PDF, or a photo of a paper receipt. Up to ${formatFileSize(RECEIPT_MAX_BYTES)}.`}
-						>
-							{/* The native input rather than a button in front of a hidden
-							    one: it is the control a phone knows how to open its own
-							    files and camera roll with, and the only one a screen
-							    reader announces as a file picker without help. */}
-							<input
-								ref={input}
-								type='file'
-								accept={RECEIPT_CONTENT_TYPES.join(',')}
-								aria-label='Receipt file'
-								onChange={event => pick(event.target.files?.[0] ?? null)}
-								{...stylex.props(styles.picker)}
-							/>
-						</Field>
-
-						{problem && <p {...stylex.props(styles.problem)}>{problem}</p>}
-
-						{file && !problem && (
-							<p {...stylex.props(styles.chosen)}>
-								{receiptKindLabel(file.type)} · {formatFileSize(file.size)}
-							</p>
-						)}
-
-						<Field
-							label='What it is'
-							hint='What people will see in the list, and what the file downloads as.'
-						>
-							<TextInput
-								value={name}
-								onChange={event => {
-									setName(event.target.value);
-									setWritten(true);
-								}}
-								placeholder='Pitch invoice, spring 2026'
-								maxLength={RECEIPT_NAME_MAX}
-							/>
-						</Field>
+						<ReceiptFields
+							input={input}
+							file={file}
+							name={name}
+							problem={problem}
+							onPick={pick}
+							onName={rename}
+						/>
 					</AddPanel>
 
 					<p {...stylex.props(styles.hint)}>{over ? 'Drop it here.' : 'Or drag a file in here.'}</p>

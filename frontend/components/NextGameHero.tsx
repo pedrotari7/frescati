@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import type { GameLifecycle } from '@shared/game';
 import { getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { isShareable } from '@shared/share';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
@@ -95,6 +96,86 @@ const styles = stylex.create({
 });
 
 /**
+ * What state the game is in, and the two things you can do with it that are not
+ * answering it. The pills wrap on a narrow phone; the icon buttons stay pinned
+ * to the top-right of the card rather than wrapping with them.
+ */
+const TopRow = ({
+	game,
+	season,
+	lifecycle,
+	watching,
+	onWatchChange,
+}: Pick<GameAnswer, 'game' | 'season' | 'onWatchChange'> & { lifecycle: GameLifecycle; watching: boolean }) => (
+	<div {...stylex.props(styles.topRow)}>
+		<div {...stylex.props(styles.pills)}>
+			<StatusPill tone='brand'>Next game</StatusPill>
+			<span {...stylex.props(styles.relative)}>{formatRelative(game.kickoff)}</span>
+			{lifecycle === 'cancelled' && <StatusPill tone='out'>Cancelled</StatusPill>}
+			{lifecycle === 'locked' && <StatusPill tone='neutral'>Locked</StatusPill>}
+			{lifecycle === 'live' && <StatusPill tone='in'>Playing now</StatusPill>}
+		</div>
+
+		<div {...stylex.props(styles.tools)}>
+			{/* Wider than the bell on purpose: a game that is off is the most useful
+			    thing on this card to pass on, and that is exactly where
+			    `isWatchable` goes quiet. */}
+			{isShareable(lifecycle) && <ShareGame game={game} season={season} />}
+
+			{onWatchChange && isWatchable(lifecycle) && <WatchToggle watching={watching} onChange={onWatchChange} />}
+		</div>
+	</div>
+);
+
+/**
+ * The buttons, and the sentences that belong with whichever answer is still
+ * possible. A game that is off has no question left to ask, so it says why
+ * instead.
+ */
+const Answer = ({
+	game,
+	season,
+	lifecycle,
+	myResponse,
+	isExtra,
+	debtLock,
+	onRespond,
+	onClear,
+}: Pick<GameAnswer, 'game' | 'season' | 'myResponse' | 'debtLock' | 'onRespond' | 'onClear'> & {
+	lifecycle: GameLifecycle;
+	isExtra: boolean;
+}) => {
+	if (lifecycle === 'cancelled')
+		return <p {...stylex.props(styles.off)}>{game.cancelledReason || 'This game is off.'}</p>;
+
+	return (
+		<>
+			<div {...stylex.props(styles.respond)}>
+				<RespondControl
+					response={myResponse}
+					onRespond={onRespond}
+					onClear={onClear}
+					disabled={lifecycle !== 'open'}
+					debtLock={debtLock}
+				/>
+			</div>
+
+			{lifecycle === 'locked' && (
+				<p {...stylex.props(styles.closed)}>
+					Answers closed {season.responseDeadlineHours}h before kickoff. Ask an admin if you need to change
+					yours.
+				</p>
+			)}
+
+			{/* Directly under the buttons, because it is the receipt for the tap that
+			    just happened, an extra's In moves nothing on this card, headcount
+			    included, so this is the only thing on screen that answers it. */}
+			<ExtraSpotNote isExtra={isExtra} myResponse={myResponse} lifecycle={lifecycle} />
+		</>
+	);
+};
+
+/**
  * The whole point of the app on one card: when the next game is, whether it's
  * on, and two buttons to answer.
  */
@@ -137,29 +218,13 @@ const NextGameHero = ({
 			<div {...stylex.props(styles.glow)} aria-hidden='true' />
 
 			<div {...stylex.props(styles.inner)}>
-				{/* The pills wrap on a narrow phone; the two icon buttons stay
-				    pinned to the top-right of the card rather than wrapping
-				    with them. */}
-				<div {...stylex.props(styles.topRow)}>
-					<div {...stylex.props(styles.pills)}>
-						<StatusPill tone='brand'>Next game</StatusPill>
-						<span {...stylex.props(styles.relative)}>{formatRelative(game.kickoff)}</span>
-						{lifecycle === 'cancelled' && <StatusPill tone='out'>Cancelled</StatusPill>}
-						{lifecycle === 'locked' && <StatusPill tone='neutral'>Locked</StatusPill>}
-						{lifecycle === 'live' && <StatusPill tone='in'>Playing now</StatusPill>}
-					</div>
-
-					<div {...stylex.props(styles.tools)}>
-						{/* Wider than the bell on purpose: a game that is off is
-						    the most useful thing on this card to pass on, and
-						    that is exactly where `isWatchable` goes quiet. */}
-						{isShareable(lifecycle) && <ShareGame game={liveGame} season={season} />}
-
-						{onWatchChange && isWatchable(lifecycle) && (
-							<WatchToggle watching={watching} onChange={onWatchChange} />
-						)}
-					</div>
-				</div>
+				<TopRow
+					game={liveGame}
+					season={season}
+					lifecycle={lifecycle}
+					watching={watching}
+					onWatchChange={onWatchChange}
+				/>
 
 				{/* The card is the one screen most people ever look at, so the way
 				    through to the roster has to announce itself: the same chevron
@@ -196,34 +261,16 @@ const NextGameHero = ({
 					<GameKit seasonId={season.id} items={kit} responses={responses} usersByUid={usersByUid} compact />
 				)}
 
-				{lifecycle === 'cancelled' ? (
-					<p {...stylex.props(styles.off)}>{game.cancelledReason || 'This game is off.'}</p>
-				) : (
-					<>
-						<div {...stylex.props(styles.respond)}>
-							<RespondControl
-								response={myResponse}
-								onRespond={onRespond}
-								onClear={onClear}
-								disabled={lifecycle !== 'open'}
-								debtLock={debtLock}
-							/>
-						</div>
-
-						{lifecycle === 'locked' && (
-							<p {...stylex.props(styles.closed)}>
-								Answers closed {season.responseDeadlineHours}h before kickoff. Ask an admin if you need
-								to change yours.
-							</p>
-						)}
-
-						{/* Directly under the buttons, because it is the receipt for
-						    the tap that just happened, an extra's In moves nothing
-						    on this card, headcount included, so this is the only
-						    thing on screen that answers it. */}
-						<ExtraSpotNote isExtra={isExtra} myResponse={myResponse} lifecycle={lifecycle} />
-					</>
-				)}
+				<Answer
+					game={game}
+					season={season}
+					lifecycle={lifecycle}
+					myResponse={myResponse}
+					isExtra={isExtra}
+					debtLock={debtLock}
+					onRespond={onRespond}
+					onClear={onClear}
+				/>
 			</div>
 		</section>
 	);
