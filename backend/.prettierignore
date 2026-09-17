@@ -2,3 +2,11 @@
 # note in `frontend/.prettierignore` for why this is a local file rather than
 # a `--ignore-path ../.gitignore` in the package.json script.
 lib/
+
+# Coverage output, which this suite started writing when it moved to the
+# Istanbul provider for `fallow health`. The root `.gitignore` covers it for
+# git and for a prettier run started at the root, but not for this one: the
+# ignore path resolves against the working directory, and there is no
+# `backend/.gitignore`. So a `pnpm test:backend` used to be enough to fail the
+# next commit, on a file nothing here wrote by hand.
+coverage/
