@@ -74,10 +74,7 @@ const isEmulated = (): boolean => process.env.FUNCTIONS_EMULATOR === 'true';
  * the same way it would still push to that uid's tokens.
  */
 const resolveRecipients = async (uids: string[]): Promise<Recipient[]> => {
-	const [profiles, addresses] = await Promise.all([
-		Promise.all(uids.map(uid => db.doc(`users/${uid}`).get())),
-		lookUpVerifiedEmails(uids),
-	]);
+	const { profiles, addresses } = await readProfilesAndEmails(uids);
 
 	// Filtered through the shared `canEmail` rather than by reading the
 	// preference here, so the backend and the admin screen can't disagree about
@@ -112,6 +109,25 @@ export const lookUpVerifiedEmails = async (uids: string[]): Promise<Map<string, 
 	}
 
 	return found;
+};
+
+/**
+ * The two sources an email decision needs, fetched together: the profile for
+ * the preference, Auth for the address. Neither knows about the other.
+ *
+ * Shared because `resolveRecipients` here and `describeReach` in
+ * `sendTestEmail` both open with exactly this fan-out, and a test send that
+ * read its recipients differently from a real one would be a test that proves
+ * the wrong thing. `lookUpVerifiedEmails` already chunks internally against
+ * Auth's per-call limit, so this only fans out the two sources.
+ */
+export const readProfilesAndEmails = async (uids: string[]) => {
+	const [profiles, addresses] = await Promise.all([
+		Promise.all(uids.map(uid => db.doc(`users/${uid}`).get())),
+		lookUpVerifiedEmails(uids),
+	]);
+
+	return { profiles, addresses };
 };
 
 /**
