@@ -11,21 +11,19 @@ import { useToast } from '../../../components/Toast';
 import PageShell from '../../../components/PageShell';
 import AppAdminOnly from '../../../components/AppAdminOnly';
 import Skeleton from '../../../components/Skeleton';
-import Avatar from '../../../components/Avatar';
+import Person from '../../../components/Person';
 import Button from '../../../components/Button';
 import StatusPill from '../../../components/StatusPill';
-import { SearchInput } from '../../../components/Field';
+import { NameSearch } from '../../../components/Field';
 import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../components/Section';
+import { searchByName } from '../../../lib/people';
 import { colors } from '../../tokens.stylex';
-import { utils } from '../../../lib/styles';
 
 const styles = stylex.create({
 	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
 
 	heading: { marginBottom: 8, paddingInline: 4 },
 	person: { display: 'flex', alignItems: 'center', gap: 12, paddingBlock: 12 },
-	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
-	name: { color: colors.ink, fontSize: 14, lineHeight: '20px' },
 	note: { color: colors.faint, marginTop: 12, paddingInline: 4, fontSize: 12, lineHeight: 1.625 },
 });
 
@@ -46,8 +44,7 @@ const AppAdminPage = () => {
 	const [search, setSearch] = useState('');
 
 	const { admins, others } = useMemo(() => {
-		const term = search.trim().toLowerCase();
-		const matches = users.filter(candidate => !term || candidate.displayName.toLowerCase().includes(term));
+		const matches = searchByName(users, search);
 
 		return {
 			admins: matches.filter(candidate => candidate.isAppAdmin),
@@ -95,12 +92,7 @@ const AppAdminPage = () => {
 	return (
 		<PageShell title='App admins' subtitle={`${admins.length} with global rights`} backHref='/me'>
 			<div {...stylex.props(styles.page)}>
-				<SearchInput
-					label='Search by name'
-					value={search}
-					onChange={e => setSearch(e.target.value)}
-					placeholder='Search by name'
-				/>
+				<NameSearch value={search} onChange={setSearch} />
 
 				<section>
 					<SectionHeading sx={styles.heading}>App admins ({admins.length})</SectionHeading>
@@ -110,12 +102,9 @@ const AppAdminPage = () => {
 
 						{admins.map(candidate => (
 							<div key={candidate.uid} {...stylex.props(listRow, styles.person)}>
-								<Avatar displayName={candidate.displayName} photoURL={candidate.photoURL} />
-
-								<div {...stylex.props(styles.body)}>
-									<p {...stylex.props(styles.name, utils.truncate)}>{candidate.displayName}</p>
+								<Person person={candidate}>
 									<StatusPill tone='brand'>App admin</StatusPill>
-								</div>
+								</Person>
 
 								{/* The function refuses to demote the caller, so
 								    there is always somebody left holding the keys. */}
@@ -144,11 +133,7 @@ const AppAdminPage = () => {
 
 						{others.map(candidate => (
 							<div key={candidate.uid} {...stylex.props(listRow, styles.person)}>
-								<Avatar displayName={candidate.displayName} photoURL={candidate.photoURL} />
-
-								<div {...stylex.props(styles.body)}>
-									<p {...stylex.props(styles.name, utils.truncate)}>{candidate.displayName}</p>
-								</div>
+								<Person person={candidate} />
 
 								<Button
 									size='sm'

@@ -14,13 +14,13 @@ import { useToast } from '../../../../components/Toast';
 import PageShell from '../../../../components/PageShell';
 import AppAdminOnly from '../../../../components/AppAdminOnly';
 import Skeleton from '../../../../components/Skeleton';
-import Avatar from '../../../../components/Avatar';
+import Person from '../../../../components/Person';
 import Button from '../../../../components/Button';
 import StatusPill from '../../../../components/StatusPill';
-import { RangeInput, SearchInput } from '../../../../components/Field';
+import { NameSearch, RangeInput } from '../../../../components/Field';
 import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../components/Section';
+import { searchByName } from '../../../../lib/people';
 import { bp, colors, tint } from '../../../tokens.stylex';
-import { utils } from '../../../../lib/styles';
 
 const styles = stylex.create({
 	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
@@ -43,8 +43,6 @@ const styles = stylex.create({
 
 	row: { paddingBlock: 12 },
 	person: { display: 'flex', alignItems: 'center', gap: 12 },
-	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
-	name: { color: colors.ink, fontSize: 14, lineHeight: '20px' },
 	meta: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
 
 	rated: {
@@ -188,16 +186,13 @@ const StartingRatingRow = ({
 	return (
 		<div {...stylex.props(listRow, styles.row)}>
 			<div {...stylex.props(styles.person)}>
-				<Avatar displayName={player.displayName} photoURL={player.photoURL} />
-
-				<div {...stylex.props(styles.body)}>
-					<p {...stylex.props(styles.name, utils.truncate)}>{player.displayName}</p>
+				<Person person={player}>
 					<p {...stylex.props(styles.meta)}>
 						{current === null
 							? 'On the group average'
 							: `Starts on ${current} · ${describeRating(current)}`}
 					</p>
-				</div>
+				</Person>
 
 				{current !== null && <StatusPill tone='pending'>Estimate</StatusPill>}
 
@@ -218,8 +213,7 @@ const RatingsAdminPage = () => {
 	const [editing, setEditing] = useState<string | null>(null);
 
 	const { estimated, rated } = useMemo(() => {
-		const term = search.trim().toLowerCase();
-		const matches = users.filter(candidate => !term || candidate.displayName.toLowerCase().includes(term));
+		const matches = searchByName(users, search);
 
 		return {
 			estimated: matches.filter(candidate => !hasPlayed(candidate.rating)),
@@ -250,12 +244,7 @@ const RatingsAdminPage = () => {
 	return (
 		<PageShell title='Starting ratings' subtitle={`${estimated.length} yet to play`} backHref='/me'>
 			<div {...stylex.props(styles.page)}>
-				<SearchInput
-					label='Search by name'
-					value={search}
-					onChange={e => setSearch(e.target.value)}
-					placeholder='Search by name'
-				/>
+				<NameSearch value={search} onChange={setSearch} />
 
 				<section>
 					<SectionHeading sx={styles.heading}>Yet to play ({estimated.length})</SectionHeading>
@@ -304,12 +293,9 @@ const RatingsAdminPage = () => {
 						    and a <button> inside an <a> is invalid. */}
 						{rated.map(player => (
 							<Link key={player.uid} href={`/u/${player.uid}`} {...stylex.props(listRow, styles.rated)}>
-								<Avatar displayName={player.displayName} photoURL={player.photoURL} />
-
-								<div {...stylex.props(styles.body)}>
-									<p {...stylex.props(styles.name, utils.truncate)}>{player.displayName}</p>
+								<Person person={player}>
 									<p {...stylex.props(styles.meta)}>{counted(player.rating!.games, 'rated game')}</p>
-								</div>
+								</Person>
 
 								<span {...stylex.props(styles.figure)}>{toDisplayRating(player.rating!.elo)}</span>
 							</Link>

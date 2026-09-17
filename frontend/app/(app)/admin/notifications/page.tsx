@@ -19,7 +19,7 @@ import Avatar from '../../../../components/Avatar';
 import Button from '../../../../components/Button';
 import StatusPill from '../../../../components/StatusPill';
 import type { PillTone } from '../../../../components/StatusPill';
-import { SearchInput } from '../../../../components/Field';
+import { NameSearch } from '../../../../components/Field';
 import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../components/Section';
 import { colors } from '../../../tokens.stylex';
 import { surfaces, utils } from '../../../../lib/styles';
@@ -260,12 +260,7 @@ const NotificationsAdminPage = () => {
 					</p>
 				)}
 
-				<SearchInput
-					label='Search by name'
-					value={search}
-					onChange={e => setSearch(e.target.value)}
-					placeholder='Search by name'
-				/>
+				<NameSearch value={search} onChange={setSearch} />
 
 				{loading ? (
 					<div {...stylex.props(styles.skeletons)}>

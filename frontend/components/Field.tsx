@@ -149,6 +149,28 @@ export const SearchInput = ({
 );
 
 /**
+ * Searching a list of people by name, which is what five of the six search
+ * boxes in the app are.
+ *
+ * The label and the placeholder say the same words on purpose: the label is
+ * what a screen reader gets and the placeholder is what everybody else does,
+ * and two copies of one sentence are two chances to reword half of it.
+ * `searchByName` in `lib/people` is the other half of this. This asks the
+ * question, that answers it.
+ *
+ * The sixth box is the kit handover sheet, which searches one season's squad
+ * rather than everybody signed up and says so. It stays on `SearchInput`.
+ */
+export const NameSearch = ({ value, onChange }: { value: string; onChange: (next: string) => void }) => (
+	<SearchInput
+		label='Search by name'
+		value={value}
+		onChange={event => onChange(event.target.value)}
+		placeholder='Search by name'
+	/>
+);
+
+/**
  * A slider for the settings that are a feel rather than a figure.
  *
  * Shows its own value, because a range control with no readout is guesswork,
