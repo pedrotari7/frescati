@@ -48,8 +48,20 @@ jobs:
     with:
       isTypecheck: ${{ needs.changes.outputs.typecheck }}
 
+  # The five permissions `fallow.yml` declares, repeated here because a called
+  # workflow cannot ask for more than its caller holds, and this repo's default
+  # token is read-only. Getting this wrong is not a red fallow job: the whole
+  # file is rejected before any job starts, so every check in here disappears
+  # and the only thing that reports is Vercel. Job-level rather than top-level,
+  # so the other seven jobs stay on the read-only default they need.
   fallow:
     needs: changes
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+      pull-requests: write
+      checks: write
     uses: ./.github/workflows/fallow.yml
     with:
       isFallow: ${{ needs.changes.outputs.fallow }}

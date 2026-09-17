@@ -48,8 +48,19 @@ jobs:
     with:
       isTypecheck: ${{ needs.changes.outputs.typecheck }}
 
+  # The five permissions `fallow.yml` declares, repeated here for the same
+  # reason as in pr.yml: a called workflow cannot ask for more than its caller
+  # holds, and this repo's default token is read-only. Job-level rather than
+  # top-level, because the two deploy jobs below hold the keys to production
+  # and are not ones to hand write access to as a side effect.
   fallow:
     needs: changes
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+      pull-requests: write
+      checks: write
     uses: ./.github/workflows/fallow.yml
     with:
       isFallow: ${{ needs.changes.outputs.fallow }}
