@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { BellAlertIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import type { AppUser, Game, Season } from '@shared/types';
 import type { AnyNotification, PushPayload } from '@shared/notifications';
 import {
 	NOTIFICATIONS,
@@ -15,6 +16,7 @@ import { getSilentMembers } from '@shared/game';
 import { SAMPLE_CHARGE, SAMPLE_DEBT } from '@shared/debug';
 import { counted, formatGameWhen, plural } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
+import type { PushSupport } from '../../../lib/push';
 import { usePushRegistration } from '../../../hooks/usePushRegistration';
 import { sendTestPush } from '../../../lib/db/testPush';
 import { sendTestEmail } from '../../../lib/db/testEmail';
@@ -202,55 +204,442 @@ const STATUS_LABEL: Record<EmailTestStatus, string> = {
 	emailOff: 'Email off',
 };
 
-const DebugPage = () => {
-	const { user } = useAuth();
-	const { notify, warn } = useToast();
-	const confirm = useConfirm();
-	const { seasons } = useSeasons();
-	const { users } = useUsers();
+/** What both send buttons aim at: a season, and a game in it when there is one. */
+interface Target {
+	seasonId: string;
+	gameId?: string;
+}
 
-	const { support, enabled } = usePushRegistration(user?.uid);
+/**
+ * Which season and game everything on this screen points at.
+ *
+ * The season falls back to the first rather than being synced in an effect: the
+ * list arrives after the first render, and writing it back into state means a
+ * frame where nothing is selected. The game is derived rather than stored for a
+ * sharper reason, switching season must not leave a game id from the previous
+ * one selected, which would send a notification deep-linking somewhere the
+ * picker is not pointing.
+ *
+ * The next game is the one whose notifications are worth looking at, and
+ * falling back to the last means a finished season still gives a real deep
+ * link.
+ */
+const useDebugTarget = () => {
+	const { seasons } = useSeasons();
 	const [chosenSeason, setChosenSeason] = useState<string | null>(null);
 	const [chosenGame, setChosenGame] = useState<string | null>(null);
-	const [sentPayloads, setSentPayloads] = useState<Partial<Record<AnyNotification, PushPayload>>>({});
-	const [emailKind, setEmailKind] = useState<AnyNotification>('reminder');
-	const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
-	const [emailResult, setEmailResult] = useState<TestEmailResult | null>(null);
 
-	// Fall back to the first season rather than holding the selection in an
-	// effect: the list arrives after the first render, and syncing it back into
-	// state means a frame where nothing is selected.
 	const seasonId = chosenSeason ?? seasons[0]?.id ?? null;
 	const { games } = useGames(seasonId);
 
 	const byKickoff = useMemo(() => [...games].sort((a, b) => a.kickoffMillis - b.kickoffMillis), [games]);
 
-	// The next game is the one whose notifications are worth looking at. Falling
-	// back to the last means a finished season still gives a real deep link.
 	const defaultGameId = useMemo(() => {
 		const now = Date.now();
 
 		return (byKickoff.find(game => game.kickoffMillis >= now) ?? byKickoff[byKickoff.length - 1])?.id ?? null;
 	}, [byKickoff]);
 
-	// Derived, not stored, so switching season can't leave a game id from the
-	// previous one selected, which would send a notification deep-linking
-	// somewhere the picker isn't pointing.
 	const gameId = chosenGame && byKickoff.some(game => game.id === chosenGame) ? chosenGame : defaultGameId;
 
-	// What both send buttons aim at. The season travels on its own when there is
-	// no game to name, because the two money kinds are about a season rather than
-	// a game and a season with no games generated yet would otherwise be told to
-	// pick one. The game kinds fall back to their stand-in context, as they
-	// already do when nothing is picked at all.
-	const target = seasonId ? { seasonId, gameId: gameId ?? undefined } : undefined;
+	// The season travels on its own when there is no game to name, because the two
+	// money kinds are about a season rather than a game and a season with no games
+	// generated yet would otherwise be told to pick one. The game kinds fall back
+	// to their stand-in context, as they already do when nothing is picked at all.
+	const target: Target | undefined = seasonId ? { seasonId, gameId: gameId ?? undefined } : undefined;
 
-	const season = seasons.find(candidate => candidate.id === seasonId) ?? null;
+	return {
+		seasons,
+		seasonId,
+		season: seasons.find(candidate => candidate.id === seasonId) ?? null,
+		games: byKickoff,
+		gameId,
+		target,
+		setChosenSeason,
+		setChosenGame,
+	};
+};
+
+/** Whether this browser could receive anything at all. */
+const DeviceCard = ({ support, enabled }: { support: PushSupport | null; enabled: boolean | null }) => (
+	<section {...stylex.props(surfaces.glass, styles.card)}>
+		<div {...stylex.props(styles.head, styles.headGap)}>
+			<BellAlertIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
+			<h2 {...stylex.props(styles.title)}>This device</h2>
+		</div>
+
+		<div {...stylex.props(styles.pills)}>
+			{support === null && <StatusPill tone='neutral'>Checking…</StatusPill>}
+			{support === 'needs-install' && <StatusPill tone='pending'>Add to home screen first</StatusPill>}
+			{support === 'unsupported' && <StatusPill tone='out'>Browser can&apos;t do push</StatusPill>}
+			{support === 'supported' && enabled === true && <StatusPill tone='in'>Registered</StatusPill>}
+			{support === 'supported' && enabled === false && <StatusPill tone='out'>Not registered</StatusPill>}
+		</div>
+
+		{support === 'supported' && enabled === false && (
+			<p {...stylex.props(styles.body, styles.bodyGap)}>
+				Turn notifications on from the You screen, then come back. Sends will report zero devices until this
+				browser holds a token.
+			</p>
+		)}
+
+		<p {...stylex.props(styles.note)}>
+			Anything sent here goes only to accounts you are signed in as, on every device you have registered. To test
+			how the notification renders without involving FCM at all, use the Push box in DevTools under Application →
+			Service Workers.
+		</p>
+	</section>
+);
+
+/**
+ * Which season and game to aim at. Both, since the payments panel below reads
+ * the season's fees off the same selection the notifications deep-link into.
+ */
+const TargetCard = ({
+	seasons,
+	season,
+	seasonId,
+	games,
+	gameId,
+	onSeason,
+	onGame,
+}: {
+	seasons: Season[];
+	season: Season | null;
+	seasonId: string | null;
+	games: Game[];
+	gameId: string | null;
+	onSeason: (id: string) => void;
+	onGame: (id: string) => void;
+}) => (
+	<section {...stylex.props(surfaces.glass, styles.card, styles.stack)}>
+		<h2 {...stylex.props(styles.title)}>Target season and game</h2>
+
+		<Field label='Season'>
+			<Select value={seasonId ?? ''} onChange={event => onSeason(event.target.value)}>
+				{seasons.length === 0 && <option value=''>No seasons yet</option>}
+				{seasons.map(candidate => (
+					<option key={candidate.id} value={candidate.id}>
+						{candidate.name}
+					</option>
+				))}
+			</Select>
+		</Field>
+
+		<Field label='Game' hint='The notification deep-links here, so tapping it lands on a real game.'>
+			<Select value={gameId ?? ''} onChange={event => onGame(event.target.value)} disabled={games.length === 0}>
+				{games.length === 0 && <option value=''>No games in this season</option>}
+				{games.map(game => (
+					<option key={game.id} value={game.id}>
+						{season ? formatGameWhen(game.kickoff, season.slot.timezone) : game.kickoff}
+						{game.status === 'cancelled' ? ' · cancelled' : ''}
+					</option>
+				))}
+			</Select>
+		</Field>
+
+		{!gameId && (
+			<p {...stylex.props(styles.warn)}>
+				Without a game these send a sample payload linking to the season list. Pick one to test the deep link.
+			</p>
+		)}
+	</section>
+);
+
+/**
+ * Sending one notification to yourself, and saying which of the five things
+ * that can happen actually did.
+ *
+ * Every one of them is invisible from the phone and they look identical from
+ * here, nothing arrives. Saying which it was is the entire point of the screen.
+ */
+const usePushTest = (target: Target | undefined) => {
+	const { notify, warn } = useToast();
+	const [sentPayloads, setSentPayloads] = useState<Partial<Record<AnyNotification, PushPayload>>>({});
+
+	const report = (result: Awaited<ReturnType<typeof sendTestPush>>) => {
+		if (result.sent > 0) return notify(`Sent to ${counted(result.sent, 'device')}.`);
+
+		// Checked before the two push failures below, because when the fallback
+		// caught it neither of them is what happened.
+		if (result.emailed > 0) return notify('No device could be reached, so it went to your email instead.');
+
+		// Ahead of the device count, unlike `getPushReach`. That summarises whether
+		// somebody is reachable at all, where the missing device is the root cause.
+		// This reports one send, and the preference is what short-circuited it,
+		// before either channel was consulted.
+		if (!result.prefEnabled) return warn('That kind is switched off in your notification preferences.');
+
+		if (result.devices === 0) {
+			return warn('No registered devices, and no email went out either. Check the email fallback is configured.');
+		}
+
+		return warn('FCM accepted none of your tokens. They are stale, turn notifications off and on again.');
+	};
+
+	const send = async (kind: AnyNotification) => {
+		try {
+			const result = await sendTestPush(kind, target);
+
+			setSentPayloads(previous => ({ ...previous, [kind]: result.payload }));
+			report(result);
+		} catch (error) {
+			console.error('Could not send the test notification', error);
+			warn(error instanceof Error ? error.message : "Couldn't send that notification.");
+		}
+	};
+
+	return { sentPayloads, send };
+};
+
+/** One notification per row, with whatever last went out under it. */
+const SendOneCard = ({ target }: { target: Target | undefined }) => {
+	const { sentPayloads, send } = usePushTest(target);
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<h2 {...stylex.props(styles.title, styles.titleGap)}>Send one</h2>
+			<p {...stylex.props(styles.lead)}>
+				The same payload the real trigger builds, through the same preferences check. Sending does not change
+				any game.
+			</p>
+
+			<div>
+				{NOTIFICATIONS.map(kind => (
+					<SendRow key={kind} kind={kind} payload={sentPayloads[kind]} onSend={() => send(kind)} />
+				))}
+			</div>
+		</section>
+	);
+};
+
+/** One kind of notification, and what actually went out last time. */
+const SendRow = ({
+	kind,
+	payload,
+	onSend,
+}: {
+	kind: AnyNotification;
+	payload: PushPayload | undefined;
+	onSend: () => void;
+}) => (
+	<div {...stylex.props(styles.row)}>
+		<div {...stylex.props(styles.rowBody)}>
+			<p {...stylex.props(styles.rowTitle)}>{payload?.title ?? titleFor(kind)}</p>
+			<p {...stylex.props(styles.rowNote)}>{DESCRIPTIONS[kind]}</p>
+
+			{/* What actually went out, straight from the function, not a preview
+			    built here. */}
+			{payload && <p {...stylex.props(styles.quote, styles.quoteGap)}>{payload.body}</p>}
+		</div>
+
+		<Button size='sm' variant='secondary' onClick={onSend}>
+			Send
+		</Button>
+	</div>
+);
+
+/** Who to email, ticked off the full list of accounts. */
+const RecipientPicker = ({
+	users,
+	selected,
+	silentUids,
+	showSilent,
+	onToggle,
+	onSet,
+}: {
+	users: AppUser[];
+	selected: Set<string>;
+	silentUids: string[];
+	showSilent: boolean;
+	onToggle: (uid: string) => void;
+	onSet: (uids: string[]) => void;
+}) => (
+	<div>
+		<div {...stylex.props(styles.pickerHead)}>
+			<span {...stylex.props(styles.pickerLabel)}>Recipients</span>
+
+			<div {...stylex.props(styles.pickerActions)}>
+				{showSilent && (
+					<Button size='sm' variant='ghost' onClick={() => onSet(silentUids)}>
+						Hasn&apos;t answered ({silentUids.length})
+					</Button>
+				)}
+				{selected.size > 0 && (
+					<Button size='sm' variant='ghost' onClick={() => onSet([])}>
+						Clear
+					</Button>
+				)}
+			</div>
+		</div>
+
+		<div {...stylex.props(surfaces.glassCard, styles.roster)}>
+			{users.length === 0 && <p {...stylex.props(styles.empty)}>No accounts yet.</p>}
+
+			{users.map(candidate => (
+				<label key={candidate.uid} {...stylex.props(styles.person)}>
+					<input
+						type='checkbox'
+						{...stylex.props(styles.tick)}
+						checked={selected.has(candidate.uid)}
+						onChange={() => onToggle(candidate.uid)}
+					/>
+					<Avatar displayName={candidate.displayName} photoURL={candidate.photoURL} size='sm' />
+					<span {...stylex.props(styles.personName, utils.truncate)}>{candidate.displayName}</span>
+				</label>
+			))}
+		</div>
+	</div>
+);
+
+/** Who the last send reached, and why it missed anybody it missed. */
+const EmailOutcome = ({ result }: { result: TestEmailResult | null }) => {
+	if (!result) return null;
+
+	return (
+		<div {...stylex.props(styles.outcome)}>
+			<p {...stylex.props(styles.rowTitle)}>{result.payload.title}</p>
+			<p {...stylex.props(styles.quote)}>{result.payload.body}</p>
+
+			<ul {...stylex.props(styles.outcomes)}>
+				{result.results.map((outcome: EmailTestOutcome) => (
+					<li key={outcome.uid} {...stylex.props(styles.outcomeRow)}>
+						<span {...stylex.props(styles.outcomeName, utils.truncate)}>{outcome.displayName}</span>
+						<StatusPill tone={STATUS_TONE[outcome.status]}>{STATUS_LABEL[outcome.status]}</StatusPill>
+					</li>
+				))}
+			</ul>
+		</div>
+	);
+};
+
+/**
+ * The one send on this screen that reaches somebody other than the person
+ * tapping it, which is why it asks first: a real email, right now, to a real
+ * inbox, not a preview.
+ */
+const useEmailTest = (target: Target | undefined) => {
+	const { notify, warn } = useToast();
+	const confirm = useConfirm();
+	const [result, setResult] = useState<TestEmailResult | null>(null);
+
+	const sendTo = async (kind: AnyNotification, uids: string[]) => {
+		if (uids.length === 0) return;
+
+		const ok = await confirm({
+			title: `Email ${counted(uids.length, 'person', 'people')}?`,
+			message: 'This sends a real email right now, to their real inbox, not a preview.',
+			confirmLabel: 'Send',
+		});
+
+		if (!ok) return;
+
+		try {
+			const sent = await sendTestEmail(kind, uids, target);
+
+			setResult(sent);
+
+			if (sent.sent > 0) notify(`Emailed ${sent.sent} of ${uids.length}.`);
+			else warn('Nobody selected could be emailed, see the reasons below.');
+		} catch (error) {
+			console.error('Could not send the test email', error);
+			warn(error instanceof Error ? error.message : "Couldn't send that email.");
+		}
+	};
+
+	return { result, sendTo };
+};
+
+/**
+ * Emailing real people.
+ *
+ * Unlike everything above, this reaches accounts other than your own, through
+ * the same fallback transport a genuine send would use, so it proves delivery
+ * and rendering rather than just the copy.
+ */
+const EmailCard = ({
+	target,
+	users,
+	silentUids,
+	showSilent,
+}: {
+	target: Target | undefined;
+	users: AppUser[];
+	silentUids: string[];
+	showSilent: boolean;
+}) => {
+	const { result, sendTo } = useEmailTest(target);
+	const [kind, setKind] = useState<AnyNotification>('reminder');
+	const [selected, setSelected] = useState<Set<string>>(new Set());
+
+	const toggle = (uid: string) =>
+		setSelected(previous => {
+			const next = new Set(previous);
+
+			if (next.has(uid)) next.delete(uid);
+			else next.add(uid);
+
+			return next;
+		});
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.card, styles.stack)}>
+			<div {...stylex.props(styles.head, styles.headTight)}>
+				<EnvelopeIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
+				<h2 {...stylex.props(styles.title)}>Email a selection of people</h2>
+			</div>
+
+			<p {...stylex.props(styles.body)}>
+				Unlike everything above, this reaches real accounts other than your own, through the same fallback
+				transport a genuine send would use, so it proves delivery and rendering, not just the copy.
+			</p>
+
+			<Field label='Kind'>
+				<Select value={kind} onChange={event => setKind(event.target.value as AnyNotification)}>
+					{NOTIFICATIONS.map(candidate => (
+						<option key={candidate} value={candidate}>
+							{titleFor(candidate)}
+						</option>
+					))}
+				</Select>
+			</Field>
+
+			<RecipientPicker
+				users={users}
+				selected={selected}
+				silentUids={silentUids}
+				showSilent={showSilent}
+				onToggle={toggle}
+				onSet={uids => setSelected(new Set(uids))}
+			/>
+
+			<Button
+				variant='primary'
+				fullWidth
+				disabled={selected.size === 0}
+				onClick={() => sendTo(kind, Array.from(selected))}
+			>
+				{/* The count is hidden at zero rather than rendered as "0 people". The
+				    button is disabled there, and "Email people" is the label for a
+				    control you have not picked anybody for yet. */}
+				Email {selected.size > 0 && selected.size} {plural(selected.size, 'person', 'people')}
+			</Button>
+
+			<EmailOutcome result={result} />
+		</section>
+	);
+};
+
+const DebugPage = () => {
+	const { user } = useAuth();
+	const { users } = useUsers();
+	const { support, enabled } = usePushRegistration(user?.uid);
+	const { seasons, seasonId, season, games, gameId, target, setChosenSeason, setChosenGame } = useDebugTarget();
 	const { responses } = useResponses(seasonId, gameId);
 
-	// Who a real reminder would actually nudge for this game, the quick way
-	// into "email exactly the people who haven't answered" without hand-picking
-	// them from the full roster.
+	// Who a real reminder would actually nudge for this game, the quick way into
+	// "email exactly the people who haven't answered" without hand-picking them
+	// from the full roster.
 	const silentUids = useMemo(() => (season ? getSilentMembers(season, responses) : []), [season, responses]);
 
 	if (!user?.isAppAdmin) {
@@ -262,283 +651,29 @@ const DebugPage = () => {
 		);
 	}
 
-	const send = async (kind: AnyNotification) => {
-		try {
-			const result = await sendTestPush(kind, target);
-
-			setSentPayloads(previous => ({ ...previous, [kind]: result.payload }));
-
-			// Every one of these is invisible from the phone, and they look
-			// identical from here, nothing arrives. Saying which it was is the
-			// entire point of the screen.
-			if (result.sent > 0) {
-				notify(`Sent to ${counted(result.sent, 'device')}.`);
-			} else if (result.emailed > 0) {
-				// Checked before the two push failures below, because when the
-				// fallback caught it neither of them is what happened.
-				notify('No device could be reached, so it went to your email instead.');
-			} else if (!result.prefEnabled) {
-				// Ahead of the device count, unlike `getPushReach`. That
-				// summarises whether somebody is reachable at all, where the
-				// missing device is the root cause. This reports one send, and
-				// the preference is what short-circuited it, before either
-				// channel was consulted.
-				warn('That kind is switched off in your notification preferences.');
-			} else if (result.devices === 0) {
-				warn('No registered devices, and no email went out either. Check the email fallback is configured.');
-			} else {
-				warn('FCM accepted none of your tokens. They are stale, turn notifications off and on again.');
-			}
-		} catch (error) {
-			console.error('Could not send the test notification', error);
-			warn(error instanceof Error ? error.message : "Couldn't send that notification.");
-		}
-	};
-
-	const toggleRecipient = (target: string) =>
-		setSelectedUids(previous => {
-			const next = new Set(previous);
-			if (next.has(target)) next.delete(target);
-			else next.add(target);
-			return next;
-		});
-
-	const sendEmailTest = async () => {
-		const uids = Array.from(selectedUids);
-		if (uids.length === 0) return;
-
-		// The one send on this screen that reaches somebody other than the
-		// person tapping it, worth a second tap before it actually goes.
-		const ok = await confirm({
-			title: `Email ${counted(uids.length, 'person', 'people')}?`,
-			message: 'This sends a real email right now, to their real inbox, not a preview.',
-			confirmLabel: 'Send',
-		});
-		if (!ok) return;
-
-		try {
-			const result = await sendTestEmail(emailKind, uids, target);
-
-			setEmailResult(result);
-
-			if (result.sent > 0) {
-				notify(`Emailed ${result.sent} of ${uids.length}.`);
-			} else {
-				warn('Nobody selected could be emailed, see the reasons below.');
-			}
-		} catch (error) {
-			console.error('Could not send the test email', error);
-			warn(error instanceof Error ? error.message : "Couldn't send that email.");
-		}
-	};
-
 	return (
 		<PageShell title='Debug' subtitle='Notifications, payments, and breaking things on purpose' backHref='/me'>
 			<div {...stylex.props(styles.page)}>
-				<section {...stylex.props(surfaces.glass, styles.card)}>
-					<div {...stylex.props(styles.head, styles.headGap)}>
-						<BellAlertIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
-						<h2 {...stylex.props(styles.title)}>This device</h2>
-					</div>
+				<DeviceCard support={support} enabled={enabled} />
 
-					<div {...stylex.props(styles.pills)}>
-						{support === null && <StatusPill tone='neutral'>Checking…</StatusPill>}
-						{support === 'needs-install' && (
-							<StatusPill tone='pending'>Add to home screen first</StatusPill>
-						)}
-						{support === 'unsupported' && <StatusPill tone='out'>Browser can&apos;t do push</StatusPill>}
-						{support === 'supported' && enabled === true && <StatusPill tone='in'>Registered</StatusPill>}
-						{support === 'supported' && enabled === false && (
-							<StatusPill tone='out'>Not registered</StatusPill>
-						)}
-					</div>
+				<TargetCard
+					seasons={seasons}
+					season={season}
+					seasonId={seasonId}
+					games={games}
+					gameId={gameId}
+					onSeason={setChosenSeason}
+					onGame={setChosenGame}
+				/>
 
-					{support === 'supported' && enabled === false && (
-						<p {...stylex.props(styles.body, styles.bodyGap)}>
-							Turn notifications on from the You screen, then come back. Sends will report zero devices
-							until this browser holds a token.
-						</p>
-					)}
+				<SendOneCard target={target} />
 
-					<p {...stylex.props(styles.note)}>
-						Anything sent here goes only to accounts you are signed in as, on every device you have
-						registered. To test how the notification renders without involving FCM at all, use the Push box
-						in DevTools under Application → Service Workers.
-					</p>
-				</section>
-
-				<section {...stylex.props(surfaces.glass, styles.card, styles.stack)}>
-					{/* Both, since the payments panel below reads the season's fees off
-					    the same selection the notifications deep-link into. */}
-					<h2 {...stylex.props(styles.title)}>Target season and game</h2>
-
-					<Field label='Season'>
-						<Select value={seasonId ?? ''} onChange={event => setChosenSeason(event.target.value)}>
-							{seasons.length === 0 && <option value=''>No seasons yet</option>}
-							{seasons.map(candidate => (
-								<option key={candidate.id} value={candidate.id}>
-									{candidate.name}
-								</option>
-							))}
-						</Select>
-					</Field>
-
-					<Field label='Game' hint='The notification deep-links here, so tapping it lands on a real game.'>
-						<Select
-							value={gameId ?? ''}
-							onChange={event => setChosenGame(event.target.value)}
-							disabled={byKickoff.length === 0}
-						>
-							{byKickoff.length === 0 && <option value=''>No games in this season</option>}
-							{byKickoff.map(game => (
-								<option key={game.id} value={game.id}>
-									{season ? formatGameWhen(game.kickoff, season.slot.timezone) : game.kickoff}
-									{game.status === 'cancelled' ? ' · cancelled' : ''}
-								</option>
-							))}
-						</Select>
-					</Field>
-
-					{!gameId && (
-						<p {...stylex.props(styles.warn)}>
-							Without a game these send a sample payload linking to the season list. Pick one to test the
-							deep link.
-						</p>
-					)}
-				</section>
-
-				<section {...stylex.props(surfaces.glass, styles.card)}>
-					<h2 {...stylex.props(styles.title, styles.titleGap)}>Send one</h2>
-					<p {...stylex.props(styles.lead)}>
-						The same payload the real trigger builds, through the same preferences check. Sending does not
-						change any game.
-					</p>
-
-					<div>
-						{NOTIFICATIONS.map(kind => {
-							const payload = sentPayloads[kind];
-
-							return (
-								<div key={kind} {...stylex.props(styles.row)}>
-									<div {...stylex.props(styles.rowBody)}>
-										<p {...stylex.props(styles.rowTitle)}>{payload?.title ?? titleFor(kind)}</p>
-										<p {...stylex.props(styles.rowNote)}>{DESCRIPTIONS[kind]}</p>
-
-										{/* What actually went out, straight from the
-										    function, not a preview built here. */}
-										{payload && (
-											<p {...stylex.props(styles.quote, styles.quoteGap)}>{payload.body}</p>
-										)}
-									</div>
-
-									<Button size='sm' variant='secondary' onClick={() => send(kind)}>
-										Send
-									</Button>
-								</div>
-							);
-						})}
-					</div>
-				</section>
-
-				<section {...stylex.props(surfaces.glass, styles.card, styles.stack)}>
-					<div {...stylex.props(styles.head, styles.headTight)}>
-						<EnvelopeIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
-						<h2 {...stylex.props(styles.title)}>Email a selection of people</h2>
-					</div>
-
-					<p {...stylex.props(styles.body)}>
-						Unlike everything above, this reaches real accounts other than your own, through the same
-						fallback transport a genuine send would use, so it proves delivery and rendering, not just the
-						copy.
-					</p>
-
-					<Field label='Kind'>
-						<Select
-							value={emailKind}
-							onChange={event => setEmailKind(event.target.value as AnyNotification)}
-						>
-							{NOTIFICATIONS.map(kind => (
-								<option key={kind} value={kind}>
-									{titleFor(kind)}
-								</option>
-							))}
-						</Select>
-					</Field>
-
-					<div>
-						<div {...stylex.props(styles.pickerHead)}>
-							<span {...stylex.props(styles.pickerLabel)}>Recipients</span>
-
-							<div {...stylex.props(styles.pickerActions)}>
-								{gameId && silentUids.length > 0 && (
-									<Button
-										size='sm'
-										variant='ghost'
-										onClick={() => setSelectedUids(new Set(silentUids))}
-									>
-										Hasn&apos;t answered ({silentUids.length})
-									</Button>
-								)}
-								{selectedUids.size > 0 && (
-									<Button size='sm' variant='ghost' onClick={() => setSelectedUids(new Set())}>
-										Clear
-									</Button>
-								)}
-							</div>
-						</div>
-
-						<div {...stylex.props(surfaces.glassCard, styles.roster)}>
-							{users.length === 0 && <p {...stylex.props(styles.empty)}>No accounts yet.</p>}
-
-							{users.map(candidate => (
-								<label key={candidate.uid} {...stylex.props(styles.person)}>
-									<input
-										type='checkbox'
-										{...stylex.props(styles.tick)}
-										checked={selectedUids.has(candidate.uid)}
-										onChange={() => toggleRecipient(candidate.uid)}
-									/>
-									<Avatar
-										displayName={candidate.displayName}
-										photoURL={candidate.photoURL}
-										size='sm'
-									/>
-									<span {...stylex.props(styles.personName, utils.truncate)}>
-										{candidate.displayName}
-									</span>
-								</label>
-							))}
-						</div>
-					</div>
-
-					<Button variant='primary' fullWidth disabled={selectedUids.size === 0} onClick={sendEmailTest}>
-						{/* The count is hidden at zero rather than rendered as "0 people".
-						    the button is disabled there, and "Email people" is the label
-						    for a control you haven't picked anybody for yet. */}
-						Email {selectedUids.size > 0 && selectedUids.size}{' '}
-						{plural(selectedUids.size, 'person', 'people')}
-					</Button>
-
-					{emailResult && (
-						<div {...stylex.props(styles.outcome)}>
-							<p {...stylex.props(styles.rowTitle)}>{emailResult.payload.title}</p>
-							<p {...stylex.props(styles.quote)}>{emailResult.payload.body}</p>
-
-							<ul {...stylex.props(styles.outcomes)}>
-								{emailResult.results.map((outcome: EmailTestOutcome) => (
-									<li key={outcome.uid} {...stylex.props(styles.outcomeRow)}>
-										<span {...stylex.props(styles.outcomeName, utils.truncate)}>
-											{outcome.displayName}
-										</span>
-										<StatusPill tone={STATUS_TONE[outcome.status]}>
-											{STATUS_LABEL[outcome.status]}
-										</StatusPill>
-									</li>
-								))}
-							</ul>
-						</div>
-					)}
-				</section>
+				<EmailCard
+					target={target}
+					users={users}
+					silentUids={silentUids}
+					showSilent={Boolean(gameId) && silentUids.length > 0}
+				/>
 
 				<PaymentTriggers season={season} displayName={user.displayName} />
 
