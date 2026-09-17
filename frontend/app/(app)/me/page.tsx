@@ -7,6 +7,7 @@ import { ArrowRightStartOnRectangleIcon, BellIcon, ChevronRightIcon } from '@her
 import * as stylex from '@stylexjs/stylex';
 import { signOutOfApp, useAuth } from '../../../lib/auth';
 import { buildCommitUrl, buildLabel } from '../../../lib/build';
+import type { PushSupport } from '../../../lib/push';
 import { disablePush, enablePush } from '../../../lib/push';
 import { usePushRegistration } from '../../../hooks/usePushRegistration';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
@@ -133,13 +134,259 @@ const BuildStamp = () => {
 	);
 };
 
+/**
+ * Turning notifications on for this device, and saying what happened.
+ *
+ * Both halves report, because a registration that failed and one that worked
+ * look identical on a phone otherwise.
+ */
+const useDeviceSwitch = (uid: string, setEnabled: (next: boolean) => void) => {
+	const [message, setMessage] = useState<string | null>(null);
+
+	const enable = async () => {
+		setMessage(null);
+
+		const result = await enablePush(uid);
+
+		setEnabled(result.ok);
+		setMessage(result.ok ? 'Notifications are on for this device.' : (result.reason ?? 'Something went wrong.'));
+	};
+
+	const disable = async () => {
+		setMessage(null);
+		await disablePush(uid);
+		setEnabled(false);
+		setMessage('This device will no longer get notifications.');
+	};
+
+	return { message, enable, disable };
+};
+
+/**
+ * Whether this device gets notifications at all, or why it cannot.
+ *
+ * `enabled` is `null` while the answer is still being asked for, which is not
+ * the same as off, so neither button is drawn until it lands.
+ */
+const DeviceSwitch = ({
+	support,
+	enabled,
+	emailFallback,
+	onEnable,
+	onDisable,
+}: {
+	support: PushSupport | null;
+	enabled: boolean | null;
+	emailFallback: boolean;
+	onEnable: () => Promise<void>;
+	onDisable: () => Promise<void>;
+}) => {
+	if (support === 'needs-install') {
+		return (
+			<p {...stylex.props(styles.install)}>
+				On iPhone and iPad, add Frescati to your home screen first. Safari only allows notifications for
+				installed apps.
+				{emailFallback && ' Until then these go to your email instead.'}
+			</p>
+		);
+	}
+
+	if (support === 'unsupported') {
+		return (
+			<p {...stylex.props(styles.unsupported)}>
+				This browser doesn&apos;t support notifications.
+				{emailFallback && ' These go to your email instead.'}
+			</p>
+		);
+	}
+
+	if (enabled === null) return null;
+
+	return enabled ? (
+		<Button variant='secondary' fullWidth onClick={onDisable}>
+			Turn off on this device
+		</Button>
+	) : (
+		<Button variant='primary' fullWidth onClick={onEnable}>
+			Turn on notifications
+		</Button>
+	);
+};
+
+/**
+ * Which kinds of notification you want at all, on every device you have
+ * registered. Separate from the per-device switch above it.
+ */
+const PrefSwitches = ({
+	prefs,
+	ready,
+	email,
+	isAppAdmin,
+	onSavePref,
+}: {
+	prefs: NotificationPrefs;
+	ready: boolean;
+	email: string | null;
+	isAppAdmin: boolean;
+	onSavePref: (key: keyof NotificationPrefs, next: boolean) => void;
+}) => (
+	<div {...stylex.props(styles.switches)}>
+		<Toggle
+			label='Reminders'
+			description="Before a game you haven't answered yet."
+			checked={prefs.reminders}
+			disabled={!ready}
+			onChange={next => onSavePref('reminders', next)}
+		/>
+
+		<Toggle
+			label='Game changes'
+			description='Cancellations, a moved kick-off, or a game short of players.'
+			checked={prefs.gameChanges}
+			disabled={!ready}
+			onChange={next => onSavePref('gameChanges', next)}
+		/>
+
+		<Toggle
+			label='Man of the match'
+			description='When a game is confirmed and it is time to vote.'
+			checked={prefs.motm}
+			disabled={!ready}
+			onChange={next => onSavePref('motm', next)}
+		/>
+
+		{/* Nobody else is ever sent one, so showing this to them would be a switch
+		    with nothing behind it. */}
+		{isAppAdmin && (
+			<Toggle
+				label='New players'
+				description='When somebody signs into the app for the first time.'
+				checked={prefs.newPlayers}
+				disabled={!ready}
+				onChange={next => onSavePref('newPlayers', next)}
+			/>
+		)}
+
+		{/* A channel rather than a kind, and the last row for that reason: it
+		    decides how the switches above travel, never what they cover. */}
+		<Toggle
+			label='Email me if notifications fail'
+			description={
+				email
+					? `Sends to ${email} when a notification can't reach your devices.`
+					: "Sends an email when a notification can't reach your devices."
+			}
+			checked={prefs.emailFallback}
+			disabled={!ready}
+			onChange={next => onSavePref('emailFallback', next)}
+		/>
+	</div>
+);
+
+/** The whole notifications card: this device, then every device. */
+const NotificationsCard = ({
+	uid,
+	email,
+	isAppAdmin,
+	prefs,
+	ready,
+	support,
+	enabled,
+	setEnabled,
+	onSavePref,
+}: {
+	uid: string;
+	email: string | null;
+	isAppAdmin: boolean;
+	prefs: NotificationPrefs;
+	ready: boolean;
+	support: PushSupport | null;
+	enabled: boolean | null;
+	setEnabled: (next: boolean) => void;
+	onSavePref: (key: keyof NotificationPrefs, next: boolean) => void;
+}) => {
+	const { message, enable, disable } = useDeviceSwitch(uid, setEnabled);
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<div {...stylex.props(styles.bellRow)}>
+				<BellIcon {...stylex.props(styles.bell)} aria-hidden='true' />
+				<h2 {...stylex.props(styles.cardTitle)}>Notifications</h2>
+			</div>
+
+			<p {...stylex.props(styles.notifyBlurb)}>
+				Get a nudge when it&apos;s time to say whether you&apos;re playing, and a heads-up if a game is short or
+				called off.
+			</p>
+
+			<DeviceSwitch
+				support={support}
+				enabled={enabled}
+				emailFallback={prefs.emailFallback}
+				onEnable={enable}
+				onDisable={disable}
+			/>
+
+			{message && <p {...stylex.props(styles.message)}>{message}</p>}
+
+			<PrefSwitches prefs={prefs} ready={ready} email={email} isAppAdmin={isAppAdmin} onSavePref={onSavePref} />
+		</section>
+	);
+};
+
+/**
+ * The only way into the app-admin screens. Hidden rather than
+ * shown-and-denied: nobody else has anything to do there.
+ */
+const AdminLinks = ({ show }: { show: boolean }) => {
+	if (!show) return null;
+
+	return (
+		<>
+			<LinkCard
+				title='App admins'
+				blurb='Manage who can create seasons and promote other admins.'
+				label='Manage app admins'
+				href='/admin'
+			/>
+
+			<LinkCard
+				title='Starting ratings'
+				blurb='Tell the balancer what a new player is worth before they have played, instead of starting everybody on the group average.'
+				label='Set starting ratings'
+				href='/admin/ratings'
+			/>
+
+			<LinkCard
+				title='Who gets notified'
+				blurb="Every account's notification settings, the devices they have registered, and who never added the app to their home screen."
+				label='Notification status'
+				href='/admin/notifications'
+			/>
+
+			<LinkCard
+				title='Activity'
+				blurb='When everybody last opened the app, so you can see who has quietly stopped turning up before a season is planned around them.'
+				label="See who's still around"
+				href='/admin/activity'
+			/>
+
+			<LinkCard
+				title='Debug'
+				blurb='Send each notification to your own devices, without staging the game state that would normally trigger it, and break things on purpose to check error reporting is working.'
+				label='Open debug'
+				href='/debug'
+			/>
+		</>
+	);
+};
+
 const MePage = () => {
 	const router = useRouter();
 	const { user } = useAuth();
 	const { seasonId } = useSeasonScope();
 	const write = useWrite();
 
-	const [message, setMessage] = useState<string | null>(null);
 	const uid = user?.uid;
 
 	// `enabled` is `null` while we're still asking. It reflects whether this
@@ -179,21 +426,6 @@ const MePage = () => {
 
 	if (!user) return null;
 
-	const handleEnable = async () => {
-		setMessage(null);
-
-		const result = await enablePush(user.uid);
-		setEnabled(result.ok);
-		setMessage(result.ok ? 'Notifications are on for this device.' : (result.reason ?? 'Something went wrong.'));
-	};
-
-	const handleDisable = async () => {
-		setMessage(null);
-		await disablePush(user.uid);
-		setEnabled(false);
-		setMessage('This device will no longer get notifications.');
-	};
-
 	// Me is a tab of the season the user came from, so the bar it was tapped on
 	// stays exactly as it was. Opened cold with no season, it's a leaf screen.
 	return (
@@ -220,144 +452,21 @@ const MePage = () => {
 					<ChevronRightIcon {...stylex.props(styles.chevron)} aria-hidden='true' />
 				</Link>
 
-				<section {...stylex.props(surfaces.glass, styles.card)}>
-					<div {...stylex.props(styles.bellRow)}>
-						<BellIcon {...stylex.props(styles.bell)} aria-hidden='true' />
-						<h2 {...stylex.props(styles.cardTitle)}>Notifications</h2>
-					</div>
-
-					<p {...stylex.props(styles.notifyBlurb)}>
-						Get a nudge when it&apos;s time to say whether you&apos;re playing, and a heads-up if a game is
-						short or called off.
-					</p>
-
-					{support === 'needs-install' && (
-						<p {...stylex.props(styles.install)}>
-							On iPhone and iPad, add Frescati to your home screen first. Safari only allows notifications
-							for installed apps.
-							{prefs.emailFallback && ' Until then these go to your email instead.'}
-						</p>
-					)}
-
-					{support === 'unsupported' && (
-						<p {...stylex.props(styles.unsupported)}>
-							This browser doesn&apos;t support notifications.
-							{prefs.emailFallback && ' These go to your email instead.'}
-						</p>
-					)}
-
-					{support === 'supported' &&
-						enabled !== null &&
-						(enabled ? (
-							<Button variant='secondary' fullWidth onClick={handleDisable}>
-								Turn off on this device
-							</Button>
-						) : (
-							<Button variant='primary' fullWidth onClick={handleEnable}>
-								Turn on notifications
-							</Button>
-						))}
-
-					{message && <p {...stylex.props(styles.message)}>{message}</p>}
-
-					{/* Separate from the per-device switch above: these say which
-					    kinds you want at all, on every device you've registered. */}
-					<div {...stylex.props(styles.switches)}>
-						<Toggle
-							label='Reminders'
-							description="Before a game you haven't answered yet."
-							checked={prefs.reminders}
-							disabled={!uid || profileLoading}
-							onChange={next => savePref('reminders', next)}
-						/>
-
-						<Toggle
-							label='Game changes'
-							description='Cancellations, a moved kick-off, or a game short of players.'
-							checked={prefs.gameChanges}
-							disabled={!uid || profileLoading}
-							onChange={next => savePref('gameChanges', next)}
-						/>
-
-						<Toggle
-							label='Man of the match'
-							description='When a game is confirmed and it is time to vote.'
-							checked={prefs.motm}
-							disabled={!uid || profileLoading}
-							onChange={next => savePref('motm', next)}
-						/>
-
-						{/* Nobody else is ever sent one, so showing this to them
-						    would be a switch with nothing behind it. */}
-						{user.isAppAdmin && (
-							<Toggle
-								label='New players'
-								description='When somebody signs into the app for the first time.'
-								checked={prefs.newPlayers}
-								disabled={!uid || profileLoading}
-								onChange={next => savePref('newPlayers', next)}
-							/>
-						)}
-
-						{/* A channel rather than a kind, and the last row for
-						    that reason: it decides how the switches above
-						    travel, never what they cover. */}
-						<Toggle
-							label='Email me if notifications fail'
-							description={
-								user.email
-									? `Sends to ${user.email} when a notification can't reach your devices.`
-									: "Sends an email when a notification can't reach your devices."
-							}
-							checked={prefs.emailFallback}
-							disabled={!uid || profileLoading}
-							onChange={next => savePref('emailFallback', next)}
-						/>
-					</div>
-				</section>
+				<NotificationsCard
+					uid={user.uid}
+					email={user.email}
+					isAppAdmin={user.isAppAdmin === true}
+					prefs={prefs}
+					ready={!!uid && !profileLoading}
+					support={support}
+					enabled={enabled}
+					setEnabled={setEnabled}
+					onSavePref={savePref}
+				/>
 
 				<LinkCard title='Seasons' label='Switch season' href='/seasons?browse=1' />
 
-				{/* The only way into the app-admin screen. Hidden rather than
-				    shown-and-denied: nobody else has anything to do there. */}
-				{user.isAppAdmin && (
-					<>
-						<LinkCard
-							title='App admins'
-							blurb='Manage who can create seasons and promote other admins.'
-							label='Manage app admins'
-							href='/admin'
-						/>
-
-						<LinkCard
-							title='Starting ratings'
-							blurb='Tell the balancer what a new player is worth before they have played, instead of starting everybody on the group average.'
-							label='Set starting ratings'
-							href='/admin/ratings'
-						/>
-
-						<LinkCard
-							title='Who gets notified'
-							blurb="Every account's notification settings, the devices they have registered, and who never added the app to their home screen."
-							label='Notification status'
-							href='/admin/notifications'
-						/>
-
-						<LinkCard
-							title='Activity'
-							blurb='When everybody last opened the app, so you can see who has quietly stopped turning up before a season is planned around them.'
-							label="See who's still around"
-							href='/admin/activity'
-						/>
-
-						<LinkCard
-							title='Debug'
-							blurb='Send each notification to your own devices, without staging the game state that would normally trigger it, and break things on purpose to check error reporting is working.'
-							label='Open debug'
-							href='/debug'
-						/>
-					</>
-				)}
+				<AdminLinks show={user.isAppAdmin === true} />
 
 				<Button
 					variant='ghost'
