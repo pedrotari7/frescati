@@ -21,6 +21,16 @@ import {
 	MIN_TOURNAMENT_PLAYERS,
 	selectPlayedMatches,
 } from '@shared/tournament';
+import type {
+	AppUser,
+	Game,
+	GameResponse,
+	Season,
+	TeamStanding,
+	TournamentMatch,
+	TournamentTeams,
+} from '@shared/types';
+import type { Fixture } from '@shared/tournament';
 import { findTeamIndex, getUnassigned } from '@shared/lineup';
 import { getAbsentUids, isConfirmed, sortResponses } from '@shared/game';
 import { feesFor, planGameDues } from '@shared/finances';
@@ -176,27 +186,782 @@ const deal = stylex.create({
 	delay: (index: number) => ({ animationDelay: `${index * 70}ms` }),
 });
 
-const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
-	const { seasonId, gameId } = use(params);
-	const { user } = useAuth();
+/** The evening this screen is about, once it is known to exist. */
+interface Evening {
+	seasonId: string;
+	gameId: string;
+	season: Season;
+	game: Game;
+	lineup: TournamentTeams;
+	usersByUid: Map<string, AppUser>;
+}
+
+/** What may be done, and by whom. */
+interface Powers {
+	uid: string | null;
+	isAdmin: boolean;
+	isAppAdmin: boolean;
+	movePlayers: boolean;
+	changeLetters: boolean;
+	score: boolean;
+	lineupOpen: boolean;
+	finalised: boolean;
+	access: ReturnType<typeof getScoreAccess>;
+}
+
+/** The fixture list, and everything read off the squad sizes. */
+interface Schedule {
+	fixtures: Fixture[];
+	squadSizes: number[];
+	pitchSide: number;
+	roundLength: number;
+	showRounds: boolean;
+	fit: ReturnType<typeof getScheduleFit>;
+	matchesByOrder: Map<number, TournamentMatch>;
+	played: number;
+}
+
+/** How it finished, what that did to the ratings, and what confirming costs. */
+interface Outcome {
+	standings: TeamStanding[];
+	deltas: Map<string, number> | undefined;
+	unequal: boolean;
+	chargeNote: string;
+}
+
+/** Who was on the sheet, and which of them is not playing after all. */
+interface OnTheSheet {
+	unassigned: string[];
+	notPlaying: Set<string> | undefined;
+	absentUids: Set<string>;
+}
+
+/**
+ * The fixture list and the shape of the evening, read off the lineup.
+ *
+ * A team card is not being read against any one fixture, so `pitchSide` is the
+ * side its squad is sure of: the smallest anybody plays, and never more than the
+ * pitch holds. Everyone past that is a sub, which is what the card says.
+ *
+ * A round only means something once it bundles more than one match. Two teams
+ * meet once a round, so every "round" would just repeat the match count, and it
+ * is only worth flagging once the game actually plays a second one.
+ *
+ * Not everything under `matches/` belongs to this game: see
+ * `selectPlayedMatches`. The screen has to agree with the function that rates
+ * the game, or the table here would explain a set of ratings it did not produce.
+ */
+const readSchedule = (season: Season, lineup: TournamentTeams, matches: TournamentMatch[]): Schedule => {
+	const teamCount = lineup.teams.length;
+	const squadSizes = lineup.teams.map(team => team.uids.length);
+	const { matchMinutes } = lineup.settings;
+	const slot = season.slot.durationMinutes;
+
+	const fixtures = getFixtures(teamCount, matchMinutes, slot);
+	const roundLength = getRoundLength(teamCount);
+	const playedMatches = selectPlayedMatches(teamCount, matchMinutes, slot, matches);
+
+	return {
+		fixtures,
+		squadSizes,
+		pitchSide: Math.min(...squadSizes, MAX_SIDE),
+		roundLength,
+		showRounds: roundLength > 1 && fixtures.length > roundLength,
+		fit: getScheduleFit(teamCount, matchMinutes, slot),
+		matchesByOrder: new Map(playedMatches.map(match => [match.order, match])),
+		played: playedMatches.length,
+	};
+};
+
+/**
+ * What the table says, and what confirming would cost the extras.
+ *
+ * Once confirmed the table comes from the result document rather than being
+ * recomputed, so a past game keeps reading the way it was decided even if
+ * somebody later clears a score.
+ *
+ * The charge note is one sentence or none. Every charge is the same season fee,
+ * so one amount says the whole of it, and the count is what an admin reads to
+ * recognise the game they are about to bill. It comes off the same function the
+ * callable raises the charges with, so the dialog cannot promise a different
+ * number from the one that lands, and it is named only when there is something
+ * to name: a season with no per-game fee, or a game the whole squad turned out
+ * for, charges nobody.
+ */
+const readOutcome = (
+	season: Season,
+	gameId: string,
+	lineup: TournamentTeams,
+	schedule: Schedule,
+	result: { standings: TeamStanding[]; changes: { uid: string; delta: number }[] } | null,
+	responses: GameResponse[]
+): Outcome => {
+	const playedMatches = [...schedule.matchesByOrder.values()];
+	const standings = result?.standings ?? getStandings(lineup.teams.length, playedMatches);
+	const extraCharges = planGameDues(feesFor(season), gameId, responses);
+
+	return {
+		standings,
+		deltas: result ? new Map(result.changes.map(change => [change.uid, change.delta])) : undefined,
+		// Only worth explaining when it is actually happening.
+		unequal: new Set(standings.map(row => row.played)).size > 1,
+		chargeNote:
+			extraCharges.length > 0
+				? ` The ${
+						extraCharges.length === 1
+							? 'extra who played is'
+							: `${extraCharges.length} extras who played are`
+					} charged ${formatSek(extraCharges[0].amount)}, and can pay as soon as this lands.`
+				: '',
+	};
+};
+
+/**
+ * Who was picked, and how the sheet and the pool have drifted apart.
+ *
+ * A hand-picked lineup stops being re-picked, which is the point of it, and the
+ * price is that the two can drift in both directions: somebody says In
+ * afterwards and lands on no team, or somebody on a squad taps Out and stays on
+ * it. Neither is wrong, both are invisible, and the app has stopped being the
+ * thing that would fix them. An automatic lineup needs none of this said, since
+ * a rebuild is already seconds away.
+ *
+ * Reported no-shows are not filtered out of the pool: they said In and were
+ * picked, and the sheet's job is to say who was on which team and which of them
+ * never turned up, not to rewrite the evening as though the squads had been
+ * picked without them. Moving somebody off the sheet is a separate decision,
+ * and the button for it is right there.
+ */
+const readSheet = (lineup: TournamentTeams, responses: GameResponse[]): OnTheSheet => {
+	const poolUids = sortResponses(responses.filter(response => response.status === 'in' && isConfirmed(response))).map(
+		response => response.uid
+	);
+	const inThePool = new Set(poolUids);
+
+	return {
+		unassigned: lineup.edited ? getUnassigned(lineup.teams, poolUids) : [],
+		notPlaying: lineup.edited
+			? new Set(lineup.teams.flatMap(team => team.uids).filter(uid => !inThePool.has(uid)))
+			: undefined,
+		absentUids: new Set(getAbsentUids(responses)),
+	};
+};
+
+/** Why there is no team sheet to show, drawn as the screen. */
+const NoTeams = ({
+	reason,
+	backHref,
+	onRetry,
+}: {
+	reason: 'loading' | 'error' | 'missing';
+	backHref: string;
+	onRetry: () => void;
+}) => (
+	<SeasonShell title='Teams' backHref={backHref}>
+		{reason === 'loading' && <Skeleton />}
+		{reason === 'error' && <LoadFailed what='the teams' onRetry={onRetry} />}
+		{reason === 'missing' && (
+			<EmptyState title='Game not found' message='It may have been deleted from the calendar.' />
+		)}
+	</SeasonShell>
+);
+
+/**
+ * No lineup means the pool is still short of a tournament.
+ *
+ * The function clears the document rather than leaving a stale sheet up, so this
+ * is the honest state rather than a loading gap.
+ */
+const NoLineup = ({ playing, subtitle, backHref }: { playing: number; subtitle: string; backHref: string }) => {
+	const shortBy = MIN_TOURNAMENT_PLAYERS - playing;
+
+	return (
+		<SeasonShell title='Teams' subtitle={subtitle} backHref={backHref}>
+			<EmptyState
+				icon={<UsersIcon />}
+				title='No teams yet'
+				message={
+					shortBy > 0
+						? `${playing} playing so far. Teams appear at ${MIN_TOURNAMENT_PLAYERS}, so ${shortBy} more to go.`
+						: 'Teams are being picked. This updates on its own in a few seconds.'
+				}
+			/>
+		</SeasonShell>
+	);
+};
+
+/**
+ * The squads, how they were picked, and the one button that picks them again.
+ *
+ * Reshuffle is app admins only, narrower than every other button on this screen
+ * and narrower than it used to be. Re-picking is free, instant and leaves no
+ * mark, so a button in front of every season admin is one that gets pulled again
+ * and again until the squads come out the way somebody fancies, which is the one
+ * thing a seeded optimizer exists to take out of anybody's hands. A season admin
+ * who genuinely needs a different sheet still has `setPlayerTeam`, which moves
+ * the person they mean and signs the lineup with their name.
+ *
+ * The rules are untouched: a reshuffle is a bump of `reshuffleCount` and stays a
+ * season-admin write, as every other field on the game document is. This is
+ * about who is offered the button.
+ */
+const LineupCard = ({
+	evening,
+	powers,
+	schedule,
+	onReshuffle,
+}: {
+	evening: Evening;
+	powers: Powers;
+	schedule: Schedule;
+	onReshuffle: () => void;
+}) => {
+	const { lineup, usersByUid } = evening;
+	const { fit } = schedule;
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<div {...stylex.props(styles.pills)}>
+				<StatusPill tone='brand'>{describeSquads(schedule.squadSizes)}</StatusPill>
+				<StatusPill tone='neutral'>
+					{fit.matchCount} {fit.matchCount === 1 ? 'match' : 'matches'} · {fit.matchMinutes} min
+				</StatusPill>
+			</div>
+
+			{lineup.edited ? (
+				<p {...stylex.props(styles.noteRow)}>
+					<PencilSquareIcon {...stylex.props(styles.noteIcon)} aria-hidden='true' />
+					{/* The way back out of a pinned lineup is named only to the people who
+					    have it. Everyone else gets the fact without a button they will go
+					    looking for and not find. */}
+					<span>
+						Sorted out by {displayNameOf(usersByUid.get(lineup.edited.by))}{' '}
+						{formatRelative(lineup.edited.at)}. These teams stay as they are now
+						{powers.isAppAdmin ? '. Reshuffle hands them back to the app.' : '.'}
+					</span>
+				</p>
+			) : (
+				<p {...stylex.props(styles.note)}>
+					Picked automatically from who is in, and re-picked whenever somebody changes their answer.
+				</p>
+			)}
+
+			{fit.overrunMinutes > 0 && (
+				<p {...stylex.props(styles.warnRow)}>
+					<ExclamationTriangleIcon {...stylex.props(styles.noteIcon)} aria-hidden='true' />
+					<span>
+						{fit.totalMinutes} minutes of football in a {fit.slotMinutes} minute slot, about{' '}
+						{fit.overrunMinutes} over. Shorten the matches in season settings, or expect to run late.
+					</span>
+				</p>
+			)}
+
+			{powers.isAppAdmin && (
+				<>
+					<Button
+						variant='secondary'
+						sx={styles.reshuffle}
+						disabled={!powers.lineupOpen}
+						onClick={onReshuffle}
+					>
+						<ArrowPathIcon {...stylex.props(styles.buttonIcon)} aria-hidden='true' />
+						Reshuffle
+					</Button>
+
+					{/* A greyed-out button with no reason beside it reads as a bug. */}
+					{!powers.lineupOpen && (
+						<p {...stylex.props(styles.hint)}>
+							{powers.finalised
+								? 'The lineup is frozen now the game is confirmed.'
+								: 'Scores are in. Clear them to re-pick the teams.'}
+						</p>
+					)}
+				</>
+			)}
+		</section>
+	);
+};
+
+/** One card per squad, dealt in. */
+const TeamCards = ({
+	evening,
+	powers,
+	schedule,
+	sheet,
+	deltas,
+	onMove,
+	onLetter,
+}: {
+	evening: Evening;
+	powers: Powers;
+	schedule: Schedule;
+	sheet: OnTheSheet;
+	deltas: Map<string, number> | undefined;
+	onMove: (uid: string) => void;
+	onLetter: (index: number) => void;
+}) => (
+	<div {...stylex.props(styles.cards)}>
+		{evening.lineup.teams.map((team, order) => (
+			<TeamCard
+				key={team.index}
+				sx={[animations.rise, deal.delay(order)]}
+				team={team}
+				elos={evening.lineup.elos}
+				usersByUid={evening.usersByUid}
+				sideSize={schedule.pitchSide}
+				highlightUid={powers.uid ?? undefined}
+				deltas={deltas}
+				notPlaying={sheet.notPlaying}
+				absentUids={sheet.absentUids}
+				onMovePlayer={powers.movePlayers ? onMove : undefined}
+				onChangeLetter={powers.changeLetters ? () => onLetter(team.index) : undefined}
+			/>
+		))}
+	</div>
+);
+
+/**
+ * People who are in for this game but on no team.
+ *
+ * Only reachable once somebody has picked the teams by hand, which is also the
+ * moment nothing else is going to notice. Shown to everybody rather than to
+ * admins alone: a player looking for their own name on four cards and not
+ * finding it deserves the explanation, even though only an admin can do
+ * anything about it.
+ */
+const NotOnTheSheet = ({
+	uids,
+	usersByUid,
+	canMove,
+	onMove,
+}: {
+	uids: string[];
+	usersByUid: Map<string, AppUser>;
+	canMove: boolean;
+	onMove: (uid: string) => void;
+}) => {
+	if (uids.length === 0) return null;
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<div {...stylex.props(styles.head)}>
+				<HandRaisedIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
+				<h2 {...stylex.props(styles.title)}>Not on the sheet</h2>
+				<StatusPill tone='pending'>{uids.length}</StatusPill>
+			</div>
+
+			<p {...stylex.props(styles.lead)}>
+				In for this game, but on no team. The app stopped picking when the teams were sorted out by hand.
+			</p>
+
+			<ul>
+				{uids.map(uid => (
+					<li key={uid} {...stylex.props(styles.person)}>
+						<Avatar
+							displayName={displayNameOf(usersByUid.get(uid))}
+							photoURL={usersByUid.get(uid)?.photoURL}
+							size='sm'
+						/>
+						<span {...stylex.props(styles.personName, utils.truncate)}>
+							{displayNameOf(usersByUid.get(uid))}
+						</span>
+						{canMove && (
+							<Button size='sm' variant='ghost' onClick={() => onMove(uid)}>
+								Give a team
+							</Button>
+						)}
+					</li>
+				))}
+			</ul>
+		</section>
+	);
+};
+
+/** One fixture, and the round heading above it where a round means anything. */
+const FixtureRow = ({
+	fixture,
+	schedule,
+	canScore,
+	onScore,
+	onClear,
+}: {
+	fixture: Fixture;
+	schedule: Schedule;
+	canScore: boolean;
+	onScore: (fixture: Fixture, scoreA: number, scoreB: number) => Promise<void>;
+	onClear: (order: number) => Promise<void>;
+}) => (
+	<Fragment>
+		{schedule.showRounds && fixture.order % schedule.roundLength === 0 && (
+			<li {...stylex.props(styles.round, fixture.order > 0 && styles.roundBreak)}>
+				Round {fixture.order / schedule.roundLength + 1}
+			</li>
+		)}
+
+		<MatchScore
+			fixture={fixture}
+			match={schedule.matchesByOrder.get(fixture.order)}
+			sideSize={getSideSize(schedule.squadSizes[fixture.teamA], schedule.squadSizes[fixture.teamB])}
+			canScore={canScore}
+			onScore={(scoreA, scoreB) => onScore(fixture, scoreA, scoreB)}
+			onClear={() => onClear(fixture.order)}
+		/>
+	</Fragment>
+);
+
+/**
+ * Keeping the score.
+ *
+ * Anyone who answered the game can. That is the point, so whoever has a free
+ * hand does it. Confirming the game closes it to everyone but an admin, and
+ * closes it to a tap even for them: a correction replays the ladder from here
+ * on, so a locked scoreboard is one they have to open first. `ScoreboardLock`
+ * is the door and holds the reasoning.
+ */
+const Scoreboard = ({
+	schedule,
+	powers,
+	correcting,
+	onCorrecting,
+	onScore,
+	onClear,
+}: {
+	schedule: Schedule;
+	powers: Powers;
+	correcting: boolean;
+	onCorrecting: (next: boolean) => void;
+	onScore: (fixture: Fixture, scoreA: number, scoreB: number) => Promise<void>;
+	onClear: (order: number) => Promise<void>;
+}) => (
+	<section {...stylex.props(surfaces.glass, styles.card)}>
+		<div {...stylex.props(styles.scoreHead)}>
+			<h2 {...stylex.props(styles.title)}>Scoreboard</h2>
+			{powers.finalised && <StatusPill tone='neutral'>Confirmed</StatusPill>}
+		</div>
+
+		{powers.access === 'none' && !powers.finalised && (
+			<p {...stylex.props(styles.lead)}>Say you&apos;re in and you can keep the score too.</p>
+		)}
+
+		{powers.access === 'locked' && <ScoreboardLock correcting={correcting} onChange={onCorrecting} />}
+
+		<ol {...stylex.props(styles.fixtures)}>
+			{schedule.fixtures.map(fixture => (
+				<FixtureRow
+					key={fixture.order}
+					fixture={fixture}
+					schedule={schedule}
+					canScore={powers.score}
+					onScore={onScore}
+					onClear={onClear}
+				/>
+			))}
+		</ol>
+	</section>
+);
+
+/**
+ * The table, and the one tap on this screen that reaches everybody.
+ *
+ * Confirming applies ratings, opens the vote, notifies the lineup, charges the
+ * extras who played and freezes the sheet the ledger was computed against. It
+ * sits directly under a table an admin came here to read, which is where a
+ * scrolling thumb ends up. `ScoreboardLock` already asks before undoing this;
+ * asking here too is the other half of the same trade, since this is the tap
+ * that makes the undo cost a replay.
+ */
+const TableSection = ({
+	evening,
+	powers,
+	schedule,
+	outcome,
+	onConfirm,
+}: {
+	evening: Evening;
+	powers: Powers;
+	schedule: Schedule;
+	outcome: Outcome;
+	onConfirm: () => void;
+}) => {
+	if (schedule.played === 0 && !powers.finalised) return null;
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<h2 {...stylex.props(styles.titleGap)}>Table</h2>
+			<StandingsTable standings={outcome.standings} unequal={outcome.unequal} />
+
+			{/* Said on the screen the table is on, because this is where somebody
+			    works out why their rating moved the way it did, and the answer
+			    stopped being "we came second" in Aug 2026. */}
+			<p {...stylex.props(styles.tableNote)}>
+				Ratings read how much of the evening each team won, not just where it finished, so two teams that end up
+				level move almost together, and the team that wins the table always moves further.
+			</p>
+
+			{powers.finalised ? (
+				<p {...stylex.props(styles.hint)}>
+					Confirmed {formatRelative(evening.game.resultFinalisedAt!)}. Ratings have been applied. A season
+					admin correcting a score from here will work them out again.
+				</p>
+			) : (
+				<>
+					<p {...stylex.props(styles.hint)}>
+						Nothing counts towards anyone&apos;s rating until this is confirmed, which happens on its own{' '}
+						{AUTO_FINALISE_HOURS} hours after kick-off.
+					</p>
+
+					{powers.isAdmin && (
+						<Button variant='primary' sx={styles.confirm} onClick={onConfirm}>
+							<CheckCircleIcon {...stylex.props(styles.buttonIcon)} aria-hidden='true' />
+							Confirm results
+						</Button>
+					)}
+				</>
+			)}
+		</section>
+	);
+};
+
+/** Moving one player, and swapping two squads' letters. One at a time. */
+const Sheets = ({
+	evening,
+	letteringIndex,
+	movingUid,
+	onCloseLetter,
+	onCloseMove,
+	onSwap,
+	onMove,
+}: {
+	evening: Evening;
+	letteringIndex: number | null;
+	movingUid: string | null;
+	onCloseLetter: () => void;
+	onCloseMove: () => void;
+	onSwap: (from: number, to: number) => Promise<void>;
+	onMove: (uid: string, teamIndex: number | null) => Promise<void>;
+}) => (
+	<>
+		{letteringIndex !== null && (
+			<TeamLetterSheet
+				team={evening.lineup.teams[letteringIndex] ?? null}
+				teams={evening.lineup.teams}
+				usersByUid={evening.usersByUid}
+				open
+				onClose={onCloseLetter}
+				onSwap={withIndex => onSwap(letteringIndex, withIndex)}
+			/>
+		)}
+
+		{movingUid && (
+			<PlayerTeamSheet
+				displayName={displayNameOf(evening.usersByUid.get(movingUid))}
+				teams={evening.lineup.teams}
+				currentIndex={findTeamIndex(evening.lineup.teams, movingUid)}
+				open
+				onClose={onCloseMove}
+				onMove={teamIndex => onMove(movingUid, teamIndex)}
+			/>
+		)}
+	</>
+);
+
+/**
+ * Everything the team sheet reads.
+ *
+ * `matchesLoading` travels with the rest for the same reason a missing lineup
+ * is its own state: a screen must not draw a real state it does not know yet. A
+ * match with no document reads as a dash, and that is the third state, never
+ * played, as distinct from played nil-nil. An outstanding subscription renders
+ * the same dash, so without this a 5-3 game came up as two dashes and snapped
+ * to the score a moment later. Wrong on the one screen whose whole job is the
+ * scoreline, and wrong in the specific way that makes the number unreadable:
+ * anything reading it, a person or a test, cannot tell "nobody played this" from
+ * "ask again in a moment".
+ */
+const useTeamSheet = (seasonId: string, gameId: string) => {
 	const { season, games, myResponses, loading, error, retry, isAdmin, isSeasonAdmin } = useSeasonContext();
 	const { teams: lineup, loading: teamsLoading } = useTournamentTeams(seasonId, gameId);
 	const { matches, loading: matchesLoading } = useMatches(seasonId, gameId);
 	const { result } = useTournamentResult(seasonId, gameId);
-	const { motm } = useMotm(seasonId, gameId);
-	const { vote } = useMyMotmVote(seasonId, gameId, user?.uid ?? null);
-	const { voterUids } = useMotmVoters(seasonId, gameId);
+	// Who is actually in, subscribed here rather than taken from `game.counts`:
+	// the counters are a background trigger behind, and this is the list the team
+	// sheet gets compared against.
+	const { responses } = useResponses(seasonId, gameId);
 	const { usersByUid } = useUsersByUid();
+
+	return {
+		season,
+		game: games.find(candidate => candidate.id === gameId) ?? null,
+		myResponse: myResponses[gameId],
+		lineup,
+		matches,
+		result,
+		responses,
+		usersByUid,
+		loading: loading || teamsLoading || matchesLoading,
+		error,
+		retry,
+		isAdmin,
+		isSeasonAdmin,
+	};
+};
+
+/**
+ * The man-of-the-match vote, which is the one thing on this screen with a
+ * deadline on it.
+ *
+ * The clock has to move: anything off `new Date()` would keep offering the
+ * buttons for as long as the page stayed open.
+ */
+const useMotmVote = (seasonId: string, gameId: string, uid: string | null) => {
+	const { motm } = useMotm(seasonId, gameId);
+	const { vote } = useMyMotmVote(seasonId, gameId, uid);
+	const { voterUids } = useMotmVoters(seasonId, gameId);
+	const write = useWrite();
+	const now = useNow();
+
+	const cast = async (votedFor: string) => {
+		if (!uid) return;
+
+		// Tapping your own pick again takes it back. Abstaining is a real
+		// position, and there is nowhere else to express it.
+		await write(
+			() =>
+				vote?.votedFor === votedFor
+					? clearMotmVote(seasonId, gameId, uid)
+					: setMotmVote(seasonId, gameId, uid, votedFor),
+			"Couldn't save your vote."
+		);
+	};
+
+	return { motm, vote, voterUids, now, cast };
+};
+
+/** Everything this screen writes, and the two things it asks about first. */
+const useTeamSheetWrites = (seasonId: string, gameId: string, usersByUid: Map<string, AppUser>) => {
 	const write = useWrite();
 	const confirm = useConfirm();
-	// The vote closes on a deadline, so the panel needs a clock that moves.
-	// Anything off `new Date()` would keep offering the buttons for as long as
-	// the page stayed open.
-	const now = useNow();
-	// Who is actually in, subscribed here rather than taken from `game.counts`:
-	// the counters are a background trigger behind, and this is the list the
-	// team sheet gets compared against.
-	const { responses } = useResponses(seasonId, gameId);
+
+	return {
+		/**
+		 * Asked about only when there is something to throw away, which is the
+		 * whole distinction the button rests on. An automatic lineup is re-picked
+		 * every time somebody changes their answer, so re-picking it deliberately
+		 * costs nothing and stays one tap. A pinned one is an evening of somebody
+		 * else's planning, and this is the only button that undoes it. The
+		 * pinned-lineup note already names who, so the dialog does too.
+		 */
+		reshuffle: async (edited: TournamentTeams['edited']) => {
+			if (edited) {
+				const ok = await confirm({
+					title: 'Throw away the hand-picked teams?',
+					message: `${displayNameOf(usersByUid.get(edited.by))} sorted these teams out by hand. Reshuffling hands them back to the app, which picks from who is in and re-picks whenever somebody changes their answer.`,
+					// Never the word on the button that opened it: "Reshuffle" twice
+					// on one screen is a thing for a tap, and a test, to pick the
+					// wrong one of. Same reason `ScoreboardLock` answers "Correct a
+					// score" with "Correct it".
+					confirmLabel: 'Re-pick them',
+					tone: 'danger',
+				});
+
+				if (!ok) return;
+			}
+
+			await write(() => reshuffleTeams(seasonId, gameId), "Couldn't reshuffle the teams.");
+		},
+
+		score: async (fixture: Fixture, scoreA: number, scoreB: number, uid: string | null) => {
+			if (!uid) return;
+
+			await write(
+				() => setMatchScore(seasonId, gameId, fixture, scoreA, scoreB, uid),
+				"Couldn't save that score."
+			);
+		},
+
+		clearScore: async (order: number) => {
+			await write(() => clearMatchScore(seasonId, gameId, order), "Couldn't clear that score.");
+		},
+
+		finalise: async (chargeNote: string) => {
+			const ok = await confirm({
+				title: 'Confirm the results?',
+				message: `Ratings are worked out and applied to everybody who played, the man-of-the-match vote opens and the lineup is notified.${chargeNote} Correcting a score after this works the ratings out again: for this game, and for every game played since.`,
+				confirmLabel: 'Confirm it',
+			});
+
+			if (!ok) return;
+
+			await write(() => finaliseTournament(seasonId, gameId), "Couldn't confirm the results.");
+		},
+
+		swapLetters: async (from: number, to: number) => {
+			await write(() => setTeamLetter(seasonId, gameId, from, to), "Couldn't swap those teams over.");
+		},
+
+		movePlayer: async (uid: string, teamIndex: number | null) => {
+			await write(() => setPlayerTeam(seasonId, gameId, uid, teamIndex), "Couldn't move them.");
+		},
+	};
+};
+
+/**
+ * What the person looking at this may actually do.
+ *
+ * A score is recorded against a fixture, "match 1, team A v team B", so
+ * re-picking the squads underneath one would leave the scoreboard describing a
+ * game nobody played. The lineup is settled from the first score in, and frozen
+ * outright once the game is confirmed, which `runTeamRebuild` enforces on its
+ * side too.
+ *
+ * `isAppAdmin` is neither `isAdmin`, which is either kind, nor `isSeasonAdmin`,
+ * which is neither. Reshuffle is the one button here that asks for the global
+ * claim. Moving players is season admins rather than everyone `isAdmin` covers:
+ * an app admin passing through somebody else's season has no standing to move
+ * their players around. Changing letters has the same window as Reshuffle for a
+ * stricter reason: a match document stores the two team indices it was played
+ * between, so a swap underneath one hands a scoreline to a squad that never
+ * played it.
+ */
+const readPowers = ({
+	user,
+	isAdmin,
+	isSeasonAdmin,
+	finalised,
+	hasResponded,
+	played,
+	correcting,
+}: {
+	user: { uid: string; isAppAdmin?: boolean } | null | undefined;
+	isAdmin: boolean;
+	isSeasonAdmin: boolean;
+	finalised: boolean;
+	hasResponded: boolean;
+	played: number;
+	correcting: boolean;
+}): Powers => {
+	const access = getScoreAccess({ finalised, isAdmin, hasResponded });
+	const lineupOpen = played === 0 && !finalised;
+
+	return {
+		uid: user?.uid ?? null,
+		isAdmin,
+		isAppAdmin: user?.isAppAdmin === true,
+		movePlayers: isSeasonAdmin && !finalised,
+		changeLetters: isSeasonAdmin && lineupOpen,
+		score: access === 'open' || (access === 'locked' && correcting),
+		lineupOpen,
+		finalised,
+		access,
+	};
+};
+
+const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId: string }> }) => {
+	const { seasonId, gameId } = use(params);
+	const { user } = useAuth();
+	const read = useTeamSheet(seasonId, gameId);
+	const motm = useMotmVote(seasonId, gameId, user?.uid ?? null);
+	const writes = useTeamSheetWrites(seasonId, gameId, read.usersByUid);
 
 	// Which player's move sheet is open. One at a time. This is a tap on a name
 	// followed by a tap on a letter, not a mode the screen sits in.
@@ -206,532 +971,115 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 	// the sheet is about one team and the swap is with whichever is picked.
 	const [letteringIndex, setLetteringIndex] = useState<number | null>(null);
 
-	// Whether a confirmed game's scoreboard has been deliberately opened up:
-	// see `ScoreboardLock`, which is where the reasoning lives. On the screen
-	// rather than on the game: it is about this visit, and it means nothing to
-	// anybody else looking at the same game.
+	// Whether a confirmed game's scoreboard has been deliberately opened up: see
+	// `ScoreboardLock`, which is where the reasoning lives. On the screen rather
+	// than on the game: it is about this visit, and it means nothing to anybody
+	// else looking at the same game.
 	const [correcting, setCorrecting] = useState(false);
-
-	const game = games.find(candidate => candidate.id === gameId) ?? null;
 
 	const backHref = `/s/${seasonId}/g/${gameId}`;
 
-	// `matchesLoading` is in here for the same reason as the note below about a
-	// missing lineup: a screen must not draw a real state it does not know yet.
-	// A match with no document reads as `–` and that is the third state, never
-	// played, as distinct from played nil-nil, but an outstanding subscription
-	// renders `–` too, so without this a 5–3 game came up as `– –` and snapped
-	// to the score a moment later. Wrong on the one screen whose whole job is
-	// the scoreline, and wrong in the specific way that makes the number
-	// unreadable: anything reading it, a person or a test, cannot tell "nobody
-	// played this" from "ask again in a moment".
-	if (loading || teamsLoading || matchesLoading) {
-		return (
-			<SeasonShell title='Teams' backHref={backHref}>
-				<Skeleton />
-			</SeasonShell>
-		);
-	}
+	if (read.loading) return <NoTeams reason='loading' backHref={backHref} onRetry={read.retry} />;
+	if (read.error) return <NoTeams reason='error' backHref={backHref} onRetry={read.retry} />;
+	if (!read.season || !read.game) return <NoTeams reason='missing' backHref={backHref} onRetry={read.retry} />;
 
-	if (error) {
-		return (
-			<SeasonShell title='Teams' backHref={backHref}>
-				<LoadFailed what='the teams' onRetry={retry} />
-			</SeasonShell>
-		);
-	}
-
-	if (!season || !game) {
-		return (
-			<SeasonShell title='Teams' backHref={backHref}>
-				<EmptyState title='Game not found' message='It may have been deleted from the calendar.' />
-			</SeasonShell>
-		);
-	}
-
+	const { season, game, lineup } = read;
 	const subtitle = formatGameDateLong(game.kickoff, season.slot.timezone);
 
-	// No lineup means the pool is still short of a tournament. The function
-	// clears the document rather than leaving a stale sheet up, so this is the
-	// honest state rather than a loading gap.
 	if (!lineup || lineup.teams.length === 0) {
-		const shortBy = MIN_TOURNAMENT_PLAYERS - game.counts.playing;
-
-		return (
-			<SeasonShell title='Teams' subtitle={subtitle} backHref={backHref}>
-				<EmptyState
-					icon={<UsersIcon />}
-					title='No teams yet'
-					message={
-						shortBy > 0
-							? `${game.counts.playing} playing so far. Teams appear at ${MIN_TOURNAMENT_PLAYERS}, so ${shortBy} more to go.`
-							: 'Teams are being picked. This updates on its own in a few seconds.'
-					}
-				/>
-			</SeasonShell>
-		);
+		return <NoLineup playing={game.counts.playing} subtitle={subtitle} backHref={backHref} />;
 	}
 
-	const squadSizes = lineup.teams.map(team => team.uids.length);
-	// A team card isn't being read against any one fixture, so it shows the side
-	// its squad is sure of: the smallest anybody plays, and never more than the
-	// pitch holds. Everyone past that is a sub, which is what the card says.
-	const pitchSide = Math.min(...squadSizes, MAX_SIDE);
-	const fixtures = getFixtures(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
-	const fit = getScheduleFit(lineup.teams.length, lineup.settings.matchMinutes, season.slot.durationMinutes);
+	const evening: Evening = { seasonId, gameId, season, game, lineup, usersByUid: read.usersByUid };
+	const schedule = readSchedule(season, lineup, read.matches);
+	const outcome = readOutcome(season, gameId, lineup, schedule, read.result ?? null, read.responses);
+	const sheet = readSheet(lineup, read.responses);
 
-	// A round only means something once it bundles more than one match. Two
-	// teams meet once a round, so every "round" would just repeat the match
-	// count, and only worth flagging once the game actually plays a second one.
-	const roundLength = getRoundLength(lineup.teams.length);
-	const showRounds = roundLength > 1 && fixtures.length > roundLength;
-
-	// Not everything under `matches/` belongs to this game: see
-	// `selectPlayedMatches`. The screen has to agree with the function that
-	// rates the game, or the table here would explain a set of ratings it
-	// didn't produce.
-	const playedMatches = selectPlayedMatches(
-		lineup.teams.length,
-		lineup.settings.matchMinutes,
-		season.slot.durationMinutes,
-		matches
-	);
-
-	const matchesByOrder = new Map(playedMatches.map(match => [match.order, match]));
-	const played = playedMatches.length;
-
-	// Once confirmed the table comes from the result document rather than being
-	// recomputed, so a past game keeps reading the way it was decided even if
-	// somebody later clears a score.
-	const standings = result?.standings ?? getStandings(lineup.teams.length, playedMatches);
-	const deltas = result ? new Map(result.changes.map(change => [change.uid, change.delta])) : undefined;
-
-	// Anyone who answered the game can keep the score. That is the point, so
-	// whoever has a free hand does it. Confirming the game closes it to everyone
-	// but an admin, and closes it to a *tap* even for them: a correction replays
-	// the ladder from here on, so `locked` is a scoreboard they have to open
-	// first. `ScoreboardLock` is the door and holds the reasoning.
-	const finalised = !!game.resultFinalisedAt;
-	const access = getScoreAccess({ finalised, isAdmin, hasResponded: !!myResponses[gameId] });
-	const canScore = access === 'open' || (access === 'locked' && correcting);
-
-	// A score is recorded against a fixture: "match 1, team A v team B", so
-	// re-picking the squads underneath one would leave the scoreboard describing
-	// a game nobody played. The lineup is settled from the first score in, and
-	// frozen outright once the game is confirmed, which `runTeamRebuild` enforces
-	// on its side too.
-	const lineupOpen = played === 0 && !finalised;
-
-	// Not `isAdmin`, which is either kind of admin, and not `isSeasonAdmin`,
-	// which is neither. Reshuffle is the one button here that asks for the
-	// global claim, and the block that draws it says why.
-	const isAppAdmin = user?.isAppAdmin === true;
-
-	// The lineup is frozen once the ledger has been computed against it, which
-	// `setPlayerTeam` refuses on its side too. This is about which buttons get
-	// offered. Season admins rather than everyone `isAdmin` covers: an app admin
-	// passing through somebody else's season has no standing to move their
-	// players around.
-	const canMovePlayers = isSeasonAdmin && !finalised;
-
-	// The same window Reshuffle has, and for a stricter reason: a match document
-	// stores the two team indices it was played between, so a swap underneath one
-	// hands a scoreline to a squad that never played it. Once a score is in, who
-	// kicks off has been decided anyway.
-	const canChangeLetters = isSeasonAdmin && lineupOpen;
-
-	const poolUids = sortResponses(responses.filter(response => response.status === 'in' && isConfirmed(response))).map(
-		response => response.uid
-	);
-
-	// What confirming costs the extras who played, off the same function the
-	// callable raises the charges with, so the dialog cannot promise a different
-	// number of charges from the one that lands.
-	//
-	// Named only when there is something to name. A season with no per-game fee,
-	// or a game the whole squad turned out for, charges nobody, and a dialog that
-	// warned about money either way would be wrong on most Tuesdays.
-	const extraCharges = planGameDues(feesFor(season), gameId, responses);
-
-	// One sentence or none. Every charge here is the same season fee, so one
-	// amount says the whole of it, and the count is what an admin reads to
-	// recognise the game they are about to bill.
-	const chargeNote =
-		extraCharges.length > 0
-			? ` The ${
-					extraCharges.length === 1 ? 'extra who played is' : `${extraCharges.length} extras who played are`
-				} charged ${formatSek(extraCharges[0].amount)}, and can pay as soon as this lands.`
-			: '';
-
-	// A hand-picked lineup stops being re-picked, which is the point of it, and
-	// the price is that the sheet and the pool can drift apart in both
-	// directions: somebody says In afterwards and lands on no team, or somebody
-	// on a squad taps Out and stays on it. Neither is wrong, both are invisible,
-	// and the app has stopped being the thing that would fix them. An automatic
-	// lineup needs none of this said: a rebuild is already seconds away.
-	// Reported no-shows. Not filtered out of the pool above: they said In and
-	// were picked, and the sheet's job here is to say who was on which team and
-	// which of them never turned up, not to rewrite the evening as though the
-	// squads had been picked without them. Moving somebody off the sheet is a
-	// separate decision, and the button for it is right there.
-	const absentUids = new Set(getAbsentUids(responses));
-
-	const inThePool = new Set(poolUids);
-	const unassigned = lineup.edited ? getUnassigned(lineup.teams, poolUids) : [];
-	const notPlaying = lineup.edited
-		? new Set(lineup.teams.flatMap(team => team.uids).filter(uid => !inThePool.has(uid)))
-		: undefined;
-
-	// Only worth explaining when it is actually happening.
-	const unequal = new Set(standings.map(row => row.played)).size > 1;
+	const powers = readPowers({
+		user,
+		isAdmin: read.isAdmin,
+		isSeasonAdmin: read.isSeasonAdmin,
+		finalised: !!game.resultFinalisedAt,
+		hasResponded: !!read.myResponse,
+		played: schedule.played,
+		correcting,
+	});
 
 	return (
 		<SeasonShell title='Teams' subtitle={subtitle} backHref={backHref}>
 			<div {...stylex.props(styles.page)}>
 				{/* First on the screen, whichever of its two jobs it is doing. Open, it
-				    is the only thing here with a deadline on it and the notification that
-				    opened it lands on this page, so it goes above a lineup and a
-				    scoreboard that are both already settled. Decided, it stays there: it
-				    used to drop down beside the table once it was counted, which put the
-				    one part of the evening the table cannot show below three sections of
-				    the parts it can, at the bottom of a long scroll on a phone. Drawn
-				    only when there is something to draw: the panel returns nothing at all
-				    until there is a vote to hold or a result to report. */}
+				    is the only thing here with a deadline on it and the notification
+				    that opened it lands on this page, so it goes above a lineup and a
+				    scoreboard that are both already settled. Decided, it stays there:
+				    it used to drop down beside the table once it was counted, which put
+				    the one part of the evening the table cannot show below three
+				    sections of the parts it can, at the bottom of a long scroll on a
+				    phone. Drawn only when there is something to draw: the panel returns
+				    nothing at all until there is a vote to hold or a result to
+				    report. */}
 				<MotmPanel
 					teams={lineup.teams}
-					usersByUid={usersByUid}
-					motm={motm}
-					vote={vote}
-					voterUids={voterUids}
+					usersByUid={read.usersByUid}
+					motm={motm.motm}
+					vote={motm.vote}
+					voterUids={motm.voterUids}
 					votingUntil={game.motmVotingUntilMillis}
-					now={now}
-					meUid={user?.uid ?? null}
-					onVote={async uid => {
-						if (!user) return;
-
-						// Tapping your own pick again takes it back. Abstaining is a
-						// real position, and there is nowhere else to express it.
-						await write(
-							() =>
-								vote?.votedFor === uid
-									? clearMotmVote(seasonId, gameId, user.uid)
-									: setMotmVote(seasonId, gameId, user.uid, uid),
-							"Couldn't save your vote."
-						);
-					}}
+					now={motm.now}
+					meUid={powers.uid}
+					onVote={motm.cast}
 				/>
 
-				<section {...stylex.props(surfaces.glass, styles.card)}>
-					<div {...stylex.props(styles.pills)}>
-						<StatusPill tone='brand'>{describeSquads(squadSizes)}</StatusPill>
-						<StatusPill tone='neutral'>
-							{fit.matchCount} {fit.matchCount === 1 ? 'match' : 'matches'} · {fit.matchMinutes} min
-						</StatusPill>
-					</div>
+				<LineupCard
+					evening={evening}
+					powers={powers}
+					schedule={schedule}
+					onReshuffle={() => writes.reshuffle(lineup.edited)}
+				/>
 
-					{lineup.edited ? (
-						<p {...stylex.props(styles.noteRow)}>
-							<PencilSquareIcon {...stylex.props(styles.noteIcon)} aria-hidden='true' />
-							{/* The way back out of a pinned lineup is named only to the
-							    people who have it. Everyone else gets the fact without a
-							    button they will go looking for and not find. */}
-							<span>
-								Sorted out by {displayNameOf(usersByUid.get(lineup.edited.by))}{' '}
-								{formatRelative(lineup.edited.at)}. These teams stay as they are now
-								{isAppAdmin ? '. Reshuffle hands them back to the app.' : '.'}
-							</span>
-						</p>
-					) : (
-						<p {...stylex.props(styles.note)}>
-							Picked automatically from who is in, and re-picked whenever somebody changes their answer.
-						</p>
-					)}
+				<TeamCards
+					evening={evening}
+					powers={powers}
+					schedule={schedule}
+					sheet={sheet}
+					deltas={outcome.deltas}
+					onMove={setMovingUid}
+					onLetter={setLetteringIndex}
+				/>
 
-					{fit.overrunMinutes > 0 && (
-						<p {...stylex.props(styles.warnRow)}>
-							<ExclamationTriangleIcon {...stylex.props(styles.noteIcon)} aria-hidden='true' />
-							<span>
-								{fit.totalMinutes} minutes of football in a {fit.slotMinutes} minute slot, about{' '}
-								{fit.overrunMinutes} over. Shorten the matches in season settings, or expect to run
-								late.
-							</span>
-						</p>
-					)}
+				<NotOnTheSheet
+					uids={sheet.unassigned}
+					usersByUid={read.usersByUid}
+					canMove={powers.movePlayers}
+					onMove={setMovingUid}
+				/>
 
-					{/* App admins only, narrower than every other button on this screen,
-					    and narrower than it used to be. Re-picking is free, instant and
-					    leaves no mark, so a button in front of every season admin is one
-					    that gets pulled again and again until the squads come out the way
-					    somebody fancies, which is the one thing a seeded optimizer exists
-					    to take out of anybody's hands. A season admin who genuinely needs a
-					    different sheet still has `setPlayerTeam`, which moves the person
-					    they mean and signs the lineup with their name.
+				<Scoreboard
+					schedule={schedule}
+					powers={powers}
+					correcting={correcting}
+					onCorrecting={setCorrecting}
+					onScore={(fixture, scoreA, scoreB) => writes.score(fixture, scoreA, scoreB, powers.uid)}
+					onClear={writes.clearScore}
+				/>
 
-					    The rules are untouched: a reshuffle is a bump of `reshuffleCount`
-					    and stays a season-admin write, as every other field on the game
-					    document is. This is about who is offered the button. */}
-					{isAppAdmin && (
-						<>
-							<Button
-								variant='secondary'
-								sx={styles.reshuffle}
-								disabled={!lineupOpen}
-								onClick={async () => {
-									// Asked about only when there is something to
-									// throw away, which is the whole distinction the
-									// button rests on. An automatic lineup is
-									// re-picked every time somebody changes their
-									// answer, so re-picking it deliberately costs
-									// nothing and stays one tap: that is what
-									// "free, instant and leaves no mark" above
-									// means. A pinned one is an evening of somebody
-									// else's planning, and this is the only button
-									// that undoes it. The pinned-lineup note above
-									// already names who, so the dialog does too.
-									if (lineup.edited) {
-										const ok = await confirm({
-											title: 'Throw away the hand-picked teams?',
-											message: `${displayNameOf(usersByUid.get(lineup.edited.by))} sorted these teams out by hand. Reshuffling hands them back to the app, which picks from who is in and re-picks whenever somebody changes their answer.`,
-											// Never the word on the button that opened
-											// it: "Reshuffle" twice on one screen
-											// is a thing for a tap, and a test, to
-											// pick the wrong one of. Same reason
-											// `ScoreboardLock` answers "Correct a
-											// score" with "Correct it".
-											confirmLabel: 'Re-pick them',
-											tone: 'danger',
-										});
+				<TableSection
+					evening={evening}
+					powers={powers}
+					schedule={schedule}
+					outcome={outcome}
+					onConfirm={() => writes.finalise(outcome.chargeNote)}
+				/>
 
-										if (!ok) return;
-									}
-
-									await write(
-										() => reshuffleTeams(seasonId, gameId),
-										"Couldn't reshuffle the teams."
-									);
-								}}
-							>
-								<ArrowPathIcon {...stylex.props(styles.buttonIcon)} aria-hidden='true' />
-								Reshuffle
-							</Button>
-
-							{/* A greyed-out button with no reason beside it reads as a bug. */}
-							{!lineupOpen && (
-								<p {...stylex.props(styles.hint)}>
-									{finalised
-										? 'The lineup is frozen now the game is confirmed.'
-										: 'Scores are in. Clear them to re-pick the teams.'}
-								</p>
-							)}
-						</>
-					)}
-				</section>
-
-				<div {...stylex.props(styles.cards)}>
-					{lineup.teams.map((team, order) => (
-						<TeamCard
-							key={team.index}
-							sx={[animations.rise, deal.delay(order)]}
-							team={team}
-							elos={lineup.elos}
-							usersByUid={usersByUid}
-							sideSize={pitchSide}
-							highlightUid={user?.uid}
-							deltas={deltas}
-							notPlaying={notPlaying}
-							absentUids={absentUids}
-							onMovePlayer={canMovePlayers ? setMovingUid : undefined}
-							onChangeLetter={canChangeLetters ? () => setLetteringIndex(team.index) : undefined}
-						/>
-					))}
-				</div>
-
-				{/* Only reachable once somebody has picked the teams by hand, which is
-				    also the moment nothing else is going to notice. Shown to everybody
-				    rather than to admins alone: a player looking for their own name on
-				    four cards and not finding it deserves the explanation, even though
-				    only an admin can do anything about it. */}
-				{unassigned.length > 0 && (
-					<section {...stylex.props(surfaces.glass, styles.card)}>
-						<div {...stylex.props(styles.head)}>
-							<HandRaisedIcon {...stylex.props(styles.headIcon)} aria-hidden='true' />
-							<h2 {...stylex.props(styles.title)}>Not on the sheet</h2>
-							<StatusPill tone='pending'>{unassigned.length}</StatusPill>
-						</div>
-
-						<p {...stylex.props(styles.lead)}>
-							In for this game, but on no team. The app stopped picking when the teams were sorted out by
-							hand.
-						</p>
-
-						<ul>
-							{unassigned.map(uid => {
-								const player = usersByUid.get(uid);
-
-								return (
-									<li key={uid} {...stylex.props(styles.person)}>
-										<Avatar
-											displayName={displayNameOf(player)}
-											photoURL={player?.photoURL}
-											size='sm'
-										/>
-										<span {...stylex.props(styles.personName, utils.truncate)}>
-											{displayNameOf(player)}
-										</span>
-										{canMovePlayers && (
-											<Button size='sm' variant='ghost' onClick={() => setMovingUid(uid)}>
-												Give a team
-											</Button>
-										)}
-									</li>
-								);
-							})}
-						</ul>
-					</section>
-				)}
-
-				<section {...stylex.props(surfaces.glass, styles.card)}>
-					<div {...stylex.props(styles.scoreHead)}>
-						<h2 {...stylex.props(styles.title)}>Scoreboard</h2>
-						{finalised && <StatusPill tone='neutral'>Confirmed</StatusPill>}
-					</div>
-
-					{access === 'none' && !finalised && (
-						<p {...stylex.props(styles.lead)}>Say you&apos;re in and you can keep the score too.</p>
-					)}
-
-					{access === 'locked' && <ScoreboardLock correcting={correcting} onChange={setCorrecting} />}
-
-					<ol {...stylex.props(styles.fixtures)}>
-						{fixtures.map(fixture => (
-							<Fragment key={fixture.order}>
-								{showRounds && fixture.order % roundLength === 0 && (
-									<li {...stylex.props(styles.round, fixture.order > 0 && styles.roundBreak)}>
-										Round {fixture.order / roundLength + 1}
-									</li>
-								)}
-
-								<MatchScore
-									fixture={fixture}
-									match={matchesByOrder.get(fixture.order)}
-									sideSize={getSideSize(squadSizes[fixture.teamA], squadSizes[fixture.teamB])}
-									canScore={canScore}
-									onScore={async (scoreA, scoreB) => {
-										if (!user) return;
-
-										await write(
-											() => setMatchScore(seasonId, gameId, fixture, scoreA, scoreB, user.uid),
-											"Couldn't save that score."
-										);
-									}}
-									onClear={async () => {
-										await write(
-											() => clearMatchScore(seasonId, gameId, fixture.order),
-											"Couldn't clear that score."
-										);
-									}}
-								/>
-							</Fragment>
-						))}
-					</ol>
-				</section>
-
-				{(played > 0 || finalised) && (
-					<section {...stylex.props(surfaces.glass, styles.card)}>
-						<h2 {...stylex.props(styles.titleGap)}>Table</h2>
-						<StandingsTable standings={standings} unequal={unequal} />
-
-						{/* Said on the screen the table is on, because this is where
-						    somebody works out why their rating moved the way it did,
-						    and the answer stopped being "we came second" in Aug 2026. */}
-						<p {...stylex.props(styles.tableNote)}>
-							Ratings read how much of the evening each team won, not just where it finished, so two teams
-							that end up level move almost together, and the team that wins the table always moves
-							further.
-						</p>
-
-						{finalised ? (
-							<p {...stylex.props(styles.hint)}>
-								Confirmed {formatRelative(game.resultFinalisedAt!)}. Ratings have been applied. A season
-								admin correcting a score from here will work them out again.
-							</p>
-						) : (
-							<>
-								<p {...stylex.props(styles.hint)}>
-									Nothing counts towards anyone&apos;s rating until this is confirmed, which happens
-									on its own {AUTO_FINALISE_HOURS} hours after kick-off.
-								</p>
-
-								{/* The one tap on this screen that reaches everybody.
-								    It applies ratings, opens the vote and notifies
-								    the lineup, charges the extras who played, and
-								    freezes the sheet the ledger was computed
-								    against, and it sits directly under a table an
-								    admin came here to read, which is where a
-								    scrolling thumb ends up. `ScoreboardLock`
-								    already asks before *undoing* this; asking here
-								    too is the other half of the same trade, since
-								    this is the tap that makes the undo cost a
-								    replay. */}
-								{isAdmin && (
-									<Button
-										variant='primary'
-										sx={styles.confirm}
-										onClick={async () => {
-											const ok = await confirm({
-												title: 'Confirm the results?',
-												message: `Ratings are worked out and applied to everybody who played, the man-of-the-match vote opens and the lineup is notified.${chargeNote} Correcting a score after this works the ratings out again: for this game, and for every game played since.`,
-												confirmLabel: 'Confirm it',
-											});
-
-											if (!ok) return;
-
-											await write(
-												() => finaliseTournament(seasonId, gameId),
-												"Couldn't confirm the results."
-											);
-										}}
-									>
-										<CheckCircleIcon {...stylex.props(styles.buttonIcon)} aria-hidden='true' />
-										Confirm results
-									</Button>
-								)}
-							</>
-						)}
-					</section>
-				)}
-
-				{letteringIndex !== null && (
-					<TeamLetterSheet
-						team={lineup.teams[letteringIndex] ?? null}
-						teams={lineup.teams}
-						usersByUid={usersByUid}
-						open
-						onClose={() => setLetteringIndex(null)}
-						onSwap={async withIndex => {
-							await write(
-								() => setTeamLetter(seasonId, gameId, letteringIndex, withIndex),
-								"Couldn't swap those teams over."
-							);
-						}}
-					/>
-				)}
-
-				{movingUid && (
-					<PlayerTeamSheet
-						displayName={displayNameOf(usersByUid.get(movingUid))}
-						teams={lineup.teams}
-						currentIndex={findTeamIndex(lineup.teams, movingUid)}
-						open
-						onClose={() => setMovingUid(null)}
-						onMove={async teamIndex => {
-							await write(
-								() => setPlayerTeam(seasonId, gameId, movingUid, teamIndex),
-								"Couldn't move them."
-							);
-						}}
-					/>
-				)}
+				<Sheets
+					evening={evening}
+					letteringIndex={letteringIndex}
+					movingUid={movingUid}
+					onCloseLetter={() => setLetteringIndex(null)}
+					onCloseMove={() => setMovingUid(null)}
+					onSwap={writes.swapLetters}
+					onMove={writes.movePlayer}
+				/>
 			</div>
 		</SeasonShell>
 	);
