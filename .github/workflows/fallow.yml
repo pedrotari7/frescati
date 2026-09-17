@@ -32,6 +32,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      # A checkout is not enough for this job, unlike the action's own examples.
+      # Fallow reads `node_modules` to classify a dependency and to decide which
+      # of its framework plugins apply, and it says so out loud when the
+      # directory is missing: "dependency classification degrades, so imports
+      # and dependencies can be misreported". It is not a warning about
+      # precision. Nothing here names `firebase-tools`, every use of it is the
+      # `firebase` binary in a package.json script, and the bin-to-package link
+      # lives in the installed package, so without this step CI calls a
+      # dependency the whole emulator stack runs on unused and fails the job for
+      # it. The local hooks never saw it, because a working tree always has the
+      # directory.
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
       # The gate, on pull requests, over the whole repo rather than the files
       # the PR touches. `auto-changed-since: false` is what turns the scoping
       # off; with it on, the action passes `--changed-since` and a finding can
