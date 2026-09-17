@@ -4,6 +4,7 @@ import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDownTrayIcon, DocumentTextIcon, LinkIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
+import type { Receipt } from '@shared/types';
 import { formatFileSize, receiptHref, receiptKindLabel } from '@shared/receipts';
 import { formatCivilDate } from '@shared/format';
 import { useSeasonContext } from '../../../../../../../components/SeasonProvider';
@@ -47,6 +48,135 @@ const styles = stylex.create({
 });
 
 /**
+ * Every reason this screen has no receipt to draw, drawn as the screen rather
+ * than as a blank.
+ *
+ * The chevron is on all four, because almost everybody arrives here by opening
+ * a pasted link with nothing behind them to go back to, and a screen that draws
+ * no chevron while it loads is one somebody taps past.
+ */
+const Unavailable = ({
+	reason,
+	seasonName,
+	books,
+	onRetry,
+}: {
+	reason: 'loading' | 'error' | 'private' | 'missing';
+	seasonName?: string;
+	books: string;
+	onRetry: () => void;
+}) => (
+	<SeasonShell title='Receipt' subtitle={seasonName} backHref={books}>
+		{reason === 'loading' && <Skeleton />}
+		{reason === 'error' && <LoadFailed what='this receipt' onRetry={onRetry} />}
+		{reason === 'private' && (
+			<EmptyState
+				icon={<LockClosedIcon />}
+				title='Not yours to open'
+				message='A receipt belongs to the people in that season. Ask whoever runs it to add you.'
+			/>
+		)}
+		{reason === 'missing' && (
+			<EmptyState
+				icon={<DocumentTextIcon />}
+				title='Receipt not found'
+				message='It has been removed, or the link is wrong.'
+			/>
+		)}
+	</SeasonShell>
+);
+
+/**
+ * Removing a receipt, which takes the file with it.
+ *
+ * Confirmed first, because every link anybody has to it stops working. Then
+ * `replace` rather than `push`, so the back chevron does not hand somebody
+ * straight back to a receipt that is no longer there. `AppHistory` counts a
+ * replace as no step at all, which is what keeps the books' own chevron honest.
+ */
+const useRemoveReceipt = (seasonId: string, books: string) => {
+	const write = useWrite();
+	const confirm = useConfirm();
+	const router = useRouter();
+
+	return async (receipt: Receipt) => {
+		const ok = await confirm({
+			title: `Remove ${receipt.name}?`,
+			message: 'The file goes with it, and every link anybody has to it stops working.',
+			confirmLabel: 'Remove',
+			tone: 'danger',
+		});
+
+		if (!ok) return;
+
+		const removed = await write(() => deleteReceipt(seasonId, receipt.id), `Couldn't remove ${receipt.name}.`);
+
+		if (removed) router.replace(books);
+	};
+};
+
+/** The receipt itself, and the one thing everybody came here to do with it. */
+const ReceiptCard = ({
+	receipt,
+	uploader,
+	onDownload,
+}: {
+	receipt: Receipt;
+	uploader: string;
+	onDownload: () => void;
+}) => (
+	<section {...stylex.props(surfaces.glass, styles.card)}>
+		<div {...stylex.props(styles.head)}>
+			<DocumentTextIcon {...stylex.props(styles.doc)} aria-hidden='true' />
+			<div {...stylex.props(styles.body)}>
+				<h2 {...stylex.props(styles.name)}>{receipt.name}</h2>
+				<p {...stylex.props(styles.meta)}>
+					{receiptKindLabel(receipt.contentType)} · {formatFileSize(receipt.size)} · added by {uploader} on{' '}
+					{formatCivilDate(receipt.uploadedAt.slice(0, 10))}
+				</p>
+			</div>
+		</div>
+
+		<Button variant='primary' size='lg' fullWidth onClick={onDownload}>
+			<ArrowDownTrayIcon {...stylex.props(styles.download)} aria-hidden='true' />
+			Download
+		</Button>
+
+		<p {...stylex.props(styles.blurb)}>
+			Hand this to your employer if you claim friskv&aring;rdsbidrag. It is what says the money went on playing
+			football.
+		</p>
+	</section>
+);
+
+/** The link, and why it is safe to paste into the group chat. */
+const ShareCard = ({ seasonName, url, onCopy }: { seasonName: string; url: string; onCopy: () => void }) => (
+	<section {...stylex.props(surfaces.glass, styles.share)}>
+		<h2 {...stylex.props(styles.heading)}>Share it</h2>
+		<p {...stylex.props(styles.blurb)}>
+			This link opens for anybody in {seasonName} and for nobody else, so it is safe in the group chat. It asks
+			whoever follows it to sign in, the same as every other screen.
+		</p>
+
+		{/* Readable as well as copyable. The button is the way anybody will actually
+		    do this, but a browser that refuses the clipboard, an old WebView, an
+		    insecure context, leaves somebody with a link they can still read out. */}
+		<input
+			readOnly
+			value={url}
+			onFocus={event => event.currentTarget.select()}
+			aria-label='Link to this receipt'
+			{...stylex.props(CONTROL, styles.link)}
+		/>
+
+		<Button variant='secondary' fullWidth onClick={onCopy}>
+			<LinkIcon {...stylex.props(styles.copy)} aria-hidden='true' />
+			Copy link
+		</Button>
+	</section>
+);
+
+/**
  * One receipt, on a screen of its own.
  *
  * This is what the copy-link button in the books hands out, and the reason the
@@ -69,9 +199,8 @@ const ReceiptPage = ({ params }: { params: Promise<{ seasonId: string; receiptId
 	const { receipts, loading: receiptsLoading } = useReceipts(seasonId, squad);
 	const { usersByUid } = useUsersByUid();
 	const { download, copyLink } = useReceiptActions(seasonId);
-	const write = useWrite();
-	const confirm = useConfirm();
-	const router = useRouter();
+	const books = `/s/${seasonId}/finances`;
+	const remove = useRemoveReceipt(seasonId, books);
 
 	// The address of this screen, which is the thing to copy. Read after mount
 	// rather than at render, because this component is still server-rendered
@@ -82,126 +211,34 @@ const ReceiptPage = ({ params }: { params: Promise<{ seasonId: string; receiptId
 		setUrl(`${window.location.origin}${receiptHref(seasonId, receiptId)}`);
 	}, [seasonId, receiptId]);
 
-	const books = `/s/${seasonId}/finances`;
-
-	if (loading || receiptsLoading) {
-		return (
-			<SeasonShell title='Receipt' backHref={books}>
-				<Skeleton />
-			</SeasonShell>
-		);
-	}
-
-	if (error) {
-		return (
-			<SeasonShell title='Receipt' backHref={books}>
-				<LoadFailed what='this receipt' onRetry={retry} />
-			</SeasonShell>
-		);
-	}
+	if (loading || receiptsLoading) return <Unavailable reason='loading' books={books} onRetry={retry} />;
+	if (error) return <Unavailable reason='error' books={books} onRetry={retry} />;
 
 	// Somebody who played once and followed a link out of the group chat. The
 	// rules refuse them the collection outright, so the app never asks for it,
-	// and this says why rather than leaving them on a screen that says the
+	// and `private` says why rather than leaving them on a screen that says the
 	// receipt does not exist.
-	if (!season || !squad) {
-		return (
-			<SeasonShell title='Receipt' backHref={books}>
-				<EmptyState
-					icon={<LockClosedIcon />}
-					title='Not yours to open'
-					message='A receipt belongs to the people in that season. Ask whoever runs it to add you.'
-				/>
-			</SeasonShell>
-		);
-	}
+	if (!season || !squad) return <Unavailable reason='private' books={books} onRetry={retry} />;
 
 	const receipt = receipts.find(candidate => candidate.id === receiptId);
 
 	if (!receipt) {
-		return (
-			<SeasonShell title='Receipt' subtitle={season.name} backHref={books}>
-				<EmptyState
-					icon={<DocumentTextIcon />}
-					title='Receipt not found'
-					message='It has been removed, or the link is wrong.'
-				/>
-			</SeasonShell>
-		);
+		return <Unavailable reason='missing' seasonName={season.name} books={books} onRetry={retry} />;
 	}
-
-	const handleDelete = async () => {
-		const ok = await confirm({
-			title: `Remove ${receipt.name}?`,
-			message: 'The file goes with it, and every link anybody has to it stops working.',
-			confirmLabel: 'Remove',
-			tone: 'danger',
-		});
-
-		if (!ok) return;
-
-		const removed = await write(() => deleteReceipt(seasonId, receipt.id), `Couldn't remove ${receipt.name}.`);
-
-		// `replace`, so the back chevron doesn't hand somebody straight back to a
-		// receipt that is no longer there. `AppHistory` counts a replace as no
-		// step at all, which is what keeps the books' own chevron honest.
-		if (removed) router.replace(books);
-	};
 
 	return (
 		<SeasonShell title='Receipt' subtitle={season.name} backHref={books}>
 			<div {...stylex.props(styles.page)}>
-				<section {...stylex.props(surfaces.glass, styles.card)}>
-					<div {...stylex.props(styles.head)}>
-						<DocumentTextIcon {...stylex.props(styles.doc)} aria-hidden='true' />
-						<div {...stylex.props(styles.body)}>
-							<h2 {...stylex.props(styles.name)}>{receipt.name}</h2>
-							<p {...stylex.props(styles.meta)}>
-								{receiptKindLabel(receipt.contentType)} · {formatFileSize(receipt.size)} · added by{' '}
-								{displayNameOf(usersByUid.get(receipt.uploadedBy))} on{' '}
-								{formatCivilDate(receipt.uploadedAt.slice(0, 10))}
-							</p>
-						</div>
-					</div>
+				<ReceiptCard
+					receipt={receipt}
+					uploader={displayNameOf(usersByUid.get(receipt.uploadedBy))}
+					onDownload={() => download(receipt)}
+				/>
 
-					<Button variant='primary' size='lg' fullWidth onClick={() => download(receipt)}>
-						<ArrowDownTrayIcon {...stylex.props(styles.download)} aria-hidden='true' />
-						Download
-					</Button>
-
-					<p {...stylex.props(styles.blurb)}>
-						Hand this to your employer if you claim friskv&aring;rdsbidrag. It is what says the money went
-						on playing football.
-					</p>
-				</section>
-
-				<section {...stylex.props(surfaces.glass, styles.share)}>
-					<h2 {...stylex.props(styles.heading)}>Share it</h2>
-					<p {...stylex.props(styles.blurb)}>
-						This link opens for anybody in {season.name} and for nobody else, so it is safe in the group
-						chat. It asks whoever follows it to sign in, the same as every other screen.
-					</p>
-
-					{/* Readable as well as copyable. The button is the way anybody
-					    will actually do this, but a browser that refuses the
-					    clipboard, an old WebView, an insecure context, leaves
-					    somebody with a link they can still read out. */}
-					<input
-						readOnly
-						value={url}
-						onFocus={event => event.currentTarget.select()}
-						aria-label='Link to this receipt'
-						{...stylex.props(CONTROL, styles.link)}
-					/>
-
-					<Button variant='secondary' fullWidth onClick={() => copyLink(receipt)}>
-						<LinkIcon {...stylex.props(styles.copy)} aria-hidden='true' />
-						Copy link
-					</Button>
-				</section>
+				<ShareCard seasonName={season.name} url={url} onCopy={() => copyLink(receipt)} />
 
 				{isAdmin && (
-					<Button variant='danger' fullWidth onClick={handleDelete}>
+					<Button variant='danger' fullWidth onClick={() => remove(receipt)}>
 						Remove this receipt
 					</Button>
 				)}
