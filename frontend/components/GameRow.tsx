@@ -3,13 +3,13 @@
 import Link from 'next/link';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
-import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
+import type { GameResponse } from '@shared/types';
 import type { GameLifecycle } from '@shared/game';
 import { getExtraSpot, getFormat, getGameLifecycle, getHeadcountState, isWatchable } from '@shared/game';
 import { formatGameDate, formatGameTime } from '@shared/format';
 import { colors } from '../app/tokens.stylex';
 import { surfaces } from '../lib/styles';
-import type { DebtLock } from './RespondControl';
+import type { GameAnswer } from './RespondControl';
 import RespondControl from './RespondControl';
 import type { PillTone } from './StatusPill';
 import StatusPill from './StatusPill';
@@ -83,25 +83,7 @@ const GameRow = ({
 	onRespond,
 	onClear,
 	onWatchChange,
-}: {
-	game: Game;
-	season: Season;
-	myResponse: GameResponse | undefined;
-	watching?: boolean;
-	/** Set when this player owes the season money. Takes the In half, and only that. */
-	debtLock?: DebtLock;
-	/** Passed in rather than read here, so every row on a screen agrees. */
-	now: Date;
-	onRespond: (status: ResponseStatus) => Promise<void>;
-	onClear: () => Promise<void>;
-	/**
-	 * Left off when nobody is signed in, no handler, no bell, rather than a
-	 * dead one. The state comes from the screen rather than from here: a row
-	 * that fetched its own would be a listener per row, which is the whole
-	 * reason these are drawn off the denormalised `counts` in the first place.
-	 */
-	onWatchChange?: (next: boolean) => void;
-}) => {
+}: GameAnswer) => {
 	const lifecycle = getGameLifecycle(game, season, now);
 	const isPast = lifecycle === 'finished';
 	const atRisk = getHeadcountState(game, season) === 'at-risk';

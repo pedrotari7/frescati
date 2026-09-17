@@ -20,6 +20,7 @@ import MotmVoteCallout from '../../../../components/MotmVoteCallout';
 import SeasonDebtNotice from '../../../../components/SeasonDebtNotice';
 import Button from '../../../../components/Button';
 import CalendarSubscribeSheet from '../../../../components/CalendarSubscribeSheet';
+import PlayedSection from '../../../../components/PlayedSection';
 import { SectionHeading } from '../../../../components/Section';
 
 const styles = stylex.create({
@@ -29,13 +30,8 @@ const styles = stylex.create({
 	/* A column with gaps rather than `space-y`, which has no StyleX equivalent:
 	   there is no sibling selector to hang it on. */
 	rows: { display: 'flex', flexDirection: 'column', gap: 8 },
-	playedHead: {
-		marginBottom: 12,
-		display: 'flex',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		paddingInline: 4,
-	},
+	/* The gap under the Played heading, above a stack of game cards. */
+	playedHead: { marginBottom: 12 },
 });
 
 const SeasonHomePage = () => {
@@ -154,39 +150,29 @@ const SeasonHomePage = () => {
 						Subscribe to calendar
 					</Button>
 
-					{/* Above the games still to come, and collapsed by default so it
-					    costs them one row rather than a scroll. Closed it is a
-					    heading and a count, which is what the last result is worth
-					    to somebody who came to answer the next one, and it sits
-					    beside the vote that may still be running on the game at the
-					    top of it. */}
-					{played.length > 0 && (
-						<section>
-							<div {...stylex.props(styles.playedHead)}>
-								<SectionHeading>Played ({played.length})</SectionHeading>
-								<Button variant='ghost' size='sm' onClick={() => setShowPast(!showPast)}>
-									{showPast ? 'Hide' : 'Show'}
-								</Button>
-							</div>
-
-							{showPast && (
-								<div {...stylex.props(styles.rows)}>
-									{played.map(game => (
-										<GameRow
-											key={game.id}
-											game={game}
-											season={season}
-											myResponse={myResponses[game.id]}
-											debtLock={debtLock}
-											now={now}
-											onRespond={status => respond(game.id, status)}
-											onClear={() => clear(game.id)}
-										/>
-									))}
-								</div>
-							)}
-						</section>
-					)}
+					{/* Above the games still to come, so the last result sits beside
+					    the vote that may still be running on it. */}
+					<PlayedSection
+						count={played.length}
+						open={showPast}
+						onToggle={() => setShowPast(!showPast)}
+						sx={styles.playedHead}
+					>
+						<div {...stylex.props(styles.rows)}>
+							{played.map(game => (
+								<GameRow
+									key={game.id}
+									game={game}
+									season={season}
+									myResponse={myResponses[game.id]}
+									debtLock={debtLock}
+									now={now}
+									onRespond={status => respond(game.id, status)}
+									onClear={() => clear(game.id)}
+								/>
+							))}
+						</div>
+					</PlayedSection>
 
 					{upcoming.length > 0 && (
 						<section>

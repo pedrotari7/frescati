@@ -21,6 +21,7 @@ import LoadFailed from '../../../../../../components/LoadFailed';
 import Button from '../../../../../../components/Button';
 import StatusPill from '../../../../../../components/StatusPill';
 import DatePicker from '../../../../../../components/DatePicker';
+import PlayedSection from '../../../../../../components/PlayedSection';
 import { Field, TextInput } from '../../../../../../components/Field';
 import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../../../components/Section';
 import { colors } from '../../../../../tokens.stylex';
@@ -42,13 +43,8 @@ const styles = stylex.create({
 	add: { marginTop: 16 },
 
 	heading: { marginBottom: 8, paddingInline: 4 },
-	playedHead: {
-		marginBottom: 8,
-		display: 'flex',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		paddingInline: 4,
-	},
+	/* The gap under the Played heading, above a card of rows. */
+	playedHead: { marginBottom: 8 },
 
 	/*
 	 * Does not wrap, on purpose: Cancel and Delete are three and six characters
@@ -145,6 +141,7 @@ const CalendarRow = ({
 };
 
 const AdminGamesPage = () => {
+	// fallow-ignore-next-line code-duplication -- the same five hook calls as the top of SeasonAdminPage, and they are not shared logic, only the same dependencies in the same order. Eleven screens read `useSeasonContext` and each takes a different subset of the rest, 0 to 5 of them, so the two that happen to take all five are a coincidence rather than a pattern. A hook bundling them would hand nine callers things they do not use and hide, from the two it fits, that they open a confirmation dialog at all. Same reasoning as the note on `Section.tsx` about not folding its three primitives into one component.
 	const { user } = useAuth();
 	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
 	const write = useWrite();
@@ -376,36 +373,26 @@ const AdminGamesPage = () => {
 					</ListCard>
 				</section>
 
-				{/* Collapsed, like the Played list on the season home screen and for
-				    the same reason: by March this is twenty rows of football that has
-				    already happened, and an admin opening this screen came here to
-				    change something that hasn't. */}
-				{played.length > 0 && (
-					<section>
-						<div {...stylex.props(styles.playedHead)}>
-							<SectionHeading>Played ({played.length})</SectionHeading>
-							<Button variant='ghost' size='sm' onClick={() => setShowPast(!showPast)}>
-								{showPast ? 'Hide' : 'Show'}
-							</Button>
-						</div>
-
-						{showPast && (
-							<ListCard>
-								{played.map(game => (
-									<CalendarRow
-										key={game.id}
-										game={game}
-										season={season}
-										now={now}
-										onCancel={handleCancel}
-										onRestore={handleRestore}
-										onDelete={handleDelete}
-									/>
-								))}
-							</ListCard>
-						)}
-					</section>
-				)}
+				<PlayedSection
+					count={played.length}
+					open={showPast}
+					onToggle={() => setShowPast(!showPast)}
+					sx={styles.playedHead}
+				>
+					<ListCard>
+						{played.map(game => (
+							<CalendarRow
+								key={game.id}
+								game={game}
+								season={season}
+								now={now}
+								onCancel={handleCancel}
+								onRestore={handleRestore}
+								onDelete={handleDelete}
+							/>
+						))}
+					</ListCard>
+				</PlayedSection>
 			</div>
 		</SeasonShell>
 	);

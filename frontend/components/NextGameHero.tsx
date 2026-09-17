@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
-import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
 import { isShareable } from '@shared/share';
 import { formatGameDateLong, formatGameTime, formatRelative } from '@shared/format';
@@ -11,7 +10,7 @@ import { useKit, useResponses, useUsersByUid } from '../hooks/useData';
 import ExtraSpotNote from './ExtraSpotNote';
 import GameKit from './GameKit';
 import HeadcountBar from './HeadcountBar';
-import type { DebtLock } from './RespondControl';
+import type { GameAnswer } from './RespondControl';
 import RespondControl from './RespondControl';
 import ShareGame from './ShareGame';
 import StatusPill from './StatusPill';
@@ -110,24 +109,9 @@ const NextGameHero = ({
 	onRespond,
 	onClear,
 	onWatchChange,
-}: {
-	game: Game;
-	season: Season;
-	myResponse: GameResponse | undefined;
+}: GameAnswer & {
+	/** Whether this player is an extra rather than a member of the squad. */
 	isExtra: boolean;
-	watching?: boolean;
-	/** Set when this player owes the season money. Takes the In half, and only that. */
-	debtLock?: DebtLock;
-	/** Passed in rather than read here, so the whole screen agrees on the time. */
-	now: Date;
-	onRespond: (status: ResponseStatus) => Promise<void>;
-	onClear: () => Promise<void>;
-	/**
-	 * Left off when nobody is signed in, no handler, no bell, rather than a
-	 * dead one. The state behind it belongs to the screen: this card and the
-	 * rows below it read one listener between them.
-	 */
-	onWatchChange?: (next: boolean) => void;
 }) => {
 	const lifecycle = getGameLifecycle(game, season, now);
 	const timezone = season.slot.timezone;
