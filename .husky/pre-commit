@@ -68,22 +68,23 @@ run_backend() {
     && pnpm --filter backend build
 }
 
-# Unconditional, unlike the three above, and cheap enough to be: fallow scopes
-# itself to the files this commit touches and the whole repo takes about a
-# second. It is also the only check here that reads the repo as a graph rather
-# than a file at a time, so it is the only one that can see an export nothing
-# imports any more, a dependency nothing needs, or an import cycle. None of
-# those is a type error or a lint error, which is why every suite above can be
-# green while they pile up.
+# Unconditional, and the whole repo rather than the files this commit touches.
+# `fallow audit` is the changed-file command and is what ran here first; the
+# combined run is the one with no scope, so a finding cannot wait out of the way
+# in a file nobody has edited this week. It reads the repo as a graph, which is
+# the only thing here that can see an export nothing imports any more, a
+# dependency nothing needs, an import cycle, or the same block written twice in
+# two files. None of those is a type error or a lint error, which is why every
+# suite above can be green while they pile up.
 #
 # `scripts/bin/fallow` rather than `pnpm exec fallow`, because a git hook runs
 # with whatever node the login shell resolves and the launcher in
 # `node_modules/.bin` refuses to start when that node's architecture does not
 # match the installed binary. The script skips the launcher; see the comment in
-# it. Same gate as the Claude Code hook and the CI job, so all three agree.
+# it. Same command as the Claude Code hook and the CI job, so all three agree.
 run_fallow() {
-  echo "Running fallow audit..."
-  scripts/bin/fallow audit --quiet
+  echo "Running fallow over the whole repo..."
+  scripts/bin/fallow --quiet
 }
 
 # Unconditional, and not redundant with the three branches above even though
