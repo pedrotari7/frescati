@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
-import { ArrowDownTrayIcon, LinkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, LinkIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { Receipt } from '@shared/types';
 import {
@@ -15,11 +15,13 @@ import {
 	receiptProblem,
 } from '@shared/receipts';
 import { formatCivilDate } from '@shared/format';
+import AddPanel from './AddPanel';
 import Button from './Button';
+import RemoveButton from './RemoveButton';
 import { Field, TextInput } from './Field';
 import { ListCard, ListEmpty, listRow } from './Section';
 import { bp, colors, tint } from '../app/tokens.stylex';
-import { surfaces, utils } from '../lib/styles';
+import { utils } from '../lib/styles';
 
 const styles = stylex.create({
 	zone: {
@@ -43,9 +45,6 @@ const styles = stylex.create({
 	name: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 500 },
 	facts: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
 	icon: { width: 16, height: 16 },
-
-	form: { display: 'flex', flexDirection: 'column', gap: 16, borderRadius: 16, padding: 20 },
-	formTitle: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
 
 	/*
 	 * The browser draws the button inside a file input, and `::file-selector-button`
@@ -73,7 +72,6 @@ const styles = stylex.create({
 	},
 	problem: { color: colors.out, fontSize: 14, lineHeight: '20px' },
 	chosen: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
-	actions: { display: 'flex', gap: 12 },
 
 	/* Drawn only where there is a pointer that can drag. See `handleDrop`. */
 	hint: {
@@ -283,16 +281,7 @@ const ReceiptList = ({
 								<LinkIcon {...stylex.props(styles.icon)} aria-hidden='true' />
 							</Button>
 
-							{canEdit && (
-								<Button
-									size='sm'
-									variant='ghost'
-									aria-label={`Remove ${receipt.name}`}
-									onClick={() => onDelete(receipt)}
-								>
-									<TrashIcon {...stylex.props(styles.icon)} aria-hidden='true' />
-								</Button>
-							)}
+							{canEdit && <RemoveButton what={receipt.name} onRemove={() => onDelete(receipt)} />}
 						</div>
 					))
 				)}
@@ -300,66 +289,56 @@ const ReceiptList = ({
 
 			{canEdit && (
 				<>
-					{adding ? (
-						<section {...stylex.props(surfaces.glass, styles.form)}>
-							<h3 {...stylex.props(styles.formTitle)}>Add a receipt</h3>
+					<AddPanel
+						open={adding}
+						onOpen={() => setAdding(true)}
+						onCancel={close}
+						onSubmit={handleUpload}
+						label='Add a receipt'
+						action='Upload it'
+						canSubmit={valid}
+					>
+						<Field
+							label='The file'
+							hint={`A PDF, or a photo of a paper receipt. Up to ${formatFileSize(RECEIPT_MAX_BYTES)}.`}
+						>
+							{/* The native input rather than a button in front of a hidden
+							    one: it is the control a phone knows how to open its own
+							    files and camera roll with, and the only one a screen
+							    reader announces as a file picker without help. */}
+							<input
+								ref={input}
+								type='file'
+								accept={RECEIPT_CONTENT_TYPES.join(',')}
+								aria-label='Receipt file'
+								onChange={event => pick(event.target.files?.[0] ?? null)}
+								{...stylex.props(styles.picker)}
+							/>
+						</Field>
 
-							<Field
-								label='The file'
-								hint={`A PDF, or a photo of a paper receipt. Up to ${formatFileSize(RECEIPT_MAX_BYTES)}.`}
-							>
-								{/* The native input rather than a button in front of a hidden
-								    one: it is the control a phone knows how to open its own
-								    files and camera roll with, and the only one a screen
-								    reader announces as a file picker without help. */}
-								<input
-									ref={input}
-									type='file'
-									accept={RECEIPT_CONTENT_TYPES.join(',')}
-									aria-label='Receipt file'
-									onChange={event => pick(event.target.files?.[0] ?? null)}
-									{...stylex.props(styles.picker)}
-								/>
-							</Field>
+						{problem && <p {...stylex.props(styles.problem)}>{problem}</p>}
 
-							{problem && <p {...stylex.props(styles.problem)}>{problem}</p>}
+						{file && !problem && (
+							<p {...stylex.props(styles.chosen)}>
+								{receiptKindLabel(file.type)} · {formatFileSize(file.size)}
+							</p>
+						)}
 
-							{file && !problem && (
-								<p {...stylex.props(styles.chosen)}>
-									{receiptKindLabel(file.type)} · {formatFileSize(file.size)}
-								</p>
-							)}
-
-							<Field
-								label='What it is'
-								hint='What people will see in the list, and what the file downloads as.'
-							>
-								<TextInput
-									value={name}
-									onChange={event => {
-										setName(event.target.value);
-										setWritten(true);
-									}}
-									placeholder='Pitch invoice, spring 2026'
-									maxLength={RECEIPT_NAME_MAX}
-								/>
-							</Field>
-
-							<div {...stylex.props(styles.actions)}>
-								<Button variant='primary' fullWidth onClick={handleUpload} disabled={!valid}>
-									Upload it
-								</Button>
-								<Button variant='ghost' fullWidth onClick={close}>
-									Cancel
-								</Button>
-							</div>
-						</section>
-					) : (
-						<Button variant='secondary' fullWidth onClick={() => setAdding(true)}>
-							<PlusIcon {...stylex.props(styles.icon)} aria-hidden='true' />
-							Add a receipt
-						</Button>
-					)}
+						<Field
+							label='What it is'
+							hint='What people will see in the list, and what the file downloads as.'
+						>
+							<TextInput
+								value={name}
+								onChange={event => {
+									setName(event.target.value);
+									setWritten(true);
+								}}
+								placeholder='Pitch invoice, spring 2026'
+								maxLength={RECEIPT_NAME_MAX}
+							/>
+						</Field>
+					</AddPanel>
 
 					<p {...stylex.props(styles.hint)}>{over ? 'Drop it here.' : 'Or drag a file in here.'}</p>
 				</>
