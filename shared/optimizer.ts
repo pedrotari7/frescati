@@ -44,8 +44,11 @@ export interface OptimizerInput {
 /**
  * Mulberry32. A named, inlined generator rather than `Math.random` because the
  * whole point is reproducibility. Two devices must roll the same teams.
+ *
+ * Exported for the seeder, which rolls a scenario's squads and answers from it
+ * and has to arrive at the lineups a rebuild would.
  */
-const createRng = (seed: number): (() => number) => {
+export const createRng = (seed: number): (() => number) => {
 	let state = seed >>> 0;
 
 	return () => {

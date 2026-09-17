@@ -6,6 +6,7 @@ import {
 	fromDisplayRating,
 	getActualWins,
 	getExpectedRate,
+	getLedgerBreakdown,
 	getMatchScore,
 	getRatingChanges,
 	getSeedElo,
@@ -559,5 +560,51 @@ describe('applyMotmBonus', () => {
 
 		expect(toDisplayMovement(after[0].delta)).toBe(5);
 		expect(toDisplayMovement(after[1].delta)).toBe(4);
+	});
+});
+
+describe('getLedgerBreakdown', () => {
+	const players = [
+		{ uid: 'a', team: 0 },
+		{ uid: 'b', team: 0 },
+		{ uid: 'c', team: 1 },
+	];
+
+	// Two teams that drew, so both finish 0th. That is the case `teams` exists
+	// for: `positions` cannot tell a teammate from an opponent here.
+	const positions = [0, 0];
+
+	const changes = [
+		{ uid: 'a', before: 1000, after: 1005, delta: 5, rate: 0.5, expected: 0.4 },
+		{ uid: 'b', before: 1000, after: 1005, delta: 5, rate: 0.5, expected: 0.4 },
+		{ uid: 'c', before: 1000, after: 995, delta: -5, rate: 0.5, expected: 0.6 },
+	];
+
+	it('keys every map by uid', () => {
+		const entry = getLedgerBreakdown(players, positions, changes);
+
+		expect(entry.positions).toEqual({ a: 0, b: 0, c: 0 });
+		expect(entry.teams).toEqual({ a: 0, b: 0, c: 1 });
+		expect(entry.rate).toEqual({ a: 0.5, b: 0.5, c: 0.5 });
+		expect(entry.expected).toEqual({ a: 0.4, b: 0.4, c: 0.6 });
+	});
+
+	// The whole reason both are stored. Level on position says nothing about who
+	// played alongside whom, and a profile's teammates panel reads `teams`.
+	it('separates a drawn pair that shares a position', () => {
+		const entry = getLedgerBreakdown(players, positions, changes);
+
+		expect(entry.positions.a).toBe(entry.positions.c);
+		expect(entry.teams.a).not.toBe(entry.teams.c);
+	});
+
+	// A team that played no matches is not rated at all, so it has a place in the
+	// lineup and no change. The lineup half still has to describe it.
+	it('keeps a player the rating skipped out of the rate maps', () => {
+		const entry = getLedgerBreakdown(players, positions, changes.slice(0, 2));
+
+		expect(entry.teams).toEqual({ a: 0, b: 0, c: 1 });
+		expect(entry.rate).toEqual({ a: 0.5, b: 0.5 });
+		expect(entry.expected).toEqual({ a: 0.4, b: 0.4 });
 	});
 });
