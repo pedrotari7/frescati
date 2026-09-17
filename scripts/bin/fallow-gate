@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#
+# The Claude Code PreToolUse gate: block `git commit` and `git push` when fallow
+# has anything to say about the repo.
+#
+# This replaces the script `fallow agent install` generates, and the reason is
+# one line of it: that one runs `fallow audit`, which is the changed-file
+# command, and the gate here is meant to cover the whole codebase. Everything
+# else about it is worth keeping, so the shape below is the same: read Claude's
+# stdin JSON, decide whether the command is a git write, run fallow, and put the
+# findings back on stderr where the agent will read them.
+#
+# It fails **closed**, unlike the generated script. That one exits 0 with a line
+# on stderr when it cannot find a binary, and a PreToolUse hook never shows that
+# line, so a gate that had quietly stopped gating looked exactly like a gate
+# that was passing. `scripts/bin/fallow` exits non-zero when it cannot resolve
+# the binary, and so does this.
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+fallow="$root/scripts/bin/fallow"
+
+if ! command -v jq >/dev/null 2>&1; then
+	echo "fallow-gate: jq is not on the PATH, so the gate cannot read Claude's input." >&2
+	exit 2
+fi
+
+input="$(cat)"
+command_line="$(jq -r '.tool_input.command // empty' <<<"$input")"
+
+# Tokenised rather than matched with one regular expression, so that git's own
+# options between `git` and the subcommand still route into the check
+# (`git -c k=v commit`, `git -C dir push`) while a subcommand that only appears
+# as an argument does not (`git log commit-message.txt`).
+is_git_write() {
+	local segment
+	while IFS= read -r segment; do
+		# shellcheck disable=SC2086
+		set -- $segment
+		while [ "$#" -gt 0 ]; do
+			[ "$1" != "git" ] && { shift; continue; }
+			shift
+			while [ "$#" -gt 0 ]; do
+				case "$1" in
+					commit | push) return 0 ;;
+					-c | -C | --git-dir | --work-tree | --namespace | --config-env | --exec-path)
+						shift
+						[ "$#" -gt 0 ] && shift
+						;;
+					-*) shift ;;
+					*) break ;;
+				esac
+			done
+		done
+	done < <(printf '%s\n' "$1" | tr ';|&()' '\n\n\n\n\n')
+	return 1
+}
+
+set -f
+is_git_write "$command_line" || { set +f; exit 0; }
+set +f
+
+# Two runs rather than one, and the reason is a trap worth writing down:
+# `fallow --format json` exits 0 whether or not it found anything, even with
+# --fail-on-issues. Only the human form sets exit 1. So the verdict comes from
+# that, and the JSON is fetched only to hand the agent the detail, on the path
+# where it is already blocked. The pass path is one run, and fallow caches.
+if "$fallow" --quiet >/dev/null 2>&1; then
+	exit 0
+fi
+
+{
+	echo "fallow-gate: blocked. Fallow reports findings in the repo, whether or not this change introduced them."
+	echo "fallow-gate: the gate is the whole codebase, not the diff. Run 'pnpm fallow' to see all of it."
+	"$fallow" --format json --quiet 2>/dev/null
+} >&2
+
+exit 2

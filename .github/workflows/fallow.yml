@@ -32,25 +32,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      # The gate, on pull requests only. The action scopes itself to the files
-      # the PR touches and reads `.fallowrc.jsonc` for everything else, with two
-      # exceptions that have to be repeated here: `gate` and `max-crap` are
-      # action inputs with defaults of their own, and an input always reaches
-      # fallow as a CLI flag, which outranks the config file. Left out, CI would
-      # gate on `new-only` and a CRAP threshold of 30 while the commit hook and
-      # the Claude Code hook gate on `all` and no CRAP at all, and the first
-      # anybody would hear of it is a PR that is red for something that passed
-      # cleanly on the machine that wrote it.
+      # The gate, on pull requests, over the whole repo rather than the files
+      # the PR touches. `auto-changed-since: false` is what turns the scoping
+      # off; with it on, the action passes `--changed-since` and a finding can
+      # sit out of the way in a file nobody has edited this week.
+      #
+      # `max-crap` is repeated here even though `.fallowrc.jsonc` sets it,
+      # because it is an action input with a default of its own and an input
+      # always reaches fallow as a CLI flag, which outranks the config file.
+      # Left out, CI would gate on a CRAP ceiling of 30 while both local hooks
+      # gate on none, and the first anybody would hear of it is a red PR for
+      # something that passed cleanly on the machine that wrote it.
       #
       # No `version` input, deliberately: with none the action uses the `fallow`
       # spec in package.json, so the binary CI runs is the one the lockfile
       # pins, and there is one place to bump it.
-      - name: Audit the pull request
+      - name: Check the whole repo
         if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
         uses: fallow-rs/fallow@v3.26.0
         with:
-          command: audit
-          gate: all
+          auto-changed-since: false
           max-crap: 10000
           format: sarif
           comment: true

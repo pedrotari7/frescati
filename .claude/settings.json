@@ -7,7 +7,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "PATH=\"$CLAUDE_PROJECT_DIR/scripts/bin:$PATH\" \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/fallow-gate.sh"
+						"command": "\"$CLAUDE_PROJECT_DIR\"/scripts/bin/fallow-gate"
 					}
 				]
 			}

@@ -122,15 +122,16 @@
 	},
 
 	"duplicates": {
-		// A ratchet on the way to zero, not the destination. Duplication reports
-		// and never fails until a threshold exists, which is what left it advisory
-		// while every rule above it was an error. The repo was at 3.99% when this
-		// started; each commit that removes a clone group lowers this number to
-		// just above wherever it now sits, so the figure can only go one way.
+		// Zero tolerance, and 0.01 is how that has to be spelled: fallow reads a
+		// literal 0 as "no threshold at all", which is what left duplication
+		// advisory while every rule above it was an error.
 		//
-		// The destination is 0.01, which is how zero tolerance has to be spelled:
-		// fallow reads a literal 0 as "no threshold at all".
-		"threshold": 1.25,
+		// This was a ratchet on the way here, sitting just above wherever the
+		// repo was, 3.99 then 2.45, 1.85, 1.45, 1.25. It is the destination now,
+		// which means the gate is red until the last clone group is gone. That
+		// is deliberate: the alternative was a number that could not fail, and
+		// this repo already has a name for that.
+		"threshold": 0.01,
 	},
 
 	"audit": {

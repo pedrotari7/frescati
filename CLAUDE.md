@@ -82,7 +82,7 @@ Each of these is deep and specific to one part of the app, deliberately kept out
 - `docs/members-vs-extras.md` — member vs extra, and what an extra's In actually does before an admin confirms it.
 - `docs/testing.md` — the test suites: which command runs which, how StyleX gets compiled for a unit test, what moving off jest cost and what it bought, and the benchmark behind that claim.
 - `docs/stylex.md` — the styling: where the tokens and shared styles live, what the port off Tailwind cost and bought, which compiler builds the styles and why the unit tests use a different one, and the handful of things StyleX will not express.
-- `docs/fallow.md` — the static analysis that gates commits: what fails and what only tells you, why the gate is stricter than fallow's default, why CRAP is off, the three dependencies it is wrong about, and why it is `pnpm fallow` rather than `pnpm exec fallow`.
+- `docs/fallow.md` — the static analysis that gates commits, over the whole repo rather than the diff: what fails and what only tells you, why the gate is red today and what the remaining backlog is, why CRAP is off even after the move to Istanbul coverage, the three dependencies fallow is wrong about, and why it is `pnpm fallow` rather than `pnpm exec fallow`.
 
 ## Conventions
 
