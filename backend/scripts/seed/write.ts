@@ -14,7 +14,7 @@
 
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import type { WriteBatch } from 'firebase-admin/firestore';
+import type { DocumentReference, WriteBatch } from 'firebase-admin/firestore';
 import type {
 	AppUser,
 	BalanceSettings,
@@ -754,24 +754,17 @@ const runMotmVote = (uids: string[], kickoff: string, rng: () => number): MotmVo
 };
 
 /**
- * Play one game out: pick the teams, roll the scores and, if it was
- * confirmed, work out what it did to everyone's rating.
+ * The team sheet, and the numbers the rest of the evening is rolled from.
  *
- * `ratings` is the live ladder as it stood *going into* this game, and is
- * mutated on the way out. Games are played in kickoff order across every
- * season for exactly that reason: ratings are global, so a Sunday result has to
- * be sitting in the ladder before the Tuesday that follows it is rated, or the
- * ledger a replay walks would not reproduce itself.
+ * `null` for a game that never had enough people to split: `getTeamCount` says
+ * how many squads a confirmed headcount makes, and zero of them is not a game.
  */
-const playGame = (
+const buildLineup = (
 	planned: PlannedGame,
 	ratings: Map<string, PlayerRating>,
 	history: string[][][]
-): PlayedGame | null => {
-	const { game, season, pin, offset } = planned;
-
-	if (game.status === 'cancelled') return null;
-
+): { lineup: TournamentTeams; pool: GameResponse[]; teamCount: number; seedElo: number } | null => {
+	const { game, season } = planned;
 	const pool = planned.responses.filter(response => response.status === 'in' && isConfirmed(response));
 	const teamCount = getTeamCount(pool.length);
 
@@ -797,27 +790,37 @@ const playGame = (
 		history: history.slice(0, settings.repeatLookback),
 	});
 
-	const lineup: TournamentTeams = {
-		teams,
-		elos: Object.fromEntries(players.map(player => [player.uid, player.elo])),
-		seed,
-		settings,
-		// Aligned with the game document by `alignGenerations` once everything
-		// has landed; a placeholder here would read as a stale lineup.
-		generation: 1,
-		builtAt: addHours(game.kickoff, -2),
+	return {
+		lineup: {
+			teams,
+			elos: Object.fromEntries(players.map(player => [player.uid, player.elo])),
+			seed,
+			settings,
+			// Aligned with the game document by `alignGenerations` once everything
+			// has landed; a placeholder here would read as a stale lineup.
+			generation: 1,
+			builtAt: addHours(game.kickoff, -2),
+		},
+		pool,
+		teamCount,
+		seedElo,
 	};
+};
 
-	const outcome = pin.outcome ?? (offset < 0 && planned.plan.history === 'played' ? 'confirmed' : 'unplayed');
-
-	if (outcome === 'unplayed') return { teams: lineup, matches: [], motmVotes: [] };
-
-	const rng = createRng(seed ^ 0x5f3759df);
+/**
+ * Every fixture the rotation reached, scored.
+ *
+ * Draws the scorer before the scorelines, because the generator is the whole of
+ * a seeded evening's reproducibility and every draw has to come off it in the
+ * order it always did. One admin gets it where nobody was on the sheet.
+ */
+const rollMatches = (planned: PlannedGame, lineup: TournamentTeams, pool: GameResponse[], rng: () => number) => {
+	const { game, season } = planned;
+	const { teams, settings } = lineup;
 	const scoredBy = pool[Math.floor(rng() * pool.length)]?.uid ?? season.adminUids[0];
+	const fixtures = getFixtures(teams.length, settings.matchMinutes, season.slot.durationMinutes);
 
-	const fixtures = getFixtures(teamCount, settings.matchMinutes, season.slot.durationMinutes);
-
-	const matches: TournamentMatch[] = fixtures.map(fixture => {
+	return fixtures.map((fixture): TournamentMatch => {
 		const [scoreA, scoreB] = playMatch(teams[fixture.teamA].uids, teams[fixture.teamB].uids, rng);
 
 		return {
@@ -830,8 +833,34 @@ const playGame = (
 			updatedAt: addHours(game.kickoff, 1 + fixture.order * 0.2),
 		};
 	});
+};
 
-	if (outcome === 'scored') return { teams: lineup, matches, motmVotes: [] };
+/**
+ * Confirm the game: run the vote, rate it, and write the ladder forward.
+ *
+ * This is the one branch that touches `ratings`, which it mutates on the way
+ * out, and the one that produces a ledger entry. Both are the same fact: a
+ * confirmed game is the only kind that has paid anybody anything.
+ */
+const confirmGame = (
+	planned: PlannedGame,
+	lineup: TournamentTeams,
+	{
+		matches,
+		teamCount,
+		seedElo,
+		ratings,
+		rng,
+	}: {
+		matches: TournamentMatch[];
+		teamCount: number;
+		seedElo: number;
+		ratings: Map<string, PlayerRating>;
+		rng: () => number;
+	}
+): PlayedGame => {
+	const { game, season, pin } = planned;
+	const { teams } = lineup;
 
 	const finalisedAt = addHours(game.kickoff, 2.5);
 	const standings = getStandings(teamCount, matches);
@@ -912,6 +941,49 @@ const playGame = (
 			...(counted && tally.winners.length > 0 ? { motm: tally.winners } : {}),
 		},
 	};
+};
+
+/**
+ * Play one game out: pick the teams, roll the scores and, if it was confirmed,
+ * work out what it did to everyone's rating.
+ *
+ * Three stops, and a seeded game gets off at whichever one its pin says. A game
+ * nobody has scored is a team sheet; a scored one adds the matches; a confirmed
+ * one adds the vote, the result and the ledger entry.
+ *
+ * `ratings` is the live ladder as it stood *going into* this game, and
+ * `confirmGame` mutates it on the way out. Games are played in kickoff order
+ * across every season for exactly that reason: ratings are global, so a Sunday
+ * result has to be sitting in the ladder before the Tuesday that follows it is
+ * rated, or the ledger a replay walks would not reproduce itself.
+ */
+const playGame = (
+	planned: PlannedGame,
+	ratings: Map<string, PlayerRating>,
+	history: string[][][]
+): PlayedGame | null => {
+	const { game, pin, offset } = planned;
+
+	if (game.status === 'cancelled') return null;
+
+	const built = buildLineup(planned, ratings, history);
+
+	if (!built) return null;
+
+	const { lineup, pool, teamCount, seedElo } = built;
+	const outcome = pin.outcome ?? (offset < 0 && planned.plan.history === 'played' ? 'confirmed' : 'unplayed');
+
+	if (outcome === 'unplayed') return { teams: lineup, matches: [], motmVotes: [] };
+
+	// One generator for everything past this point, seeded off the lineup's own
+	// seed, so the scores and the vote of a given game come out the same on every
+	// run and a replay of it arrives where the seeder did.
+	const rng = createRng(lineup.seed ^ 0x5f3759df);
+	const matches = rollMatches(planned, lineup, pool, rng);
+
+	if (outcome === 'scored') return { teams: lineup, matches, motmVotes: [] };
+
+	return confirmGame(planned, lineup, { matches, teamCount, seedElo, ratings, rng });
 };
 
 /* ------------------------------------------------------------------ output */
@@ -1000,20 +1072,18 @@ export const wipeEmulators = async (projectId: string): Promise<void> => {
 	}
 };
 
-export const seedScenario = async (scenario: Scenario, origin: string, runId: string): Promise<SeedSummary> => {
-	appOrigin = origin;
-
-	await importCast(scenario);
-
-	const creator = uidFor(scenario.appAdminKeys[0] ?? CAST[0].key);
-	const seasons = scenario.seasons.map(plan => buildSeason(plan, creator, runId));
-
-	const planned = scenario.seasons.flatMap((plan, index) => buildGames(plan, seasons[index], creator));
-
-	// Ratings are global, so the whole calendar is replayed as one sequence.
-	// This is the same ordering `replayRatingsFrom` walks, and for the same
-	// reason: a game has to be rated against the ladder the games before it
-	// left behind.
+/**
+ * Play the whole calendar out, oldest game first.
+ *
+ * Ratings are global, so every season is replayed as one sequence. This is the
+ * same ordering `replayRatingsFrom` walks, and for the same reason: a game has
+ * to be rated against the ladder the games before it left behind. The per-season
+ * history is what `pickTeams` reads to avoid repeating a pairing, so it is kept
+ * per season while the ladder is not.
+ */
+const playEveryGame = (
+	planned: PlannedGame[]
+): { ratings: Map<string, PlayerRating>; games: Map<string, PlayedGame> } => {
 	const inKickoffOrder = [...planned].sort((a, b) => a.game.kickoffMillis - b.game.kickoffMillis);
 
 	const ratings = new Map<string, PlayerRating>();
@@ -1030,11 +1100,22 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 		historyBySeason.set(entry.season.id, [game.teams.teams.map(team => team.uids), ...history]);
 	}
 
-	const now = new Date().toISOString();
+	return { ratings, games };
+};
 
-	const profiles: ((batch: WriteBatch) => void)[] = CAST.filter(
-		member => !scenario.newcomerKeys.includes(member.key)
-	).flatMap(member => {
+/**
+ * Everybody in the cast who has ever signed in, and the devices they did it on.
+ *
+ * A newcomer gets no profile at all, which is what makes them a newcomer: the
+ * first sign-in is what writes one, and a seeded stand-in would take that whole
+ * path out of reach.
+ */
+const buildProfiles = (
+	scenario: Scenario,
+	ratings: Map<string, PlayerRating>,
+	now: string
+): ((batch: WriteBatch) => void)[] =>
+	CAST.filter(member => !scenario.newcomerKeys.includes(member.key)).flatMap(member => {
 		const uid = uidFor(member.key);
 		const rating = ratings.get(uid);
 		const isAppAdmin = scenario.appAdminKeys.includes(member.key);
@@ -1045,17 +1126,17 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			displayName: member.displayName,
 			photoURL: photoFor(member),
 			createdAt: addHours(now, -24 * 400),
-			// Staggered, but from the key rather than the clock, two seed runs
-			// on the same day should produce the same database.
+			// Staggered, but from the key rather than the clock, two seed runs on the
+			// same day should produce the same database.
 			lastSeenAt: addHours(now, -VISIT_HOURS_AGO[hashSeed(`visit:${member.key}`) % VISIT_HOURS_AGO.length]),
 			isAppAdmin,
 			// The app admin keeps every kind on: they are the only person the
-			// new-player notice is sent to, and a seeded database where nobody
-			// can receive it makes that path untestable.
+			// new-player notice is sent to, and a seeded database where nobody can
+			// receive it makes that path untestable.
 			notificationPrefs: isAppAdmin ? DEFAULT_NOTIFICATION_PREFS : prefs,
 			...(client ? { client } : {}),
-			// Absent until they have played a rated game. The app treats a
-			// missing rating as "no rating", never as zero.
+			// Absent until they have played a rated game. The app treats a missing
+			// rating as "no rating", never as zero.
 			...(rating ? { rating } : {}),
 		};
 
@@ -1067,6 +1148,71 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 			),
 		];
 	});
+
+/** Everything one played game leaves behind under it. */
+const playedGameDocuments = (
+	gameRef: DocumentReference,
+	entry: PlannedGame,
+	game: PlayedGame
+): ((batch: WriteBatch) => void)[] => [
+	batch => batch.set(gameRef.collection('tournament').doc('teams'), game.teams),
+	...game.matches.map(
+		match => (batch: WriteBatch) => batch.set(gameRef.collection('matches').doc(String(match.order)), match)
+	),
+	// The id is the voter, exactly as the rules require, and the votes stay on a
+	// decided game too, because counting them is not consuming them.
+	...game.motmVotes.map(
+		vote => (batch: WriteBatch) => batch.set(gameRef.collection('motmVotes').doc(vote.uid), vote)
+	),
+	...motmOutcomeDocuments(gameRef, entry, game),
+	...(game.result
+		? [
+				(batch: WriteBatch) => batch.set(gameRef.collection('tournament').doc('result'), game.result!),
+				(batch: WriteBatch) => batch.set(db().doc(`ratingLedger/${entry.game.id}`), game.ledger!),
+				// `resultFinalisedAt` deliberately not written here. `settle` does it.
+			]
+		: []),
+];
+
+/**
+ * The counted vote, or the turnout of one still running, and never both.
+ *
+ * `closeMotmVote` takes the turnout document with the window, so a decided game
+ * must not have one. Written here rather than left to `onMotmVoteWrite` for the
+ * reason the counters are: a seed that only looked right once the triggers had
+ * caught up is a seed with a race in it.
+ */
+const motmOutcomeDocuments = (
+	gameRef: DocumentReference,
+	entry: PlannedGame,
+	game: PlayedGame
+): ((batch: WriteBatch) => void)[] => {
+	if (game.motm) return [batch => batch.set(gameRef.collection('tournament').doc('motm'), game.motm!)];
+
+	if (game.motmVotes.length === 0) return [];
+
+	return [
+		batch =>
+			batch.set(gameRef.collection('tournament').doc('motmVoters'), {
+				uids: game.motmVotes.map(vote => vote.uid).sort(),
+				updatedAt: entry.game.createdAt,
+			}),
+	];
+};
+
+export const seedScenario = async (scenario: Scenario, origin: string, runId: string): Promise<SeedSummary> => {
+	appOrigin = origin;
+
+	await importCast(scenario);
+
+	const creator = uidFor(scenario.appAdminKeys[0] ?? CAST[0].key);
+	const seasons = scenario.seasons.map(plan => buildSeason(plan, creator, runId));
+
+	const planned = scenario.seasons.flatMap((plan, index) => buildGames(plan, seasons[index], creator));
+
+	const { ratings, games } = playEveryGame(planned);
+	const now = new Date().toISOString();
+	const profiles = buildProfiles(scenario, ratings, now);
 
 	// Built after the games, because a scenario says who holds a piece of kit in
 	// terms of how they answered the next one.
@@ -1125,42 +1271,8 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 		}
 
 		const game = games.get(entry.game.id);
-		if (!game) continue;
 
-		documents.push(batch => batch.set(gameRef.collection('tournament').doc('teams'), game.teams));
-
-		for (const match of game.matches) {
-			documents.push(batch => batch.set(gameRef.collection('matches').doc(String(match.order)), match));
-		}
-
-		// The id is the voter, exactly as the rules require, and the votes stay
-		// on a decided game too, because counting them is not consuming them.
-		for (const vote of game.motmVotes) {
-			documents.push(batch => batch.set(gameRef.collection('motmVotes').doc(vote.uid), vote));
-		}
-
-		if (game.motm) {
-			documents.push(batch => batch.set(gameRef.collection('tournament').doc('motm'), game.motm!));
-		} else if (game.motmVotes.length > 0) {
-			// The turnout, but only while the vote is open. `closeMotmVote` takes
-			// this document with the window, so a decided game must not have one.
-			// Written here rather than left to `onMotmVoteWrite` for the reason the
-			// counters are: a seed that only looked right once the triggers had
-			// caught up is a seed with a race in it.
-			documents.push(batch =>
-				batch.set(gameRef.collection('tournament').doc('motmVoters'), {
-					uids: game.motmVotes.map(vote => vote.uid).sort(),
-					updatedAt: entry.game.createdAt,
-				})
-			);
-		}
-
-		if (game.result) {
-			const { result, ledger } = game;
-			documents.push(batch => batch.set(gameRef.collection('tournament').doc('result'), result));
-			documents.push(batch => batch.set(db().doc(`ratingLedger/${entry.game.id}`), ledger!));
-			// `resultFinalisedAt` deliberately not written here. `settle` does it.
-		}
+		if (game) documents.push(...playedGameDocuments(gameRef, entry, game));
 	}
 
 	await commitAll(documents);
