@@ -47,6 +47,88 @@ const repairKickoffMirror = async (seasonId: string, gameId: string, game: Game)
 };
 
 /**
+ * An admin hitting Reshuffle, or moving this game's balance levers. Both change
+ * the lineup without touching the pool, so `onResponseWrite` never sees them.
+ *
+ * Queued against the generation as it already stands rather than bumping it. A
+ * bump is a write to this very document, and unlike the kickoff repair above it
+ * would not converge: every bump invalidates the rebuild it just queued, so the
+ * next invocation would bump again.
+ *
+ * `force`, because this is the one rebuild that is somebody *asking* for one.
+ * Every other is a side effect of an answer moving, and those leave a
+ * hand-picked sheet alone, but an admin who has pinned a lineup and then taps
+ * Reshuffle is asking to start again, and this is where they say so.
+ */
+const rebuildIfAsked = async (seasonId: string, gameId: string, before: Game, after: Game): Promise<void> => {
+	if (
+		before.reshuffleCount === after.reshuffleCount &&
+		JSON.stringify(before.balance) === JSON.stringify(after.balance)
+	)
+		return;
+
+	await enqueueTeamRebuild({ seasonId, gameId, generation: after.teamsGeneration ?? 0, force: true });
+};
+
+/**
+ * The one notification this change is worth, if any.
+ *
+ * At most one: these are four descriptions of the same evening, and a player
+ * whose game was cancelled does not also need to hear that its kickoff moved.
+ * Ordered by how much the change matters, so the first that fits is the one
+ * that gets sent.
+ */
+const notifyGameChange = async (seasonId: string, gameId: string, before: Game, after: Game): Promise<void> => {
+	const season = await getSeason(seasonId);
+	if (!season) return;
+
+	const when = formatGameWhen(after.kickoff, season.slot.timezone);
+	const url = `/s/${seasonId}/g/${gameId}`;
+	const responses = await getResponses(seasonId, gameId);
+
+	if (before.status !== 'cancelled' && after.status === 'cancelled') {
+		// Everyone who answered either way cared enough to want to know.
+		const affected = responses.map(response => response.uid);
+
+		const sent = await sendGamePush(affected, 'cancelled', {
+			when,
+			url,
+			gameId,
+			cancelledReason: after.cancelledReason,
+		});
+
+		logger.info('Notified players of a cancellation', { seasonId, gameId, ...sent });
+		return;
+	}
+
+	if (before.status === 'cancelled' && after.status === 'scheduled') {
+		const sent = await sendGamePush(season.memberUids, 'restored', { when, url, gameId });
+
+		logger.info('Notified players a game was restored', { seasonId, gameId, ...sent });
+		return;
+	}
+
+	// Only on the transition into trouble â `counts` updates land here
+	// constantly, and a push on each one would be unbearable.
+	if (!before.atRisk && after.atRisk && after.status === 'scheduled') {
+		const silent = getSilentMembers(season, responses);
+		const shortBy = Math.max(0, (after.minPlayers ?? season.minPlayers) - after.counts.playing);
+
+		const sent = await sendGamePush(silent, 'atRisk', { when, url, gameId, shortBy });
+
+		logger.info('Notified silent members a game is at risk', { seasonId, gameId, ...sent });
+		return;
+	}
+
+	// Rescheduling matters to anyone who already committed.
+	if (before.kickoff !== after.kickoff && after.status === 'scheduled') {
+		const sent = await sendGamePush(getUidsWhoSaidIn(responses), 'kickoffMoved', { when, url, gameId });
+
+		logger.info('Notified players of a reschedule', { seasonId, gameId, ...sent });
+	}
+};
+
+/**
  * Tells people when something about a game changes under them.
  *
  * Reads the game document and, in one case only, writes it: `repairKickoffMirror`
@@ -72,73 +154,7 @@ export const onGameWrite = onDocumentWritten(
 		// Creations and deletions aren't worth a notification.
 		if (!before || !after) return;
 
-		// An admin hitting Reshuffle, or moving this game's balance levers. Both
-		// change the lineup without touching the pool, so `onResponseWrite`
-		// never sees them.
-		//
-		// Queued against the generation as it already stands rather than bumping
-		// it. A bump is a write to this very document, and unlike the kickoff
-		// repair above it would not converge: every bump invalidates the rebuild
-		// it just queued, so the next invocation would bump again.
-		//
-		// `force`, because this is the one rebuild that is somebody *asking* for
-		// one. Every other is a side effect of an answer moving, and those leave
-		// a hand-picked sheet alone, but an admin who has pinned a lineup and
-		// then taps Reshuffle is asking to start again, and this is where they
-		// say so.
-		if (
-			before.reshuffleCount !== after.reshuffleCount ||
-			JSON.stringify(before.balance) !== JSON.stringify(after.balance)
-		) {
-			await enqueueTeamRebuild({ seasonId, gameId, generation: after.teamsGeneration ?? 0, force: true });
-		}
-
-		const season = await getSeason(seasonId);
-		if (!season) return;
-
-		const when = formatGameWhen(after.kickoff, season.slot.timezone);
-		const url = `/s/${seasonId}/g/${gameId}`;
-		const responses = await getResponses(seasonId, gameId);
-
-		if (before.status !== 'cancelled' && after.status === 'cancelled') {
-			// Everyone who answered either way cared enough to want to know.
-			const affected = responses.map(response => response.uid);
-
-			const sent = await sendGamePush(affected, 'cancelled', {
-				when,
-				url,
-				gameId,
-				cancelledReason: after.cancelledReason,
-			});
-
-			logger.info('Notified players of a cancellation', { seasonId, gameId, ...sent });
-			return;
-		}
-
-		if (before.status === 'cancelled' && after.status === 'scheduled') {
-			const sent = await sendGamePush(season.memberUids, 'restored', { when, url, gameId });
-
-			logger.info('Notified players a game was restored', { seasonId, gameId, ...sent });
-			return;
-		}
-
-		// Only on the transition into trouble â `counts` updates land here
-		// constantly, and a push on each one would be unbearable.
-		if (!before.atRisk && after.atRisk && after.status === 'scheduled') {
-			const silent = getSilentMembers(season, responses);
-			const shortBy = Math.max(0, (after.minPlayers ?? season.minPlayers) - after.counts.playing);
-
-			const sent = await sendGamePush(silent, 'atRisk', { when, url, gameId, shortBy });
-
-			logger.info('Notified silent members a game is at risk', { seasonId, gameId, ...sent });
-			return;
-		}
-
-		// Rescheduling matters to anyone who already committed.
-		if (before.kickoff !== after.kickoff && after.status === 'scheduled') {
-			const sent = await sendGamePush(getUidsWhoSaidIn(responses), 'kickoffMoved', { when, url, gameId });
-
-			logger.info('Notified players of a reschedule', { seasonId, gameId, ...sent });
-		}
+		await rebuildIfAsked(seasonId, gameId, before, after);
+		await notifyGameChange(seasonId, gameId, before, after);
 	})
 );

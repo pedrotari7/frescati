@@ -1,5 +1,6 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
+import type { DocumentReference } from 'firebase-admin/firestore';
 import type { TournamentTeams } from '../../shared/types';
 import { isConfirmed } from '../../shared/game';
 import { findTeamIndex, withPlayerOn, withTeamsSwapped, wouldEmptyASquad } from '../../shared/lineup';
@@ -31,6 +32,58 @@ import { instrument } from './lib/sentry';
  * their mind would silently re-pick the teams the admin has just sorted out,
  * from a screen nobody is looking at. Reshuffle is the way back.
  */
+
+/**
+ * The sheet, and the three reasons there might not be one to edit.
+ *
+ * Both hand edits ask the same questions first: the game is still there, the
+ * result is not confirmed, and somebody has picked teams at all. The freeze is
+ * the one worth keeping in a single place. The ledger was computed against this
+ * sheet and a replay reads it back, so moving anybody now would rewrite what a
+ * past game meant. It is the same freeze `runTeamRebuild` respects, and the
+ * reason a correction to a confirmed game is a scoreline rather than a lineup.
+ *
+ * The caller brings its own wording for the empty case, because "nobody to move
+ * between" and "nothing to reletter" are two sentences about one missing
+ * document.
+ */
+const requireEditableLineup = async (
+	seasonId: string,
+	gameId: string,
+	nothingYet: string
+): Promise<{ teamsRef: DocumentReference; lineup: TournamentTeams }> => {
+	const game = await getGame(seasonId, gameId);
+	if (!game) throw new HttpsError('not-found', 'That game has gone.');
+
+	if (game.resultFinalisedAt) {
+		throw new HttpsError('failed-precondition', 'The teams are frozen now the game is confirmed.');
+	}
+
+	const teamsRef = db.doc(`seasons/${seasonId}/games/${gameId}/tournament/teams`);
+	const lineup = (await teamsRef.get()).data() as TournamentTeams | undefined;
+
+	if (!lineup || lineup.teams.length === 0) throw new HttpsError('failed-precondition', nothingYet);
+
+	return { teamsRef, lineup };
+};
+
+/**
+ * Onto the sheet only from the pool the optimizer picks from, so the two cannot
+ * drift into disagreeing about who is playing.
+ *
+ * Somebody already on the sheet never gets asked: a pinned lineup stops being
+ * re-picked, so a player who has since tapped Out is still standing there in
+ * boots and still has to be movable, which is exactly the mess this door
+ * exists to sort out.
+ */
+const requireInThePool = async (seasonId: string, gameId: string, uid: string): Promise<void> => {
+	const responses = await getResponses(seasonId, gameId);
+	const response = responses.find(candidate => candidate.uid === uid);
+
+	if (!response || response.status !== 'in' || !isConfirmed(response)) {
+		throw new HttpsError('failed-precondition', 'They have to be in for this game before they get a team.');
+	}
+};
 
 /**
  * What a newly added player is worth to the team-average badge.
@@ -79,23 +132,11 @@ export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: 
 			'Only a season admin can move players between teams.'
 		);
 
-		const game = await getGame(seasonId, gameId);
-		if (!game) throw new HttpsError('not-found', 'That game has gone.');
-
-		// The ledger was computed against this sheet and a replay reads it back,
-		// so moving somebody now would rewrite what a past game meant. The same
-		// freeze `runTeamRebuild` respects, and the reason a correction to a
-		// confirmed game is a scoreline rather than a lineup.
-		if (game.resultFinalisedAt) {
-			throw new HttpsError('failed-precondition', 'The teams are frozen now the game is confirmed.');
-		}
-
-		const teamsRef = db.doc(`seasons/${seasonId}/games/${gameId}/tournament/teams`);
-		const lineup = (await teamsRef.get()).data() as TournamentTeams | undefined;
-
-		if (!lineup || lineup.teams.length === 0) {
-			throw new HttpsError('failed-precondition', 'There are no teams to move anybody between yet.');
-		}
+		const { teamsRef, lineup } = await requireEditableLineup(
+			seasonId,
+			gameId,
+			'There are no teams to move anybody between yet.'
+		);
 
 		if (to !== null && !lineup.teams[to]) throw new HttpsError('invalid-argument', 'There is no team there.');
 
@@ -108,19 +149,7 @@ export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: 
 			throw new HttpsError('failed-precondition', 'That would leave a team with nobody on it.');
 		}
 
-		// Onto the sheet only from the pool the optimizer picks from, so the two
-		// cannot drift into disagreeing about who is playing. Somebody already on
-		// the sheet is exempt: a pinned lineup stops being re-picked, so a player
-		// who has since tapped Out is still standing there in boots and still has
-		// to be movable, which is exactly the mess this exists to sort out.
-		if (to !== null && from < 0) {
-			const responses = await getResponses(seasonId, gameId);
-			const response = responses.find(candidate => candidate.uid === uid);
-
-			if (!response || response.status !== 'in' || !isConfirmed(response)) {
-				throw new HttpsError('failed-precondition', 'They have to be in for this game before they get a team.');
-			}
-		}
+		if (to !== null && from < 0) await requireInThePool(seasonId, gameId, uid);
 
 		// `set` with a merge rather than an `update`, so the one new `elos` key is
 		// merged into the map instead of replacing it, and without a dotted field
@@ -184,19 +213,11 @@ export const setTeamLetter = onCall<{ seasonId?: string; gameId?: string; from?:
 			'Only a season admin can change which team is which.'
 		);
 
-		const game = await getGame(seasonId, gameId);
-		if (!game) throw new HttpsError('not-found', 'That game has gone.');
-
-		if (game.resultFinalisedAt) {
-			throw new HttpsError('failed-precondition', 'The teams are frozen now the game is confirmed.');
-		}
-
-		const teamsRef = db.doc(`seasons/${seasonId}/games/${gameId}/tournament/teams`);
-		const lineup = (await teamsRef.get()).data() as TournamentTeams | undefined;
-
-		if (!lineup || lineup.teams.length === 0) {
-			throw new HttpsError('failed-precondition', 'There are no teams to reletter yet.');
-		}
+		const { teamsRef, lineup } = await requireEditableLineup(
+			seasonId,
+			gameId,
+			'There are no teams to reletter yet.'
+		);
 
 		if (!lineup.teams[from] || !lineup.teams[to]) {
 			throw new HttpsError('invalid-argument', 'There is no team there.');
