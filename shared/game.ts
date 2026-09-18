@@ -265,6 +265,26 @@ export const isAbsent = (response: Pick<GameResponse, 'status' | 'absent'>): boo
  */
 export const canReportAbsence = (lifecycle: GameLifecycle): boolean => lifecycle === 'live' || lifecycle === 'finished';
 
+/**
+ * Whether an admin can still move somebody else's answer.
+ *
+ * The complement of `canReportAbsence`, by design rather than by accident. Up to
+ * kick-off an answer is a plan, and a plan somebody texted about is the
+ * organiser's to correct. From kick-off it is history, and the way to record
+ * that somebody did not turn up is the mark beside their In rather than a
+ * rewrite of what they said. Handing an admin both at once would be two ways to
+ * record the same evening, and only one of them keeps the distinction anybody
+ * asking wants.
+ *
+ * `cancelled` is neither. There is nothing to answer about a game that is off,
+ * which is why the player's own buttons are not drawn on one either.
+ *
+ * The security rules are deliberately wider: a season admin may write any
+ * response on any game, because a roster that needs tidying after the fact is
+ * still theirs to tidy. This is where the app decides what to offer.
+ */
+export const canAnswerFor = (lifecycle: GameLifecycle): boolean => lifecycle === 'open' || lifecycle === 'locked';
+
 /** Everybody reported as a no-show for this game. */
 export const getAbsentUids = (responses: Pick<GameResponse, 'uid' | 'status' | 'absent'>[]): string[] =>
 	responses.filter(isAbsent).map(response => response.uid);

@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
-import { aMember } from './fixtures';
+import { aMember, aSeasonAdmin } from './fixtures';
 import { openSeasonAs } from './helpers';
-import { AT, gameRows, respondControl, sectionUnder } from './locators';
+import { AT, NO_PROFILE_YET, dialogGone, gameRows, respondControl, sectionUnder } from './locators';
 
 /**
  * The loop the whole app exists for: somebody says they are in, and the
@@ -238,5 +238,95 @@ test.describe('following a game from the calendar', () => {
 
 		await bell.click();
 		await expect(bell).toHaveAttribute('aria-checked', 'false');
+	});
+});
+
+/**
+ * A season admin answering on somebody else's behalf.
+ *
+ * Here rather than in `admin.spec.ts`, which writes nothing on purpose, because
+ * this **is** a write to the next game's responses and that game is this file's.
+ * Two specs moving the same roster in parallel is exactly what the split
+ * between them exists to stop.
+ *
+ * It is worth a browser for the reason every other journey here is: the write
+ * goes to a document the signed-in player does not own, through the one rule in
+ * the app that allows that. The rules suite proves the rule says yes, the
+ * frontend suite proves the sheet calls the handler, and neither of them sends
+ * the document the client actually builds. `setResponse` carries `respondedAt`,
+ * an admin's `confirmOverride` and an admin's `absent` through untouched, and
+ * every one of those is a key the rule bounds.
+ */
+
+/** Everybody in one roster group an admin can answer for, by name. */
+const answerableIn = async (section: Locator): Promise<string[]> =>
+	section
+		.getByRole('button', { name: /^Answer for / })
+		.evaluateAll(buttons =>
+			buttons.map(button => (button.getAttribute('aria-label') ?? '').slice('Answer for '.length))
+		);
+
+/**
+ * Put one named person on one answer, through the sheet and the dialog behind
+ * it.
+ *
+ * By name rather than by row, for the reason the kit handover learned: the
+ * roster re-sorts when the profiles subscription lands, so a button found by
+ * position hands the answer to whoever sorted first.
+ *
+ * The answer they already hold stays in the sheet, disabled, so a request for
+ * the one they are on is the state the caller asked for rather than a miss.
+ */
+const answerFor = async (page: Page, displayName: string, answer: 'in' | 'out'): Promise<void> => {
+	await page.getByRole('button', { name: `Answer for ${displayName}` }).click();
+
+	const choice = page.getByRole('button', { name: answer === 'in' ? "They're in" : "They're out" });
+	await expect(choice).toBeVisible();
+
+	if (await choice.isDisabled()) {
+		await page.getByRole('button', { name: 'Cancel' }).click();
+		await dialogGone(page);
+
+		return;
+	}
+
+	await choice.click();
+
+	// Nothing is written until this lands. The dialog is the whole guard on a
+	// control that writes an answer in somebody else's name.
+	await page.getByRole('button', { name: answer === 'in' ? 'Say they are in' : 'Say they are out' }).click();
+	await dialogGone(page);
+};
+
+test.describe('answering for somebody else', () => {
+	test('moves one member out of the squad and back into it', async ({ page }) => {
+		const admin = aSeasonAdmin();
+		await openSeasonAs(page, admin);
+
+		await page
+			.getByRole('link', { name: /See who's playing|Game details/ })
+			.first()
+			.click();
+		await expect(page).toHaveURL(AT.game);
+
+		const squad = sectionUnder(page, /^Squad in$/);
+		await expect(squad, "nobody has said they are in on this season's next game").toBeVisible();
+
+		// Every name on this roster is a join against the profiles subscription,
+		// and these buttons are labelled with one, so none of them is right yet.
+		await expect(page.getByText(NO_PROFILE_YET)).toHaveCount(0);
+
+		// Out of the squad rather than the extras, so both halves of the journey
+		// land in a group this test can name: an extra who is out drops off the
+		// roster entirely, and an extra who is in is not in the squad.
+		const [target] = (await answerableIn(squad)).filter(name => name !== admin.displayName);
+
+		if (!target) throw new Error(`no row on this squad ${admin.displayName} can answer for`);
+
+		await answerFor(page, target, 'out');
+		await expect(sectionUnder(page, /^Out$/).getByText(target)).toBeVisible();
+
+		await answerFor(page, target, 'in');
+		await expect(squad.getByText(target)).toBeVisible();
 	});
 });

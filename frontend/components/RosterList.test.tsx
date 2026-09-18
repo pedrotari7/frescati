@@ -48,6 +48,17 @@ const answerDialog = async (name: 'Mark as a no-show' | 'Cancel') => {
 	});
 };
 
+const tap = async (name: string | RegExp) => {
+	await act(async () => {
+		fireEvent.click(screen.getByRole('button', { name }));
+	});
+};
+
+/* An admin answering for somebody: the pencil on their row, then the sheet. */
+const openTheAnswer = async (displayName: string) => {
+	await tap(`Answer for ${displayName}`);
+};
+
 describe('buildRoster', () => {
 	it('sorts members into playing, out and awaiting', () => {
 		const roster = buildRoster(
@@ -443,6 +454,138 @@ describe('RosterList', () => {
 
 	// The people in every other group have already said something. Asking them
 	// again is asking a question they have answered.
+	it("offers an admin no way into somebody else's answer without a handler", () => {
+		render(
+			<RosterList
+				memberUids={['alice']}
+				responses={[response({ uid: 'alice', status: 'in', role: 'member' })]}
+				usersByUid={usersByUid}
+			/>
+		);
+
+		expect(screen.queryByRole('button', { name: /^Answer for/ })).not.toBeInTheDocument();
+	});
+
+	// The groups already end in controls of their own, so this one is an icon and
+	// its label is the only thing naming who the row is about.
+	it('puts one on every row it offers, naming the person', async () => {
+		render(
+			<RosterList
+				memberUids={['alice', 'bob', 'carol']}
+				responses={[
+					response({ uid: 'alice', status: 'in', role: 'member' }),
+					response({ uid: 'bob', status: 'out', role: 'member' }),
+					response({ uid: 'dave', status: 'in', role: 'extra', confirmOverride: true }),
+				]}
+				usersByUid={usersByUid}
+				onSetAnswer={vi.fn().mockResolvedValue(undefined)}
+			/>
+		);
+
+		expect(screen.getAllByRole('button', { name: /^Answer for/ })).toHaveLength(4);
+		expect(screen.getByRole('button', { name: 'Answer for Carol Diaz' })).toBeInTheDocument();
+	});
+
+	// The mark exists to say they said In and did not turn up, so rewriting what
+	// they said is the one thing it must not offer.
+	it('leaves the no-shows alone', () => {
+		render(
+			<RosterList
+				memberUids={['alice']}
+				responses={[response({ uid: 'alice', status: 'in', role: 'member', absent: true })]}
+				usersByUid={usersByUid}
+				onSetAnswer={vi.fn().mockResolvedValue(undefined)}
+			/>
+		);
+
+		expect(screen.getByText("Didn't show")).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /^Answer for/ })).not.toBeInTheDocument();
+	});
+
+	it('reads the answer they hold now off the response rather than the row', async () => {
+		render(
+			<ConfirmProvider>
+				<RosterList
+					memberUids={['alice']}
+					responses={[response({ uid: 'alice', status: 'in', role: 'member' })]}
+					usersByUid={usersByUid}
+					onSetAnswer={vi.fn().mockResolvedValue(undefined)}
+				/>
+			</ConfirmProvider>
+		);
+
+		await openTheAnswer('Alice Ng');
+
+		expect(screen.getByText('Answer for Alice Ng')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /They're in/ })).toBeDisabled();
+	});
+
+	// The whole reason the dialog is here: this writes an answer in somebody
+	// else's name, on a screen an admin is thumbing through.
+	it('writes nothing until the dialog agrees, and says what it will do', async () => {
+		const onSetAnswer = vi.fn().mockResolvedValue(undefined);
+
+		render(
+			<ConfirmProvider>
+				<RosterList
+					memberUids={['alice']}
+					responses={[response({ uid: 'alice', status: 'in', role: 'member' })]}
+					usersByUid={usersByUid}
+					onSetAnswer={onSetAnswer}
+				/>
+			</ConfirmProvider>
+		);
+
+		await openTheAnswer('Alice Ng');
+		await tap(/They're out/);
+
+		expect(onSetAnswer).not.toHaveBeenCalled();
+		expect(screen.getByText('Say Alice Ng is out?')).toBeInTheDocument();
+
+		await tap('Cancel');
+
+		expect(onSetAnswer).not.toHaveBeenCalled();
+	});
+
+	it('answers for them once it has agreed', async () => {
+		const onSetAnswer = vi.fn().mockResolvedValue(undefined);
+
+		render(
+			<ConfirmProvider>
+				<RosterList memberUids={['alice']} responses={[]} usersByUid={usersByUid} onSetAnswer={onSetAnswer} />
+			</ConfirmProvider>
+		);
+
+		await openTheAnswer('Alice Ng');
+		await tap(/They're in/);
+		await tap('Say they are in');
+
+		expect(onSetAnswer).toHaveBeenCalledWith('alice', 'in');
+	});
+
+	// `null` rather than a third status: the absence of the document is the real
+	// "no response", so putting somebody back into it is a delete.
+	it('takes an answer back to no answer at all', async () => {
+		const onSetAnswer = vi.fn().mockResolvedValue(undefined);
+
+		render(
+			<ConfirmProvider>
+				<RosterList
+					memberUids={['alice']}
+					responses={[response({ uid: 'alice', status: 'out', role: 'member' })]}
+					usersByUid={usersByUid}
+					onSetAnswer={onSetAnswer}
+				/>
+			</ConfirmProvider>
+		);
+
+		await openTheAnswer('Alice Ng');
+		await tap('Back to no answer');
+		await tap('Take it back');
+
+		expect(onSetAnswer).toHaveBeenCalledWith('alice', null);
+	});
+
 	it('offers it only to the people who have not answered', () => {
 		render(
 			<RosterList
