@@ -1,19 +1,13 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import * as stylex from '@stylexjs/stylex';
 import { useAuth } from '../../lib/auth';
 import { useLastSeen } from '../../hooks/useLastSeen';
 import Login from '../../components/Login';
-import Spinner from '../../components/Spinner';
+import PageShell from '../../components/PageShell';
+import Skeleton from '../../components/Skeleton';
 import { SeasonScopeProvider } from '../../components/SeasonScope';
 import { AppHistoryProvider } from '../../components/AppHistory';
-import { colors } from '../../app/tokens.stylex';
-
-const styles = stylex.create({
-	restoring: { display: 'flex', minHeight: '100dvh', alignItems: 'center', justifyContent: 'center' },
-	spinner: { color: colors.brand, width: 32, height: 32 },
-});
 
 /**
  * Auth gate for every signed-in screen.
@@ -33,11 +27,28 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
 
 	// `null` = Firebase is still restoring the session. Showing the login screen
 	// here would flash it on every refresh.
+	//
+	// The chrome and a skeleton rather than a lone spinner, because this is the
+	// only screen in the app the *document* can draw. Everything below this
+	// line waits on a signed-in user, so the prerendered HTML of every screen
+	// was a 32px spinner on an otherwise empty page. Nothing in it was big
+	// enough to be a largest contentful paint, so LCP could not happen until
+	// the bundle had parsed, Firebase had restored the session off IndexedDB,
+	// App Check had been to `www.google.com` for a token and the first snapshot
+	// had landed. A 208px hero block ships in the first byte instead, and LCP
+	// lands with the first paint.
+	//
+	// `PageShell` and `Skeleton` rather than something written for here. They
+	// are the pair the season and seasons screens draw one step later, and
+	// `Skeleton` is already sized to mirror the season home layout, so the
+	// handover costs no layout shift. The tabs are the one thing missing. They
+	// need a season id nobody has yet, and above `lg` their arrival moves the
+	// title right by the width of the chevron slot.
 	if (user === null) {
 		return (
-			<div {...stylex.props(styles.restoring)}>
-				<Spinner sx={styles.spinner} />
-			</div>
+			<PageShell title='Frescati'>
+				<Skeleton />
+			</PageShell>
 		);
 	}
 

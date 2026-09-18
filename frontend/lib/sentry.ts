@@ -130,6 +130,39 @@ export const sentryOptions = {
 	enabled: isDeployed && !useEmulators,
 };
 
+/** The SDK, once somebody has asked for it. Memoised on the promise so two
+ * reports racing each other still only initialise once. */
+let loading: Promise<typeof SentryModule> | undefined;
+
+/**
+ * The SDK, initialised, fetched the first time anything needs it.
+ *
+ * `instrumentation-client.ts` used to import it at module scope and call
+ * `init` there. Next bundles that file into the initial JS by design, so the
+ * whole SDK downloaded, parsed and ran before hydration on every route. It
+ * measured 70 kB gzipped of the 172 kB shared first load, a build with it taken
+ * out shipped 102 kB, and nothing on the first paint needs any of it.
+ *
+ * The `getClient()` check is what keeps the three runtimes apart. The server
+ * and edge configs call `init` themselves, before anything in here can run, so
+ * on those this only hands back the SDK they already set up. In the browser
+ * whoever gets here first does the initialising, whether that is the idle
+ * callback in `instrumentation-client.ts` or a report that beat it.
+ *
+ * A rejection is cached along with everything else, on purpose. If the chunk
+ * could not be fetched once, asking again on every subsequent error is a
+ * request per failure on a connection that is already struggling.
+ */
+export const loadSentry = () => {
+	loading ??= import('@sentry/nextjs').then(Sentry => {
+		if (!Sentry.getClient()) Sentry.init(sentryOptions);
+
+		return Sentry;
+	});
+
+	return loading;
+};
+
 /**
  * Load the SDK and do something with it, swallowing anything that goes wrong.
  *
@@ -149,7 +182,7 @@ export const sentryOptions = {
  * signature also has to allow a promise to await. */
 const withSentry = async (run: (sentry: typeof SentryModule) => unknown) => {
 	try {
-		await run(await import('@sentry/nextjs'));
+		await run(await loadSentry());
 	} catch {
 		// Nothing to escalate to. If the reporter is down, it cannot report that.
 	}
