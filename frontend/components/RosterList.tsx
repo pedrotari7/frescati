@@ -2,10 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { PencilSquareIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
-import type { AppUser, GameResponse } from '@shared/types';
+import type { AppUser, GameResponse, ResponseStatus } from '@shared/types';
 import { isAbsent, isConfirmed, sortResponses } from '@shared/game';
 import { personRow } from '../lib/people';
+import type { AnswerChoice } from './AnswerSheet';
+import AnswerSheet from './AnswerSheet';
 import Avatar from './Avatar';
 import StatusPill from './StatusPill';
 import Button from './Button';
@@ -48,6 +51,8 @@ const styles = stylex.create({
 	},
 	name: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%', fontSize: 14, lineHeight: '20px' },
 	struck: { textDecorationLine: 'line-through' },
+
+	pencil: { width: 16, height: 16 },
 });
 
 export interface RosterEntry {
@@ -105,11 +110,18 @@ const Row = ({
 	tone,
 	struck = false,
 	trailing,
+	answer,
 }: {
 	entry: RosterEntry;
 	tone: 'in' | 'out' | 'pending' | 'extra';
 	struck?: boolean;
 	trailing?: React.ReactNode;
+	/**
+	 * The way into somebody else's answer, drawn after whatever that group's own
+	 * control is. Its own slot rather than part of `trailing`, because every group
+	 * has a different one of those and this is the same wherever it is drawn.
+	 */
+	answer?: React.ReactNode;
 }) => (
 	<div {...stylex.props(styles.row)}>
 		{/* Only the name is the link, not the whole row: an admin's Drop button
@@ -129,6 +141,7 @@ const Row = ({
 			</span>
 		</Link>
 		{trailing}
+		{answer}
 	</div>
 );
 
@@ -139,6 +152,7 @@ const Section = ({
 	struck = false,
 	note,
 	renderTrailing,
+	renderAnswer,
 }: {
 	title: string;
 	tone: 'in' | 'out' | 'pending' | 'extra';
@@ -146,6 +160,7 @@ const Section = ({
 	struck?: boolean;
 	note?: string;
 	renderTrailing?: (entry: RosterEntry) => React.ReactNode;
+	renderAnswer?: (entry: RosterEntry) => React.ReactNode;
 }) => {
 	if (entries.length === 0) return null;
 
@@ -158,7 +173,14 @@ const Section = ({
 			{note && <p {...stylex.props(styles.note)}>{note}</p>}
 			<div>
 				{entries.map(entry => (
-					<Row key={entry.uid} entry={entry} tone={tone} struck={struck} trailing={renderTrailing?.(entry)} />
+					<Row
+						key={entry.uid}
+						entry={entry}
+						tone={tone}
+						struck={struck}
+						trailing={renderTrailing?.(entry)}
+						answer={renderAnswer?.(entry)}
+					/>
 				))}
 			</div>
 		</section>
@@ -197,6 +219,39 @@ const NudgeButton = ({ uid, onNudge }: { uid: string; onNudge: (uid: string) => 
 	);
 };
 
+/**
+ * What the dialog asks before an admin answers for somebody.
+ *
+ * Every one of them ends on the same sentence, and it is the one worth saying:
+ * `notifyWatchers` leaves the player out of the push about their own answer,
+ * because normally they are the one who just gave it. Answering on their behalf
+ * is the case where that silence is wrong, and nothing in the app fills it, so
+ * the dialog says so rather than letting an admin assume a text went out.
+ */
+const PROMPTS: Record<
+	ResponseStatus | 'none',
+	{ title: (who: string) => string; message: string; confirmLabel: string }
+> = {
+	in: {
+		title: who => `Say ${who} is in?`,
+		message:
+			'The headcount goes up and anyone following the game hears about it. They are not told, so tell them yourself.',
+		confirmLabel: 'Say they are in',
+	},
+	out: {
+		title: who => `Say ${who} is out?`,
+		message:
+			'The headcount goes down and anyone following the game hears about it. They are not told, so tell them yourself.',
+		confirmLabel: 'Say they are out',
+	},
+	none: {
+		title: who => `Take back ${who}'s answer?`,
+		message:
+			'Back to nobody having said anything, so the reminders start chasing a member again. They are not told, so tell them yourself.',
+		confirmLabel: 'Take it back',
+	},
+};
+
 const RosterList = ({
 	memberUids,
 	responses,
@@ -207,6 +262,7 @@ const RosterList = ({
 	onToggleExtra,
 	onToggleAbsent,
 	onNudge,
+	onSetAnswer,
 }: {
 	memberUids: string[];
 	responses: GameResponse[];
@@ -239,10 +295,24 @@ const RosterList = ({
 	 * one happened.
 	 */
 	onNudge?: (uid: string) => Promise<boolean>;
+	/**
+	 * Answer for somebody else. Absent unless a season admin is looking at a game
+	 * that has not kicked off, which is `canAnswerFor` on the page: the handler is
+	 * the permission, the same way `onToggleAbsent` and `onNudge` are.
+	 *
+	 * `null` is the answer being taken away entirely, back to the third state
+	 * where no document exists at all.
+	 */
+	onSetAnswer?: (uid: string, answer: AnswerChoice) => Promise<void>;
 }) => {
 	const { playing, extras, absent, out, awaiting } = buildRoster(memberUids, responses, usersByUid);
 	const byUid = new Map(responses.map(response => [response.uid, response]));
 	const confirm = useConfirm();
+
+	// Who the sheet is open about, or nobody. Held as the uid rather than the
+	// row, so the answer the sheet draws comes off the live subscription instead
+	// of a copy taken when the icon was tapped.
+	const [answeringFor, setAnsweringFor] = useState<string | null>(null);
 
 	// The handler itself rather than a boolean beside it, so every use below is
 	// narrowed by the same check that decides whether to offer the button at all.
@@ -280,9 +350,60 @@ const RosterList = ({
 			</Button>
 		) : null;
 
+	/**
+	 * The way into somebody else's answer, the same on every row that offers one.
+	 *
+	 * An icon rather than a word, for the reason `RemoveButton` is one: the groups
+	 * below already end in controls of their own, and a second labelled button
+	 * beside one of those takes the width the name needs. That leaves the label
+	 * carrying everything, including who the row is about, since it is also all a
+	 * screen reader gets.
+	 *
+	 * It opens the sheet rather than writing anything, because the row cannot know
+	 * which of the three answers the admin came to give.
+	 */
+	const answerButton = (entry: RosterEntry) =>
+		onSetAnswer ? (
+			<Button
+				size='sm'
+				variant='ghost'
+				aria-label={`Answer for ${entry.displayName}`}
+				onClick={() => setAnsweringFor(entry.uid)}
+			>
+				<PencilSquareIcon {...stylex.props(styles.pencil)} aria-hidden='true' />
+			</Button>
+		) : null;
+
+	/**
+	 * The sheet comes down before the dialog goes up, so the two are never stacked
+	 * on a phone, and cancelling leaves the roster rather than the sheet it was
+	 * chosen from. Going back on that costs one tap, which is the pencil again.
+	 */
+	const pickAnswer = async (uid: string, displayName: string, answer: AnswerChoice) => {
+		setAnsweringFor(null);
+
+		const prompt = PROMPTS[answer ?? 'none'];
+		const ok = await confirm({
+			title: prompt.title(displayName),
+			message: prompt.message,
+			confirmLabel: prompt.confirmLabel,
+			tone: answer === null ? 'danger' : 'primary',
+		});
+
+		if (ok) await onSetAnswer?.(uid, answer);
+	};
+
+	const answeringAbout = answeringFor === null ? null : personRow(usersByUid, answeringFor);
+
 	return (
 		<div {...stylex.props(styles.sections)}>
-			<Section title='Squad in' tone='in' entries={playing} renderTrailing={noShowButton} />
+			<Section
+				title='Squad in'
+				tone='in'
+				entries={playing}
+				renderTrailing={noShowButton}
+				renderAnswer={answerButton}
+			/>
 
 			<Section
 				title='Extras'
@@ -317,11 +438,18 @@ const RosterList = ({
 						</Button>
 					);
 				}}
+				renderAnswer={answerButton}
 			/>
 
 			{/* Straight after the people who did turn up, because that is the list
 			    it is the exception to, and above the people who never answered,
-			    which is a different failure and a much smaller one. */}
+			    which is a different failure and a much smaller one.
+
+			    The one group with no way into the answer, and the omission is the
+			    point: a no-show is a mark beside an In, so rewriting what they
+			    said is precisely what it exists not to do. `canAnswerFor` closes
+			    at the same whistle this group opens at, so the slot would be
+			    empty here anyway. */}
 			<Section
 				title="Didn't show"
 				tone='out'
@@ -350,9 +478,20 @@ const RosterList = ({
 				tone='pending'
 				entries={awaiting}
 				renderTrailing={onNudge ? entry => <NudgeButton uid={entry.uid} onNudge={onNudge} /> : undefined}
+				renderAnswer={answerButton}
 			/>
 
-			<Section title='Out' tone='out' entries={out} />
+			<Section title='Out' tone='out' entries={out} renderAnswer={answerButton} />
+
+			{answeringAbout && (
+				<AnswerSheet
+					open
+					displayName={answeringAbout.displayName}
+					status={byUid.get(answeringAbout.uid)?.status}
+					onClose={() => setAnsweringFor(null)}
+					onPick={answer => pickAnswer(answeringAbout.uid, answeringAbout.displayName, answer)}
+				/>
+			)}
 		</div>
 	);
 };

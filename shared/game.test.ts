@@ -1,4 +1,5 @@
 import {
+	canAnswerFor,
 	canReportAbsence,
 	findCountsDrift,
 	findLiveGame,
@@ -262,6 +263,30 @@ describe('canReportAbsence', () => {
 	it('is false for a cancelled game, which nobody could fail to turn up to', () => {
 		expect(canReportAbsence('cancelled')).toBe(false);
 	});
+});
+
+describe('canAnswerFor', () => {
+	it.each(['open', 'locked'] as const)('is true while the game is %s', lifecycle => {
+		expect(canAnswerFor(lifecycle)).toBe(true);
+	});
+
+	// The complement of `canReportAbsence`, on purpose: from kick-off the way to
+	// record that somebody did not turn up is the mark beside their In, not a
+	// rewrite of what they said.
+	it.each(['live', 'finished'] as const)('is false once the game is %s', lifecycle => {
+		expect(canAnswerFor(lifecycle)).toBe(false);
+	});
+
+	it('is false for a cancelled game, which there is nothing to answer about', () => {
+		expect(canAnswerFor('cancelled')).toBe(false);
+	});
+
+	it.each(['open', 'locked', 'live', 'finished', 'cancelled'] as const)(
+		'never overlaps reporting a no-show, at %s',
+		lifecycle => {
+			expect(canAnswerFor(lifecycle) && canReportAbsence(lifecycle)).toBe(false);
+		}
+	);
 });
 
 describe('getAbsentUids', () => {

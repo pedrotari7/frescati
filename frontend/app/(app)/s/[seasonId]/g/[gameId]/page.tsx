@@ -4,7 +4,16 @@ import { use, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, MapPinIcon, TrophyIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
-import { canReportAbsence, getExtraSpot, getFormat, getGameLifecycle, isWatchable, tallyResponses } from '@shared/game';
+import {
+	canAnswerFor,
+	canReportAbsence,
+	getExtraSpot,
+	getFormat,
+	getGameLifecycle,
+	getRole,
+	isWatchable,
+	tallyResponses,
+} from '@shared/game';
 import type { AppUser, Game, GameResponse, KitItem, PlayerRole, ResponseStatus, Season } from '@shared/types';
 import type { GameLifecycle } from '@shared/game';
 import { isShareable } from '@shared/share';
@@ -19,7 +28,13 @@ import { useRespondIntent } from '../../../../../../hooks/useRespondIntent';
 import { useWatchGames } from '../../../../../../hooks/useWatchGames';
 import { useWrite } from '../../../../../../hooks/useWrite';
 import { useNow } from '../../../../../../hooks/useNow';
-import { nudgePlayers, setAbsent, setConfirmOverride } from '../../../../../../lib/db/responses';
+import {
+	clearResponse,
+	nudgePlayers,
+	setAbsent,
+	setConfirmOverride,
+	setResponse,
+} from '../../../../../../lib/db/responses';
 import { displayNameOf } from '../../../../../../lib/people';
 import SeasonShell from '../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../components/Skeleton';
@@ -31,6 +46,7 @@ import GameWatchers from '../../../../../../components/GameWatchers';
 import HeadcountBar from '../../../../../../components/HeadcountBar';
 import type { DebtLock } from '../../../../../../components/RespondControl';
 import RespondControl from '../../../../../../components/RespondControl';
+import type { AnswerChoice } from '../../../../../../components/AnswerSheet';
 import RosterList from '../../../../../../components/RosterList';
 import ShareGame from '../../../../../../components/ShareGame';
 import StatusPill from '../../../../../../components/StatusPill';
@@ -284,7 +300,41 @@ const useNudge = (seasonId: string, gameId: string, usersByUid: Map<string, AppU
 	};
 };
 
-/** Who's playing, and the three things an admin can do about it from here. */
+/**
+ * Answering on somebody else's behalf.
+ *
+ * `role` is resolved from the season here rather than carried over from
+ * whatever the old response said, because that is what makes the write honest:
+ * `getRole` reads `memberUids`, which is the same thing the tally and the team
+ * sheet read, so an answer recorded for a player who has since joined the squad
+ * is recorded as the member they now are. The rules deliberately do not check
+ * it on this path, an admin is not the player, so nothing else would.
+ *
+ * The response they already hold goes in so `setResponse` can carry an admin's
+ * own marks through. A confirmed extra moved to Out and back keeps their spot,
+ * which is the same promise the player's own buttons make.
+ *
+ * `null` is a delete, back to no document at all. Nothing merges it away: the
+ * third state is the absence of the document and this is the only way to put
+ * somebody back into it.
+ */
+const useAnswerFor = (seasonId: string, gameId: string, memberUids: string[], responses: GameResponse[]) => {
+	const write = useWrite();
+
+	return async (uid: string, answer: AnswerChoice) => {
+		const existing = responses.find(response => response.uid === uid);
+
+		await write(
+			() =>
+				answer === null
+					? clearResponse(seasonId, gameId, uid)
+					: setResponse(seasonId, gameId, uid, answer, getRole(uid, { memberUids }), existing),
+			answer === null ? "Couldn't take their answer back." : "Couldn't change their answer."
+		);
+	};
+};
+
+/** Who's playing, and the four things an admin can do about it from here. */
 const Roster = ({
 	seasonId,
 	gameId,
@@ -306,6 +356,7 @@ const Roster = ({
 }) => {
 	const write = useWrite();
 	const nudge = useNudge(seasonId, gameId, usersByUid);
+	const answerFor = useAnswerFor(seasonId, gameId, memberUids, responses);
 
 	return (
 		<div>
@@ -331,6 +382,7 @@ const Roster = ({
 					);
 				}}
 				onNudge={isAdmin && lifecycle === 'open' ? nudge : undefined}
+				onSetAnswer={isAdmin && canAnswerFor(lifecycle) ? answerFor : undefined}
 			/>
 		</div>
 	);

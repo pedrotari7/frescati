@@ -75,6 +75,7 @@ Each of these is deep and specific to one part of the app, deliberately kept out
 - `docs/ratings.md` — the Elo formula (`shared/rating.ts`), what a replay is and when one is needed, starting ratings, and what the ledger stores per entry.
 - `docs/scoring-and-motm.md` — entering a scoreline, confirming a result and what that locks, the man-of-the-match vote.
 - `docs/no-show.md` — the `absent` flag: what it means, who can set it, where it shows.
+- `docs/answering-for-somebody.md` — a season admin recording somebody else's answer: when it is offered and when the no-show mark takes over, why the player is the one person nobody tells.
 - `docs/kit.md` — the kit register (`seasons/{id}/kit`): coverage, handovers, who can edit what.
 - `docs/finances.md` — the season's books (`seasons/{id}/dues`, `seasons/{id}/expenses`, `seasons/{id}/receipts`): the fees on the season, why a charge is a stored document, the sweep that raises the missing ones and the confirmation that raises an extra's without asking and tells them, paying by Swish, the lock an unpaid charge puts on signing up for another game, chasing the people it caught, and the receipts a player claims their friskvardsbidrag with, which are the one thing here that is a file in Cloud Storage rather than a document.
 - `docs/notifications.md` — push/email: reach, per-kind preferences, routing a tap to an open window, the `/debug` send paths.
