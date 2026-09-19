@@ -26,45 +26,70 @@
  *   2. GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
  */
 
+import type { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import type { Due } from '../../shared/types';
 import { runScript } from './lib/script';
 import type { ScriptContext } from './lib/script';
-import type { DebtorMarkChange } from '../src/onDueWrite';
+import type { DebtorMarkChange, markWhatIsOwed } from '../src/onDueWrite';
 
-// fallow-ignore-next-line complexity -- cognitive 16 against a ceiling of 15, all of it the two nested loops this script exists to be: seasons, then the uids with dues in one. Splitting it would mean threading the dynamically imported markWhatIsOwed and the running totals through a helper, which is more moving parts than the thing it measures. Revisit if it grows a third loop.
+/** What the run touched, by what it did. `unchanged` is counted separately. */
+type Tally = Record<Exclude<DebtorMarkChange, 'unchanged'>, number>;
+
+const emptyTally = (): Tally => ({ created: 0, updated: 0, cleared: 0 });
+
+/**
+ * One season's marks, recomputed.
+ *
+ * Split out of `main` rather than nested inside it because the loop over a
+ * season's uids is the only reason this script branched deeply enough to breach
+ * the cognitive ceiling. Up here it starts at the top of a function, and `main`
+ * is left doing what it says: every season, then the totals.
+ */
+const backfillSeason = async (
+	seasonDoc: QueryDocumentSnapshot,
+	markOwed: typeof markWhatIsOwed,
+	dryRun: boolean
+): Promise<{ checked: number; changed: Tally }> => {
+	const duesSnap = await seasonDoc.ref.collection('dues').get();
+	const seasonUids = [...new Set(duesSnap.docs.map(doc => (doc.data() as Due).uid))];
+
+	const changed = emptyTally();
+	let touched = 0;
+
+	for (const uid of seasonUids) {
+		const result = await markOwed(seasonDoc.id, uid, { dryRun });
+		if (result.change === 'unchanged') continue;
+
+		touched++;
+		changed[result.change]++;
+
+		const verb = dryRun ? `would be ${result.change}` : result.change;
+		console.log(`  ${seasonDoc.id}/${uid}: ${verb} (${result.outstanding} across ${result.charges} charges)`);
+	}
+
+	if (touched > 0) console.log(`${seasonDoc.data().name ?? seasonDoc.id}: ${touched} mark(s) touched`);
+
+	return { checked: seasonUids.length, changed };
+};
+
 export const main = async ({ db, dryRun }: ScriptContext) => {
 	// Imported after initializeApp: the shared helper builds its Firestore handle
-	// at module load, and there has to be an app for it to bind to.
-	const { markWhatIsOwed } = await import('../src/onDueWrite');
+	// at module load, and there has to be an app for it to bind to. The type of
+	// the same export is imported at the top, which erases and reaches nothing.
+	const { markWhatIsOwed: markOwed } = await import('../src/onDueWrite');
 
 	const seasonsSnap = await db.collection('seasons').get();
 
-	const changed: Record<Exclude<DebtorMarkChange, 'unchanged'>, number> = { created: 0, updated: 0, cleared: 0 };
+	const changed = emptyTally();
 	let uids = 0;
 
 	for (const seasonDoc of seasonsSnap.docs) {
-		const duesSnap = await seasonDoc.ref.collection('dues').get();
-		const seasonUids = [...new Set(duesSnap.docs.map(doc => (doc.data() as Due).uid))];
+		const season = await backfillSeason(seasonDoc, markOwed, dryRun);
 
-		if (seasonUids.length === 0) continue;
-
-		let seasonChanges = 0;
-
-		for (const uid of seasonUids) {
-			const result = await markWhatIsOwed(seasonDoc.id, uid, { dryRun });
-
-			uids++;
-			if (result.change === 'unchanged') continue;
-
-			seasonChanges++;
-			changed[result.change]++;
-
-			const verb = dryRun ? `would be ${result.change}` : result.change;
-			console.log(`  ${seasonDoc.id}/${uid}: ${verb} (${result.outstanding} across ${result.charges} charges)`);
-		}
-
-		if (seasonChanges > 0)
-			console.log(`${seasonDoc.data().name ?? seasonDoc.id}: ${seasonChanges} mark(s) touched`);
+		uids += season.checked;
+		changed.created += season.changed.created;
+		changed.updated += season.changed.updated;
+		changed.cleared += season.changed.cleared;
 	}
 
 	const total = changed.created + changed.updated + changed.cleared;

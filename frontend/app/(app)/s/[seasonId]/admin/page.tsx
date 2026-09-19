@@ -6,11 +6,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarDaysIcon, CalendarIcon, UsersIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
-import type { SeasonStatus, Venue } from '@shared/types';
+import type { Game, Season, SeasonStatus } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
-import { SEASON_STATUS_LABELS, formatSek } from '@shared/format';
+import { SEASON_STATUS_LABELS, counted, formatSek } from '@shared/format';
 import { entryShare } from '@shared/finances';
-import { parseReminderHours } from '@shared/game';
 import { useAuth } from '../../../../../lib/auth';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useWrite } from '../../../../../hooks/useWrite';
@@ -26,8 +25,17 @@ import EmptyState from '../../../../../components/EmptyState';
 import LoadFailed from '../../../../../components/LoadFailed';
 import Button from '../../../../../components/Button';
 import { Field, RangeInput, Select, TextInput } from '../../../../../components/Field';
-import { EMPTY_FORM, INVALID_COUNT, formFromSeason, readCounts, sameForm } from '../../../../../lib/seasonForm';
-import type { SeasonForm } from '../../../../../lib/seasonForm';
+import {
+	EMPTY_FORM,
+	INVALID_COUNT,
+	formFromSeason,
+	readCounts,
+	sameForm,
+	seasonUpdateFrom,
+	venueFrom,
+	venueMoved,
+} from '../../../../../lib/seasonForm';
+import type { SeasonCounts, SeasonForm } from '../../../../../lib/seasonForm';
 import { colors, tint } from '../../../../tokens.stylex';
 import { surfaces } from '../../../../../lib/styles';
 
@@ -103,24 +111,82 @@ const SettingsBlock = ({ title, note, children }: { title: string; note: ReactNo
 	</div>
 );
 
-// fallow-ignore-next-line complexity -- cognitive 26 against a ceiling of 15, pre-existing and untouched by this change: sharing the slot fields shortened the file without moving any of its branching. 455 lines, 14 hooks and JSX eight deep, which is four screens of settings in one component. It wants splitting along the headings it already has, and that is its own change with its own review.
-const SeasonAdminPage = () => {
-	const router = useRouter();
-	const { user } = useAuth();
-	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
+/**
+ * What the bill on the form comes to per person, said out loud, because nobody
+ * types a total and does the division in their head.
+ *
+ * An empty squad is its own sentence rather than a share of nothing: the bill
+ * is real, there is just nobody to split it between yet.
+ */
+const shareNote = (seasonCost: number, members: number): string => {
+	if (members === 0) return 'Nobody in the squad to split it between yet.';
+
+	return `${formatSek(entryShare(seasonCost, members))} each across ${counted(members, 'member')}.`;
+};
+
+/**
+ * The stored season has moved under an open form, so say so.
+ *
+ * Seeding once means this form can go stale, and an admin who writes an
+ * hour-old copy over somebody else&apos;s change should know they are doing it.
+ * Loading theirs is the same write the seed does, it just takes a deliberate
+ * tap now instead of happening under the cursor.
+ */
+const StaleNotice = ({ onLoad }: { onLoad: () => void }) => (
+	<div {...stylex.props(styles.stale)}>
+		<p {...stylex.props(styles.staleBody)}>
+			Somebody else has changed these settings since you opened this screen. Saving now writes what is on this
+			form over theirs.
+		</p>
+		<Button variant='secondary' size='sm' sx={styles.staleAction} onClick={onLoad}>
+			Load their changes
+		</Button>
+	</div>
+);
+
+/**
+ * The writes behind Save settings.
+ *
+ * Moving the venue has to move it on every upcoming game too, and that second
+ * write is the only branch in here, which is why it is a function of its own
+ * rather than the body of the handler.
+ */
+const saveSettings = async (
+	seasonId: string,
+	season: Season,
+	games: Game[],
+	form: SeasonForm,
+	counts: SeasonCounts['counts']
+) => {
+	const venue = venueFrom(form);
+
+	await updateSeason(seasonId, seasonUpdateFrom(form, counts, season.slot.timezone));
+
+	if (venueMoved(venue, season)) await updateVenueForUpcomingGames(seasonId, games, venue);
+};
+
+/**
+ * Everything about the season somebody can change, in one form.
+ *
+ * A component rather than the middle of the page for the reason the page had a
+ * complexity suppression on it: four screens of settings, a seed that has to
+ * fire once, a save that validates and writes two collections, and the notice
+ * that catches a second admin editing the same season all lived in one
+ * function. The form state belongs to this half of the screen and nothing above
+ * it reads it.
+ */
+const SeasonSettingsCard = ({ seasonId, season, games }: { seasonId: string; season: Season; games: Game[] }) => {
 	const write = useWrite();
-	const confirm = useConfirm();
 	const { notify } = useToast();
 
 	const [form, setForm] = useState<SeasonForm>(EMPTY_FORM);
 	const [countError, setCountError] = useState<string | null>(null);
-	const [subscribeOpen, setSubscribeOpen] = useState(false);
 
 	// Seasons created before teams existed carry no levers at all, so the
 	// defaults stand in rather than the form seeding itself with zeroes.
-	const balance = useMemo(() => ({ ...DEFAULT_BALANCE_SETTINGS, ...season?.balance }), [season]);
+	const balance = useMemo(() => ({ ...DEFAULT_BALANCE_SETTINGS, ...season.balance }), [season]);
 
-	const live = useMemo(() => (season ? formFromSeason(season, balance) : null), [season, balance]);
+	const live = useMemo(() => formFromSeason(season, balance), [season, balance]);
 
 	/**
 	 * What the form was last filled from, on arrival, and again on a save.
@@ -141,16 +207,288 @@ const SeasonAdminPage = () => {
 	 * whoever was mid-sentence in the first, not just the one they had moved.
 	 * Two admins on a Sunday evening is not a hypothetical.
 	 *
-	 * `live` moving is now reported rather than applied. See `changedElsewhere`
-	 * below.
+	 * `live` moving is now reported rather than applied. See `theirs` below.
 	 */
 	useEffect(() => {
-		if (!season || !live || seededFor.current === season.id) return;
+		if (seededFor.current === season.id) return;
 
 		seededFor.current = season.id;
 		baseline.current = live;
 		setForm(live);
 	}, [season, live]);
+
+	// Save refuses on any box that doesn't hold a whole number and says which,
+	// better than writing a season with `minPlayers: 0`, in which no game can
+	// ever be short.
+	const { counts, invalid } = readCounts(form);
+
+	// The stored season has moved since this form was filled from it. Compared
+	// against the baseline rather than against `form`, which would also be true
+	// of every character this admin has typed. Held as their version rather than
+	// a flag, so the notice can offer it without a second null check.
+	const theirs = baseline.current && !sameForm(live, baseline.current) ? live : null;
+
+	const handleSave = async () => {
+		if (invalid) {
+			setCountError(INVALID_COUNT[invalid]);
+			return;
+		}
+
+		setCountError(null);
+
+		// Only claim it saved if it did. This used to say "Saved" whether or not
+		// the write was accepted.
+		const ok = await write(
+			() => saveSettings(seasonId, season, games, form, counts),
+			"Couldn't save the season settings."
+		);
+
+		if (!ok) return;
+
+		// Our own write comes back down the listener like anybody else's would,
+		// so the baseline has to move with it or the notice above would announce
+		// the change this admin just made.
+		baseline.current = form;
+
+		notify('Season settings saved.');
+	};
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<h2 {...stylex.props(styles.title)}>Season settings</h2>
+
+			<Field label='Name'>
+				<TextInput value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+			</Field>
+
+			<Field label='Status' hint='Archived seasons stay readable but drop off the main list.'>
+				<Select
+					value={form.status}
+					onChange={e => setForm({ ...form, status: e.target.value as SeasonStatus })}
+				>
+					{(Object.keys(SEASON_STATUS_LABELS) as SeasonStatus[]).map(status => (
+						<option key={status} value={status}>
+							{SEASON_STATUS_LABELS[status]}
+						</option>
+					))}
+				</Select>
+			</Field>
+
+			<SeasonSlotFields form={form} setForm={setForm} startLabel='Season starts' endLabel='Season ends' />
+
+			<div {...stylex.props(styles.pair)}>
+				<Field label='Slot' hint='Minutes the pitch is booked.'>
+					<TextInput
+						type='number'
+						inputMode='numeric'
+						min={1}
+						value={form.durationMinutes}
+						onChange={e => setForm({ ...form, durationMinutes: e.target.value })}
+					/>
+				</Field>
+
+				<Field label='Minimum' hint='Below this a game is flagged.'>
+					<TextInput
+						type='number'
+						inputMode='numeric'
+						min={1}
+						value={form.minPlayers}
+						onChange={e => setForm({ ...form, minPlayers: e.target.value })}
+					/>
+				</Field>
+			</div>
+
+			<Field label='Answers close' hint='Hours before kick-off.'>
+				<TextInput
+					type='number'
+					inputMode='numeric'
+					min={0}
+					value={form.responseDeadlineHours}
+					onChange={e => setForm({ ...form, responseDeadlineHours: e.target.value })}
+				/>
+			</Field>
+
+			<Field
+				label='Remind at'
+				hint="Hours before kick-off, comma separated. Only members who haven't answered get nudged. Leave empty for no reminders."
+			>
+				<TextInput
+					value={form.reminderHours}
+					onChange={e => setForm({ ...form, reminderHours: e.target.value })}
+					placeholder='72, 24'
+					inputMode='numeric'
+				/>
+			</Field>
+
+			<SettingsBlock
+				title='Team selection'
+				note='Teams are picked automatically from who is in and re-picked whenever somebody changes their answer. These change how.'
+			>
+				<Field
+					label='Match length'
+					hint='Minutes per match. The rotation repeats to fill the slot, so shorter matches mean more of them.'
+				>
+					<TextInput
+						type='number'
+						inputMode='numeric'
+						min={1}
+						value={form.matchMinutes}
+						onChange={e => setForm({ ...form, matchMinutes: e.target.value })}
+					/>
+				</Field>
+
+				<Field
+					label='Variety'
+					hint='At zero the same players get the same teams every week. Higher accepts slightly less even sides in exchange for a fresh mix.'
+				>
+					<RangeInput
+						min={0}
+						max={100}
+						step={5}
+						value={form.randomness}
+						valueLabel={`${form.randomness}%`}
+						onChange={e => setForm({ ...form, randomness: Number(e.target.value) })}
+					/>
+				</Field>
+
+				<Field label='Split up regulars' hint='How hard to avoid pairing players who were teammates recently.'>
+					<RangeInput
+						min={0}
+						max={100}
+						step={5}
+						value={form.repeatPenalty}
+						valueLabel={`${form.repeatPenalty}%`}
+						onChange={e => setForm({ ...form, repeatPenalty: Number(e.target.value) })}
+					/>
+				</Field>
+
+				<Field label='Looking back' hint='How many past games count as recent.'>
+					<TextInput
+						type='number'
+						inputMode='numeric'
+						min={1}
+						value={form.repeatLookback}
+						onChange={e => setForm({ ...form, repeatLookback: e.target.value })}
+					/>
+				</Field>
+			</SettingsBlock>
+
+			<SettingsBlock
+				title='The money'
+				note='What the season costs and what an extra pays. Who has paid it is on the finances screen.'
+			>
+				<Field
+					label='Season cost'
+					hint={`Kronor for the whole season, split equally between the members. ${shareNote(counts.seasonCost ?? 0, season.memberUids.length)}`}
+				>
+					<TextInput
+						type='number'
+						inputMode='numeric'
+						min={0}
+						value={form.seasonCost}
+						onChange={e => setForm({ ...form, seasonCost: e.target.value })}
+					/>
+				</Field>
+
+				<Field
+					label="An extra's fee"
+					hint='Kronor per game, charged to an extra who was confirmed and turned up. Zero if extras play free.'
+				>
+					<TextInput
+						type='number'
+						inputMode='numeric'
+						min={0}
+						value={form.perGameFee}
+						onChange={e => setForm({ ...form, perGameFee: e.target.value })}
+					/>
+				</Field>
+
+				<Field
+					label='Swish number'
+					hint='The number that collects. Anybody paying gets a QR code for it with the amount and the reference already filled in.'
+				>
+					<TextInput
+						value={form.swish}
+						onChange={e => setForm({ ...form, swish: e.target.value })}
+						placeholder='0701234567'
+						inputMode='tel'
+						maxLength={20}
+					/>
+				</Field>
+			</SettingsBlock>
+
+			{/* Seeding once means this form can go stale, so it says so
+			    rather than letting an admin save an hour-old copy over
+			    somebody else's change without ever knowing. */}
+			{theirs && (
+				<StaleNotice
+					onLoad={() => {
+						baseline.current = theirs;
+						setForm(theirs);
+					}}
+				/>
+			)}
+
+			{countError && <p {...stylex.props(styles.error)}>{countError}</p>}
+
+			<Button variant='primary' fullWidth onClick={handleSave}>
+				Save settings
+			</Button>
+
+			<p {...stylex.props(styles.small)}>
+				Changing the day or time doesn&apos;t move games that already exist. Regenerate them from the Games
+				screen.
+			</p>
+		</section>
+	);
+};
+
+/**
+ * Deleting the season, which only an app admin can do.
+ *
+ * Its own component because the confirm and the write are the whole of what it
+ * does and nothing above shares them. The security rules draw the same line: a
+ * season admin runs the season, an app admin can erase it.
+ */
+const DangerZone = ({ seasonId, season }: { seasonId: string; season: Season }) => {
+	const router = useRouter();
+	const write = useWrite();
+	const confirm = useConfirm();
+
+	const handleDelete = async () => {
+		const ok = await confirm({
+			title: `Delete ${season.name}?`,
+			message:
+				"Every game, response and tournament result in this season goes with it, and this can't be undone.",
+			confirmLabel: 'Delete season',
+			tone: 'danger',
+		});
+
+		if (!ok) return;
+
+		const done = await write(() => deleteSeason(seasonId), "Couldn't delete this season.");
+
+		if (done) router.replace('/seasons?browse=1');
+	};
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.cardTight)}>
+			<h2 {...stylex.props(styles.title)}>Danger zone</h2>
+			<p {...stylex.props(styles.small)}>
+				Deletes the season and every game, response and tournament result in it. This can&apos;t be undone.
+			</p>
+			<Button variant='danger' fullWidth onClick={handleDelete}>
+				Delete season
+			</Button>
+		</section>
+	);
+};
+
+const SeasonAdminPage = () => {
+	const { user } = useAuth();
+	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
+
+	const [subscribeOpen, setSubscribeOpen] = useState(false);
 
 	if (loading) {
 		return (
@@ -184,107 +522,6 @@ const SeasonAdminPage = () => {
 		);
 	}
 
-	// Save refuses on any box that doesn't hold a whole number and says which,
-	// better than writing a season with `minPlayers: 0`, in which no game can
-	// ever be short.
-	const { counts, invalid } = readCounts(form);
-
-	// What the bill on the form would come to per person, said out loud, because
-	// nobody types a total and does the division in their head. An empty squad is
-	// its own sentence rather than a share of nothing: the bill is real, there is
-	// just nobody to split it between yet.
-	const describeShare =
-		season.memberUids.length === 0
-			? 'Nobody in the squad to split it between yet.'
-			: `${formatSek(entryShare(counts.seasonCost ?? 0, season.memberUids.length))} each across ${season.memberUids.length} ${season.memberUids.length === 1 ? 'member' : 'members'}.`;
-
-	// The stored season has moved since this form was filled from it. Compared
-	// against the baseline rather than against `form`, which would also be true
-	// of every character this admin has typed.
-	const changedElsewhere = !!live && !!baseline.current && !sameForm(live, baseline.current);
-
-	const handleSave = async () => {
-		if (invalid) {
-			setCountError(INVALID_COUNT[invalid]);
-			return;
-		}
-
-		setCountError(null);
-
-		const venue: Venue = {
-			name: form.venueName.trim(),
-			...(form.venueAddress.trim() ? { address: form.venueAddress.trim() } : {}),
-		};
-		const venueChanged = venue.name !== season.venue.name || (venue.address ?? '') !== (season.venue.address ?? '');
-
-		// Only claim it saved if it did. This used to say "Saved" whether or not
-		// the write was accepted.
-		const ok = await write(async () => {
-			await updateSeason(seasonId, {
-				name: form.name.trim(),
-				status: form.status,
-				venue,
-				slot: {
-					weekday: form.weekday,
-					time: form.time,
-					durationMinutes: counts.durationMinutes!,
-					timezone: season.slot.timezone,
-				},
-				startDate: form.startDate,
-				endDate: form.endDate,
-				minPlayers: counts.minPlayers!,
-				responseDeadlineHours: counts.responseDeadlineHours!,
-				reminderHours: parseReminderHours(form.reminderHours),
-				balance: {
-					matchMinutes: counts.matchMinutes!,
-					randomness: Number(form.randomness) / 100,
-					repeatPenalty: Number(form.repeatPenalty) / 100,
-					repeatLookback: counts.repeatLookback!,
-				},
-				// A nested map like `balance`, and written whole for the same
-				// reason: the rules check the shape of `fees` as one object, so a
-				// partial write would have to satisfy a check over fields it is
-				// not sending. `swish` is left off rather than written empty,
-				// since an empty string is a number the payment screen would try
-				// to build a QR code out of.
-				fees: {
-					total: counts.seasonCost!,
-					perGame: counts.perGameFee!,
-					...(form.swish.trim() ? { swish: form.swish.trim() } : {}),
-				},
-			});
-
-			if (venueChanged) {
-				await updateVenueForUpcomingGames(seasonId, games, venue);
-			}
-		}, "Couldn't save the season settings.");
-
-		if (!ok) return;
-
-		// Our own write comes back down the listener like anybody else's would,
-		// so the baseline has to move with it or the notice below would announce
-		// the change this admin just made.
-		baseline.current = form;
-
-		notify('Season settings saved.');
-	};
-
-	const handleDelete = async () => {
-		const ok = await confirm({
-			title: `Delete ${season.name}?`,
-			message:
-				"Every game, response and tournament result in this season goes with it, and this can't be undone.",
-			confirmLabel: 'Delete season',
-			tone: 'danger',
-		});
-
-		if (!ok) return;
-
-		const done = await write(() => deleteSeason(seasonId), "Couldn't delete this season.");
-
-		if (done) router.replace('/seasons?browse=1');
-	};
-
 	return (
 		<>
 			<SeasonShell title='Admin' subtitle={season.name} backHref={`/s/${seasonId}`}>
@@ -313,231 +550,11 @@ const SeasonAdminPage = () => {
 						</button>
 					</div>
 
-					<section {...stylex.props(surfaces.glass, styles.card)}>
-						<h2 {...stylex.props(styles.title)}>Season settings</h2>
-
-						<Field label='Name'>
-							<TextInput value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-						</Field>
-
-						<Field label='Status' hint='Archived seasons stay readable but drop off the main list.'>
-							<Select
-								value={form.status}
-								onChange={e => setForm({ ...form, status: e.target.value as SeasonStatus })}
-							>
-								{(Object.keys(SEASON_STATUS_LABELS) as SeasonStatus[]).map(status => (
-									<option key={status} value={status}>
-										{SEASON_STATUS_LABELS[status]}
-									</option>
-								))}
-							</Select>
-						</Field>
-
-						<SeasonSlotFields
-							form={form}
-							setForm={setForm}
-							startLabel='Season starts'
-							endLabel='Season ends'
-						/>
-
-						<div {...stylex.props(styles.pair)}>
-							<Field label='Slot' hint='Minutes the pitch is booked.'>
-								<TextInput
-									type='number'
-									inputMode='numeric'
-									min={1}
-									value={form.durationMinutes}
-									onChange={e => setForm({ ...form, durationMinutes: e.target.value })}
-								/>
-							</Field>
-
-							<Field label='Minimum' hint='Below this a game is flagged.'>
-								<TextInput
-									type='number'
-									inputMode='numeric'
-									min={1}
-									value={form.minPlayers}
-									onChange={e => setForm({ ...form, minPlayers: e.target.value })}
-								/>
-							</Field>
-						</div>
-
-						<Field label='Answers close' hint='Hours before kick-off.'>
-							<TextInput
-								type='number'
-								inputMode='numeric'
-								min={0}
-								value={form.responseDeadlineHours}
-								onChange={e => setForm({ ...form, responseDeadlineHours: e.target.value })}
-							/>
-						</Field>
-
-						<Field
-							label='Remind at'
-							hint="Hours before kick-off, comma separated. Only members who haven't answered get nudged. Leave empty for no reminders."
-						>
-							<TextInput
-								value={form.reminderHours}
-								onChange={e => setForm({ ...form, reminderHours: e.target.value })}
-								placeholder='72, 24'
-								inputMode='numeric'
-							/>
-						</Field>
-
-						<SettingsBlock
-							title='Team selection'
-							note='Teams are picked automatically from who is in and re-picked whenever somebody changes their answer. These change how.'
-						>
-							<Field
-								label='Match length'
-								hint='Minutes per match. The rotation repeats to fill the slot, so shorter matches mean more of them.'
-							>
-								<TextInput
-									type='number'
-									inputMode='numeric'
-									min={1}
-									value={form.matchMinutes}
-									onChange={e => setForm({ ...form, matchMinutes: e.target.value })}
-								/>
-							</Field>
-
-							<Field
-								label='Variety'
-								hint='At zero the same players get the same teams every week. Higher accepts slightly less even sides in exchange for a fresh mix.'
-							>
-								<RangeInput
-									min={0}
-									max={100}
-									step={5}
-									value={form.randomness}
-									valueLabel={`${form.randomness}%`}
-									onChange={e => setForm({ ...form, randomness: Number(e.target.value) })}
-								/>
-							</Field>
-
-							<Field
-								label='Split up regulars'
-								hint='How hard to avoid pairing players who were teammates recently.'
-							>
-								<RangeInput
-									min={0}
-									max={100}
-									step={5}
-									value={form.repeatPenalty}
-									valueLabel={`${form.repeatPenalty}%`}
-									onChange={e => setForm({ ...form, repeatPenalty: Number(e.target.value) })}
-								/>
-							</Field>
-
-							<Field label='Looking back' hint='How many past games count as recent.'>
-								<TextInput
-									type='number'
-									inputMode='numeric'
-									min={1}
-									value={form.repeatLookback}
-									onChange={e => setForm({ ...form, repeatLookback: e.target.value })}
-								/>
-							</Field>
-						</SettingsBlock>
-
-						<SettingsBlock
-							title='The money'
-							note='What the season costs and what an extra pays. Who has paid it is on the finances screen.'
-						>
-							<Field
-								label='Season cost'
-								hint={`Kronor for the whole season, split equally between the members. ${describeShare}`}
-							>
-								<TextInput
-									type='number'
-									inputMode='numeric'
-									min={0}
-									value={form.seasonCost}
-									onChange={e => setForm({ ...form, seasonCost: e.target.value })}
-								/>
-							</Field>
-
-							<Field
-								label="An extra's fee"
-								hint='Kronor per game, charged to an extra who was confirmed and turned up. Zero if extras play free.'
-							>
-								<TextInput
-									type='number'
-									inputMode='numeric'
-									min={0}
-									value={form.perGameFee}
-									onChange={e => setForm({ ...form, perGameFee: e.target.value })}
-								/>
-							</Field>
-
-							<Field
-								label='Swish number'
-								hint='The number that collects. Anybody paying gets a QR code for it with the amount and the reference already filled in.'
-							>
-								<TextInput
-									value={form.swish}
-									onChange={e => setForm({ ...form, swish: e.target.value })}
-									placeholder='0701234567'
-									inputMode='tel'
-									maxLength={20}
-								/>
-							</Field>
-						</SettingsBlock>
-
-						{/* Seeding once means this form can go stale, so it says so
-						    rather than letting an admin save an hour-old copy over
-						    somebody else's change without ever knowing. Loading
-						    theirs is the same write the seed does, it just takes
-						    a deliberate tap now instead of happening under the
-						    cursor. */}
-						{changedElsewhere && (
-							<div {...stylex.props(styles.stale)}>
-								<p {...stylex.props(styles.staleBody)}>
-									Somebody else has changed these settings since you opened this screen. Saving now
-									writes what is on this form over theirs.
-								</p>
-								<Button
-									variant='secondary'
-									size='sm'
-									sx={styles.staleAction}
-									onClick={() => {
-										if (!live) return;
-
-										baseline.current = live;
-										setForm(live);
-									}}
-								>
-									Load their changes
-								</Button>
-							</div>
-						)}
-
-						{countError && <p {...stylex.props(styles.error)}>{countError}</p>}
-
-						<Button variant='primary' fullWidth onClick={handleSave}>
-							Save settings
-						</Button>
-
-						<p {...stylex.props(styles.small)}>
-							Changing the day or time doesn&apos;t move games that already exist. Regenerate them from
-							the Games screen.
-						</p>
-					</section>
+					<SeasonSettingsCard seasonId={seasonId} season={season} games={games} />
 
 					{/* App-admin only, per the security rules, a season admin can run
-				    the season but not erase it. */}
-					{user?.isAppAdmin && (
-						<section {...stylex.props(surfaces.glass, styles.cardTight)}>
-							<h2 {...stylex.props(styles.title)}>Danger zone</h2>
-							<p {...stylex.props(styles.small)}>
-								Deletes the season and every game, response and tournament result in it. This can&apos;t
-								be undone.
-							</p>
-							<Button variant='danger' fullWidth onClick={handleDelete}>
-								Delete season
-							</Button>
-						</section>
-					)}
+					    the season but not erase it. */}
+					{user?.isAppAdmin && <DangerZone seasonId={seasonId} season={season} />}
 				</div>
 			</SeasonShell>
 

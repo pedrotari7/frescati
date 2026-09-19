@@ -1,6 +1,6 @@
-import type { BalanceSettings, Season, SeasonStatus, Weekday } from '@shared/types';
+import type { BalanceSettings, Season, SeasonStatus, Venue, Weekday } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_FEES } from '@shared/types';
-import { parseCount } from '@shared/game';
+import { parseCount, parseReminderHours } from '@shared/game';
 import { feesFor } from '@shared/finances';
 
 /**
@@ -169,3 +169,69 @@ export const readCounts = (form: SeasonForm): SeasonCounts => {
 
 	return { counts, invalid: (Object.keys(counts) as CountField[]).find(key => counts[key] === null) };
 };
+
+/**
+ * The venue as the form has it.
+ *
+ * No address rather than an empty one: `address` is optional on a `Venue`, and
+ * a stored empty string is a field the game screens would print a blank line
+ * for.
+ */
+export const venueFrom = (form: SeasonForm): Venue => ({
+	name: form.venueName.trim(),
+	...(form.venueAddress.trim() ? { address: form.venueAddress.trim() } : {}),
+});
+
+/**
+ * Whether the form moves the venue, which is what makes the upcoming games need
+ * rewriting too. A missing address and an empty one are the same answer here.
+ */
+export const venueMoved = (venue: Venue, season: Season): boolean =>
+	venue.name !== season.venue.name || (venue.address ?? '') !== (season.venue.address ?? '');
+
+/**
+ * The season the form is asking for, ready to write.
+ *
+ * In this file for the reason everything else here is: turning nineteen strings
+ * back into a season is the half that breaks quietly, and a test can drive it
+ * without mounting a route. The timezone is passed rather than read off the
+ * form because no control on the screen sets it; it comes back from the season
+ * unchanged.
+ *
+ * `swish` is left off rather than written empty, since an empty string is a
+ * number the payment screen would try to build a QR code out of. `fees` and
+ * `balance` are written whole because the rules check the shape of each as one
+ * object, so a partial write would have to satisfy a check over fields it is
+ * not sending.
+ */
+export const seasonUpdateFrom = (
+	form: SeasonForm,
+	counts: Record<CountField, number | null>,
+	timezone: string
+): Partial<Omit<Season, 'id'>> => ({
+	name: form.name.trim(),
+	status: form.status,
+	venue: venueFrom(form),
+	slot: {
+		weekday: form.weekday,
+		time: form.time,
+		durationMinutes: counts.durationMinutes!,
+		timezone,
+	},
+	startDate: form.startDate,
+	endDate: form.endDate,
+	minPlayers: counts.minPlayers!,
+	responseDeadlineHours: counts.responseDeadlineHours!,
+	reminderHours: parseReminderHours(form.reminderHours),
+	balance: {
+		matchMinutes: counts.matchMinutes!,
+		randomness: Number(form.randomness) / 100,
+		repeatPenalty: Number(form.repeatPenalty) / 100,
+		repeatLookback: counts.repeatLookback!,
+	},
+	fees: {
+		total: counts.seasonCost!,
+		perGame: counts.perGameFee!,
+		...(form.swish.trim() ? { swish: form.swish.trim() } : {}),
+	},
+});

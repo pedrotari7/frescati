@@ -60,6 +60,7 @@ import type { RatingInput } from '../../shared/rating';
 import { getPositions, getStandings } from '../../shared/standings';
 import { selectPlayedMatches } from '../../shared/tournament';
 import { counted } from '../../shared/format';
+import { median, percentile } from '../../shared/stats';
 import { runScript, UsageError } from './lib/script';
 import type { ScriptContext } from './lib/script';
 
@@ -108,23 +109,6 @@ interface GameRow {
 }
 
 const points = (elo: number) => elo / ELO_PER_POINT;
-
-const median = (values: number[]): number => {
-	if (values.length === 0) return 0;
-
-	const sorted = [...values].sort((a, b) => a - b);
-	const middle = Math.floor(sorted.length / 2);
-
-	return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
-};
-
-const percentile = (values: number[], fraction: number): number => {
-	if (values.length === 0) return 0;
-
-	const sorted = [...values].sort((a, b) => a - b);
-
-	return sorted[Math.min(sorted.length - 1, Math.floor(fraction * sorted.length))];
-};
 
 const pad = (text: string, width: number) => text.padEnd(width);
 const num = (value: number, width: number) => value.toFixed(1).padStart(width);
