@@ -4,7 +4,7 @@ Every check this repo had before reads one file at a time. Fallow reads the impo
 
 The first run reported 24 findings in 0.15 seconds. It was wrong about four of them, all cases where the thing is reached by something other than an import, and those four are written down in the config with their reasons. The other twenty were real and are gone, and deleting them surfaced four more that had been hiding behind them.
 
-It also measures duplication and complexity, and both gate. The repo does not pass that gate yet; "What fails" below has the numbers.
+It also measures duplication and complexity, and both gate. The repo passes that gate with nothing suppressed; "Where the repo stands" below has the numbers and what it took.
 
 ## What runs it
 
@@ -60,19 +60,22 @@ Reported and never gating: large functions, styling drift, and the whole of `fal
 
 Complexity is worth calling out, because it does not follow the severity settings the other rules do. A function over a threshold is **always** an error, whatever `rules` says, so the two ceilings above are the only part of health that can block a commit.
 
-### The gate is red, on purpose
+### Where the repo stands
 
-Arming it and passing it are two different days. Where the repo stands:
+Arming it and passing it were two different days.
 
-|             |                                                           |
-| ----------- | --------------------------------------------------------- |
-| dead code   | 0 findings, and holding                                   |
-| duplication | 1.20% across 22 clone groups, against a threshold of 0.01 |
-| complexity  | 26 functions over cyclomatic 20 or cognitive 15           |
+|              |                                                |
+| ------------ | ---------------------------------------------- |
+| dead code    | 0 findings, and holding                        |
+| duplication  | 0 clone groups, against a threshold of 0.01    |
+| complexity   | 0 functions over cyclomatic 20 or cognitive 15 |
+| suppressions | 0 markers in the whole repo                    |
 
-Duplication started at 3.99% across 37 groups. What is left of it is the tail: six groups are five to nine lines of incidental similarity and six have both halves inside one file. The complexity half has barely moved and is the bigger one, concentrated in page components, `TournamentPage` at 560 lines and cyclomatic 48, `SeasonAdminPage` at 455 with fourteen hooks, `PlayerPage` at 317. Those are restructurings of screens people use daily, and `pnpm test:e2e` is the only thing that proves one still works.
+Duplication started at 3.99% across 37 groups and came down as a ratchet, 2.45 then 1.85, 1.45, 1.25. What went last was the tail: groups of five to nine lines of incidental similarity, groups with both halves inside one file, and finally a `median` written once in `backend/scripts/rateReplayReport.ts` and again in `scripts/bench-test.mjs`. The report's copy moved to `shared/stats.ts`, around one sort helper instead of sorting the same array twice. The harness keeps a copy it cannot import, being a bare `.mjs` run by node with nothing in front of it, and its comment says so.
 
-There are four complexity suppressions, each with its reason, and every one of them marks a refactor rather than a decision. `pnpm fallow suppressions` lists them.
+Complexity was the bigger half and lived almost entirely in page components. `TournamentPage` at 560 lines and cyclomatic 48, `SeasonAdminPage` at 455 with fourteen hooks, `PlayerPage` at 317 and cognitive 49, `HeadToHeadPage` behind it. Each is several components now, split along the headings the screen already had, with its state moved to the piece that owns it. Those were restructurings of screens people use daily, and `pnpm test:e2e` is the only thing that proves one still works, which is why each of them shipped on its own.
+
+`pnpm fallow suppressions` now lists nothing. The four complexity markers that stood in for that work went with it, and so did the duplication one. `require-suppression-reason` and `stale-suppressions` are both errors, so the next marker has to carry a reason and cannot outlive the finding it silences.
 
 ## CRAP is off, deliberately
 

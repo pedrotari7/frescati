@@ -12,7 +12,9 @@ Whole repo, not the diff. `fallow audit` is the changed-file command and is what
 
 What fails: an export nothing imports, a file nothing reaches, a dependency nothing needs, an import cycle, an unresolved import, a function over cyclomatic 20 or cognitive 15, and any duplication at all, against a threshold of 0.01. Large functions and styling drift are reported and do not fail. CRAP is off; `docs/fallow.md` says why.
 
-**The gate does not pass yet.** Dead code is at zero and holding, duplication is 1.20% against 0.01, and 26 functions are over a complexity ceiling. Expect to be blocked, and expect the block to be about something you did not write. That is the trade the whole-repo scope makes, and the backlog is the work. When it blocks, the finding is the answer: delete the dead thing, or, if it is live and fallow cannot see the edge, say so in the config or in a `// fallow-ignore-next-line <rule>` comment with a reason. Reach for the suppression second, and never for a finding you have not checked.
+**The gate passes, with nothing suppressed.** Dead code is at zero and holding, duplication is at zero, no function is over either complexity ceiling, and `pnpm fallow suppressions` finds no markers in the repo at all.
+
+That is a state to hold rather than a box ticked. The scope is the whole repo, so the next dead export or clone group blocks the commit that introduces it, and it can just as easily block a commit of yours over something you did not write. When it blocks, the finding is the answer: delete the dead thing, or, if it is live and fallow cannot see the edge, say so in the config or in a `// fallow-ignore-next-line <rule>` comment with a reason. Reach for the suppression second, and never for a finding you have not checked. The five markers that used to be here each named a piece of work, and all five went by doing it rather than by moving a threshold.
 
 ## Running it
 
