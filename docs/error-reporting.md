@@ -1,6 +1,6 @@
 # Error reporting
 
-Part of Frescati's CLAUDE.md context. See the root `CLAUDE.md` for the app overview.
+Part of Frescati's AGENTS.md context. See the root `AGENTS.md` for the app overview.
 
 - Both halves report to **one Sentry project**, a failed write and the trigger that should have followed it belong in the same inbox. Unconfigured it is inert, like the email transport: a blank DSN sends nothing and changes no behaviour.
 - **Nothing is reported from a local run.** The frontend reports only from a build Vercel made (`NEXT_PUBLIC_VERCEL_ENV`, which `next dev` does not set), an emulator-only check used to read as this rule but let `dev:live` through, and `next dev`'s HMR throws from the webpack runtime on every hot update, so the inbox filled with `localhost:3000`. Set `NEXT_PUBLIC_VERCEL_ENV` for one run to report on purpose. The backend checks `FIRESTORE_EMULATOR_HOST`, which is wider than `FUNCTIONS_EMULATOR` on purpose because `pnpm test:backend` imports the handlers straight into jest and would otherwise report its own deliberately-provoked failures.

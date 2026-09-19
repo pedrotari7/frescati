@@ -1,6 +1,6 @@
 # Finances
 
-Part of Frescati's CLAUDE.md context. See the root `CLAUDE.md` for the app overview, `docs/members-vs-extras.md` for what a role means and `docs/no-show.md` for the `absent` flag this reads.
+Part of Frescati's AGENTS.md context. See the root `AGENTS.md` for the app overview, `docs/members-vs-extras.md` for what a role means and `docs/no-show.md` for the `absent` flag this reads.
 
 - **A season costs money, and two collections carry the whole answer.** `seasons/{id}/dues/{dueId}` is one document per charge, `seasons/{id}/expenses/{expenseId}` is one per thing the group bought, and `/s/[seasonId]/finances` behind the Club tab reads both. Two kinds of charge and nothing else: a member owes their share of the season's bill, an extra owes a fee for each game they actually played.
 - **The fees live on the season document, beside `balance`,** because they are settings an admin types on the same form and an allowlisted map is the pattern that document already uses. `total` is the season's invoice, `perGame` is what an extra pays, `swish` is the number that collects. `feesFor` fills in `DEFAULT_FEES`, so a season created before any of this existed reads as free rather than as broken.

@@ -1,6 +1,6 @@
 # Reporting a no-show
 
-Part of Frescati's CLAUDE.md context. See the root `CLAUDE.md` for the app overview, `docs/teams.md` for `setPlayerTeam`, the way to actually rebalance a squad that is a man down, and `docs/answering-for-somebody.md` for what an admin can do to a roster before kick-off, which this takes over from.
+Part of Frescati's AGENTS.md context. See the root `AGENTS.md` for the app overview, `docs/teams.md` for `setPlayerTeam`, the way to actually rebalance a squad that is a man down, and `docs/answering-for-somebody.md` for what an admin can do to a roster before kick-off, which this takes over from.
 
 - **`absent` on a response says they said In and didn't turn up.** A mark _beside_ the answer rather than a change to it, and that is the whole design: `status` still says `in`, because that is what they said, and this says the pitch disagreed. Rewriting them to `out` would file a no-show under the same heading as somebody who had the courtesy to say so, which is precisely the distinction anybody asking wants. `isAbsent` in `shared/game.ts` is the pair read together, so a mark left on somebody who later changed their answer can never make an `out` read as a no-show.
 - **Only from kick-off**, which `canReportAbsence` decides. Before then "they haven't turned up" describes everybody including the eight people parking, and an admin handed the button on a Sunday would be reporting a prediction. It stays available past the final whistle, because this is remembered rather than recorded on the spot.

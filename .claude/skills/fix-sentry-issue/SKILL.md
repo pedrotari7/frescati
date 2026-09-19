@@ -67,7 +67,7 @@ If the evidence is ambiguous (e.g. only one event, no clear repro), say so rathe
 
 ## Step 5 — Propose or implement the fix
 
-Follow existing conventions (see root `CLAUDE.md`): pure logic changes belong in `shared/` with
+Follow existing conventions (see root `AGENTS.md`): pure logic changes belong in `shared/` with
 tests; a swallowed error that should be visible goes through `reportError`/`captureError` rather
 than a bare `catch`; don't compute function-owned fields on the client. Run the narrowest test
 suite for what you touched (`pnpm test:backend` after `backend/src` changes, `pnpm test:rules`

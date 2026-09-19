@@ -1,6 +1,6 @@
 # Members vs extras
 
-Part of Frescati's CLAUDE.md context. See the root `CLAUDE.md` for the app overview.
+Part of Frescati's AGENTS.md context. See the root `AGENTS.md` for the app overview.
 
 - A **member** is on `season.memberUids`. Members have no cap and always rank first.
 - An **extra** is any other signed-in user. Extras can respond to any game but always sort below members and carry a `confirmed` flag (auto-set in signup order by the trigger, overridable by a season admin).

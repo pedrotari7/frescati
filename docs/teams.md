@@ -1,6 +1,6 @@
 # Teams
 
-Part of Frescati's CLAUDE.md context. See the root `CLAUDE.md` for the app overview; see `docs/ratings.md` and `docs/scoring-and-motm.md` for what happens to a lineup once the whistle goes.
+Part of Frescati's AGENTS.md context. See the root `AGENTS.md` for the app overview; see `docs/ratings.md` and `docs/scoring-and-motm.md` for what happens to a lineup once the whistle goes.
 
 Games of 8+ split into 2, 3 or 4 teams (`shared/tournament.ts`) and play a generated round robin. Squads differ by at most one player; the on-pitch side size is the smaller of the two squads meeting, with the larger rotating a sub through.
 

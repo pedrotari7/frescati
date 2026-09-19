@@ -1,6 +1,6 @@
 # StyleX
 
-Part of Frescati's CLAUDE.md context. See the root `CLAUDE.md` for the app overview.
+Part of Frescati's AGENTS.md context. See the root `AGENTS.md` for the app overview.
 
 The frontend was Tailwind v4 and is now StyleX 0.19. This file is the evaluation that came with the port: what moved, what it cost, what it caught, and whether it was worth it.
 

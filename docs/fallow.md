@@ -112,9 +112,9 @@ There is one deliberate entry point, `frontend/public/sw.js`. Nothing imports th
 
 ## Agents
 
-`AGENTS.md` carries the short version of this page and is imported into `CLAUDE.md`, so an agent reading either one gets both. `fallow agent install` also wrote `.claude/skills/fallow`, a pointer to the copy in `node_modules`, so the skill never drifts from the pinned version, and registered `fallow-mcp` in `.mcp.json` alongside Sentry.
+`AGENTS.md` is the project's whole brief, the short version of this page included, and `CLAUDE.md` is nothing but an import of it, so an agent reading either one gets all of it. `fallow agent install` also wrote `.claude/skills/fallow`, a pointer to the copy in `node_modules`, so the skill never drifts from the pinned version, and registered `fallow-mcp` in `.mcp.json` alongside Sentry.
 
-Re-running `fallow agent install --harness claude` is idempotent and reports every step as unchanged. Two things about this repo do not survive it: the PATH entry in `.claude/settings.json`, and the rewritten `AGENTS.md`. The second is safe, since fallow refuses to overwrite a file it did not author, but check the first.
+Re-running `fallow agent install --harness claude` is idempotent and reports every step as unchanged. Two things about this repo do not survive it: the PATH entry in `.claude/settings.json`, and the rewritten `AGENTS.md`, which now carries the whole project brief rather than only the fallow half of it. The second is safe, since fallow refuses to overwrite a file it did not author, but check the first.
 
 Scope it to `--harness claude`. Without that flag it detects Codex and Cursor from the home directory and writes `.codex/config.toml` and `.cursor/mcp.json` into a repo that uses neither.
 

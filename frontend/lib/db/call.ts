@@ -11,7 +11,7 @@ import { getFunctionsClient } from '../firebaseClient';
  *
  * Everything privileged arrives this way rather than through an API layer,
  * because there isn't one and doesn't want to be, see the architecture note in
- * CLAUDE.md. What lands here is the short list of things security rules cannot
+ * AGENTS.md. What lands here is the short list of things security rules cannot
  * express: a custom claim, a rating the client is frozen out of, a collection
  * closed to every reader, an FCM send.
  *
