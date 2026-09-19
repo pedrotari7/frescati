@@ -121,12 +121,11 @@ const clearCaches = runner => {
 /**
  * The middle of a set of samples, averaging the two middles on an even count.
  *
- * The same three lines as `median` in `backend/scripts/rateReplayReport.ts`,
- * and the two cannot share them. This harness is a bare `.mjs` deliberately:
- * its whole job is to time builds and test runs, so it has no build step of its
- * own, and anything it imported from `shared/` would give it one. The backend
- * script goes the other way, through ts-node, and cannot import an ESM `.mjs`
- * back.
+ * Says the same thing as `median` in `shared/stats.ts` and cannot call it. This
+ * harness is a bare `.mjs` deliberately: its whole job is to time builds and
+ * test runs, and `node scripts/bench-test.mjs` with nothing in front of it is
+ * the property that makes a number from it reproducible a year later. Importing
+ * TypeScript would put a runner there.
  *
  * `bench-build.mjs` has a third function of this name that looks like these two
  * and is not one: it drops nulls and takes the lower middle rather than
@@ -134,7 +133,6 @@ const clearCaches = runner => {
  * zero. Merging all three would change what one of them says.
  */
 const median = numbers => {
-	// fallow-ignore-next-line code-duplication -- two runtimes with no module between them, see above.
 	const sorted = [...numbers].sort((a, b) => a - b);
 	const middle = Math.floor(sorted.length / 2);
 

@@ -350,3 +350,33 @@ export const useUser = (uid: string | null) => {
 
 	return { user: data, loading, error };
 };
+
+/**
+ * What both profile screens open with.
+ *
+ * A profile and the head-to-head behind one of its rows read the same three
+ * things: the squad, to find whose screen this is and to name anybody else on
+ * it; the seasons, only ever as a map from id, for the timezone a game's date
+ * is written in; and one player's rating ledger, which is where everything
+ * below the name is worked out from.
+ *
+ * Shared because the two prologues were identical to the line, and two screens
+ * about the same career drifting apart on how they read it is the one thing
+ * neither of them can afford.
+ */
+export const usePlayerScreen = (uid: string) => {
+	const { users, usersByUid, loading: usersLoading } = useUsersByUid();
+	const { seasons } = useSeasons();
+	const { entries, loading: ledgerLoading } = usePlayerLedger(uid);
+
+	const seasonsById = useMemo(() => new Map(seasons.map(season => [season.id, season])), [seasons]);
+
+	return {
+		users,
+		usersByUid,
+		player: users.find(candidate => candidate.uid === uid) ?? null,
+		entries,
+		seasonsById,
+		loading: usersLoading || ledgerLoading,
+	};
+};

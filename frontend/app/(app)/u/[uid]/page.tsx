@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { ChevronRightIcon, TrophyIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import { FORM_LENGTH, getRatingLadder } from '@shared/leaderboard';
+import type { LadderRow } from '@shared/leaderboard';
 import { getPlayerChemistry, getPlayerLinks, getPlayerRecord, getRatingTrend } from '@shared/player';
-import type { PlayerGame, PlayerLink } from '@shared/player';
-import type { AppUser } from '@shared/types';
+import type { PlayerChemistry, PlayerGame, PlayerLink, PlayerRecord } from '@shared/player';
+import type { AppUser, RatingLedgerEntry, Season } from '@shared/types';
 import { hasPlayed, isProvisional, toDisplayRating } from '@shared/rating';
 import { counted, formatGameDate, placeLabel } from '@shared/format';
-import { usePlayerLedger, useSeasons, useUsersByUid } from '../../../../hooks/useData';
+import { usePlayerScreen } from '../../../../hooks/useData';
 import { displayNameOf, nameByUid } from '../../../../lib/people';
 import { useAuth } from '../../../../lib/auth';
 import { useSeasonScope } from '../../../../components/SeasonScope';
@@ -183,25 +184,226 @@ const INITIAL_LINKS = 6;
  */
 const MIN_LINK_GAMES = 4;
 
-// fallow-ignore-next-line complexity -- cyclomatic 35 and cognitive 49 against ceilings of 20 and 15, and the highest of either in the app. It is one screen assembling a whole career: record, chemistry, ladder rank, ledger and dues, each with its own empty and loading branch. Real work, not a suppression that should stand: this and HeadToHeadPage are the two refactor targets `fallow health --targets` names first. Extracting Stat took a little out of it and nowhere near enough.
-const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
-	const { uid } = use(params);
-	const { user } = useAuth();
-	const { seasonId } = useSeasonScope();
-	const { users, usersByUid: usersById, loading: usersLoading } = useUsersByUid();
-	const { seasons } = useSeasons();
-	const { entries, loading: ledgerLoading } = usePlayerLedger(uid);
-	const [showAll, setShowAll] = useState(false);
-	const [showAllLinks, setShowAllLinks] = useState(false);
+/**
+ * Where this player stands on the all-time ladder, as a sentence.
+ *
+ * The ladder is counted as well as searched because `placeLabel` has to be told
+ * whether the place is shared: two players on the same rating are both second,
+ * and "2nd" on its own would be a quiet lie about a tie.
+ */
+const ladderNote = (ladder: LadderRow[], uid: string): string => {
+	const rank = ladder.find(row => row.uid === uid);
 
-	const player = users.find(candidate => candidate.uid === uid) ?? null;
-	const record = useMemo(() => getPlayerRecord(entries, uid), [entries, uid]);
-	const seasonsById = useMemo(() => new Map(seasons.map(season => [season.id, season])), [seasons]);
+	if (!rank) return 'Not on the ladder yet';
+
+	const shared = ladder.filter(row => row.position === rank.position).length > 1;
+
+	return `${placeLabel(rank.position, shared)} of ${ladder.length} on the all-time ladder`;
+};
+
+/**
+ * Why there is nothing to show, which is not the same sentence for everybody.
+ *
+ * Somebody an admin has given a starting rating has a number on the card above
+ * and no games behind it, and leaving that unexplained reads as a bug.
+ */
+const noGamesNote = (player: AppUser): string =>
+	player.rating
+		? 'An admin has set a starting rating, but nothing counts until a confirmed game.'
+		: `${player.displayName} hasn't played a confirmed game, so there is nothing to work a record out from.`;
+
+/**
+ * The name, the rating, and the two or three things worth a pill beside them.
+ *
+ * Drawn whether or not there is a career under it: somebody with no games still
+ * has a name, a face, and possibly a starting rating an admin has set.
+ */
+const IdentityCard = ({
+	player,
+	users,
+	uid,
+	isYou,
+	motm,
+}: {
+	player: AppUser;
+	users: AppUser[];
+	uid: string;
+	isYou: boolean;
+	motm: number;
+}) => {
+	// The all-time ladder, purely to say where this player stands on it. Built
+	// from the same `useUsers` subscription the name came from, so the rank costs
+	// nothing extra to know.
+	const ladder = useMemo(() => getRatingLadder(users), [users]);
+
+	const rating = player.rating;
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.profile)}>
+			<Avatar displayName={player.displayName} photoURL={player.photoURL} size='lg' />
+
+			<div {...stylex.props(styles.identity)}>
+				<p {...stylex.props(styles.name, utils.truncate)}>{player.displayName}</p>
+				<p {...stylex.props(styles.rank, utils.truncate)}>{ladderNote(ladder, uid)}</p>
+
+				<div {...stylex.props(styles.pills)}>
+					{isYou && <StatusPill tone='brand'>You</StatusPill>}
+					{/* Only when there is one to show. A "0" here would put the
+					    absence of an award on every profile in the group. */}
+					{motm > 0 && (
+						<StatusPill tone='pending'>
+							<TrophyIcon {...stylex.props(styles.pillIcon)} aria-hidden='true' />
+							{motm} man of the match
+						</StatusPill>
+					)}
+					{rating && !hasPlayed(rating) && <StatusPill tone='pending'>Estimate</StatusPill>}
+					{isProvisional(rating) && hasPlayed(rating) && <StatusPill tone='pending'>Settling</StatusPill>}
+				</div>
+			</div>
+
+			<div {...stylex.props(styles.ratingBox)}>
+				<p {...stylex.props(styles.elo)}>{rating ? toDisplayRating(rating.elo) : '—'}</p>
+				<p {...stylex.props(styles.caption)}>Rating</p>
+			</div>
+		</section>
+	);
+};
+
+/** Played, won, the best run of wins, and the high-water mark of the rating. */
+const CareerStats = ({ record, rating }: { record: PlayerRecord; rating: AppUser['rating'] }) => (
+	<div {...stylex.props(styles.stats)}>
+		<Stat label='Played' value={String(record.appearances)} />
+		<Stat
+			label='Won'
+			value={String(record.wins)}
+			hint={`${Math.round((record.wins / record.appearances) * 100)}% of games`}
+		/>
+		<Stat label='Best run' value={String(record.bestRun)} hint={record.bestRun === 1 ? 'win' : 'wins in a row'} />
+		<Stat
+			label='Peak'
+			value={String(toDisplayRating(record.peak!))}
+			hint={rating && toDisplayRating(record.peak!) === toDisplayRating(rating.elo) ? 'right now' : undefined}
+		/>
+	</div>
+);
+
+/**
+ * The rating line, and what it is reading.
+ *
+ * Nothing at all below two points. One game is a dot, and a chart of it says
+ * nothing the figure above it has not said already.
+ */
+const RatingOverTime = ({ trend, appearances }: { trend: number[]; appearances: number }) => {
+	if (trend.length < 2) return null;
+
+	const first = trend[0];
+	const last = trend[trend.length - 1];
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<div {...stylex.props(styles.cardHead)}>
+				<h2 {...stylex.props(styles.cardTitle)}>Rating over time</h2>
+				<span {...stylex.props(styles.small)}>
+					{first} → {last}
+				</span>
+			</div>
+
+			<RatingChart values={trend} label={`Rating across ${appearances} games, from ${first} to ${last}`} />
+
+			<p {...stylex.props(styles.chartNote)}>
+				A rating moves on how your team did against how it was expected to, so a win over a stronger field is
+				worth more than one over a weaker, and a comfortable win more than a squeak.
+			</p>
+		</section>
+	);
+};
+
+/** The last few games, oldest on the left, the way a form guide reads. */
+const FormGuide = ({ record, seasonsById }: { record: PlayerRecord; seasonsById: Map<string, Season> }) => {
+	const form = record.games.slice(-FORM_LENGTH);
+
+	return (
+		<section {...stylex.props(surfaces.glass, styles.card)}>
+			<div {...stylex.props(styles.cardHead, styles.headTight)}>
+				<h2 {...stylex.props(styles.cardTitle)}>Form</h2>
+				{record.currentRun > 1 && <StatusPill tone='brand'>{record.currentRun} in a row</StatusPill>}
+			</div>
+
+			<ol {...stylex.props(styles.form)}>
+				{form.map(game => (
+					<li
+						key={game.gameId}
+						{...stylex.props(styles.formCell, game.won ? styles.formWon : styles.formLost)}
+						title={formatGameDate(game.kickoff, seasonsById.get(game.seasonId)?.slot.timezone ?? 'UTC')}
+					>
+						{placeLabel(game.position)}
+					</li>
+				))}
+			</ol>
+
+			<p {...stylex.props(styles.formNote)}>
+				Where their team finished in the last {counted(form.length, 'game')}, oldest first.
+			</p>
+		</section>
+	);
+};
+
+/**
+ * The two partnerships worth naming, where there are any.
+ *
+ * `MIN_LINK_GAMES` is why either can be missing: the list below this shows
+ * everybody, because a single game is a fact, but a line that names a name out
+ * loud needs enough behind it to still be true next month.
+ */
+const Chemistry = ({ chemistry, usersById }: { chemistry: PlayerChemistry; usersById: Map<string, AppUser> }) => {
+	const { bestWith, nemesis } = chemistry;
+
+	if (!bestWith && !nemesis) return null;
+
+	return (
+		<div {...stylex.props(styles.chemistry)}>
+			{bestWith && (
+				<p {...stylex.props(styles.small)}>
+					Wins most alongside{' '}
+					<span {...stylex.props(styles.strong)}>{nameByUid(usersById, bestWith.uid)}</span> ,{' '}
+					{bestWith.wonTogether} of {bestWith.together} together.
+				</p>
+			)}
+			{nemesis && (
+				<p {...stylex.props(styles.small)}>
+					Comes off worst against{' '}
+					<span {...stylex.props(styles.strong)}>{nameByUid(usersById, nemesis.uid)}</span> , {nemesis.beat}–
+					{nemesis.drewWith}–{nemesis.lostTo} in {nemesis.against} games.
+				</p>
+			)}
+		</div>
+	);
+};
+
+/**
+ * Everybody they have ever shared a game with, and how each of those has gone.
+ *
+ * Nothing at all where there is nobody, which is a real state: a career made
+ * entirely of games rated before the app recorded who was on which team has a
+ * record and no links.
+ */
+const PlayedWith = ({
+	uid,
+	entries,
+	usersById,
+	appearances,
+}: {
+	uid: string;
+	entries: RatingLedgerEntry[];
+	usersById: Map<string, AppUser>;
+	appearances: number;
+}) => {
+	const [showAll, setShowAll] = useState(false);
 
 	// Everybody they have ever shared a game with, and the two of those worth
-	// saying out loud. Off the same entries as the record above, but only the
-	// ones carrying a team map, since a shared finishing place cannot say which
-	// side of it two players were on.
+	// saying out loud. Off the same entries as the record, but only the ones
+	// carrying a team map, since a shared finishing place cannot say which side
+	// of it two players were on.
 	const links = useMemo(() => getPlayerLinks(entries, uid), [entries, uid]);
 	const chemistry = useMemo(() => getPlayerChemistry(links, MIN_LINK_GAMES), [links]);
 
@@ -210,11 +412,105 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 	// career should say so instead of looking complete.
 	const linkedGames = useMemo(() => entries.filter(entry => entry.teams?.[uid] !== undefined).length, [entries, uid]);
 
-	// The all-time ladder, purely to say where this player stands on it. Built
-	// from the same `useUsers` subscription the name came from, so the rank costs
-	// nothing extra to know.
-	const ladder = useMemo(() => getRatingLadder(users), [users]);
-	const rank = ladder.find(row => row.uid === uid);
+	if (links.length === 0) return null;
+
+	const visible = showAll ? links : links.slice(0, INITIAL_LINKS);
+
+	return (
+		<section>
+			<SectionHeading sx={styles.heading}>Played with ({links.length})</SectionHeading>
+
+			<Chemistry chemistry={chemistry} usersById={usersById} />
+
+			<ul {...stylex.props(surfaces.glass, styles.list)}>
+				{/* Two numbers need saying which is which, and the caption strip
+				    is already how this page labels a run of rows. */}
+				<li {...stylex.props(styles.item, styles.caption, styles.captionRow, styles.captionCols)}>
+					<span {...stylex.props(styles.colPlayer)}>Player</span>
+					<span {...stylex.props(styles.colNum)}>With</span>
+					<span {...stylex.props(styles.colNum)}>Vs</span>
+				</li>
+
+				{visible.map(link => (
+					<LinkRow key={link.uid} uid={uid} link={link} profile={usersById.get(link.uid) ?? null} />
+				))}
+			</ul>
+
+			<p {...stylex.props(styles.note)}>
+				Games their team won out of games on the same team, then games they finished above out of games on
+				opposite teams. A level finish counts for neither.
+				{linkedGames < appearances &&
+					` Worked out from ${linkedGames} of ${appearances} games. The rest were rated before the app recorded who was on which team.`}
+			</p>
+
+			{links.length > INITIAL_LINKS && (
+				<Button variant='secondary' fullWidth sx={styles.more} onClick={() => setShowAll(!showAll)}>
+					{showAll ? 'Show fewer' : `Show all ${links.length}`}
+				</Button>
+			)}
+		</section>
+	);
+};
+
+/**
+ * Every game in the career, newest first.
+ *
+ * Reversed here rather than in `getPlayerRecord`, which builds oldest first
+ * because that is the order the rating was built in. A list is read from the
+ * top, and the game somebody wants is almost always the last one played.
+ */
+const EveryGame = ({ games, seasonsById }: { games: PlayerGame[]; seasonsById: Map<string, Season> }) => {
+	const [showAll, setShowAll] = useState(false);
+
+	const listed = [...games].reverse();
+	const visible = showAll ? listed : listed.slice(0, INITIAL_GAMES);
+
+	return (
+		<section>
+			<SectionHeading sx={styles.heading}>Every game ({games.length})</SectionHeading>
+
+			<ul {...stylex.props(surfaces.glass, styles.list)}>
+				{visible.map((game, index) => (
+					<GameRow
+						key={game.gameId}
+						game={game}
+						seasonName={
+							game.seasonId === visible[index - 1]?.seasonId
+								? undefined
+								: (seasonsById.get(game.seasonId)?.name ?? 'A deleted season')
+						}
+						timezone={seasonsById.get(game.seasonId)?.slot.timezone ?? 'UTC'}
+					/>
+				))}
+			</ul>
+
+			{/* Two roundings sitting next to each other, which is a contradiction
+			    the group will spot before we do. */}
+			<p {...stylex.props(styles.note)}>
+				Every change rounds to a whole point on its own, so a run of them will not always add up to the rating
+				on the right. That column comes straight off the stored rating and is what the next game starts from.
+			</p>
+
+			{/* A toggle rather than a one-way door. This used to set its state
+			    true and then hide itself, so a regular with three seasons behind
+			    them turned this page into a couple of hundred rows with no way
+			    back short of reloading it. */}
+			{listed.length > INITIAL_GAMES && (
+				<Button variant='secondary' fullWidth sx={styles.more} onClick={() => setShowAll(!showAll)}>
+					{showAll ? 'Show fewer' : `Show all ${listed.length} games`}
+				</Button>
+			)}
+		</section>
+	);
+};
+
+const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
+	const { uid } = use(params);
+	const { user } = useAuth();
+	const { seasonId } = useSeasonScope();
+	const { users, usersByUid: usersById, player, entries, seasonsById, loading } = usePlayerScreen(uid);
+
+	const record = useMemo(() => getPlayerRecord(entries, uid), [entries, uid]);
 
 	// Everywhere out of a season keeps the tabs of the season you came from, the
 	// same trade /me makes: the bar you tapped shouldn't move out from under you.
@@ -228,7 +524,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 		backHref: seasonId ? `/s/${seasonId}` : '/seasons',
 	};
 
-	if (usersLoading || ledgerLoading) {
+	if (loading) {
 		return (
 			<PageShell title='Player' {...shell}>
 				<Skeleton />
@@ -244,257 +540,27 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 		);
 	}
 
-	const isYou = uid === user?.uid;
-	const rating = player.rating;
 	const trend = getRatingTrend(record.games).map(toDisplayRating);
-	const form = record.games.slice(-FORM_LENGTH);
-
-	// Newest first here, unlike the record itself: a list is read from the top,
-	// and the game somebody wants is almost always the last one played.
-	const listed = [...record.games].reverse();
-	const visible = showAll ? listed : listed.slice(0, INITIAL_GAMES);
 
 	return (
 		<PageShell title={player.displayName} {...shell}>
 			<div {...stylex.props(styles.page)}>
-				<section {...stylex.props(surfaces.glass, styles.profile)}>
-					<Avatar displayName={player.displayName} photoURL={player.photoURL} size='lg' />
-
-					<div {...stylex.props(styles.identity)}>
-						<p {...stylex.props(styles.name, utils.truncate)}>{player.displayName}</p>
-						<p {...stylex.props(styles.rank, utils.truncate)}>
-							{rank
-								? `${placeLabel(rank.position, ladder.filter(row => row.position === rank.position).length > 1)} of ${ladder.length} on the all-time ladder`
-								: 'Not on the ladder yet'}
-						</p>
-
-						<div {...stylex.props(styles.pills)}>
-							{isYou && <StatusPill tone='brand'>You</StatusPill>}
-							{/* Only when there is one to show. A "0" here would put the
-							    absence of an award on every profile in the group. */}
-							{record.motm > 0 && (
-								<StatusPill tone='pending'>
-									<TrophyIcon {...stylex.props(styles.pillIcon)} aria-hidden='true' />
-									{record.motm} man of the match
-								</StatusPill>
-							)}
-							{rating && !hasPlayed(rating) && <StatusPill tone='pending'>Estimate</StatusPill>}
-							{isProvisional(rating) && hasPlayed(rating) && (
-								<StatusPill tone='pending'>Settling</StatusPill>
-							)}
-						</div>
-					</div>
-
-					<div {...stylex.props(styles.ratingBox)}>
-						<p {...stylex.props(styles.elo)}>{rating ? toDisplayRating(rating.elo) : '—'}</p>
-						<p {...stylex.props(styles.caption)}>Rating</p>
-					</div>
-				</section>
+				<IdentityCard player={player} users={users} uid={uid} isYou={uid === user?.uid} motm={record.motm} />
 
 				{record.appearances === 0 ? (
-					<EmptyState
-						icon={<TrophyIcon />}
-						title='No games yet'
-						message={
-							rating
-								? 'An admin has set a starting rating, but nothing counts until a confirmed game.'
-								: `${player.displayName} hasn't played a confirmed game, so there is nothing to work a record out from.`
-						}
-					/>
+					<EmptyState icon={<TrophyIcon />} title='No games yet' message={noGamesNote(player)} />
 				) : (
 					<>
-						<div {...stylex.props(styles.stats)}>
-							<Stat label='Played' value={String(record.appearances)} />
-							<Stat
-								label='Won'
-								value={String(record.wins)}
-								hint={`${Math.round((record.wins / record.appearances) * 100)}% of games`}
-							/>
-							<Stat
-								label='Best run'
-								value={String(record.bestRun)}
-								hint={record.bestRun === 1 ? 'win' : 'wins in a row'}
-							/>
-							<Stat
-								label='Peak'
-								value={String(toDisplayRating(record.peak!))}
-								hint={
-									rating && toDisplayRating(record.peak!) === toDisplayRating(rating.elo)
-										? 'right now'
-										: undefined
-								}
-							/>
-						</div>
-
-						{trend.length > 1 && (
-							<section {...stylex.props(surfaces.glass, styles.card)}>
-								<div {...stylex.props(styles.cardHead)}>
-									<h2 {...stylex.props(styles.cardTitle)}>Rating over time</h2>
-									<span {...stylex.props(styles.small)}>
-										{trend[0]} → {trend[trend.length - 1]}
-									</span>
-								</div>
-
-								<RatingChart
-									values={trend}
-									label={`Rating across ${record.appearances} games, from ${trend[0]} to ${trend[trend.length - 1]}`}
-								/>
-
-								<p {...stylex.props(styles.chartNote)}>
-									A rating moves on how your team did against how it was expected to, so a win over a
-									stronger field is worth more than one over a weaker, and a comfortable win more than
-									a squeak.
-								</p>
-							</section>
-						)}
-
-						<section {...stylex.props(surfaces.glass, styles.card)}>
-							<div {...stylex.props(styles.cardHead, styles.headTight)}>
-								<h2 {...stylex.props(styles.cardTitle)}>Form</h2>
-								{record.currentRun > 1 && (
-									<StatusPill tone='brand'>{record.currentRun} in a row</StatusPill>
-								)}
-							</div>
-
-							{/* Oldest on the left, the way a form guide reads. */}
-							<ol {...stylex.props(styles.form)}>
-								{form.map(game => (
-									<li
-										key={game.gameId}
-										{...stylex.props(styles.formCell, game.won ? styles.formWon : styles.formLost)}
-										title={formatGameDate(
-											game.kickoff,
-											seasonsById.get(game.seasonId)?.slot.timezone ?? 'UTC'
-										)}
-									>
-										{placeLabel(game.position)}
-									</li>
-								))}
-							</ol>
-
-							<p {...stylex.props(styles.formNote)}>
-								Where their team finished in the last {counted(form.length, 'game')}, oldest first.
-							</p>
-						</section>
-
-						{links.length > 0 && (
-							<section>
-								<SectionHeading sx={styles.heading}>Played with ({links.length})</SectionHeading>
-
-								{(chemistry.bestWith || chemistry.nemesis) && (
-									<div {...stylex.props(styles.chemistry)}>
-										{chemistry.bestWith && (
-											<p {...stylex.props(styles.small)}>
-												Wins most alongside{' '}
-												<span {...stylex.props(styles.strong)}>
-													{nameByUid(usersById, chemistry.bestWith.uid)}
-												</span>{' '}
-												, {chemistry.bestWith.wonTogether} of {chemistry.bestWith.together}{' '}
-												together.
-											</p>
-										)}
-										{chemistry.nemesis && (
-											<p {...stylex.props(styles.small)}>
-												Comes off worst against{' '}
-												<span {...stylex.props(styles.strong)}>
-													{nameByUid(usersById, chemistry.nemesis.uid)}
-												</span>{' '}
-												, {chemistry.nemesis.beat}–{chemistry.nemesis.drewWith}–
-												{chemistry.nemesis.lostTo} in {chemistry.nemesis.against} games.
-											</p>
-										)}
-									</div>
-								)}
-
-								<ul {...stylex.props(surfaces.glass, styles.list)}>
-									{/* Two numbers need saying which is which, and the
-									    caption strip is already how this page labels a
-									    run of rows. */}
-									<li
-										{...stylex.props(
-											styles.item,
-											styles.caption,
-											styles.captionRow,
-											styles.captionCols
-										)}
-									>
-										<span {...stylex.props(styles.colPlayer)}>Player</span>
-										<span {...stylex.props(styles.colNum)}>With</span>
-										<span {...stylex.props(styles.colNum)}>Vs</span>
-									</li>
-
-									{(showAllLinks ? links : links.slice(0, INITIAL_LINKS)).map(link => (
-										<LinkRow
-											key={link.uid}
-											uid={uid}
-											link={link}
-											profile={usersById.get(link.uid) ?? null}
-										/>
-									))}
-								</ul>
-
-								<p {...stylex.props(styles.note)}>
-									Games their team won out of games on the same team, then games they finished above
-									out of games on opposite teams. A level finish counts for neither.
-									{linkedGames < record.appearances &&
-										` Worked out from ${linkedGames} of ${record.appearances} games. The rest were rated before the app recorded who was on which team.`}
-								</p>
-
-								{links.length > INITIAL_LINKS && (
-									<Button
-										variant='secondary'
-										fullWidth
-										sx={styles.more}
-										onClick={() => setShowAllLinks(!showAllLinks)}
-									>
-										{showAllLinks ? 'Show fewer' : `Show all ${links.length}`}
-									</Button>
-								)}
-							</section>
-						)}
-
-						<section>
-							<SectionHeading sx={styles.heading}>Every game ({record.appearances})</SectionHeading>
-
-							<ul {...stylex.props(surfaces.glass, styles.list)}>
-								{visible.map((game, index) => (
-									<GameRow
-										key={game.gameId}
-										game={game}
-										seasonName={
-											game.seasonId === visible[index - 1]?.seasonId
-												? undefined
-												: (seasonsById.get(game.seasonId)?.name ?? 'A deleted season')
-										}
-										timezone={seasonsById.get(game.seasonId)?.slot.timezone ?? 'UTC'}
-									/>
-								))}
-							</ul>
-
-							{/* Two roundings sitting next to each other, which is a
-							    contradiction the group will spot before we do. */}
-							<p {...stylex.props(styles.note)}>
-								Every change rounds to a whole point on its own, so a run of them will not always add up
-								to the rating on the right. That column comes straight off the stored rating and is what
-								the next game starts from.
-							</p>
-
-							{/* A toggle rather than a one-way door. Both of these used
-							    to set their state true and then hide themselves, so a
-							    regular with three seasons behind them turned this page
-							    into a couple of hundred rows with no way back short of
-							    reloading it. */}
-							{listed.length > INITIAL_GAMES && (
-								<Button
-									variant='secondary'
-									fullWidth
-									sx={styles.more}
-									onClick={() => setShowAll(!showAll)}
-								>
-									{showAll ? 'Show fewer' : `Show all ${listed.length} games`}
-								</Button>
-							)}
-						</section>
+						<CareerStats record={record} rating={player.rating} />
+						<RatingOverTime trend={trend} appearances={record.appearances} />
+						<FormGuide record={record} seasonsById={seasonsById} />
+						<PlayedWith
+							uid={uid}
+							entries={entries}
+							usersById={usersById}
+							appearances={record.appearances}
+						/>
+						<EveryGame games={record.games} seasonsById={seasonsById} />
 					</>
 				)}
 			</div>

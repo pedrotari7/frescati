@@ -1,6 +1,14 @@
 import type { Season } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
-import { EMPTY_FORM, formFromSeason, readCounts, sameForm } from './seasonForm';
+import {
+	EMPTY_FORM,
+	formFromSeason,
+	readCounts,
+	sameForm,
+	seasonUpdateFrom,
+	venueFrom,
+	venueMoved,
+} from './seasonForm';
 
 const season = (overrides: Partial<Season> = {}): Season =>
 	({
@@ -149,5 +157,84 @@ describe('readCounts', () => {
 	it('names the first bad box rather than just saying no', () => {
 		expect(readCounts({ ...EMPTY_FORM, matchMinutes: 'ten' }).invalid).toBe('matchMinutes');
 		expect(readCounts({ ...EMPTY_FORM, repeatLookback: '2.5' }).invalid).toBe('repeatLookback');
+	});
+});
+
+describe('venueFrom', () => {
+	it('trims what was typed', () => {
+		expect(
+			venueFrom({ ...EMPTY_FORM, venueName: '  Frescati IP  ', venueAddress: ' Svante Arrhenius vag 4 ' })
+		).toEqual({
+			name: 'Frescati IP',
+			address: 'Svante Arrhenius vag 4',
+		});
+	});
+
+	// `address` is optional on a `Venue`, and a stored empty string is a field the
+	// game screens would print a blank line for.
+	it('leaves an empty address off rather than writing one', () => {
+		expect(venueFrom({ ...EMPTY_FORM, venueName: 'Frescati IP', venueAddress: '   ' })).toEqual({
+			name: 'Frescati IP',
+		});
+	});
+});
+
+describe('venueMoved', () => {
+	it('sees a new name and a new address', () => {
+		expect(venueMoved({ name: 'Kristineberg IP' }, season())).toBe(true);
+		expect(venueMoved({ name: 'Frescati IP', address: 'Somewhere else' }, season())).toBe(true);
+	});
+
+	it('is unmoved by the venue it already has', () => {
+		expect(venueMoved({ name: 'Frescati IP', address: 'Svante Arrhenius väg 4' }, season())).toBe(false);
+	});
+
+	// One of these is stored and the other is typed, and neither is an address.
+	it('reads a missing address and an empty one as the same answer', () => {
+		expect(venueMoved({ name: 'Frescati IP' }, season({ venue: { name: 'Frescati IP', address: '' } }))).toBe(
+			false
+		);
+	});
+});
+
+describe('seasonUpdateFrom', () => {
+	const update = (form = EMPTY_FORM) => seasonUpdateFrom(form, readCounts(form).counts, 'Europe/Stockholm');
+
+	it('turns the typed boxes back into numbers', () => {
+		const written = update({ ...EMPTY_FORM, durationMinutes: '120', minPlayers: '12', seasonCost: '31240' });
+
+		expect(written.slot?.durationMinutes).toBe(120);
+		expect(written.minPlayers).toBe(12);
+		expect(written.fees?.total).toBe(31240);
+	});
+
+	// Whole percentages on the screen, 0-1 in the document, the other half of the
+	// conversion `formFromSeason` does on the way in.
+	it('scales the sliders back down', () => {
+		const written = update({ ...EMPTY_FORM, randomness: 35, repeatPenalty: 60 });
+
+		expect(written.balance?.randomness).toBe(0.35);
+		expect(written.balance?.repeatPenalty).toBe(0.6);
+	});
+
+	it('carries the timezone it was handed, since no control on the screen sets one', () => {
+		expect(update().slot?.timezone).toBe('Europe/Stockholm');
+	});
+
+	it('reads the reminder windows out of the string somebody typed', () => {
+		expect(update({ ...EMPTY_FORM, reminderHours: '72, 24' }).reminderHours).toEqual([72, 24]);
+	});
+
+	// An empty string is a number the payment screen would try to build a QR code
+	// out of, so the field is left off instead.
+	it('leaves an empty Swish number off the fees', () => {
+		expect(update({ ...EMPTY_FORM, swish: '  ' }).fees).not.toHaveProperty('swish');
+		expect(update({ ...EMPTY_FORM, swish: ' 0701234567 ' }).fees?.swish).toBe('0701234567');
+	});
+
+	it('writes the venue the way the form has it', () => {
+		expect(update({ ...EMPTY_FORM, venueName: ' Frescati IP ', venueAddress: '' }).venue).toEqual({
+			name: 'Frescati IP',
+		});
 	});
 });

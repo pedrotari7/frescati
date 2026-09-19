@@ -7,8 +7,9 @@ import { getHeadToHead, getHeadToHeadRun } from '@shared/headToHead';
 import type { HeadToHeadGame } from '@shared/headToHead';
 import { toDisplayRating } from '@shared/rating';
 import { counted, formatGameDate, placeLabel } from '@shared/format';
-import type { AppUser } from '@shared/types';
-import { usePlayerLedger, useSeasons, useUsersByUid } from '../../../../../../hooks/useData';
+import type { PlayerLink } from '@shared/player';
+import type { AppUser, Season } from '@shared/types';
+import { usePlayerScreen } from '../../../../../../hooks/useData';
 import { displayNameOf } from '../../../../../../lib/people';
 import { useSeasonScope } from '../../../../../../components/SeasonScope';
 import { seasonNavItems } from '../../../../../../components/BottomNav';
@@ -213,21 +214,125 @@ const GameRow = ({ game, timezone, theirName }: { game: HeadToHeadGame; timezone
 	</li>
 );
 
-// fallow-ignore-next-line complexity -- cyclomatic 26 and cognitive 36 against ceilings of 20 and 15. Same shape as PlayerPage, which it is reached from, and the same answer: it needs splitting rather than silencing. Recorded here so `pnpm fallow suppressions` lists both together.
+/**
+ * Wins, draws, losses, in that order and from the first player's side, which is
+ * the order the whole screen is written in.
+ *
+ * Zeroes where there is no link, because the card above the fold is drawn
+ * either way: a pairing nobody can say anything about still gets two faces and
+ * a 0-0-0 between them rather than a gap.
+ */
+const Scoreline = ({ link }: { link: PlayerLink | null }) => (
+	<div {...stylex.props(styles.score)}>
+		<span {...stylex.props(styles.scoreLine)}>
+			<span {...stylex.props(styles.scoreNum)}>{link?.beat ?? 0}</span>
+			<span {...stylex.props(styles.scoreDash)}>-</span>
+			<span {...stylex.props(styles.scoreDrawn)}>{link?.drewWith ?? 0}</span>
+			<span {...stylex.props(styles.scoreDash)}>-</span>
+			<span {...stylex.props(styles.scoreNum)}>{link?.lostTo ?? 0}</span>
+		</span>
+		<span {...stylex.props(styles.caption)}>W D L</span>
+	</div>
+);
+
+/**
+ * Everything the two of them have to show for it: the four numbers, the run,
+ * and every game.
+ *
+ * A component rather than the long arm of a ternary inside the page. Almost all
+ * of this screen's branching is here, and none of it was nested any less for
+ * living in `HeadToHeadPage`, which is what put that function over the
+ * complexity ceiling. It also keeps `showAll` beside the button that sets it
+ * and the list it trims.
+ */
+const SharedGames = ({
+	link,
+	games,
+	playerName,
+	theirName,
+	seasonsById,
+}: {
+	link: PlayerLink;
+	games: HeadToHeadGame[];
+	playerName: string;
+	theirName: string;
+	seasonsById: Map<string, Season>;
+}) => {
+	const [showAll, setShowAll] = useState(false);
+
+	const run = useMemo(() => getHeadToHeadRun(games), [games]);
+	const listed = showAll ? games : games.slice(0, INITIAL_GAMES);
+
+	return (
+		<>
+			<div {...stylex.props(styles.stats)}>
+				<Stat
+					label='Met'
+					value={String(link.against)}
+					hint={link.against === 1 ? 'on opposite teams' : 'times on opposite teams'}
+				/>
+				<Stat
+					label='Together'
+					value={String(link.together)}
+					hint={link.together === 1 ? 'game on one team' : 'games on one team'}
+				/>
+				<Stat
+					label='Won together'
+					value={link.together === 0 ? '—' : `${link.wonTogether}/${link.together}`}
+					hint={link.together === 0 ? 'never on one team' : 'as teammates'}
+				/>
+				<Stat label='Shared' value={String(link.shared)} hint='games in total' />
+			</div>
+
+			<section>
+				<div {...stylex.props(styles.headingRow)}>
+					<SectionHeading>Every game ({games.length})</SectionHeading>
+
+					{/* Only while there is a run to name. A "0 in a row" on a
+					    pairing that trades wins every week is a pill saying
+					    nothing. */}
+					{run && run.count > 1 && (
+						<StatusPill tone={run.result === 'won' ? 'brand' : 'out'}>
+							{run.count} {run.result === 'won' ? 'wins' : 'losses'} in a row
+						</StatusPill>
+					)}
+				</div>
+
+				<ul {...stylex.props(surfaces.glass, styles.list)}>
+					{listed.map(game => (
+						<GameRow
+							key={game.gameId}
+							game={game}
+							theirName={theirName}
+							timezone={seasonsById.get(game.seasonId)?.slot.timezone ?? 'UTC'}
+						/>
+					))}
+				</ul>
+
+				<p {...stylex.props(styles.note)}>
+					Written from {playerName}&apos;s side throughout. On opposite teams a game is won by finishing above
+					the other; on the same team it is won by finishing top, so both of them win it or neither does. A
+					run counts meetings only, since a game on one team settles nothing either way.
+				</p>
+
+				{games.length > INITIAL_GAMES && (
+					<Button variant='secondary' fullWidth sx={styles.more} onClick={() => setShowAll(!showAll)}>
+						{showAll ? 'Show fewer' : `Show all ${counted(games.length, 'game')}`}
+					</Button>
+				)}
+			</section>
+		</>
+	);
+};
+
 const HeadToHeadPage = ({ params }: { params: Promise<{ uid: string; otherUid: string }> }) => {
 	const { uid, otherUid } = use(params);
 	const { seasonId } = useSeasonScope();
-	const { users, loading: usersLoading } = useUsersByUid();
-	const { seasons } = useSeasons();
-	const { entries, loading: ledgerLoading } = usePlayerLedger(uid);
-	const [showAll, setShowAll] = useState(false);
+	const { users, player, entries, seasonsById, loading } = usePlayerScreen(uid);
 
-	const player = users.find(candidate => candidate.uid === uid) ?? null;
 	const other = users.find(candidate => candidate.uid === otherUid) ?? null;
 
 	const { link, games } = useMemo(() => getHeadToHead(entries, uid, otherUid), [entries, uid, otherUid]);
-	const run = useMemo(() => getHeadToHeadRun(games), [games]);
-	const seasonsById = useMemo(() => new Map(seasons.map(season => [season.id, season])), [seasons]);
 
 	// A profile's parent, not the season's home page. This screen only ever
 	// hangs off the "Played with" list, so up and back agree for once, and the
@@ -238,7 +343,7 @@ const HeadToHeadPage = ({ params }: { params: Promise<{ uid: string; otherUid: s
 		backHref: `/u/${uid}`,
 	};
 
-	if (usersLoading || ledgerLoading) {
+	if (loading) {
 		return (
 			<PageShell title='Head to head' {...shell}>
 				<Skeleton />
@@ -254,102 +359,31 @@ const HeadToHeadPage = ({ params }: { params: Promise<{ uid: string; otherUid: s
 		);
 	}
 
+	const playerName = displayNameOf(player);
 	const theirName = displayNameOf(other);
-	const listed = showAll ? games : games.slice(0, INITIAL_GAMES);
 
 	return (
-		<PageShell title='Head to head' subtitle={`${displayNameOf(player)} and ${theirName}`} {...shell}>
+		<PageShell title='Head to head' subtitle={`${playerName} and ${theirName}`} {...shell}>
 			<div {...stylex.props(styles.page)}>
 				<section {...stylex.props(surfaces.glass, styles.versus)}>
 					<Side player={player} uid={uid} />
-
-					<div {...stylex.props(styles.score)}>
-						{/* Wins, draws, losses, in that order and from the first
-						    player's side, which is the order the whole screen is
-						    written in. */}
-						<span {...stylex.props(styles.scoreLine)}>
-							<span {...stylex.props(styles.scoreNum)}>{link?.beat ?? 0}</span>
-							<span {...stylex.props(styles.scoreDash)}>-</span>
-							<span {...stylex.props(styles.scoreDrawn)}>{link?.drewWith ?? 0}</span>
-							<span {...stylex.props(styles.scoreDash)}>-</span>
-							<span {...stylex.props(styles.scoreNum)}>{link?.lostTo ?? 0}</span>
-						</span>
-						<span {...stylex.props(styles.caption)}>W D L</span>
-					</div>
-
+					<Scoreline link={link} />
 					<Side player={other} uid={otherUid} />
 				</section>
 
 				{link === null ? (
 					<EmptyState
 						title='Never played together'
-						message={`${displayNameOf(player)} and ${theirName} have not been in a confirmed game with each other, or the games they shared were rated before the app recorded who was on which team.`}
+						message={`${playerName} and ${theirName} have not been in a confirmed game with each other, or the games they shared were rated before the app recorded who was on which team.`}
 					/>
 				) : (
-					<>
-						<div {...stylex.props(styles.stats)}>
-							<Stat
-								label='Met'
-								value={String(link.against)}
-								hint={link.against === 1 ? 'on opposite teams' : 'times on opposite teams'}
-							/>
-							<Stat
-								label='Together'
-								value={String(link.together)}
-								hint={link.together === 1 ? 'game on one team' : 'games on one team'}
-							/>
-							<Stat
-								label='Won together'
-								value={link.together === 0 ? '—' : `${link.wonTogether}/${link.together}`}
-								hint={link.together === 0 ? 'never on one team' : 'as teammates'}
-							/>
-							<Stat label='Shared' value={String(link.shared)} hint='games in total' />
-						</div>
-
-						<section>
-							<div {...stylex.props(styles.headingRow)}>
-								<SectionHeading>Every game ({games.length})</SectionHeading>
-
-								{/* Only while there is a run to name. A "0 in a
-								    row" on a pairing that trades wins every week
-								    is a pill saying nothing. */}
-								{run && run.count > 1 && (
-									<StatusPill tone={run.result === 'won' ? 'brand' : 'out'}>
-										{run.count} {run.result === 'won' ? 'wins' : 'losses'} in a row
-									</StatusPill>
-								)}
-							</div>
-
-							<ul {...stylex.props(surfaces.glass, styles.list)}>
-								{listed.map(game => (
-									<GameRow
-										key={game.gameId}
-										game={game}
-										theirName={theirName}
-										timezone={seasonsById.get(game.seasonId)?.slot.timezone ?? 'UTC'}
-									/>
-								))}
-							</ul>
-
-							<p {...stylex.props(styles.note)}>
-								Written from {displayNameOf(player)}&apos;s side throughout. On opposite teams a game is
-								won by finishing above the other; on the same team it is won by finishing top, so both
-								of them win it or neither does. A run counts meetings only, since a game on one team
-								settles nothing either way.
-							</p>
-
-							{games.length > INITIAL_GAMES && (
-								<Button
-									variant='secondary'
-									fullWidth
-									sx={styles.more}
-									onClick={() => setShowAll(!showAll)}
-								>
-									{showAll ? 'Show fewer' : `Show all ${counted(games.length, 'game')}`}
-								</Button>
-							)}
-						</section>
-					</>
+					<SharedGames
+						link={link}
+						games={games}
+						playerName={playerName}
+						theirName={theirName}
+						seasonsById={seasonsById}
+					/>
 				)}
 			</div>
 		</PageShell>
