@@ -1,6 +1,6 @@
 # Scoring and man of the match
 
-Part of Frescati's CLAUDE.md context. See the root `CLAUDE.md` for the app overview; see `docs/ratings.md` for the formula a confirmed result feeds and `docs/teams.md` for the lineup a scoreline is played against.
+Part of Frescati's AGENTS.md context. See the root `AGENTS.md` for the app overview; see `docs/ratings.md` for the formula a confirmed result feeds and `docs/teams.md` for the lineup a scoreline is played against.
 
 - **Scores** live at `matches/{order}` where the id is the fixture's place in the running order, so two people scoring the same match write the same document. **No match document means "not played"**, same third state as a response, and for the same reason.
 - Anyone holding a response on the game can write a score. Confirming the game (`resultFinalisedAt`) closes it to everyone but a season admin, whose correction triggers a **replay**: `replayRatingsFrom` rewinds the ledger latest-first and replays it in kickoff order. Adjusting only the corrected game would be wrong, because every game after it was rated against the ratings that game produced.

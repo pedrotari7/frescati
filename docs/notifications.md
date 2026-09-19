@@ -1,6 +1,6 @@
 # Notifications
 
-Part of Frescati's CLAUDE.md context. See the root `CLAUDE.md` for the app overview, and `docs/scoring-and-motm.md` for the `motm` / `motmResult` kinds this pulls in.
+Part of Frescati's AGENTS.md context. See the root `AGENTS.md` for the app overview, and `docs/scoring-and-motm.md` for the `motm` / `motmResult` kinds this pulls in.
 
 - A push reaches somebody only if all three line up: a **registered device**, the **preference** for that kind switched on, and, on iPhone only, the app **installed** to the home screen, which is the one Safari allows push from at all. `getPushReach` in `shared/notifications.ts` is that rule in one place; a missing preference means opted in, matching `resolveRecipients` on the backend.
 - **Two kinds have no profile switch, and `NOTIFICATION_PREF` maps both to `null` to say so.** `availability` is the first. Every other notification goes to a standing audience nobody signed up for: the season roster, everyone who answered, every app admin, so the profile is the only place to say no. This one goes only to whoever tapped the bell on one game, off by default, and unfollowing is the switch. A second one on `NotificationPrefs` would be a setting that means nothing until you have already opted in somewhere else, the same reason `relevantPrefs` hides `newPlayers` from everybody but an admin. `null` skips the **kind** check only: `emailFallback` still applies, because that picks a channel rather than a kind.

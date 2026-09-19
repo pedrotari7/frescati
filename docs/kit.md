@@ -1,6 +1,6 @@
 # Kit
 
-Part of Frescati's CLAUDE.md context. See the root `CLAUDE.md` for the app overview.
+Part of Frescati's AGENTS.md context. See the root `AGENTS.md` for the app overview.
 
 - A season keeps a **register** of what the group owns, `seasons/{id}/kit/{itemId}`, one document per ball or set of vests, at `/s/[seasonId]/kit` behind the Club tab. The only question it answers is _who has it_, which is why `holderUid` is **required**: an item nobody holds is the situation the register exists to prevent, and making it a state you could save would legitimise it. Kit in a cupboard is still somebody's to fetch.
 - **Whether a game has a ball is derived, never stored.** `getKitStatus` in `shared/kit.ts` reads the register against that game's responses, both of which the client already holds. There is no counter and no trigger behind one, `counts` needs a function because a client can't read everybody else's response to tally it, and this needs nothing of the sort. A field that could drift, plus a sweep to notice it had, is machinery bought for a question two arrays answer.
