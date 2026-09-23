@@ -1,5 +1,6 @@
 import { isAbsent, isConfirmed } from './game';
-import { formatGameDate } from './format';
+import { zonedCivilDate } from './datetime';
+import { counted, formatCivilDate, formatGameDate } from './format';
 import { DEFAULT_FEES } from './types';
 import type { Due, DueKind, Expense, Game, GameResponse, Season, SeasonFees } from './types';
 
@@ -45,6 +46,74 @@ export const feesFor = (season: Pick<Season, 'fees'>): SeasonFees => ({ ...DEFAU
  */
 export const entryShare = (total: number, memberCount: number): number =>
 	memberCount > 0 ? Math.ceil(total / memberCount) : 0;
+
+/** What somebody joining partway through owes, and how it was worked out. */
+export interface LateEntry {
+	/** Games in the season, cancelled ones left out. */
+	games: number;
+	/** How many of those fall on or after the day they start. */
+	remaining: number;
+	/** The full share, as the squad will stand once they have joined. */
+	share: number;
+	/** The share scaled to the games left, rounded up. */
+	amount: number;
+}
+
+/**
+ * The entry fee for somebody who joins a season that is already under way.
+ *
+ * A full member pays for every game in the season, so a late one pays the same
+ * share scaled by the games they will actually be around for. The share is
+ * worked out over the squad with them in it, which is the number the sweep
+ * would otherwise have charged them. Rounded up for the reason `entryShare`
+ * is: the fees are collected against a bill that has already been booked.
+ *
+ * A cancelled game is left out of both counts. Nobody played it, so it is not
+ * a game anybody paid a share of. A game counts as left if it falls on the
+ * start date or after it, in the season's own timezone, because an admin
+ * picking a Tuesday means that Tuesday's game.
+ */
+export const lateEntry = (
+	fees: Pick<SeasonFees, 'total'>,
+	memberCount: number,
+	games: Pick<Game, 'kickoff' | 'status'>[],
+	startDate: string,
+	timezone: string
+): LateEntry => {
+	const billable = games.filter(game => game.status !== 'cancelled');
+	const remaining = billable.filter(game => zonedCivilDate(game.kickoff, timezone) >= startDate).length;
+	const share = entryShare(fees.total, memberCount);
+
+	return {
+		games: billable.length,
+		remaining,
+		share,
+		amount: billable.length > 0 ? Math.ceil((share * remaining) / billable.length) : 0,
+	};
+};
+
+/**
+ * Whether the season has already had a game, which is when adding somebody
+ * asks for the day they start.
+ *
+ * Before the first kickoff a new member is simply a member, and the sweep
+ * charges them the same share as everybody else. `kickoff` is ISO 8601 UTC, so
+ * comparing the strings compares the instants.
+ */
+export const isUnderway = (games: Pick<Game, 'kickoff' | 'status'>[], now: Date = new Date()): boolean => {
+	const at = now.toISOString();
+
+	return games.some(game => game.status !== 'cancelled' && game.kickoff <= at);
+};
+
+/**
+ * What a late entry fee says it is for, on the charge itself.
+ *
+ * Stored as the charge's `note` so the book can say why this entry fee is
+ * smaller than everybody else's without anybody having to remember.
+ */
+export const lateEntryNote = (entry: Pick<LateEntry, 'games' | 'remaining'>, startDate: string): string =>
+	`Joined ${formatCivilDate(startDate)}, ${entry.remaining} of ${counted(entry.games, 'game')}`;
 
 /**
  * The document id a charge gets, derived from what it is a charge *for*.
