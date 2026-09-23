@@ -116,6 +116,13 @@ export const getZonedParts = (iso: string, timeZone: string): ZonedParts => {
 	};
 };
 
+/** The `YYYY-MM-DD` an instant falls on in `timeZone`. */
+export const zonedCivilDate = (iso: string, timeZone: string): string => {
+	const { year, month, day } = getZonedParts(iso, timeZone);
+
+	return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
 /** Parse a `YYYY-MM-DD` civil date into its parts. Throws on anything else. */
 export const parseCivilDate = (date: string): { year: number; month: number; day: number } => {
 	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);

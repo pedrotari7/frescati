@@ -6,6 +6,9 @@ import {
 	duesFor,
 	entryShare,
 	feesFor,
+	isUnderway,
+	lateEntry,
+	lateEntryNote,
 	missingDues,
 	owesForGame,
 	paymentReference,
@@ -13,7 +16,7 @@ import {
 	planGameDues,
 	summarise,
 } from './finances';
-import type { Due, Expense, GameResponse } from './types';
+import type { Due, Expense, Game, GameResponse } from './types';
 
 const response = (uid: string, over: Partial<GameResponse> = {}): GameResponse => ({
 	uid,
@@ -51,6 +54,77 @@ describe('feesFor', () => {
 
 	it('keeps what the season actually says', () => {
 		expect(feesFor({ fees: { total: 31240, perGame: 80 } })).toEqual({ total: 31240, perGame: 80 });
+	});
+});
+
+describe('lateEntry', () => {
+	// Tuesdays at 19:00 Stockholm, which is 17:00 UTC in September.
+	const tuesdays = ['2026-09-01', '2026-09-08', '2026-09-15', '2026-09-22', '2026-09-29'];
+	const games: Pick<Game, 'kickoff' | 'status'>[] = tuesdays.map(date => ({
+		kickoff: `${date}T17:00:00.000Z`,
+		status: 'scheduled',
+	}));
+
+	it('scales the share by the games left, the start date included', () => {
+		// 2000 across 4 is 500; 3 of 5 games left is 300.
+		expect(lateEntry({ total: 2000 }, 4, games, '2026-09-15', 'Europe/Stockholm')).toEqual({
+			games: 5,
+			remaining: 3,
+			share: 500,
+			amount: 300,
+		});
+	});
+
+	it('counts a game on the day it falls in the season timezone, not in UTC', () => {
+		// 23:30 UTC on the 14th is already the 15th in Stockholm.
+		const late = [{ kickoff: '2026-09-14T23:30:00.000Z', status: 'scheduled' as const }];
+
+		expect(lateEntry({ total: 100 }, 1, late, '2026-09-15', 'Europe/Stockholm').remaining).toBe(1);
+		expect(lateEntry({ total: 100 }, 1, late, '2026-09-15', 'UTC').remaining).toBe(0);
+	});
+
+	it('leaves cancelled games out of both counts', () => {
+		const withCancelled = [...games.slice(0, 4), { ...games[4], status: 'cancelled' as const }];
+
+		expect(lateEntry({ total: 2000 }, 4, withCancelled, '2026-09-15', 'Europe/Stockholm')).toMatchObject({
+			games: 4,
+			remaining: 2,
+			amount: 250,
+		});
+	});
+
+	it('rounds up, so the late shares never leave the bill short', () => {
+		// 1000 across 3 is 334; a third of that is 111.33.
+		expect(lateEntry({ total: 1000 }, 3, games.slice(0, 3), '2026-09-15', 'Europe/Stockholm').amount).toBe(112);
+	});
+
+	it('charges the whole share from the first game and nothing once the last has gone', () => {
+		expect(lateEntry({ total: 2000 }, 4, games, '2026-09-01', 'Europe/Stockholm').amount).toBe(500);
+		expect(lateEntry({ total: 2000 }, 4, games, '2026-09-30', 'Europe/Stockholm').amount).toBe(0);
+	});
+
+	it('charges nothing for a season with no games or no bill', () => {
+		expect(lateEntry({ total: 2000 }, 4, [], '2026-09-15', 'Europe/Stockholm').amount).toBe(0);
+		expect(lateEntry({ total: 0 }, 4, games, '2026-09-15', 'Europe/Stockholm').amount).toBe(0);
+	});
+});
+
+describe('isUnderway', () => {
+	const now = new Date('2026-09-10T12:00:00.000Z');
+
+	it('is true once a game has kicked off', () => {
+		expect(isUnderway([{ kickoff: '2026-09-08T17:00:00.000Z', status: 'played' }], now)).toBe(true);
+	});
+
+	it('is false before the first kickoff, and for a season whose only past game was called off', () => {
+		expect(isUnderway([{ kickoff: '2026-09-15T17:00:00.000Z', status: 'scheduled' }], now)).toBe(false);
+		expect(isUnderway([{ kickoff: '2026-09-08T17:00:00.000Z', status: 'cancelled' }], now)).toBe(false);
+	});
+});
+
+describe('lateEntryNote', () => {
+	it('says when they joined and how many games that covers', () => {
+		expect(lateEntryNote({ games: 20, remaining: 8 }, '2026-10-13')).toBe('Joined Tue 13 Oct, 8 of 20 games');
 	});
 });
 
