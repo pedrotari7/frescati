@@ -10,12 +10,45 @@ import Sheet from './Sheet';
 import Button from './Button';
 import DatePicker from './DatePicker';
 import { Field } from './Field';
-import { colors } from '../app/tokens.stylex';
+import { colors, tint } from '../app/tokens.stylex';
 
 const styles = stylex.create({
 	blurb: { color: colors.muted, marginTop: 4, fontSize: 14, lineHeight: '20px' },
 	field: { marginTop: 16 },
-	sum: { color: colors.ink, marginTop: 12, fontSize: 14, lineHeight: '20px' },
+	/*
+	 * The fee on a row of its own, figure on the right, so it never has to share
+	 * a line with anything. `formatSek` groups thousands with a space, and in a
+	 * button label that space is where the text broke, leaving "1" on one line
+	 * and "005 kr" on the next.
+	 */
+	fee: {
+		marginTop: 16,
+		display: 'flex',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		gap: 12,
+		borderRadius: 16,
+		paddingBlock: 12,
+		paddingInline: 16,
+		backgroundColor: tint.white5,
+	},
+	caption: {
+		color: colors.faint,
+		fontSize: 11,
+		fontWeight: 600,
+		letterSpacing: '0.05em',
+		textTransform: 'uppercase',
+	},
+	basis: { color: colors.muted, marginTop: 2, fontSize: 13, lineHeight: '18px' },
+	amount: {
+		color: colors.ink,
+		flexShrink: 0,
+		whiteSpace: 'nowrap',
+		fontSize: 24,
+		lineHeight: '32px',
+		fontWeight: 700,
+		fontVariantNumeric: 'tabular-nums',
+	},
 	actions: { marginTop: 16, display: 'flex', gap: 12 },
 });
 
@@ -71,15 +104,21 @@ const LateJoinSheet = ({
 				</Field>
 			</div>
 
-			<p {...stylex.props(styles.sum)}>
-				{entry.amount > 0
-					? `${entry.remaining} of ${entry.games} games left, so ${formatSek(entry.amount)} of the ${formatSek(entry.share)} share.`
-					: 'No games left from that day, so there is nothing to charge.'}
-			</p>
+			<div {...stylex.props(styles.fee)}>
+				<div>
+					<p {...stylex.props(styles.caption)}>Entry fee</p>
+					<p {...stylex.props(styles.basis)}>
+						{entry.amount > 0
+							? `${entry.remaining} of ${entry.games} games, full share ${formatSek(entry.share)}`
+							: 'No games left from that day'}
+					</p>
+				</div>
+				<p {...stylex.props(styles.amount)}>{formatSek(entry.amount)}</p>
+			</div>
 
 			<div {...stylex.props(styles.actions)}>
 				<Button variant='primary' fullWidth disabled={!startDate || saving} onClick={() => void add()}>
-					{entry.amount > 0 ? `Add and charge ${formatSek(entry.amount)}` : 'Add'}
+					Add to squad
 				</Button>
 				<Button variant='ghost' fullWidth onClick={onClose}>
 					Cancel

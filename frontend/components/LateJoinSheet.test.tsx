@@ -38,10 +38,11 @@ describe('LateJoinSheet', () => {
 		await draw('2026-09-15');
 
 		// 2000 across the four of them is 500, and 3 of 5 games are left.
-		expect(screen.getByText('3 of 5 games left, so 300 kr of the 500 kr share.')).toBeInTheDocument();
+		expect(screen.getByText('300 kr')).toBeInTheDocument();
+		expect(screen.getByText('3 of 5 games, full share 500 kr')).toBeInTheDocument();
 
 		await act(async () => {
-			fireEvent.click(screen.getByRole('button', { name: 'Add and charge 300 kr' }));
+			fireEvent.click(screen.getByRole('button', { name: 'Add to squad' }));
 		});
 
 		expect(onAdd).toHaveBeenCalledWith(user, { amount: 300, note: 'Joined Tue 15 Sep, 3 of 5 games' });
@@ -51,7 +52,8 @@ describe('LateJoinSheet', () => {
 	it('charges nothing once the last game has gone', async () => {
 		await draw('2026-09-30');
 
-		expect(screen.getByText('No games left from that day, so there is nothing to charge.')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled();
+		expect(screen.getByText('0 kr')).toBeInTheDocument();
+		expect(screen.getByText('No games left from that day')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Add to squad' })).toBeEnabled();
 	});
 });
