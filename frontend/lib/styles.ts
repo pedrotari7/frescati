@@ -173,11 +173,13 @@ export const surfaces = stylex.create({
 	},
 
 	/**
-	 * Same frosted look, opaque enough to read over. The bottom nav sits on top
-	 * of scrolling page content rather than a fixed backdrop, so the 4.5% tint
-	 * above let card text bleed through and collide with the tab labels.
+	 * Same frosted look, opaque enough to read over. For anything that floats
+	 * over content rather than a fixed backdrop. The bottom nav sits on top of
+	 * scrolling page content, and the 4.5% tint above let card text bleed through
+	 * and collide with the tab labels. The date picker's calendar opens over a
+	 * sheet, and a green button under it blurred into a wash that hid the dates.
 	 */
-	glassNav: {
+	glassOpaque: {
 		backgroundColor: 'rgb(15 17 21 / 0.92)',
 		backdropFilter: 'blur(16px)',
 		WebkitBackdropFilter: 'blur(16px)',

@@ -215,7 +215,7 @@ const DatePicker = ({
 
 					<PopoverPanel
 						anchor={{ to: 'bottom start', gap: 8 }}
-						{...stylex.props(surfaces.glass, elevation.lift, animations.rise, styles.panel)}
+						{...stylex.props(surfaces.glassOpaque, elevation.lift, animations.rise, styles.panel)}
 					>
 						<DayPicker
 							mode='single'

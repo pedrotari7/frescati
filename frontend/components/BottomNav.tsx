@@ -160,7 +160,7 @@ const BottomNav = ({ items, sectionHrefs }: { items: NavItem[]; sectionHrefs?: s
 
 	return (
 		<nav {...stylex.props(utils.pbSafe, styles.bar)}>
-			<div {...stylex.props(surfaces.glassNav, elevation.glass, styles.frame)}>
+			<div {...stylex.props(surfaces.glassOpaque, elevation.glass, styles.frame)}>
 				{indicator && (
 					<div
 						{...stylex.props(styles.indicator, pill.at(indicator.left, indicator.width))}

@@ -15,7 +15,7 @@ const styles = stylex.create({
 	/*
 	 * Opaque enough to read over, because this floats above whatever the page
 	 * was showing rather than over a fixed backdrop. Same reason the bottom nav
-	 * uses `surfaces.glassNav` instead of the 4.5% tint.
+	 * uses `surfaces.glassOpaque` instead of the 4.5% tint.
 	 */
 	card: {
 		backgroundColor: tint.raised95,
