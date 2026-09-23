@@ -127,4 +127,35 @@ describe('sentry', () => {
 			vi.doUnmock('@sentry/nextjs');
 		});
 	});
+
+	/**
+	 * Which file a throw has to come from before it is dropped.
+	 *
+	 * The filter reads the innermost frame's filename, so a pattern a shade too
+	 * wide stops reporting the app itself, and one pinned to today's reCAPTCHA
+	 * build stops working the next time Google ships. Neither breaks a test. The
+	 * inbox just goes quiet.
+	 */
+	describe('denyUrls', () => {
+		const matches = async (filename: string) => {
+			const { denyUrls } = (await loadSentryModule()).sentryOptions;
+
+			return denyUrls.some(pattern => pattern.test(filename));
+		};
+
+		it('drops a throw from inside reCAPTCHA, whichever build and locale', async () => {
+			const seen = 'app:///recaptcha/releases/zqB-6Xpbd3lCIvi7Tr2D0pob/recaptcha__en.js';
+			// The release id changes on every reCAPTCHA deploy, and the locale
+			// suffix is whatever the browser asked for.
+			const next = 'app:///recaptcha/releases/Oq3B9nT2kLmXv8rY4cWs1dEf/recaptcha__pt_br.js';
+
+			await expect(matches(seen)).resolves.toBe(true);
+			await expect(matches(next)).resolves.toBe(true);
+		});
+
+		it('leaves this app alone', async () => {
+			await expect(matches('app:///frontend/lib/db/responses.ts')).resolves.toBe(false);
+			await expect(matches('app:///_next/static/chunks/main-app-6f3c1d2e.js')).resolves.toBe(false);
+		});
+	});
 });

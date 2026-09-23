@@ -97,6 +97,31 @@ const ignoreErrors = [
 	/ethereum/,
 ];
 
+/**
+ * Files whose throws are not ours to fix.
+ *
+ * `ignoreErrors` above matches the message. This matches the file the throw
+ * came from, the innermost frame carrying a filename, and the split is not
+ * tidiness. The message here is `Cannot read properties of undefined (reading
+ * 'HR')`. `HR` is a minified property on a minified object, so there is no
+ * word in it to match on, and whatever Google renames it to next week would
+ * not match anyway.
+ *
+ * App Check loads reCAPTCHA Enterprise, see `firebaseClient.ts`, and that
+ * script runs its own work off `setTimeout`, which the SDK wraps to attach a
+ * stack trace. A throw inside Google's bundle therefore arrives stamped with
+ * our release and our environment and carries no frame of this app at all.
+ * One signed-out page view sent 90 of them in 8 seconds.
+ *
+ * Dropping them hides nothing. A reCAPTCHA that cannot run means no App Check
+ * token, and the read waiting on it comes back `permission-denied`, which this
+ * file deliberately does not filter.
+ *
+ * The release id in the path changes on every reCAPTCHA deploy and the locale
+ * suffix follows the browser, so the pattern matches neither.
+ */
+const denyUrls = [/recaptcha__\w+\.js/];
+
 export const sentryOptions = {
 	dsn: DSN,
 	environment: ENVIRONMENT,
@@ -122,6 +147,7 @@ export const sentryOptions = {
 	 * maps and leave every stack trace minified.
 	 */
 	ignoreErrors,
+	denyUrls,
 	/**
 	 * A DSN left blank already disables the SDK; this additionally keeps every
 	 * local run quiet for anybody who *has* configured one, `dev:seeded` and
