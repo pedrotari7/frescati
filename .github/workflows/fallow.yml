@@ -77,18 +77,18 @@ jobs:
 
       # On a push to main there is no pull request and so no base to compare
       # against, which `audit` treats as an error rather than a reason to scan
-      # nothing. This is the whole-repo picture instead: it never fails the job,
-      # it exists to keep code scanning current and to record the health score
-      # so the next run can say which way it moved. A finding here has already
-      # been merged, so failing on it would only paint main red without telling
-      # anybody something the PR run had not already said.
+      # nothing. This is the whole-repo picture instead, which also keeps code
+      # scanning current and records the health score so the next run can say
+      # which way it moved. It fails on a finding because both deploy jobs in
+      # ci.yml wait on it: a commit that got past the PR gate, pushed straight
+      # to main or merged over a red check, stops here rather than shipping.
       - name: Scan main
         if: ${{ github.event_name == 'push' }}
         uses: fallow-rs/fallow@v3.26.0
         with:
           max-crap: 10000
           format: sarif
-          fail-on-issues: false
+          fail-on-issues: true
           score: true
           trend: true
           save-snapshot: true

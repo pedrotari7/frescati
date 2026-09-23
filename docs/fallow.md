@@ -13,7 +13,7 @@ It also measures duplication and complexity, and both gate. The repo passes that
 | `.husky/pre-commit` | `scripts/bin/fallow --quiet` | every commit |
 | `scripts/bin/fallow-gate` | the same run, as a `PreToolUse` hook | Claude Code, before `git commit` or `git push` |
 | `.github/workflows/fallow.yml` | `fallow-rs/fallow@v3.26.0`, `auto-changed-since: false` | every pull request |
-| `.github/workflows/fallow.yml` | the same, never failing | every push to main |
+| `.github/workflows/fallow.yml` | the same, without the PR comment | every push to main |
 
 All four run the **whole repo**, not the files a change touches. `fallow audit` is the changed-file command and is what all three gates ran first; the bare combined run is the one with no scope. The difference is the point: a finding cannot wait out of the way in a file nobody has edited this week. On the CI side that is what `auto-changed-since: false` turns off, because the action scopes to the PR by default.
 
@@ -21,9 +21,7 @@ All four read `.fallowrc.jsonc`, so they agree on what a finding is. The three g
 
 The pull request job is also the only one that writes anything back. It posts a comment and uploads SARIF to code scanning, so a finding lands as an annotation on the diff line that caused it rather than in a log.
 
-The main job never fails. Everything it could find has already been merged, and the pull request job has already said it once. It is there to keep code scanning current and to record a health score so the next run can say which way it moved.
-
-Fallow is not in either deploy job's `needs`. The suites those wait on answer "does this work"; fallow answers "is this tidy", and a tidy finding is not a reason to hold a working commit back from the group. The comment above `deploy-backend` in `ci.yml` says the same thing at more length.
+The main job keeps code scanning current and records a health score so the next run can say which way it moved. It also fails on a finding, because both deploy jobs in `ci.yml` wait on it, and on `format` too. A finding there has already been merged, so the only commit it can stop is one that got past the pull request gate, pushed straight to main or merged over a red check. That commit does not ship until it is fixed.
 
 ## Running it by hand
 
