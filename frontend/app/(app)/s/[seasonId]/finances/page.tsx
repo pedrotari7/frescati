@@ -541,6 +541,7 @@ const SweepPanel = ({
  * that gets some of it back.
  */
 const ReceiptsSection = ({
+	seasonId,
 	receipts,
 	isAdmin,
 	onUpload,
@@ -548,6 +549,7 @@ const ReceiptsSection = ({
 	onCopyLink,
 	onDelete,
 }: {
+	seasonId: string;
 	receipts: Receipt[];
 	isAdmin: boolean;
 	onUpload: (file: File, name: string) => Promise<boolean>;
@@ -562,12 +564,13 @@ const ReceiptsSection = ({
 		</div>
 
 		<p {...stylex.props(styles.note)}>
-			What to hand your employer if you claim friskv&aring;rdsbidrag. Downloading takes your own copy. The link
-			beside it opens this receipt for anybody in this season and for nobody else, so it is safe to paste into the
-			group chat.
+			What to hand your employer if you claim friskv&aring;rdsbidrag. Tap one to look at it, or download your own
+			copy. The link beside it opens this receipt for anybody in this season and for nobody else, so it is safe to
+			paste into the group chat.
 		</p>
 
 		<ReceiptList
+			seasonId={seasonId}
 			receipts={receipts}
 			canEdit={isAdmin}
 			onUpload={onUpload}
@@ -678,6 +681,7 @@ const TheBook = ({
 	return (
 		<>
 			<ReceiptsSection
+				seasonId={terms.season.id}
 				receipts={ledgers.receipts}
 				isAdmin={viewer.isAdmin}
 				onUpload={hands.actions.uploadReceipt}
