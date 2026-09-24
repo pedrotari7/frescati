@@ -920,7 +920,7 @@ service cloud.firestore {
                     'status', 'createdAt', 'settledAt', 'settledBy'])
                  && request.resource.data.uid is string
                  && request.resource.data.uid.size() <= 128
-                 && request.resource.data.kind in ['entry', 'game']
+                 && request.resource.data.kind in ['entry', 'game', 'late']
                  && request.resource.data.amount is number
                  && request.resource.data.amount >= 0
                  && request.resource.data.amount <= 100000

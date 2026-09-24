@@ -109,7 +109,7 @@ const FinanceOverview = ({ summary, memberCount }: { summary: FinanceSummary; me
 						{formatSek(extras.balance)}
 					</p>
 					<p {...stylex.props(styles.note)}>
-						What the extras have paid in, less what it has bought. This is the ball money.
+						What the extras and late joiners have paid in, less what it has bought. This is the ball money.
 					</p>
 				</div>
 

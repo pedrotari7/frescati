@@ -152,6 +152,8 @@ describe('entryShare', () => {
 describe('dueId', () => {
 	it('is derived from what the charge is for, so raising it twice collides', () => {
 		expect(dueId('entry', 'anna')).toBe('entry_anna');
+		// The same place in the squad, so the sweep finds it and raises nothing more.
+		expect(dueId('late', 'anna')).toBe('entry_anna');
 		expect(dueId('game', 'anna', 'g-1')).toBe('game_g-1_anna');
 	});
 });
@@ -320,6 +322,24 @@ describe('summarise', () => {
 		expect(summary.extras.spent).toBe(450);
 	});
 
+	// The bill was split over the squad that started the season, so what a late
+	// joiner pays is on top of it and goes into the kit money.
+	it('puts a late entry fee in the extras pot, not towards the bill', () => {
+		const summary = summarise(
+			[
+				due('entry_anna', { kind: 'entry', amount: 400, ...paid }),
+				due('entry_erik', { kind: 'late', amount: 160, ...paid }),
+			],
+			[],
+			800
+		);
+
+		expect(summary.entry.collected).toBe(400);
+		expect(summary.entry.short).toBe(400);
+		expect(summary.extras.collected).toBe(160);
+		expect(summary.extras.balance).toBe(160);
+	});
+
 	// Every expense is against the extras. The entry fees pay the bill and
 	// nothing comes out of them, which is why there is no `spent` on that side to
 	// assert about at all.
@@ -412,6 +432,7 @@ describe('dueLabel', () => {
 
 	it('says what an entry fee is without looking at the calendar', () => {
 		expect(label(due('a', { kind: 'entry' }))).toBe('Entry fee');
+		expect(label(due('a', { kind: 'late', note: 'Joined Tue 13 Oct, 8 of 20 games' }))).toBe('Late entry fee');
 	});
 
 	it('leaves a hand-raised charge to its own note', () => {

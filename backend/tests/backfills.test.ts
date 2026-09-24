@@ -1,5 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
+import { lateEntryNote } from '../../shared/finances';
 import { main as backfillKickoffMillis } from '../scripts/backfillKickoffMillis';
+import { LATE_ENTRY_NOTE, main as backfillLateEntries } from '../scripts/backfillLateEntries';
 import { main as backfillLedgerSeed } from '../scripts/backfillLedgerSeed';
 import { main as backfillLedgerTeams } from '../scripts/backfillLedgerTeams';
 import { main as backfillMotmTurnout } from '../scripts/backfillMotmTurnout';
@@ -19,7 +21,7 @@ import {
 import type { Mock, MockInstance } from 'vitest';
 
 /**
- * The one-shot repairs, and the line all five of them walk.
+ * The one-shot repairs, and the line all six of them walk.
  *
  * Every one exists because a field was added after the data was, so each has to
  * reconstruct history from a second copy of it. That makes them the scripts most
@@ -399,5 +401,66 @@ describe('backfill-motm-turnout', () => {
 
 		expect(await readVoterUids()).toBeUndefined();
 		expect(output()).toContain('Dry run, nothing written.');
+	});
+});
+
+describe('backfill-late-entries', () => {
+	beforeEach(() => writeSeason(SEASON_ID));
+
+	const writeDue = (id: string, data: Record<string, unknown>) =>
+		getDb()
+			.doc(`seasons/${SEASON_ID}/dues/${id}`)
+			.set({ status: 'owing', createdAt: '2026-09-23T20:00:00.000Z', ...data });
+
+	const readDue = async (id: string) => (await getDb().doc(`seasons/${SEASON_ID}/dues/${id}`).get()).data();
+
+	const late = lateEntryNote({ games: 23, remaining: 17 }, '2026-09-23');
+
+	// The note is the only thing that tells a late fee from a full one, so the
+	// pattern has to keep matching whatever the sheet writes.
+	it('recognises every note the late join sheet writes', () => {
+		expect(LATE_ENTRY_NOTE.test(late)).toBe(true);
+		expect(LATE_ENTRY_NOTE.test(lateEntryNote({ games: 1, remaining: 1 }, '2026-10-01'))).toBe(true);
+	});
+
+	it('moves a late entry fee to the extras pot and leaves everything else about it alone', async () => {
+		await writeDue('entry_ermanno', {
+			uid: 'ermanno',
+			kind: 'entry',
+			amount: 1005,
+			note: late,
+			status: 'paid',
+			settledAt: '2026-09-23T21:00:00.000Z',
+			settledBy: 'anna',
+		});
+
+		await backfillLateEntries(context());
+
+		expect(await readDue('entry_ermanno')).toMatchObject({
+			kind: 'late',
+			amount: 1005,
+			note: late,
+			status: 'paid',
+			settledBy: 'anna',
+		});
+	});
+
+	it('leaves a full entry fee alone, with or without a note an admin typed', async () => {
+		await writeDue('entry_anna', { uid: 'anna', kind: 'entry', amount: 1359 });
+		await writeDue('entry_bosse', { uid: 'bosse', kind: 'entry', amount: 1359, note: 'Joined the WhatsApp late' });
+
+		await backfillLateEntries(context());
+
+		expect((await readDue('entry_anna'))?.kind).toBe('entry');
+		expect((await readDue('entry_bosse'))?.kind).toBe('entry');
+	});
+
+	it('writes nothing on a dry run', async () => {
+		await writeDue('entry_ermanno', { uid: 'ermanno', kind: 'entry', amount: 1005, note: late });
+
+		await backfillLateEntries(context({ dryRun: true }));
+
+		expect((await readDue('entry_ermanno'))?.kind).toBe('entry');
+		expect(output()).toContain('Would move 1 charge(s)');
 	});
 });

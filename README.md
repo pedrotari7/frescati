@@ -180,6 +180,7 @@ Each takes `--dry-run` (except `recount-games`, and `rate-replay-report`, which 
 |  |  |
 | --- | --- |
 | `pnpm --filter backend backfill-kickoff-millis` | fill in `kickoffMillis` on games written before it existed, **the response deadline is not enforced on a game without it** |
+| `pnpm --filter backend backfill-late-entries` | move late entry fees raised before they had a kind of their own into the extras' pot, where a late joiner's money goes |
 | `pnpm --filter backend strip-user-emails` | remove `email` from profiles written before it moved out of Firestore |
 | `pnpm --filter backend recount-games` | recompute `counts` and repair drifted `role`s across every game |
 | `pnpm --filter backend prune-orphans` | delete responses and games left behind by deletions that predate the cascade triggers |
