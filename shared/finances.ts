@@ -122,9 +122,13 @@ export const lateEntryNote = (entry: Pick<LateEntry, 'games' | 'remaining'>, sta
  * second tap on "raise the missing charges", or two admins tapping at once,
  * quietly charging everybody again; a derived one collides with the charge that
  * already exists, and the write is refused rather than duplicated.
+ *
+ * A late entry fee shares `entry_{uid}` with a full one. It is the same charge,
+ * a place in the squad, priced for fewer games, and sharing the id is what stops
+ * the sweep raising the full share on top of it.
  */
 export const dueId = (kind: DueKind, uid: string, gameId?: string): string =>
-	kind === 'entry' ? `entry_${uid}` : `game_${gameId}_${uid}`;
+	kind === 'game' ? `game_${gameId}_${uid}` : `entry_${uid}`;
 
 /**
  * Whether this response is one an extra should be charged for.
@@ -280,6 +284,10 @@ const emptyCollection = (): Collection => ({ charged: 0, collected: 0, outstandi
  * that is always zero on the entry side and a `target` that means nothing on the
  * extras side. The bill comes in as a number rather than off the season, so this
  * stays a fold over what it is given.
+ *
+ * Only a full entry fee counts towards the bill. A late one goes to the extras'
+ * side, because the bill was already split over the squad that started the
+ * season and that money is on top of it.
  */
 export const summarise = (dues: Due[], expenses: Expense[], target = 0): FinanceSummary => {
 	const entry: EntryFund = { ...emptyCollection(), target, short: target };
@@ -333,6 +341,7 @@ export const duesFor = (uid: string, dues: Due[]): PlayerDues => {
  */
 export const dueLabel = (due: Due, games: Pick<Game, 'id' | 'kickoff'>[], timezone: string): string => {
 	if (due.kind === 'entry') return 'Entry fee';
+	if (due.kind === 'late') return 'Late entry fee';
 	if (!due.gameId) return 'Added by hand';
 
 	const game = games.find(candidate => candidate.id === due.gameId);

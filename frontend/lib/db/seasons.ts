@@ -54,7 +54,8 @@ export const addSeasonMember = (seasonId: string, uid: string) =>
  * One transaction, so a squad place and the charge for it land together or not
  * at all. The charge goes at the derived `entry_{uid}` id, the same one the
  * sweep would use, so the sweep finds it and leaves it alone rather than
- * raising the full share on top. Somebody who already has an entry fee, from an
+ * raising the full share on top. It is a `late` charge, which puts the money in
+ * the extras' pot rather than towards the bill. Somebody who already has an entry fee, from an
  * earlier spell in the squad, keeps the one they have. It may have been paid,
  * and the rules would refuse to overwrite it anyway. Resolves to whether a
  * charge was raised.
@@ -74,7 +75,7 @@ export const addLateSeasonMember = (
 
 		transaction.set(due, {
 			uid,
-			kind: 'entry',
+			kind: 'late',
 			amount: entry.amount,
 			note: entry.note,
 			status: 'owing',

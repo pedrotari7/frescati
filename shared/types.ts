@@ -341,8 +341,16 @@ export interface KitItem {
 	updatedAt: string;
 }
 
-/** A member's share of the season's cost, or an extra's fee for one game. */
-export type DueKind = 'entry' | 'game';
+/**
+ * A member's share of the season's cost, an extra's fee for one game, or what
+ * somebody who joined partway through pays for the games that were left.
+ *
+ * `late` is its own kind rather than an `entry` with a smaller amount, because
+ * it goes into the other pot. The bill was split over the squad that started
+ * the season, so a late joiner's money is on top of it and goes where the
+ * extras' does.
+ */
+export type DueKind = 'entry' | 'game' | 'late';
 
 export type DueStatus = 'owing' | 'paid' | 'waived';
 

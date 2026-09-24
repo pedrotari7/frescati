@@ -49,6 +49,7 @@ import { unwatchGame, watchGame } from '../frontend/lib/db/watchers';
 import { clearMotmVote, setMotmVote } from '../frontend/lib/db/motm';
 import { setMatchScore } from '../frontend/lib/db/tournament';
 import { addDue, addExpense, deleteDue, deleteExpense, raiseDues, setDueStatus } from '../frontend/lib/db/finances';
+import { addLateSeasonMember } from '../frontend/lib/db/seasons';
 
 /** Run the next client call as this person. */
 const as = (uid: string, claims?: Record<string, unknown>): void => {
@@ -440,6 +441,26 @@ describe('the books', () => {
 
 		expect(id).toEqual(expect.any(String));
 		await assertSucceeds(deleteExpense(SEASON, id));
+	});
+
+	// A late joiner's place in the squad and their charge land together, and the
+	// charge is `late`, a kind the rules have to allow.
+	it('lets a season admin add somebody partway through, with their late entry fee', async () => {
+		as(SEASON_ADMIN);
+
+		await expect(
+			addLateSeasonMember(SEASON, EXTRA, { amount: 160, note: 'Joined Tue 13 Oct, 8 of 20 games' })
+		).resolves.toBe(true);
+
+		const charge = await getDoc(doc(currentDb, 'seasons', SEASON, 'dues', `entry_${EXTRA}`));
+
+		expect(charge.data()).toMatchObject({ kind: 'late', amount: 160, status: 'owing' });
+	});
+
+	it('refuses a member adding somebody late', async () => {
+		as(MEMBER);
+
+		await assertFails(addLateSeasonMember(SEASON, EXTRA, { amount: 160, note: 'Joined Tue 13 Oct' }));
 	});
 
 	it('refuses a member spending the equipment money', async () => {
