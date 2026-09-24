@@ -2,7 +2,14 @@
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDownTrayIcon, DocumentTextIcon, LinkIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+import {
+	ArrowDownTrayIcon,
+	DocumentTextIcon,
+	EyeIcon,
+	EyeSlashIcon,
+	LinkIcon,
+	LockClosedIcon,
+} from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { Receipt } from '@shared/types';
 import { formatFileSize, receiptHref, receiptKindLabel } from '@shared/receipts';
@@ -13,14 +20,14 @@ import { useReceiptActions } from '../../../../../../../hooks/useReceiptActions'
 import { useWrite } from '../../../../../../../hooks/useWrite';
 import { useConfirm } from '../../../../../../../components/ConfirmDialog';
 import { displayNameOf } from '../../../../../../../lib/people';
-import { deleteReceipt } from '../../../../../../../lib/db/receipts';
+import { deleteReceipt, fetchReceipt } from '../../../../../../../lib/db/receipts';
 import SeasonShell from '../../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../../components/EmptyState';
 import LoadFailed from '../../../../../../../components/LoadFailed';
 import Button from '../../../../../../../components/Button';
 import { CONTROL } from '../../../../../../../components/Field';
-import { colors, fonts } from '../../../../../../tokens.stylex';
+import { bp, colors, fonts } from '../../../../../../tokens.stylex';
 import { surfaces } from '../../../../../../../lib/styles';
 
 const styles = stylex.create({
@@ -43,9 +50,89 @@ const styles = stylex.create({
 	   characters in it. */
 	link: { fontFamily: fonts.mono, fontSize: 12, lineHeight: '16px' },
 
+	actions: { display: 'flex', gap: 8 },
+	action: { flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+
+	/* White behind it, because a scanned receipt is black on transparent often
+	   enough, and on this background that is nothing at all. */
+	image: { display: 'block', width: '100%', height: 'auto', borderRadius: 12, backgroundColor: colors.ink },
+	pdf: {
+		display: 'block',
+		width: '100%',
+		height: { default: '70vh', [bp.lg]: '80vh' },
+		borderWidth: 0,
+		borderRadius: 12,
+		backgroundColor: colors.ink,
+	},
+
 	download: { width: 20, height: 20 },
 	copy: { width: 16, height: 16 },
 });
+
+/** The one receipt this screen is about, out of the season's list. */
+const useReceipt = (seasonId: string, receiptId: string, squad: boolean) => {
+	const { receipts, loading } = useReceipts(seasonId, squad);
+
+	return { receipt: receipts.find(candidate => candidate.id === receiptId), loading };
+};
+
+/**
+ * The address of this screen, which is the thing to copy. Read after mount
+ * rather than at render, because this component is still server-rendered once,
+ * where there is no `window` and no origin to read.
+ */
+const useShareUrl = (seasonId: string, receiptId: string) => {
+	const [url, setUrl] = useState('');
+
+	useEffect(() => {
+		setUrl(`${window.location.origin}${receiptHref(seasonId, receiptId)}`);
+	}, [seasonId, receiptId]);
+
+	return url;
+};
+
+/**
+ * The file drawn on the screen, fetched the same authorised way a download is.
+ *
+ * An object URL rather than a download URL, for the reason `fetchReceipt` gives:
+ * nothing here may mint a link that opens the file for whoever holds it. The
+ * blob is retyped from the document, so a PDF the bucket served as
+ * `application/octet-stream` still renders instead of downloading.
+ */
+const useReceiptPreview = (seasonId: string, receipt: Receipt | undefined) => {
+	const write = useWrite();
+	const [url, setUrl] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (!url) return;
+
+		return () => URL.revokeObjectURL(url);
+	}, [url]);
+
+	const show = async () => {
+		if (!receipt) return;
+
+		await write(async () => {
+			const blob = await fetchReceipt(seasonId, receipt.id);
+
+			setUrl(URL.createObjectURL(new Blob([blob], { type: receipt.contentType })));
+		}, `Couldn't open ${receipt.name}.`);
+	};
+
+	return { url, show, hide: () => setUrl(null) };
+};
+
+/**
+ * An image as an image and a PDF in the browser's own viewer. Chrome on Android
+ * has no inline PDF viewer and draws an empty frame, which Download still
+ * covers.
+ */
+const Preview = ({ receipt, url }: { receipt: Receipt; url: string }) =>
+	receipt.contentType === 'application/pdf' ? (
+		<iframe src={url} title={`Preview of ${receipt.name}`} {...stylex.props(styles.pdf)} />
+	) : (
+		<img src={url} alt={`Preview of ${receipt.name}`} {...stylex.props(styles.image)} />
+	);
 
 /**
  * Every reason this screen has no receipt to draw, drawn as the screen rather
@@ -119,10 +206,16 @@ const useRemoveReceipt = (seasonId: string, books: string) => {
 const ReceiptCard = ({
 	receipt,
 	uploader,
+	preview,
+	onPreview,
+	onHidePreview,
 	onDownload,
 }: {
 	receipt: Receipt;
 	uploader: string;
+	preview: string | null;
+	onPreview: () => Promise<void>;
+	onHidePreview: () => void;
 	onDownload: () => void;
 }) => (
 	<section {...stylex.props(surfaces.glass, styles.card)}>
@@ -137,10 +230,23 @@ const ReceiptCard = ({
 			</div>
 		</div>
 
-		<Button variant='primary' size='lg' fullWidth onClick={onDownload}>
-			<ArrowDownTrayIcon {...stylex.props(styles.download)} aria-hidden='true' />
-			Download
-		</Button>
+		<div {...stylex.props(styles.actions)}>
+			<Button variant='secondary' size='lg' sx={styles.action} onClick={preview ? onHidePreview : onPreview}>
+				{preview ? (
+					<EyeSlashIcon {...stylex.props(styles.download)} aria-hidden='true' />
+				) : (
+					<EyeIcon {...stylex.props(styles.download)} aria-hidden='true' />
+				)}
+				{preview ? 'Hide' : 'Preview'}
+			</Button>
+
+			<Button variant='primary' size='lg' sx={styles.action} onClick={onDownload}>
+				<ArrowDownTrayIcon {...stylex.props(styles.download)} aria-hidden='true' />
+				Download
+			</Button>
+		</div>
+
+		{preview && <Preview receipt={receipt} url={preview} />}
 
 		<p {...stylex.props(styles.blurb)}>
 			Hand this to your employer if you claim friskv&aring;rdsbidrag. It is what says the money went on playing
@@ -196,20 +302,13 @@ const ReceiptPage = ({ params }: { params: Promise<{ seasonId: string; receiptId
 	const { seasonId, season, loading, error, retry, isAdmin, isMember } = useSeasonContext();
 	const squad = isMember || isAdmin;
 
-	const { receipts, loading: receiptsLoading } = useReceipts(seasonId, squad);
+	const { receipt, loading: receiptsLoading } = useReceipt(seasonId, receiptId, squad);
 	const { usersByUid } = useUsersByUid();
 	const { download, copyLink } = useReceiptActions(seasonId);
 	const books = `/s/${seasonId}/finances`;
 	const remove = useRemoveReceipt(seasonId, books);
-
-	// The address of this screen, which is the thing to copy. Read after mount
-	// rather than at render, because this component is still server-rendered
-	// once, where there is no `window` and no origin to read.
-	const [url, setUrl] = useState('');
-
-	useEffect(() => {
-		setUrl(`${window.location.origin}${receiptHref(seasonId, receiptId)}`);
-	}, [seasonId, receiptId]);
+	const preview = useReceiptPreview(seasonId, receipt);
+	const url = useShareUrl(seasonId, receiptId);
 
 	if (loading || receiptsLoading) return <Unavailable reason='loading' books={books} onRetry={retry} />;
 	if (error) return <Unavailable reason='error' books={books} onRetry={retry} />;
@@ -219,8 +318,6 @@ const ReceiptPage = ({ params }: { params: Promise<{ seasonId: string; receiptId
 	// and `private` says why rather than leaving them on a screen that says the
 	// receipt does not exist.
 	if (!season || !squad) return <Unavailable reason='private' books={books} onRetry={retry} />;
-
-	const receipt = receipts.find(candidate => candidate.id === receiptId);
 
 	if (!receipt) {
 		return <Unavailable reason='missing' seasonName={season.name} books={books} onRetry={retry} />;
@@ -232,6 +329,9 @@ const ReceiptPage = ({ params }: { params: Promise<{ seasonId: string; receiptId
 				<ReceiptCard
 					receipt={receipt}
 					uploader={displayNameOf(usersByUid.get(receipt.uploadedBy))}
+					preview={preview.url}
+					onPreview={preview.show}
+					onHidePreview={preview.hide}
 					onDownload={() => download(receipt)}
 				/>
 

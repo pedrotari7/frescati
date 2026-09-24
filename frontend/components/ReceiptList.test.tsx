@@ -29,6 +29,7 @@ const list = (receipts: Receipt[], canEdit = false) => {
 
 	render(
 		<ReceiptList
+			seasonId='s1'
 			receipts={receipts}
 			canEdit={canEdit}
 			onUpload={onUpload}
@@ -89,6 +90,15 @@ describe('the list', () => {
 
 		expect(screen.getByText('Pitch invoice, spring 2026')).toBeInTheDocument();
 		expect(screen.getByText(/PDF · 318 kB · Thu 12 Mar/)).toBeInTheDocument();
+	});
+
+	it('opens a receipt on the screen its shared link goes to', () => {
+		list([receipt()]);
+
+		expect(screen.getByRole('link', { name: /Pitch invoice, spring 2026/ })).toHaveAttribute(
+			'href',
+			'/s/s1/finances/r/r1'
+		);
 	});
 
 	it('offers a download and a link to everybody', async () => {
@@ -233,6 +243,7 @@ describe('adding one', () => {
 
 		render(
 			<ReceiptList
+				seasonId='s1'
 				receipts={[]}
 				canEdit
 				onUpload={onUpload}

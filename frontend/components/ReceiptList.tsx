@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { DragEvent, RefObject } from 'react';
+import Link from 'next/link';
 import { ArrowDownTrayIcon, LinkIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { Receipt } from '@shared/types';
@@ -11,6 +12,7 @@ import {
 	RECEIPT_NAME_MAX,
 	defaultReceiptName,
 	formatFileSize,
+	receiptHref,
 	receiptKindLabel,
 	receiptProblem,
 } from '@shared/receipts';
@@ -21,7 +23,7 @@ import RemoveButton from './RemoveButton';
 import { Field, TextInput } from './Field';
 import { ListCard, ListEmpty, listRow } from './Section';
 import { bp, colors, tint } from '../app/tokens.stylex';
-import { utils } from '../lib/styles';
+import { focus, press, utils } from '../lib/styles';
 
 const styles = stylex.create({
 	zone: {
@@ -41,7 +43,22 @@ const styles = stylex.create({
 	zoneOver: { backgroundColor: tint.brand5, outline: `2px dashed ${tint.brand60}`, outlineOffset: 4 },
 
 	row: { display: 'flex', alignItems: 'center', gap: 8, paddingBlock: 12 },
-	body: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	/* Pulled out over the row's padding so the press wash has room around the
+	   text, and pushed back in so the text does not move. */
+	body: {
+		display: 'block',
+		minWidth: 0,
+		flexGrow: 1,
+		flexShrink: 1,
+		flexBasis: '0%',
+		borderRadius: 8,
+		marginBlock: -6,
+		marginInline: -8,
+		paddingBlock: 6,
+		paddingInline: 8,
+		transitionProperty: 'background-color',
+		transitionDuration: '0.15s',
+	},
 	name: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 500 },
 	facts: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
 	icon: { width: 16, height: 16 },
@@ -278,6 +295,7 @@ const ReceiptFields = ({
  * file anybody could swap is a file nobody should be handing over.
  */
 const ReceiptList = ({
+	seasonId,
 	receipts,
 	canEdit,
 	onUpload,
@@ -285,6 +303,7 @@ const ReceiptList = ({
 	onCopyLink,
 	onDelete,
 }: {
+	seasonId: string;
 	receipts: Receipt[];
 	canEdit: boolean;
 	onUpload: (file: File, name: string) => Promise<boolean>;
@@ -350,13 +369,18 @@ const ReceiptList = ({
 				) : (
 					receipts.map(receipt => (
 						<div key={receipt.id} {...stylex.props(listRow, styles.row)}>
-							<div {...stylex.props(styles.body)}>
+							{/* The same screen the copied link opens, so what somebody sees
+							    tapping a receipt here is what the group chat sees. */}
+							<Link
+								href={receiptHref(seasonId, receipt.id)}
+								{...stylex.props(styles.body, press.wash, focus.ring)}
+							>
 								<p {...stylex.props(styles.name, utils.truncate)}>{receipt.name}</p>
 								<p {...stylex.props(styles.facts)}>
 									{receiptKindLabel(receipt.contentType)} · {formatFileSize(receipt.size)} ·{' '}
 									{formatCivilDate(receipt.uploadedAt.slice(0, 10))}
 								</p>
-							</div>
+							</Link>
 
 							<Button
 								size='sm'

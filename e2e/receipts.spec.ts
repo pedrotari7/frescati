@@ -183,6 +183,11 @@ test.describe('the season receipts', () => {
 		await expect(page).toHaveURL(AT.receipt);
 		await expect(page.getByRole('heading', { name: receipt })).toBeVisible();
 
+		await page.getByRole('button', { name: 'Preview' }).click();
+		await expect(page.getByTitle(`Preview of ${receipt}`), 'the file never came back to draw').toBeVisible();
+		await page.getByRole('button', { name: 'Hide' }).click();
+		await expect(page.getByTitle(`Preview of ${receipt}`)).toHaveCount(0);
+
 		// Somebody arriving from a group chat has nothing behind them, which is
 		// the one case the chevron is allowed to go up rather than back.
 		await page.getByRole('button', { name: 'Back' }).click();
