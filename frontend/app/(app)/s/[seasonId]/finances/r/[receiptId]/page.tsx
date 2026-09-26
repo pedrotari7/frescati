@@ -26,8 +26,9 @@ import Skeleton from '../../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../../components/EmptyState';
 import LoadFailed from '../../../../../../../components/LoadFailed';
 import Button from '../../../../../../../components/Button';
+import PdfPreview from '../../../../../../../components/PdfPreview';
 import { CONTROL } from '../../../../../../../components/Field';
-import { bp, colors, fonts } from '../../../../../../tokens.stylex';
+import { colors, fonts } from '../../../../../../tokens.stylex';
 import { surfaces } from '../../../../../../../lib/styles';
 
 const styles = stylex.create({
@@ -56,14 +57,6 @@ const styles = stylex.create({
 	/* White behind it, because a scanned receipt is black on transparent often
 	   enough, and on this background that is nothing at all. */
 	image: { display: 'block', width: '100%', height: 'auto', borderRadius: 12, backgroundColor: colors.ink },
-	pdf: {
-		display: 'block',
-		width: '100%',
-		height: { default: '70vh', [bp.lg]: '80vh' },
-		borderWidth: 0,
-		borderRadius: 12,
-		backgroundColor: colors.ink,
-	},
 
 	download: { width: 20, height: 20 },
 	copy: { width: 16, height: 16 },
@@ -94,44 +87,57 @@ const useShareUrl = (seasonId: string, receiptId: string) => {
 /**
  * The file drawn on the screen, fetched the same authorised way a download is.
  *
- * An object URL rather than a download URL, for the reason `fetchReceipt` gives:
- * nothing here may mint a link that opens the file for whoever holds it. The
- * blob is retyped from the document, so a PDF the bucket served as
- * `application/octet-stream` still renders instead of downloading.
+ * Held as a blob rather than a download URL, for the reason `fetchReceipt`
+ * gives: nothing here may mint a link that opens the file for whoever holds it.
+ * The blob is retyped from the document, so a PDF the bucket served as
+ * `application/octet-stream` is still drawn as one.
  */
 const useReceiptPreview = (seasonId: string, receipt: Receipt | undefined) => {
 	const write = useWrite();
-	const [url, setUrl] = useState<string | null>(null);
-
-	useEffect(() => {
-		if (!url) return;
-
-		return () => URL.revokeObjectURL(url);
-	}, [url]);
+	const [blob, setBlob] = useState<Blob | null>(null);
 
 	const show = async () => {
 		if (!receipt) return;
 
 		await write(async () => {
-			const blob = await fetchReceipt(seasonId, receipt.id);
+			const fetched = await fetchReceipt(seasonId, receipt.id);
 
-			setUrl(URL.createObjectURL(new Blob([blob], { type: receipt.contentType })));
+			setBlob(new Blob([fetched], { type: receipt.contentType }));
 		}, `Couldn't open ${receipt.name}.`);
 	};
 
-	return { url, show, hide: () => setUrl(null) };
+	return { blob, show, hide: () => setBlob(null) };
+};
+
+/** An object URL for the blob, revoked as soon as the blob goes. */
+const useObjectUrl = (blob: Blob) => {
+	const [url, setUrl] = useState<string | null>(null);
+
+	useEffect(() => {
+		const next = URL.createObjectURL(blob);
+		setUrl(next);
+
+		return () => URL.revokeObjectURL(next);
+	}, [blob]);
+
+	return url;
+};
+
+const ImagePreview = ({ blob, alt }: { blob: Blob; alt: string }) => {
+	const url = useObjectUrl(blob);
+
+	return url ? <img src={url} alt={alt} {...stylex.props(styles.image)} /> : null;
 };
 
 /**
- * An image as an image and a PDF in the browser's own viewer. Chrome on Android
- * has no inline PDF viewer and draws an empty frame, which Download still
- * covers.
+ * An image as an image and a PDF drawn page by page. `PdfPreview` says why a
+ * PDF is not simply put in a frame.
  */
-const Preview = ({ receipt, url }: { receipt: Receipt; url: string }) =>
+const Preview = ({ receipt, blob }: { receipt: Receipt; blob: Blob }) =>
 	receipt.contentType === 'application/pdf' ? (
-		<iframe src={url} title={`Preview of ${receipt.name}`} {...stylex.props(styles.pdf)} />
+		<PdfPreview blob={blob} title={`Preview of ${receipt.name}`} />
 	) : (
-		<img src={url} alt={`Preview of ${receipt.name}`} {...stylex.props(styles.image)} />
+		<ImagePreview blob={blob} alt={`Preview of ${receipt.name}`} />
 	);
 
 /**
@@ -213,7 +219,7 @@ const ReceiptCard = ({
 }: {
 	receipt: Receipt;
 	uploader: string;
-	preview: string | null;
+	preview: Blob | null;
 	onPreview: () => Promise<void>;
 	onHidePreview: () => void;
 	onDownload: () => void;
@@ -246,7 +252,7 @@ const ReceiptCard = ({
 			</Button>
 		</div>
 
-		{preview && <Preview receipt={receipt} url={preview} />}
+		{preview && <Preview receipt={receipt} blob={preview} />}
 
 		<p {...stylex.props(styles.blurb)}>
 			Hand this to your employer if you claim friskv&aring;rdsbidrag. It is what says the money went on playing
@@ -329,7 +335,7 @@ const ReceiptPage = ({ params }: { params: Promise<{ seasonId: string; receiptId
 				<ReceiptCard
 					receipt={receipt}
 					uploader={displayNameOf(usersByUid.get(receipt.uploadedBy))}
-					preview={preview.url}
+					preview={preview.blob}
 					onPreview={preview.show}
 					onHidePreview={preview.hide}
 					onDownload={() => download(receipt)}
