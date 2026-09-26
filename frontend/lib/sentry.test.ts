@@ -20,6 +20,23 @@ const loadSentryModule = (): Promise<typeof SentryLib> => {
 	return import('./sentry');
 };
 
+/**
+ * Enough of the SDK for `loadSentry` to get through.
+ *
+ * Spelled out rather than left to each test, because the module now calls
+ * `getClient` and `init` on the way past: a mock missing either throws inside
+ * `withSentry`, which swallows it, and the test fails saying only that the call
+ * it was actually about never happened.
+ */
+const mockSdk = (overrides: Record<string, unknown> = {}) => ({
+	getClient: () => undefined,
+	init: vi.fn(),
+	setUser: vi.fn(),
+	captureException: vi.fn(),
+	flush: vi.fn().mockResolvedValue(true),
+	...overrides,
+});
+
 describe('sentry', () => {
 	const originalDsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 	const originalVercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV;
@@ -112,7 +129,7 @@ describe('sentry', () => {
 
 		it('passes the uid through and nothing else about the person', async () => {
 			const setUser = vi.fn();
-			vi.doMock('@sentry/nextjs', () => ({ setUser, captureException: vi.fn() }));
+			vi.doMock('@sentry/nextjs', () => mockSdk({ setUser }));
 
 			const { setSentryUser } = await loadSentryModule();
 
@@ -123,6 +140,50 @@ describe('sentry', () => {
 			// under the last person to use that phone.
 			await setSentryUser(null);
 			expect(setUser).toHaveBeenLastCalledWith(null);
+
+			vi.doUnmock('@sentry/nextjs');
+		});
+
+		/**
+		 * Who calls `init`, now that nothing does it up front.
+		 *
+		 * The SDK is fetched on idle, and a report can beat that: a crash during
+		 * hydration is the case the whole arrangement exists for. So whoever
+		 * reaches the module first has to be the one that initialises it, or the
+		 * earliest reports, the ones worth the most, are captured into an SDK
+		 * that has no client and dropped without a word.
+		 */
+		it('initialises the SDK for whichever caller gets there first', async () => {
+			const init = vi.fn();
+			vi.doMock('@sentry/nextjs', () => mockSdk({ init }));
+
+			const { captureError } = await loadSentryModule();
+
+			await captureError(new Error('boom'));
+			expect(init).toHaveBeenCalledTimes(1);
+
+			// Memoised on the promise, so a second report joins the first load
+			// rather than starting another one.
+			await captureError(new Error('again'));
+			expect(init).toHaveBeenCalledTimes(1);
+
+			vi.doUnmock('@sentry/nextjs');
+		});
+
+		/**
+		 * The Node and edge runtimes call `init` themselves, from
+		 * `sentry.server.config.ts` and `sentry.edge.config.ts`, before anything
+		 * in this module can run. Initialising over the top of that would replace
+		 * a live client mid-request.
+		 */
+		it('leaves an SDK that is already running alone', async () => {
+			const init = vi.fn();
+			vi.doMock('@sentry/nextjs', () => mockSdk({ init, getClient: () => ({}) }));
+
+			const { captureError } = await loadSentryModule();
+
+			await captureError(new Error('boom'));
+			expect(init).not.toHaveBeenCalled();
 
 			vi.doUnmock('@sentry/nextjs');
 		});

@@ -53,6 +53,46 @@ describe('useNow', () => {
 		expect(result.current).toBe(initial);
 	});
 
+	/**
+	 * Five screens hold one of these, and a tick re-renders each of them in
+	 * full. None of that is worth doing for a tab nobody is looking at, and the
+	 * tick on the way back to the foreground is what makes stopping safe.
+	 */
+	it('stops the clock while the tab is in the background', () => {
+		Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+
+		const { result } = renderHook(() => useNow(30_000));
+
+		act(() => {
+			Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+			document.dispatchEvent(new Event('visibilitychange'));
+		});
+
+		const backgrounded = result.current;
+
+		act(() => {
+			vi.advanceTimersByTime(5 * 30_000);
+		});
+
+		expect(result.current).toBe(backgrounded);
+
+		// And comes back to the right time rather than to five stale ticks.
+		act(() => {
+			Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+			vi.setSystemTime(new Date('2026-09-01T18:00:00.000Z'));
+			document.dispatchEvent(new Event('visibilitychange'));
+		});
+
+		expect(result.current.toISOString()).toBe('2026-09-01T18:00:00.000Z');
+
+		// Ticking again, on the full interval, now that somebody is watching.
+		act(() => {
+			vi.advanceTimersByTime(30_000);
+		});
+
+		expect(result.current.toISOString()).toBe('2026-09-01T18:00:30.000Z');
+	});
+
 	it('clears the interval and listener on unmount', () => {
 		const removeSpy = vi.spyOn(document, 'removeEventListener');
 		const { unmount } = renderHook(() => useNow());
