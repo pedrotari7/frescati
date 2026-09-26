@@ -42,23 +42,24 @@ const styles = stylex.create({
 	 */
 	zoneOver: { backgroundColor: tint.brand5, outline: `2px dashed ${tint.brand60}`, outlineOffset: 4 },
 
-	row: { display: 'flex', alignItems: 'center', gap: 8, paddingBlock: 12 },
-	/* Pulled out over the row's padding so the press wash has room around the
-	   text, and pushed back in so the text does not move. */
-	body: {
-		display: 'block',
-		minWidth: 0,
-		flexGrow: 1,
-		flexShrink: 1,
-		flexBasis: '0%',
+	row: { position: 'relative', display: 'flex', alignItems: 'center', gap: 8, paddingBlock: 12 },
+	/*
+	 * The link is a layer across the whole row rather than a box around the text,
+	 * so the wash under a pointer runs to the far edge, behind the buttons, and
+	 * not up to the first of them. Pulled out over the row's padding so the wash
+	 * has room around the text. The text sits over it and lets a tap through, and
+	 * the buttons sit over it and keep their own.
+	 */
+	open: {
+		position: 'absolute',
+		insetBlock: 6,
+		insetInline: -8,
 		borderRadius: 8,
-		marginBlock: -6,
-		marginInline: -8,
-		paddingBlock: 6,
-		paddingInline: 8,
 		transitionProperty: 'background-color',
 		transitionDuration: '0.15s',
 	},
+	body: { position: 'relative', pointerEvents: 'none', minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
+	actions: { position: 'relative', display: 'flex', alignItems: 'center', gap: 8 },
 	name: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 500 },
 	facts: { color: colors.faint, marginTop: 2, fontSize: 12, lineHeight: '16px' },
 	icon: { width: 16, height: 16 },
@@ -373,34 +374,41 @@ const ReceiptList = ({
 							    tapping a receipt here is what the group chat sees. */}
 							<Link
 								href={receiptHref(seasonId, receipt.id)}
-								{...stylex.props(styles.body, press.wash, focus.ring)}
-							>
-								<p {...stylex.props(styles.name, utils.truncate)}>{receipt.name}</p>
-								<p {...stylex.props(styles.facts)}>
+								aria-labelledby={`${receipt.id}-name ${receipt.id}-facts`}
+								{...stylex.props(styles.open, press.wash, focus.ring)}
+							/>
+
+							<div {...stylex.props(styles.body)}>
+								<p id={`${receipt.id}-name`} {...stylex.props(styles.name, utils.truncate)}>
+									{receipt.name}
+								</p>
+								<p id={`${receipt.id}-facts`} {...stylex.props(styles.facts)}>
 									{receiptKindLabel(receipt.contentType)} · {formatFileSize(receipt.size)} ·{' '}
 									{formatCivilDate(receipt.uploadedAt.slice(0, 10))}
 								</p>
-							</Link>
+							</div>
 
-							<Button
-								size='sm'
-								variant='secondary'
-								aria-label={`Download ${receipt.name}`}
-								onClick={() => onDownload(receipt)}
-							>
-								<ArrowDownTrayIcon {...stylex.props(styles.icon)} aria-hidden='true' />
-							</Button>
+							<div {...stylex.props(styles.actions)}>
+								<Button
+									size='sm'
+									variant='secondary'
+									aria-label={`Download ${receipt.name}`}
+									onClick={() => onDownload(receipt)}
+								>
+									<ArrowDownTrayIcon {...stylex.props(styles.icon)} aria-hidden='true' />
+								</Button>
 
-							<Button
-								size='sm'
-								variant='ghost'
-								aria-label={`Copy a link to ${receipt.name}`}
-								onClick={() => onCopyLink(receipt)}
-							>
-								<LinkIcon {...stylex.props(styles.icon)} aria-hidden='true' />
-							</Button>
+								<Button
+									size='sm'
+									variant='ghost'
+									aria-label={`Copy a link to ${receipt.name}`}
+									onClick={() => onCopyLink(receipt)}
+								>
+									<LinkIcon {...stylex.props(styles.icon)} aria-hidden='true' />
+								</Button>
 
-							{canEdit && <RemoveButton what={receipt.name} onRemove={() => onDelete(receipt)} />}
+								{canEdit && <RemoveButton what={receipt.name} onRemove={() => onDelete(receipt)} />}
+							</div>
 						</div>
 					))
 				)}
