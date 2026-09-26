@@ -113,8 +113,8 @@ const reportOnlyCsp = [
 	"img-src 'self' data: blob: https://*.googleusercontent.com https://*.google.com",
 	"font-src 'self' data:",
 	`connect-src ${connectSrc.join(' ')}`,
-	// The auth helper iframe, reCAPTCHA's, and a receipt PDF previewed from a blob.
-	"frame-src 'self' blob: https://*.firebaseapp.com https://accounts.google.com https://www.google.com",
+	// The auth helper iframe and reCAPTCHA's.
+	"frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://www.google.com",
 	"worker-src 'self'",
 	"manifest-src 'self'",
 	"base-uri 'self'",
