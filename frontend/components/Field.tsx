@@ -136,15 +136,19 @@ export const Select = ({
  * thing: `type='search'`, so the phone keyboard offers a search key and the
  * browser draws its own clear button, and a label, because a placeholder is not
  * one.
+ *
+ * `sx` goes on the wrapper, not the input. The magnifier is centred on the
+ * wrapper, so a margin on the input stretched the wrapper past it and left the
+ * icon sitting high.
  */
 export const SearchInput = ({
 	label,
 	sx,
 	...rest
 }: { label: string; sx?: StyleXStyles } & Omit<InputHTMLAttributes<HTMLInputElement>, 'className' | 'style'>) => (
-	<div {...stylex.props(styles.searchWrap)}>
+	<div {...stylex.props(styles.searchWrap, sx)}>
 		<MagnifyingGlassIcon {...stylex.props(styles.glass)} aria-hidden='true' />
-		<input type='search' aria-label={label} {...stylex.props(styles.control, styles.search, sx)} {...rest} />
+		<input type='search' aria-label={label} {...stylex.props(styles.control, styles.search)} {...rest} />
 	</div>
 );
 
