@@ -149,12 +149,23 @@ export const openMotmVoting = async (seasonId: string, gameId: string, season: S
 		motmVotingUntilMillis: Date.now() + MOTM_VOTING_HOURS * 3_600_000,
 	});
 
+	// The window is written by the line above and a failed send cannot take it
+	// back. The vote runs either way and `closeMotmVoting` still counts it off
+	// the window alone, so what a throw here costs is the lineup finding out by
+	// opening the app rather than by a notification. Reported and swallowed, the
+	// same trade `tellThem` makes over the bill that goes out beside this one,
+	// and it is what keeps the catch at the call site meaning "the vote never
+	// opened" rather than "something about the vote went wrong".
 	const sent = await sendGamePush(uids, 'motm', {
 		when: formatGameWhen(kickoff, season.slot.timezone),
 		// Straight to the team sheet, where the vote is. The game page is a
 		// headcount for a game that has already been played.
 		url: `/s/${seasonId}/g/${gameId}/tournament`,
 		gameId,
+	}).catch(error => {
+		reportError('Could not tell the lineup the vote is open', { seasonId, gameId }, error);
+
+		return { pushed: 0, emailed: 0 };
 	});
 
 	logger.info('Opened the man-of-the-match vote', { seasonId, gameId, players: uids.length, ...sent });
