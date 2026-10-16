@@ -1,23 +1,25 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import type { KitItem } from '@shared/types';
-import KitRenameSheet from './KitRenameSheet';
-
-const item = (name: string): KitItem => ({
-	id: 'ball-1',
-	name,
-	kind: 'ball',
-	holderUid: 'anna',
-	updatedBy: 'anna',
-	updatedAt: '2026-08-01T00:00:00.000Z',
-});
+import RenameSheet from './RenameSheet';
 
 const onRename = vi.fn();
 const onClose = vi.fn();
 
 // Headless UI settles its own transition state a microtask after mount, so an
 // unflushed render logs an act warning from inside the library on every test.
-const draw = async (kit: KitItem | null = item('Match ball')) => {
-	const view = render(<KitRenameSheet item={kit} open={!!kit} onClose={onClose} onRename={onRename} />);
+const sheet = (name: string | null) => (
+	<RenameSheet
+		name={name}
+		open={name !== null}
+		blurb='Only what it is called.'
+		placeholder='Match ball'
+		maxLength={60}
+		onClose={onClose}
+		onRename={onRename}
+	/>
+);
+
+const draw = async (name: string | null = 'Match ball') => {
+	const view = render(sheet(name));
 	await act(async () => {});
 
 	return view;
@@ -26,7 +28,7 @@ const draw = async (kit: KitItem | null = item('Match ball')) => {
 const field = () => screen.getByLabelText('Name');
 const save = () => screen.getByRole('button', { name: 'Save' });
 
-describe('KitRenameSheet', () => {
+describe('RenameSheet', () => {
 	beforeEach(() => vi.clearAllMocks());
 
 	it('opens on the name it already has', async () => {
@@ -81,8 +83,8 @@ describe('KitRenameSheet', () => {
 		expect(save()).toBeDisabled();
 	});
 
-	// Nothing to write, and a write anyway would sign the item over to somebody
-	// who changed nothing about it.
+	// Nothing to write, and a write anyway would sign a change on somebody who
+	// changed nothing.
 	it('refuses a name that has not changed, before or after trimming', async () => {
 		await draw();
 
@@ -105,14 +107,14 @@ describe('KitRenameSheet', () => {
 		expect(onClose).toHaveBeenCalled();
 	});
 
-	// Re-seeded on open, so the second item's name is never edited over the
-	// first one's. The register is a list and this sheet is reused down it.
-	it('re-seeds when a different item is opened', async () => {
+	// Re-seeded on open, so the second name is never edited over the first one's.
+	// Both callers are lists and this sheet is reused down them.
+	it('re-seeds when something else is opened', async () => {
 		const { rerender } = await draw();
 
 		fireEvent.change(field(), { target: { value: 'Half typed' } });
 
-		rerender(<KitRenameSheet item={item('Blue vests')} open onClose={onClose} onRename={onRename} />);
+		rerender(sheet('Blue vests'));
 
 		expect(field()).toHaveValue('Blue vests');
 	});

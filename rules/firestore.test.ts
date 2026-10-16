@@ -2460,12 +2460,62 @@ describe('receipts', () => {
 		await assertFails(setDoc(doc(authed(SEASON_ADMIN), receiptDoc('r1')), aReceipt(MEMBER)));
 	});
 
-	// Everything on the document describes the object beside it, so an edit is
-	// either a lie about the bytes or a re-upload, and a re-upload mints a new id.
-	it('refuses an edit, even by the admin who uploaded it', async () => {
+	it('lets a season admin rename one', async () => {
 		await seedReceipt();
 
-		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), receiptDoc('r1')), { name: 'Something else entirely' }));
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), receiptDoc('r1')), { name: 'Pitch invoice, autumn' }));
+		await assertSucceeds(
+			updateDoc(doc(authed(APP_ADMIN, { admin: true }), receiptDoc('r1')), { name: 'Pitch invoice, 2026' })
+		);
+	});
+
+	// Filed back when they ran the season. Still in the squad, so still the
+	// person who knows what the file is.
+	it('lets the uploader rename their own once they are no longer an admin', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), receiptDoc('r1')), aReceipt(MEMBER));
+		});
+
+		await assertSucceeds(updateDoc(doc(authed(MEMBER), receiptDoc('r1')), { name: 'Pitch invoice, autumn' }));
+	});
+
+	it("refuses a member a rename of somebody else's", async () => {
+		await seedReceipt();
+
+		await assertFails(updateDoc(doc(authed(MEMBER), receiptDoc('r1')), { name: 'Pitch invoice, autumn' }));
+	});
+
+	it('refuses the uploader once they have left the squad', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), receiptDoc('r1')), aReceipt(EXTRA));
+		});
+
+		await assertFails(updateDoc(doc(authed(EXTRA), receiptDoc('r1')), { name: 'Pitch invoice, autumn' }));
+	});
+
+	// Everything else describes the object beside it, so changing it is either a
+	// lie about the bytes or a re-upload, and a re-upload mints a new id.
+	it('refuses an edit to anything but the name, even by an admin', async () => {
+		await seedReceipt();
+
+		const receipt = doc(authed(SEASON_ADMIN), receiptDoc('r1'));
+
+		await assertFails(updateDoc(receipt, { size: 1 }));
+		await assertFails(updateDoc(receipt, { contentType: 'image/png' }));
+		await assertFails(updateDoc(receipt, { uploadedBy: MEMBER }));
+		await assertFails(
+			updateDoc(receipt, { name: 'Pitch invoice, autumn', uploadedAt: '2026-10-01T00:00:00.000Z' })
+		);
+	});
+
+	it('refuses a rename to nothing or to something too long', async () => {
+		await seedReceipt();
+
+		const receipt = doc(authed(SEASON_ADMIN), receiptDoc('r1'));
+
+		await assertFails(updateDoc(receipt, { name: '' }));
+		await assertFails(updateDoc(receipt, { name: 'x'.repeat(101) }));
+		await assertFails(updateDoc(receipt, { name: 42 }));
 	});
 
 	it('rejects a receipt the schema does not describe', async () => {

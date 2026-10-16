@@ -99,6 +99,19 @@ export const receiptFileName = (receipt: { name: string; contentType: string }):
 	return alreadySpelled ? base : `${base}.${kind.extension}`;
 };
 
+/**
+ * Whether this person may change what a receipt is called, matching the rule.
+ *
+ * Any of the season's admins, and whoever uploaded it, while they are still in
+ * the squad. The uploader is the one who knows what the file is, and an admin
+ * who has since handed the season on should still be able to fix their own
+ * typo.
+ */
+export const canRenameReceipt = (
+	receipt: { uploadedBy: string },
+	viewer: { uid: string | null; isAdmin: boolean; inSquad: boolean }
+): boolean => viewer.isAdmin || (viewer.inSquad && viewer.uid !== null && receipt.uploadedBy === viewer.uid);
+
 /** "PDF", "JPEG". What a row says the file is, beside how big it is. */
 export const receiptKindLabel = (contentType: string): string => kindOf(contentType)?.label ?? 'File';
 

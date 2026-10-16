@@ -9,10 +9,11 @@ import {
 	EyeSlashIcon,
 	LinkIcon,
 	LockClosedIcon,
+	PencilSquareIcon,
 } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { Receipt } from '@shared/types';
-import { formatFileSize, receiptHref, receiptKindLabel } from '@shared/receipts';
+import { RECEIPT_NAME_MAX, canRenameReceipt, formatFileSize, receiptHref, receiptKindLabel } from '@shared/receipts';
 import { formatCivilDate } from '@shared/format';
 import { useSeasonContext } from '../../../../../../../components/SeasonProvider';
 import { useReceipts, useUsersByUid } from '../../../../../../../hooks/useData';
@@ -20,16 +21,18 @@ import { useReceiptActions } from '../../../../../../../hooks/useReceiptActions'
 import { useWrite } from '../../../../../../../hooks/useWrite';
 import { useConfirm } from '../../../../../../../components/ConfirmDialog';
 import { displayNameOf } from '../../../../../../../lib/people';
-import { deleteReceipt, fetchReceipt } from '../../../../../../../lib/db/receipts';
+import { useAuth } from '../../../../../../../lib/auth';
+import { deleteReceipt, fetchReceipt, renameReceipt } from '../../../../../../../lib/db/receipts';
 import SeasonShell from '../../../../../../../components/SeasonShell';
 import Skeleton from '../../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../../components/EmptyState';
 import LoadFailed from '../../../../../../../components/LoadFailed';
 import Button from '../../../../../../../components/Button';
 import PdfPreview from '../../../../../../../components/PdfPreview';
+import RenameSheet from '../../../../../../../components/RenameSheet';
 import { CONTROL } from '../../../../../../../components/Field';
 import { colors, fonts } from '../../../../../../tokens.stylex';
-import { surfaces } from '../../../../../../../lib/styles';
+import { press, surfaces } from '../../../../../../../lib/styles';
 
 const styles = stylex.create({
 	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
@@ -43,6 +46,31 @@ const styles = stylex.create({
 	   scanned it, so this is regularly one unbroken forty-character string, and
 	   an ellipsis on the one screen the file is identified from is no use. */
 	name: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600, overflowWrap: 'break-word' },
+	/* The heading itself is the control for whoever may rename the receipt, the
+	   same as a name in the kit register. Pulled out over its own padding so the
+	   text sits where it would anyway and the wash under a press is bigger than
+	   the word. */
+	rename: {
+		appearance: 'none',
+		borderWidth: 0,
+		backgroundColor: 'transparent',
+		marginInline: -6,
+		marginBlock: -4,
+		display: 'inline-flex',
+		maxWidth: 'calc(100% + 12px)',
+		alignItems: 'flex-start',
+		gap: 6,
+		borderRadius: 8,
+		paddingInline: 6,
+		paddingBlock: 4,
+		fontFamily: 'inherit',
+		textAlign: 'start',
+		cursor: 'pointer',
+		transitionProperty: 'background-color',
+		transitionDuration: '0.15s',
+	},
+	renameText: { minWidth: 0 },
+	pencil: { color: colors.faint, marginTop: 5, width: 14, height: 14, flexShrink: 0 },
 	meta: { color: colors.faint, marginTop: 4, fontSize: 12, lineHeight: '16px' },
 	blurb: { color: colors.faint, fontSize: 12, lineHeight: 1.625 },
 	heading: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
@@ -208,6 +236,71 @@ const useRemoveReceipt = (seasonId: string, books: string) => {
 	};
 };
 
+/**
+ * Changing what a receipt is called, for its uploader and the season's admins.
+ *
+ * The file stays as it is, and every link to it keeps working, since both are
+ * named after the id. A download picks the new name up the next time anybody
+ * presses the button.
+ */
+const useRenameReceipt = (
+	seasonId: string,
+	receipt: Receipt | undefined,
+	viewer: { isAdmin: boolean; inSquad: boolean }
+) => {
+	const write = useWrite();
+	const { user } = useAuth();
+	const [renaming, setRenaming] = useState(false);
+	const allowed = !!receipt && canRenameReceipt(receipt, { uid: user?.uid ?? null, ...viewer });
+
+	const sheet = (
+		<RenameSheet
+			name={renaming && receipt ? receipt.name : null}
+			open={renaming}
+			blurb='Only what it is called, in the list and on a download. The file and the link to it stay as they are.'
+			placeholder='Pitch invoice, spring 2026'
+			maxLength={RECEIPT_NAME_MAX}
+			onClose={() => setRenaming(false)}
+			onRename={async name => {
+				if (!receipt) return;
+
+				await write(() => renameReceipt(seasonId, receipt.id, name), `Couldn't rename ${receipt.name}.`);
+			}}
+		/>
+	);
+
+	// No way in at all for somebody the rule would refuse, rather than a pencil
+	// that ends in a toast.
+	return { open: allowed ? () => setRenaming(true) : undefined, sheet };
+};
+
+/** The receipt's name. Plain text for most people, a button into the rename sheet for whoever may change it. */
+const ReceiptName = ({ name, onRename }: { name: string; onRename?: () => void }) => (
+	<h2 {...stylex.props(styles.name)}>
+		{onRename ? (
+			<button
+				type='button'
+				onClick={onRename}
+				aria-label={`Rename ${name}`}
+				{...stylex.props(styles.name, styles.rename, press.wash)}
+			>
+				<span {...stylex.props(styles.renameText)}>{name}</span>
+				<PencilSquareIcon {...stylex.props(styles.pencil)} aria-hidden='true' />
+			</button>
+		) : (
+			name
+		)}
+	</h2>
+);
+
+/** Only for the season's admins, the same as adding one. */
+const RemoveButton = ({ shown, onRemove }: { shown: boolean; onRemove: () => void }) =>
+	shown ? (
+		<Button variant='danger' fullWidth onClick={onRemove}>
+			Remove this receipt
+		</Button>
+	) : null;
+
 /** The receipt itself, and the one thing everybody came here to do with it. */
 const ReceiptCard = ({
 	receipt,
@@ -216,6 +309,7 @@ const ReceiptCard = ({
 	onPreview,
 	onHidePreview,
 	onDownload,
+	onRename,
 }: {
 	receipt: Receipt;
 	uploader: string;
@@ -223,12 +317,13 @@ const ReceiptCard = ({
 	onPreview: () => Promise<void>;
 	onHidePreview: () => void;
 	onDownload: () => void;
+	onRename?: () => void;
 }) => (
 	<section {...stylex.props(surfaces.glass, styles.card)}>
 		<div {...stylex.props(styles.head)}>
 			<DocumentTextIcon {...stylex.props(styles.doc)} aria-hidden='true' />
 			<div {...stylex.props(styles.body)}>
-				<h2 {...stylex.props(styles.name)}>{receipt.name}</h2>
+				<ReceiptName name={receipt.name} onRename={onRename} />
 				<p {...stylex.props(styles.meta)}>
 					{receiptKindLabel(receipt.contentType)} · {formatFileSize(receipt.size)} · added by {uploader} on{' '}
 					{formatCivilDate(receipt.uploadedAt.slice(0, 10))}
@@ -315,6 +410,7 @@ const ReceiptPage = ({ params }: { params: Promise<{ seasonId: string; receiptId
 	const remove = useRemoveReceipt(seasonId, books);
 	const preview = useReceiptPreview(seasonId, receipt);
 	const url = useShareUrl(seasonId, receiptId);
+	const rename = useRenameReceipt(seasonId, receipt, { isAdmin, inSquad: squad });
 
 	if (loading || receiptsLoading) return <Unavailable reason='loading' books={books} onRetry={retry} />;
 	if (error) return <Unavailable reason='error' books={books} onRetry={retry} />;
@@ -339,16 +435,15 @@ const ReceiptPage = ({ params }: { params: Promise<{ seasonId: string; receiptId
 					onPreview={preview.show}
 					onHidePreview={preview.hide}
 					onDownload={() => download(receipt)}
+					onRename={rename.open}
 				/>
 
 				<ShareCard seasonName={season.name} url={url} onCopy={() => copyLink(receipt)} />
 
-				{isAdmin && (
-					<Button variant='danger' fullWidth onClick={() => remove(receipt)}>
-						Remove this receipt
-					</Button>
-				)}
+				<RemoveButton shown={isAdmin} onRemove={() => remove(receipt)} />
 			</div>
+
+			{rename.sheet}
 		</SeasonShell>
 	);
 };

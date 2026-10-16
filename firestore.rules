@@ -1030,11 +1030,22 @@ service cloud.firestore {
 
         allow create: if isSeasonAdmin(seasonId) && receiptShapeOk();
 
-        // No update. Everything on the document describes the object beside it,
-        // so an edit is either a lie about the bytes or a re-upload, and a
-        // re-upload mints a new id. Renaming one means removing it and putting
-        // it back, which is two taps and cannot leave the pair inconsistent.
-        allow update: if false;
+        // A rename and nothing else. Every other field describes the object
+        // beside it, so changing one is either a lie about the bytes or a
+        // re-upload, and a re-upload mints a new id. The name is only a label.
+        // It is what the list shows and what a download is called, and
+        // renaming leaves the file alone.
+        //
+        // The season's admins may rename any receipt, and whoever uploaded one
+        // may rename their own while they are still in the squad, so an admin
+        // who has stepped down can still fix a typo in what they filed.
+        // `uploadedBy` stays the uploader's whatever happens to the name.
+        allow update: if (isSeasonAdmin(seasonId)
+                          || (isSeasonSquad(seasonId) && resource.data.uploadedBy == request.auth.uid))
+                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+                       && request.resource.data.name is string
+                       && request.resource.data.name.size() > 0
+                       && request.resource.data.name.size() <= 100;
 
         allow delete: if isSeasonAdmin(seasonId);
       }
