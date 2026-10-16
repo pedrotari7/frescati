@@ -33,7 +33,7 @@ import Button from '../../../../../components/Button';
 import StatusPill from '../../../../../components/StatusPill';
 import GameKit from '../../../../../components/GameKit';
 import KitTransferSheet from '../../../../../components/KitTransferSheet';
-import KitRenameSheet from '../../../../../components/KitRenameSheet';
+import RenameSheet from '../../../../../components/RenameSheet';
 import { Field, Select, TextInput } from '../../../../../components/Field';
 import { ListCard, listRow, SectionHeading } from '../../../../../components/Section';
 import { colors, tint } from '../../../../tokens.stylex';
@@ -470,9 +470,12 @@ const KitSheets = ({
 
 	return (
 		<>
-			<KitRenameSheet
-				item={renaming}
+			<RenameSheet
+				name={renaming?.name ?? null}
 				open={!!renaming}
+				blurb={<>Only what it&apos;s called. What kind of kit it is, and who has it, stay as they are.</>}
+				placeholder='Match ball'
+				maxLength={60}
 				onClose={() => onClose(null)}
 				onRename={async name => {
 					if (!renaming) return;

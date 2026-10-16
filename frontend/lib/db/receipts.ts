@@ -1,4 +1,4 @@
-import { deleteDoc, doc, orderBy, query, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { FirebaseStorage, StorageReference } from 'firebase/storage';
 import { connectStorageEmulator, deleteObject, getBlob, getStorage, ref, uploadBytes } from 'firebase/storage';
@@ -112,6 +112,16 @@ export const uploadReceipt = async (seasonId: string, file: File, name: string, 
  */
 export const fetchReceipt = (seasonId: string, receiptId: string): Promise<Blob> =>
 	getBlob(objectRef(seasonId, receiptId));
+
+/**
+ * Call a receipt something else.
+ *
+ * The document only. The object is named after the id rather than after this,
+ * and a download reads its name off the document when it happens, so there is
+ * nothing in the bucket to keep in step.
+ */
+export const renameReceipt = (seasonId: string, receiptId: string, name: string): Promise<void> =>
+	updateDoc(receiptDoc(seasonId, receiptId), { name });
 
 /**
  * Take one back off the season.

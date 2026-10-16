@@ -1,5 +1,6 @@
 import {
 	RECEIPT_MAX_BYTES,
+	canRenameReceipt,
 	defaultReceiptName,
 	formatFileSize,
 	receiptFileName,
@@ -66,6 +67,32 @@ describe('formatFileSize', () => {
 	// measurement where "10 MB" reads as a rule.
 	it('drops a trailing nought', () => {
 		expect(formatFileSize(RECEIPT_MAX_BYTES)).toBe('10 MB');
+	});
+});
+
+describe('canRenameReceipt', () => {
+	const receipt = { uploadedBy: 'anna' };
+
+	it('lets any season admin rename one, whoever uploaded it', () => {
+		expect(canRenameReceipt(receipt, { uid: 'bo', isAdmin: true, inSquad: true })).toBe(true);
+	});
+
+	it('lets the uploader rename their own after they stop being an admin', () => {
+		expect(canRenameReceipt(receipt, { uid: 'anna', isAdmin: false, inSquad: true })).toBe(true);
+	});
+
+	it("refuses a member somebody else's receipt", () => {
+		expect(canRenameReceipt(receipt, { uid: 'bo', isAdmin: false, inSquad: true })).toBe(false);
+	});
+
+	// The rule asks for the squad as well, and somebody outside it cannot read
+	// the receipt in the first place.
+	it('refuses the uploader once they have left the squad', () => {
+		expect(canRenameReceipt(receipt, { uid: 'anna', isAdmin: false, inSquad: false })).toBe(false);
+	});
+
+	it('refuses somebody signed out', () => {
+		expect(canRenameReceipt(receipt, { uid: null, isAdmin: false, inSquad: false })).toBe(false);
 	});
 });
 

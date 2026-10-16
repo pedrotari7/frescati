@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import Sheet from './Sheet';
-import type { KitItem } from '@shared/types';
 import Button from './Button';
 import { TextInput } from './Field';
 import { colors } from '../app/tokens.stylex';
@@ -16,39 +16,44 @@ const styles = stylex.create({
 });
 
 /**
- * Changing what a piece of kit is called.
+ * Changing what something is called, and nothing else about it.
  *
- * The name and nothing else, which is not the same restraint the transfer sheet
- * shows: an admin may re-kind an item as far as the rules are concerned, but a
- * kind is what decides whether a game is warned about a missing ball, and
- * quietly offering that on a screen somebody opened to fix a typo is how the
- * vests become `other`. Who has it is a handover with its own sheet.
+ * Shared by the kit register and the season's receipts. Each says in `blurb`
+ * what a rename leaves alone, because that is the part somebody opening this to
+ * fix a typo needs to be told. A piece of kit keeps its kind and its holder, and a
+ * receipt keeps its file.
  *
- * Seeded on open rather than cleared on close, so the field doesn't visibly
- * reset underneath the closing animation, the same reason `KitTransferSheet`
- * clears its search there.
+ * `name` is null while nothing is being renamed. Seeded on open rather than
+ * cleared on close, so the field doesn't visibly reset underneath the closing
+ * animation, the same reason `KitTransferSheet` clears its search there.
  */
-const KitRenameSheet = ({
-	item,
+const RenameSheet = ({
+	name: current,
 	open,
+	blurb,
+	placeholder,
+	maxLength,
 	onClose,
 	onRename,
 }: {
-	item: KitItem | null;
+	name: string | null;
 	open: boolean;
+	blurb: ReactNode;
+	placeholder: string;
+	maxLength: number;
 	onClose: () => void;
 	onRename: (name: string) => Promise<void>;
 }) => {
 	const [name, setName] = useState('');
 
 	useEffect(() => {
-		if (open && item) setName(item.name);
-	}, [open, item]);
+		if (open && current !== null) setName(current);
+	}, [open, current]);
 
 	const trimmed = name.trim();
-	// Nothing to write, and a Save that fires anyway would stamp `updatedBy` on
+	// Nothing to write, and a Save that fires anyway would sign a change on
 	// somebody who changed nothing.
-	const savable = trimmed.length > 0 && trimmed !== item?.name;
+	const savable = trimmed.length > 0 && trimmed !== current;
 
 	const save = async () => {
 		if (!savable) return;
@@ -58,10 +63,8 @@ const KitRenameSheet = ({
 	};
 
 	return (
-		<Sheet open={open && !!item} onClose={onClose} title={<>Rename {item?.name}</>}>
-			<p {...stylex.props(styles.blurb)}>
-				Only what it&apos;s called. What kind of kit it is, and who has it, stay as they are.
-			</p>
+		<Sheet open={open && current !== null} onClose={onClose} title={<>Rename {current}</>}>
+			<p {...stylex.props(styles.blurb)}>{blurb}</p>
 
 			{/* A form so the phone keyboard's Go key saves, this is a
 					    one-field sheet and reaching for a button is the long way
@@ -77,8 +80,8 @@ const KitRenameSheet = ({
 					value={name}
 					onChange={e => setName(e.target.value)}
 					aria-label='Name'
-					placeholder='Match ball'
-					maxLength={60}
+					placeholder={placeholder}
+					maxLength={maxLength}
 					autoFocus
 					sx={styles.field}
 				/>
@@ -96,4 +99,4 @@ const KitRenameSheet = ({
 	);
 };
 
-export default KitRenameSheet;
+export default RenameSheet;
