@@ -1,4 +1,6 @@
 import * as finalise from '../src/lib/finalise';
+import * as motm from '../src/lib/motm';
+import * as push from '../src/lib/push';
 import { finaliseDueTournaments, finaliseTournament, onMatchWrite } from '../src/finaliseTournament';
 import {
 	callRequest,
@@ -224,6 +226,47 @@ describe('finaliseTournament', () => {
 		await finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }));
 
 		expect((await getDb().collection(`seasons/${SEASON_ID}/dues`).get()).empty).toBe(true);
+	});
+
+	/**
+	 * A confirmation does four things and only the last of them can fail safely.
+	 *
+	 * The ratings, the ledger, the charges and the vote have all landed by the
+	 * time the lineup is told the vote is open, so a throw out of that send used
+	 * to fail the whole callable on work that had already happened. The admin
+	 * read Confirm as having failed and pressed it again, which only ever gets
+	 * `already-finalised`.
+	 */
+	it('confirms the game and opens the vote when the notification fails', async () => {
+		await setUpGame();
+		await writeGameMatches([[2, 1]]);
+		vi.spyOn(push, 'sendGamePush').mockRejectedValue(new Error('fcm is having a day'));
+
+		await expect(
+			finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }))
+		).resolves.toEqual({ ok: true });
+
+		const game = await readGame(SEASON_ID, GAME_ID);
+
+		expect(game?.resultFinalisedAt).toBeTruthy();
+		expect(game?.motmVotingUntilMillis, 'a failed send took the vote with it').toBeTruthy();
+	});
+
+	// The window is what `closeMotmVoting` finds a game by, so failing to write
+	// it loses the vote outright. Still not a reason to tell an admin their
+	// confirmation failed: the ratings are applied and the extras are charged by
+	// the time this runs, and nothing retries it either way.
+	it('confirms the game even when the vote cannot be opened at all', async () => {
+		await setUpGame();
+		await writeGameMatches([[2, 1]]);
+		vi.spyOn(motm, 'openMotmVoting').mockRejectedValue(new Error('firestore is unavailable'));
+
+		await expect(
+			finaliseTournament.run(callRequest({ seasonId: SEASON_ID, gameId: GAME_ID }, { uid: ADMIN }))
+		).resolves.toEqual({ ok: true });
+
+		expect((await readGame(SEASON_ID, GAME_ID))?.resultFinalisedAt).toBeTruthy();
+		expect((await readRatingLedger(GAME_ID))?.gameId).toBe(GAME_ID);
 	});
 });
 
