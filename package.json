@@ -49,7 +49,7 @@
 		"@vitest/coverage-istanbul": "^5.0.1",
 		"@vitest/coverage-v8": "^5.0.0",
 		"eslint": "8.57.1",
-		"fallow": "3.26.0",
+		"fallow": "3.34.0",
 		"firebase": "12.13.0",
 		"firebase-tools": "15.18.0",
 		"husky": "9.1.7",
