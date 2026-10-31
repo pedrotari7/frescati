@@ -350,6 +350,24 @@ test.describe('the season books', () => {
 			page.getByTestId('season-shortfall'),
 			'an extra was told how much the group has collected'
 		).toHaveCount(0);
+
+		// A refused listener draws nothing, so the checks above pass with or without
+		// one. All it leaves is a line on the console and a report in Sentry. That
+		// is why the screen could ask every extra for the debtors and the receipts
+		// without anybody seeing it. The reload comes first so the count holds only
+		// the extra's own listeners, not the admin's, which the switch tears down.
+		const refused: string[] = [];
+		page.on('console', message => {
+			if (message.type() === 'error' && message.text().includes('Firestore subscription failed')) {
+				refused.push(message.text());
+			}
+		});
+
+		await page.reload();
+		await expect(page.getByRole('heading', { name: 'What you owe' })).toBeVisible();
+		await expect(theBook(page)).toHaveCount(0);
+
+		expect(refused, 'the screen asked an extra for something the rules refuse them').toEqual([]);
 	});
 
 	test('hold the In of somebody who owes, and hand it back when they settle', async ({ page }) => {

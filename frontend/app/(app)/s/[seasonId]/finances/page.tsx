@@ -791,12 +791,12 @@ const useTerms = () => {
 };
 
 /** Everything else the screen reads, and everything it writes. */
-const useLedgers = (seasonId: string, season: Season | null, games: Game[], dues: Due[], uid: string | null) => {
-	const squadOnly = season !== null;
+const useLedgers = (seasonId: string, season: Season | null, games: Game[], dues: Due[], viewer: Viewer) => {
+	const { uid, squad } = viewer;
 	const { usersByUid } = useUsersByUid();
-	const { debtors } = useDebtors(seasonId, squadOnly);
+	const { debtors } = useDebtors(seasonId, squad);
 	const { expenses } = useExpenses(seasonId);
-	const { receipts } = useReceipts(seasonId, squadOnly);
+	const { receipts } = useReceipts(seasonId, squad);
 	const { download, copyLink } = useReceiptActions(seasonId);
 
 	const books = useBooks(season, dues, expenses, debtors, uid);
@@ -815,7 +815,7 @@ const useLedgers = (seasonId: string, season: Season | null, games: Game[], dues
 
 const FinancesPage = () => {
 	const { seasonId, season, games, dues, loading, error, retry, viewer } = useTerms();
-	const { ledgers, hands } = useLedgers(seasonId, season, games, dues, viewer.uid);
+	const { ledgers, hands } = useLedgers(seasonId, season, games, dues, viewer);
 
 	const club = `/s/${seasonId}/members`;
 
