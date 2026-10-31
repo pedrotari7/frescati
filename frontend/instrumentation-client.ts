@@ -1,20 +1,15 @@
 /**
- * Browser-side Sentry init. Next loads this before any of the app runs, which
- * is what lets it catch a crash during hydration, the one place an error
- * boundary can't help, because there is no mounted tree to fall back to.
+ * Browser-side Sentry init, which Next loads before any of the app runs.
  *
- * Options live in `lib/sentry.ts`, shared with the two server runtimes.
+ * A wiring file and nothing else. The SDK is no longer imported here, because
+ * everything Next puts in this file lands in the initial JS of every route.
+ * `lib/sentryClient.ts` holds what replaced it and says why, and the options
+ * live in `lib/sentry.ts`, shared with the two server runtimes.
  */
 
-import * as Sentry from '@sentry/nextjs';
-import { sentryOptions } from './lib/sentry';
+import { captureRouterTransitionStart, deferSentry } from './lib/sentryClient';
 
-Sentry.init(sentryOptions);
+deferSentry();
 
-/**
- * Next hands router navigations here. With tracing off this records nothing,
- * it is exported because the SDK prints an ACTION REQUIRED notice on every
- * build without it, and a standing warning nobody intends to act on is how real
- * ones start getting scrolled past.
- */
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+/** The name Next looks for. See `captureRouterTransitionStart`. */
+export const onRouterTransitionStart = captureRouterTransitionStart;
