@@ -126,6 +126,52 @@ describe('sentry', () => {
 
 			vi.doUnmock('@sentry/nextjs');
 		});
+
+		/**
+		 * A rule refusing the receipts and an expired token refusing the games
+		 * arrive as the same error with no stack. Unless the caller's name splits
+		 * them, they share one issue and the first hides behind the second.
+		 */
+		it('files a report under the name of whatever caught it', async () => {
+			const captureException = vi.fn();
+			vi.doMock('@sentry/nextjs', () => ({ captureException }));
+
+			const { captureError } = await loadSentryModule();
+			const error = new Error('Missing or insufficient permissions.');
+
+			await captureError(error, { source: 'receipts' });
+			expect(captureException).toHaveBeenLastCalledWith(error, {
+				extra: { source: 'receipts' },
+				tags: { source: 'receipts' },
+				fingerprint: ['{{ default }}', 'receipts'],
+			});
+
+			await captureError(error, { stage: 'upsertUserDoc' });
+			expect(captureException).toHaveBeenLastCalledWith(
+				error,
+				expect.objectContaining({ fingerprint: ['{{ default }}', 'upsertUserDoc'] })
+			);
+
+			vi.doUnmock('@sentry/nextjs');
+		});
+
+		it('leaves the grouping alone for a report that names no caller', async () => {
+			const captureException = vi.fn();
+			vi.doMock('@sentry/nextjs', () => ({ captureException }));
+
+			const { captureError } = await loadSentryModule();
+			const error = new Error('boom');
+
+			// `useWrite`'s message is screen copy and can name a player, so it
+			// stays in `extra` and never becomes a tag or a fingerprint.
+			await captureError(error, { failureMessage: "Couldn't remove Sam" });
+			expect(captureException).toHaveBeenLastCalledWith(error, {
+				extra: { failureMessage: "Couldn't remove Sam" },
+				tags: {},
+			});
+
+			vi.doUnmock('@sentry/nextjs');
+		});
 	});
 
 	/**

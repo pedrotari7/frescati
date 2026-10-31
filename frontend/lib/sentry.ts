@@ -197,6 +197,37 @@ export const setSentryUser = async (uid: string | null) => {
 };
 
 /**
+ * The context keys that name where a report came from: `source` for a listener
+ * (`useFirestoreSubscription`), `stage` for everything else.
+ *
+ * A Firestore error is created inside the SDK's own queue, so it carries no
+ * frame of this app and every refusal looks the same to Sentry's grouping:
+ * same type, same message, no stack. Left to the default, a rule disagreeing
+ * with one screen landed in the same issue as every expired token on every
+ * other screen, and hid there for three weeks. Splitting on these keys gives each
+ * caller its own issue, and a tag rather than `extra` is what makes them
+ * searchable.
+ *
+ * Only these two because each is a fixed name chosen at the call site.
+ * `failureMessage` from `useWrite` is screen copy, and screen copy can carry a
+ * player's name.
+ */
+const ORIGIN_KEYS = ['source', 'stage'] as const;
+
+const captureContext = (context: Record<string, unknown>) => {
+	const tags = Object.fromEntries(
+		ORIGIN_KEYS.flatMap(key => (typeof context[key] === 'string' ? [[key, context[key]]] : []))
+	);
+	const origin = Object.values(tags);
+
+	return {
+		extra: context,
+		tags,
+		...(origin.length > 0 && { fingerprint: ['{{ default }}', ...origin] }),
+	};
+};
+
+/**
  * Report something we caught and handled.
  *
  * The unhandled ones arrive on their own. This is for the failures the app
@@ -207,7 +238,7 @@ export const setSentryUser = async (uid: string | null) => {
 export const captureError = async (error: unknown, context: Record<string, unknown> = {}) => {
 	if (!DSN) return;
 
-	await withSentry(Sentry => Sentry.captureException(error, { extra: context }));
+	await withSentry(Sentry => Sentry.captureException(error, captureContext(context)));
 };
 
 /**
@@ -227,7 +258,7 @@ export const captureErrorAndFlush = async (error: unknown, context: Record<strin
 	if (!DSN) return;
 
 	await withSentry(async Sentry => {
-		Sentry.captureException(error, { extra: context });
+		Sentry.captureException(error, captureContext(context));
 		await Sentry.flush(timeoutMs);
 	});
 };
