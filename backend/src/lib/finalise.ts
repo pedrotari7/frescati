@@ -310,7 +310,18 @@ export const finaliseGame = async (
 				reportError('Could not charge the extras for a confirmed game', { seasonId, gameId }, error)
 			);
 
-			await openMotmVoting(seasonId, gameId, season);
+			// Swallowed for the same reason, and this one has nothing behind it
+			// to fall back on. `closeMotmVoting` finds a game by the window
+			// `openMotmVoting` writes, so a vote that never opened is invisible
+			// to that sweep for good. What a throw here cost on top of the vote
+			// was the confirmation itself: the admin was told Confirm had
+			// failed on work that had already landed, ratings and charges
+			// included, and a second press only ever gets `already-finalised`.
+			// The send inside has a catch of its own, so this one is only ever
+			// about the window.
+			await openMotmVoting(seasonId, gameId, season).catch(error =>
+				reportError('Could not open the man-of-the-match vote', { seasonId, gameId }, error)
+			);
 		}
 	}
 
