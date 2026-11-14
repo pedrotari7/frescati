@@ -27,6 +27,11 @@ export const setAppAdmin = onCall<{ uid: string; isAdmin: boolean }>(
 		const { uid, isAdmin } = request.data;
 		if (!uid) throw new HttpsError('invalid-argument', 'A uid is required.');
 
+		// Checked rather than coerced. Below, `isAdmin` is read for its truth,
+		// and the string "false" is true, so a request carrying it granted the
+		// claim it was asking to take away.
+		if (typeof isAdmin !== 'boolean') throw new HttpsError('invalid-argument', 'isAdmin must be true or false.');
+
 		// Removing the last admin would lock everyone out of season creation with no
 		// way back in except the bootstrap script.
 		if (!isAdmin && uid === callerUid) {

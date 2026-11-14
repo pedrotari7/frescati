@@ -30,6 +30,13 @@ describe('setAppAdmin', () => {
 		).rejects.toMatchObject({ code: 'invalid-argument' });
 	});
 
+	// The string "false" is truthy, and was read as a grant.
+	it('rejects an isAdmin that is not a boolean', async () => {
+		await expect(
+			setAppAdmin.run(callRequest({ uid: 'target', isAdmin: 'false' }, { uid: CALLER, admin: true }))
+		).rejects.toMatchObject({ code: 'invalid-argument' });
+	});
+
 	it('refuses to let an admin remove their own rights', async () => {
 		await expect(
 			setAppAdmin.run(callRequest({ uid: CALLER, isAdmin: false }, { uid: CALLER, admin: true }))
