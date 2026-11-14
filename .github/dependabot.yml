@@ -1,0 +1,14 @@
+# The workflows pin every third-party action to a commit rather than a tag,
+# because a tag can be moved to point at code nobody reviewed, and the deploy
+# jobs run with the service account key and the Vercel token in scope. A pin
+# never moves on its own, so this is what keeps them from going stale: a pull
+# request a month with the new commit and the tag it came from.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
