@@ -589,6 +589,18 @@ describe('seasons', () => {
 		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { responseDeadlineHours: 'soon' }));
 	});
 
+	// A negative deadline holds answers open past kick-off, which is the one
+	// thing the deadline is there to stop.
+	it('rejects settings no season could have', async () => {
+		const update = (fields: Record<string, unknown>) => updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), fields);
+
+		await assertFails(update({ responseDeadlineHours: -48 }));
+		await assertFails(update({ minPlayers: -1 }));
+		await assertFails(update({ 'slot.weekday': 9 }));
+		await assertFails(update({ 'slot.durationMinutes': -90 }));
+		await assertSucceeds(update({ responseDeadlineHours: 0, minPlayers: 14 }));
+	});
+
 	it('leaves games answerable after a legitimate deadline change', async () => {
 		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { responseDeadlineHours: 3 }));
 
