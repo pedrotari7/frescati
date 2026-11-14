@@ -914,10 +914,31 @@ describe('the scoreboard', () => {
 		...overrides,
 	});
 
-	/** Someone has to have answered the game before they can score it. */
-	const respond = async (uid: string, role: 'member' | 'extra') => {
+	/** Who is on the team sheet so far in this test. */
+	let picked: string[] = [];
+
+	beforeEach(() => {
+		picked = [];
+	});
+
+	/** Answered, and picked. Only somebody on the team sheet can score the game. */
+	const play = async (uid: string, role: 'member' | 'extra') => {
+		picked = [...picked, uid];
+
 		await testEnv.withSecurityRulesDisabled(async context => {
-			await setDoc(doc(context.firestore(), responseDoc(uid)), aResponse(uid, role));
+			const db = context.firestore();
+
+			await setDoc(doc(db, responseDoc(uid)), aResponse(uid, role));
+			await setDoc(doc(db, `seasons/${SEASON}/games/${GAME}/tournament/teams`), {
+				teams: [{ index: 0, uids: picked }],
+			});
+		});
+	};
+
+	/** Answered and left off the sheet, which is all an Out takes. */
+	const answerOnly = async (uid: string, role: 'member' | 'extra') => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), responseDoc(uid)), { ...aResponse(uid, role), status: 'out' });
 		});
 	};
 
@@ -928,20 +949,38 @@ describe('the scoreboard', () => {
 	};
 
 	it('lets anyone playing the game enter a score', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		await assertSucceeds(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER)));
 	});
 
 	// An extra who turned up is at the pitch like everybody else.
 	it('lets an extra who answered enter a score', async () => {
-		await respond(EXTRA, 'extra');
+		await play(EXTRA, 'extra');
 
 		await assertSucceeds(setDoc(doc(authed(EXTRA), matchDoc(0)), aScore(EXTRA)));
 	});
 
 	it('stops a signed-in stranger who never answered scoring the game', async () => {
 		await assertFails(setDoc(doc(authed(EXTRA), matchDoc(0)), aScore(EXTRA)));
+	});
+
+	// An answer used to be the whole test, and an Out is an answer. Anybody
+	// could tap Out before the deadline and score the game afterwards, and the
+	// hourly auto-confirm would rate it with no admin looking.
+	it('stops somebody who answered but was not picked scoring the game', async () => {
+		await play(MEMBER, 'member');
+		await answerOnly(EXTRA, 'extra');
+
+		await assertFails(setDoc(doc(authed(EXTRA), matchDoc(0)), aScore(EXTRA)));
+		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
+		await assertFails(deleteDoc(doc(authed(EXTRA), matchDoc(0))));
+	});
+
+	it('stops anybody but an admin scoring a game with no team sheet', async () => {
+		await answerOnly(MEMBER, 'member');
+
+		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER)));
 	});
 
 	it('blocks anonymous writes', async () => {
@@ -953,8 +992,8 @@ describe('the scoreboard', () => {
 	});
 
 	it('lets a player correct a score somebody else entered', async () => {
-		await respond(MEMBER, 'member');
-		await respond(OTHER_MEMBER, 'member');
+		await play(MEMBER, 'member');
+		await play(OTHER_MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 
 		await assertSucceeds(setDoc(doc(authed(OTHER_MEMBER), matchDoc(0)), aScore(OTHER_MEMBER, { scoreA: 4 })));
@@ -962,45 +1001,45 @@ describe('the scoreboard', () => {
 
 	// Otherwise a correction could be pinned on whoever entered it first.
 	it('stops a player signing a score as somebody else', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(OTHER_MEMBER)));
 	});
 
 	it('lets anyone playing read the scoreboard', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 
 		await assertSucceeds(getDoc(doc(authed(EXTRA), matchDoc(0))));
 	});
 
 	it('rejects a score nobody could have put past a keeper', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { scoreA: 100 })));
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { scoreA: -1 })));
 	});
 
 	it('rejects a score that is not a whole number of goals', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { scoreA: 1.5 })));
 	});
 
 	it('rejects a team playing itself', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { teamB: 0 })));
 	});
 
 	it('rejects a team outside the four that can exist', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { teamB: 4 })));
 	});
 
 	it('rejects fields the match schema does not have', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { junk: 'y'.repeat(50_000) })));
 	});
@@ -1011,13 +1050,13 @@ describe('the scoreboard', () => {
 	// still count in full, which is a way to move the ladder that leaves
 	// nothing on screen to explain it.
 	it('stops a score being filed under an id that disagrees with its order', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		await assertFails(setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER, { order: 5 })));
 	});
 
 	it("stops a match invented past the rotation's hard ceiling", async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		// MAX_MATCHES in shared/tournament.ts, the rule's worst case, whatever
 		// the season and match length actually allow.
@@ -1026,7 +1065,7 @@ describe('the scoreboard', () => {
 	});
 
 	it('stops a match at an id that is not a number at all', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		await assertFails(
 			setDoc(doc(authed(MEMBER), `seasons/${SEASON}/games/${GAME}/matches/not-a-number`), aScore(MEMBER))
@@ -1041,7 +1080,7 @@ describe('the scoreboard', () => {
 	});
 
 	it('accepts every order a six-match game actually uses', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		for (const order of [0, 1, 2, 3, 4, 5]) {
 			await assertSucceeds(setDoc(doc(authed(MEMBER), matchDoc(order)), aScore(MEMBER, { order })));
@@ -1052,14 +1091,14 @@ describe('the scoreboard', () => {
 	// legitimately reaches well past six, the rule's job is only the outer
 	// bound; `selectPlayedMatches` is what checks a game's actual fixture list.
 	it('accepts an order only a longer slot would reach', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 
 		await assertSucceeds(setDoc(doc(authed(MEMBER), matchDoc(17)), aScore(MEMBER, { order: 17 })));
 		await assertSucceeds(setDoc(doc(authed(MEMBER), matchDoc(29)), aScore(MEMBER, { order: 29 })));
 	});
 
 	it('closes the scoreboard to players once the game is confirmed', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 		await finalise();
 
@@ -1069,7 +1108,7 @@ describe('the scoreboard', () => {
 	// The replay is built to follow exactly this, without it a confirmed
 	// mistake would be baked into everyone's rating forever.
 	it('still lets a season admin correct a confirmed game', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 		await finalise();
 
@@ -1080,29 +1119,29 @@ describe('the scoreboard', () => {
 	// and only the absence of a document says it, so whoever scored a match
 	// that never kicked off has to be able to take it back.
 	it('lets a player clear a match that never happened', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 
 		await assertSucceeds(deleteDoc(doc(authed(MEMBER), matchDoc(0))));
 	});
 
 	it('lets a player clear a score somebody else entered', async () => {
-		await respond(MEMBER, 'member');
-		await respond(OTHER_MEMBER, 'member');
+		await play(MEMBER, 'member');
+		await play(OTHER_MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 
 		await assertSucceeds(deleteDoc(doc(authed(OTHER_MEMBER), matchDoc(0))));
 	});
 
 	it('stops a signed-in stranger who never answered clearing a score', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 
 		await assertFails(deleteDoc(doc(authed(EXTRA), matchDoc(0))));
 	});
 
 	it('closes clearing to players once the game is confirmed', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 		await finalise();
 
@@ -1110,7 +1149,7 @@ describe('the scoreboard', () => {
 	});
 
 	it('still lets a season admin delete a match from a confirmed game', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 		await finalise();
 
@@ -1118,7 +1157,7 @@ describe('the scoreboard', () => {
 	});
 
 	it('lets a season admin delete without having answered', async () => {
-		await respond(MEMBER, 'member');
+		await play(MEMBER, 'member');
 		await setDoc(doc(authed(MEMBER), matchDoc(0)), aScore(MEMBER));
 
 		await assertSucceeds(deleteDoc(doc(authed(SEASON_ADMIN), matchDoc(0))));

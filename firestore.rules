@@ -418,6 +418,30 @@ service cloud.firestore {
 
         allow delete: if isSeasonAdmin(seasonId);
 
+        // Everybody who was picked for this game, as up to four squads.
+        //
+        // The lineup rather than the responses: the team sheet is the only
+        // record of who was on the pitch, and it is function-written and
+        // unforgeable, where a response is self-written and an Out counts as
+        // one. Both the scoreboard and the man-of-the-match vote ask it.
+        //
+        // A rule cannot flatten a list of maps, so the four-team ceiling is
+        // mirrored here the way `matches` mirrors it on `teamA`: `MAX_TEAMS` in
+        // shared/tournament.ts is the number this tracks. The guards are
+        // load-bearing rather than tidy, indexing past the end of the list
+        // errors, and an error denies.
+        function playedIn(squads, candidate) {
+          return (squads.size() > 0 && candidate in squads[0].uids)
+                 || (squads.size() > 1 && candidate in squads[1].uids)
+                 || (squads.size() > 2 && candidate in squads[2].uids)
+                 || (squads.size() > 3 && candidate in squads[3].uids);
+        }
+
+        function teamSheet() {
+          return get(/databases/$(database)/documents/seasons/$(seasonId)/games/$(gameId)/tournament/teams)
+                   .data.teams;
+        }
+
         // ── tournament ───────────────────────────────────────────────────────
         // The generated lineup, written only by `rebuildTeams`.
         //
@@ -447,13 +471,13 @@ service cloud.firestore {
         //
         // This is the only place in the app where somebody writes something
         // that isn't theirs, which is the point: whoever has a free hand and a
-        // signal enters the score. The bound on who is `exists()` against their
-        // own response, so it is the people actually at the pitch.
+        // signal enters the score. The bound on who is the team sheet, so it is
+        // the people actually at the pitch. It used to be any response at all,
+        // and an Out is a response.
         match /matches/{order} {
 
-          function respondedToThisGame() {
-            return isSignedIn() && exists(
-              /databases/$(database)/documents/seasons/$(seasonId)/games/$(gameId)/responses/$(request.auth.uid));
+          function onTheTeamSheet() {
+            return isSignedIn() && playedIn(teamSheet(), request.auth.uid);
           }
 
           // Read live off the game rather than snapshotted, so confirming the
@@ -513,7 +537,7 @@ service cloud.firestore {
           // built to follow one.
           allow create, update: if matchShapeOk()
                                 && (isSeasonAdmin(seasonId)
-                                    || (respondedToThisGame() && !isFinalised()));
+                                    || (onTheTeamSheet() && !isFinalised()));
 
           // Removing a score is on the same terms as writing one. "Not played"
           // is a real state and the absence of a document is the only thing
@@ -525,7 +549,7 @@ service cloud.firestore {
           // does more damage than a removal, it still counts towards the table
           // and towards everyone's rating, where a gap is visible on screen.
           allow delete: if isSeasonAdmin(seasonId)
-                           || (respondedToThisGame() && !isFinalised());
+                           || (onTheTeamSheet() && !isFinalised());
         }
 
         // ── man of the match ─────────────────────────────────────────────────
@@ -551,26 +575,6 @@ service cloud.firestore {
         // it, and no client may write it.
         match /motmVotes/{uid} {
 
-          // Everybody who was picked for this game, as up to four squads.
-          //
-          // The lineup rather than the responses: a vote is about who was on
-          // the pitch, and the team sheet is the only record of that. It is
-          // also function-written and unforgeable, where a response is
-          // self-written, so this cannot be talked into counting somebody who
-          // never played.
-          //
-          // A rule cannot flatten a list of maps, so the four-team ceiling is
-          // mirrored here the way `matches` already mirrors it on `teamA`:
-          // `MAX_TEAMS` in shared/tournament.ts is the number this tracks. The
-          // guards are load-bearing rather than tidy, indexing past the end of
-          // the list errors, and an error denies.
-          function playedIn(squads, candidate) {
-            return (squads.size() > 0 && candidate in squads[0].uids)
-                   || (squads.size() > 1 && candidate in squads[1].uids)
-                   || (squads.size() > 2 && candidate in squads[2].uids)
-                   || (squads.size() > 3 && candidate in squads[3].uids);
-          }
-
           // Both ends of the vote in one read of the team sheet: only somebody
           // who played may vote, and only for somebody else who played.
           //
@@ -580,8 +584,7 @@ service cloud.firestore {
           // goes first because a `let` is evaluated only where it is used, so
           // refusing a self-vote costs no read of the team sheet.
           function isAValidVote() {
-            let squads = get(/databases/$(database)/documents/seasons/$(seasonId)/games/$(gameId)/tournament/teams)
-                           .data.teams;
+            let squads = teamSheet();
 
             return request.resource.data.votedFor != request.auth.uid
                    && playedIn(squads, request.auth.uid)
