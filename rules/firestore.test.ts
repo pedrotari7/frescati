@@ -378,6 +378,19 @@ describe('users', () => {
 		await assertFails(getDoc(doc(authed(EXTRA), `users/${MEMBER}/pushTokens/tok`)));
 	});
 
+	// Every send reads the whole collection, and nobody but the owner can see
+	// what is parked in it.
+	it('keeps a push token to the shape the app writes', async () => {
+		const tokenDoc = (id: string) => doc(authed(MEMBER), `users/${MEMBER}/pushTokens/${id}`);
+
+		await assertFails(setDoc(tokenDoc('tok'), { token: 'other', createdAt: 'now' }));
+		await assertFails(setDoc(tokenDoc('tok'), { token: 'tok', createdAt: 'now', junk: 'y'.repeat(50_000) }));
+		await assertFails(setDoc(tokenDoc('tok'), { token: 'tok', userAgent: 'y'.repeat(501) }));
+		await assertFails(setDoc(tokenDoc('t'.repeat(513)), { token: 't'.repeat(513) }));
+		await assertSucceeds(setDoc(tokenDoc('tok'), { token: 'tok', createdAt: 'now', userAgent: 'Safari' }));
+		await assertSucceeds(deleteDoc(tokenDoc('tok')));
+	});
+
 	// The device notes the admin notification screen reads. Self-reported, so
 	// the rules only bound them, there is nothing here to authorize against.
 	it('lets a user record what they are opening the app on', async () => {

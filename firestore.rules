@@ -261,8 +261,25 @@ service cloud.firestore {
 
       // FCM registration tokens. Private to their owner. A token is a
       // capability to push to that device.
+      //
+      // Bounded because nobody else can see what is in here and every send
+      // reads all of it. A real token is about 160 characters; without a shape
+      // an account could park thousands of junk documents under its own name
+      // and make each send to it slower and more expensive. The count cannot be
+      // bounded here, so `sendPush` caps how many it reads per person.
       match /pushTokens/{token} {
-        allow read, write: if isSelf(uid);
+        function pushTokenShapeOk() {
+          return token.size() <= 512
+                 && request.resource.data.keys().hasOnly(['token', 'createdAt', 'userAgent'])
+                 && request.resource.data.token == token
+                 && request.resource.data.get('createdAt', '') is string
+                 && request.resource.data.get('createdAt', '').size() <= 40
+                 && request.resource.data.get('userAgent', '') is string
+                 && request.resource.data.get('userAgent', '').size() <= 500;
+        }
+
+        allow read, delete: if isSelf(uid);
+        allow create, update: if isSelf(uid) && pushTokenShapeOk();
       }
     }
 

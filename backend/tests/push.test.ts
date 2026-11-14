@@ -197,4 +197,52 @@ describe('sendPush', () => {
 		const tokens = await getDb().collection(`users/${ANNA}/pushTokens`).get();
 		expect(tokens.empty).toBe(true);
 	});
+
+	/** Every token FCM is handed succeeds, however many there are and however they are split. */
+	const fcmAcceptsEverything = () => {
+		const sendEachForMulticast = vi.fn(async ({ tokens }: { tokens: string[] }) => ({
+			successCount: tokens.length,
+			responses: tokens.map(() => ({ success: true })),
+		}));
+
+		vi.spyOn(firebase, 'messaging').mockReturnValue({ sendEachForMulticast } as never);
+
+		return sendEachForMulticast;
+	};
+
+	const writeTokens = async (uid: string, count: number) => {
+		const batch = getDb().batch();
+
+		for (let index = 0; index < count; index++) {
+			const token = `${uid}-device-${index}`;
+			batch.set(getDb().doc(`users/${uid}/pushTokens/${token}`), {
+				token,
+				createdAt: '2026-08-01T00:00:00.000Z',
+			});
+		}
+
+		await batch.commit();
+	};
+
+	// The rules cannot count documents, so this is the only bound on what one
+	// account's pile of tokens costs a send that includes it.
+	it("reads no more than twenty of one person's devices", async () => {
+		await writeTokens(ANNA, 25);
+		const send = fcmAcceptsEverything();
+		captureEmails();
+
+		expect(await sendPush([ANNA], PAYLOAD, null)).toEqual({ pushed: 20, emailed: 0 });
+		expect(send.mock.calls[0][0].tokens).toHaveLength(20);
+	});
+
+	// FCM throws on a multicast over 500 rather than sending any of it.
+	it('splits a send over 500 devices into calls FCM will take', async () => {
+		const people = Array.from({ length: 26 }, (_, index) => `player-${index}`);
+		for (const uid of people) await writeTokens(uid, 20);
+		const send = fcmAcceptsEverything();
+		captureEmails();
+
+		expect(await sendPush(people, PAYLOAD, null)).toEqual({ pushed: 520, emailed: 0 });
+		expect(send.mock.calls.map(([call]) => call.tokens.length)).toEqual([500, 20]);
+	});
 });

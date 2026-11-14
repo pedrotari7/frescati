@@ -1,3 +1,4 @@
+import type { SendResponse } from 'firebase-admin/messaging';
 import type { NotificationPrefs } from '../../../shared/types';
 import type {
 	DueRaisedContext,
@@ -8,6 +9,7 @@ import type {
 } from '../../../shared/notifications';
 import { NOTIFICATION_PREF, buildDueRaisedPush, buildDuesPush, buildGamePush } from '../../../shared/notifications';
 import { db, messaging } from './firebase';
+import { chunksOf } from './batch';
 import { sendEmail } from './email';
 import { reportError } from './sentry';
 
@@ -40,6 +42,19 @@ const DEAD_TOKEN_CODES = new Set([
 	'messaging/invalid-argument',
 ]);
 
+/** FCM refuses a multicast of more than this many tokens, and throws rather than sending any. */
+const MULTICAST_LIMIT = 500;
+
+/**
+ * How many of one person's devices a send reads.
+ *
+ * Far more than anybody owns. It is here because the rules cannot count
+ * documents, and an account that registered thousands of junk tokens would
+ * otherwise make every send that includes it slower and dearer for everyone
+ * else on the same notification.
+ */
+const MAX_DEVICES_PER_PERSON = 20;
+
 interface Recipient {
 	uid: string;
 	/** Empty when they have no device registered, which is not the same as opted out. */
@@ -61,7 +76,7 @@ const resolveRecipients = async (uids: string[], gate: NotificationGate): Promis
 		uids.map(async uid => {
 			const [userSnap, tokensSnap] = await Promise.all([
 				db.doc(`users/${uid}`).get(),
-				db.collection(`users/${uid}/pushTokens`).get(),
+				db.collection(`users/${uid}/pushTokens`).limit(MAX_DEVICES_PER_PERSON).get(),
 			]);
 
 			const prefs = userSnap.data()?.notificationPrefs as NotificationPrefs | undefined;
@@ -109,26 +124,7 @@ export const sendPush = async (uids: string[], payload: PushPayload, gate: Notif
 		};
 	}
 
-	const response = await messaging().sendEachForMulticast({
-		tokens: targets.map(target => target.token),
-		data: {
-			title: payload.title,
-			body: payload.body,
-			url: payload.url,
-			tag: payload.tag,
-			// Every FCM data value is a string, so the worker reads this back as
-			// one rather than as a boolean.
-			respondable: payload.respondable ? '1' : '0',
-		},
-		webpush: {
-			// Hold undelivered messages for a day; a reminder about tomorrow is
-			// useless a week later.
-			headers: { TTL: '86400', Urgency: 'high' },
-			fcmOptions: { link: payload.url },
-		},
-	});
-
-	const results = response.responses.map((result, index) => ({ result, target: targets[index] }));
+	const results = await multicast(targets, payload);
 
 	// Clean up tokens for devices that no longer exist, otherwise every send
 	// keeps paying for them.
@@ -152,10 +148,51 @@ export const sendPush = async (uids: string[], payload: PushPayload, gate: Notif
 	// Per person, not per token: two phones where one succeeded is a person who
 	// heard about it, and mailing them as well would be the duplicate this whole
 	// arrangement exists to avoid.
-	const reached = new Set(results.filter(({ result }) => result.success).map(({ target }) => target.uid));
+	const delivered = results.filter(({ result }) => result.success);
+	const reached = new Set(delivered.map(({ target }) => target.uid));
 	const missed = wanted.filter(({ uid }) => !reached.has(uid)).map(({ uid }) => uid);
 
-	return { pushed: response.successCount, emailed: await sendEmail(missed, payload) };
+	return { pushed: delivered.length, emailed: await sendEmail(missed, payload) };
+};
+
+interface Target {
+	uid: string;
+	token: string;
+}
+
+/**
+ * One FCM call per 500 tokens, each result paired with the device it was for.
+ *
+ * A single call used to carry every token, and FCM throws on a multicast over
+ * 500, so a notification to a big enough audience failed for all of them.
+ */
+const multicast = async (targets: Target[], payload: PushPayload) => {
+	const results: { result: SendResponse; target: Target }[] = [];
+
+	for (const chunk of chunksOf(targets, MULTICAST_LIMIT)) {
+		const response = await messaging().sendEachForMulticast({
+			tokens: chunk.map(target => target.token),
+			data: {
+				title: payload.title,
+				body: payload.body,
+				url: payload.url,
+				tag: payload.tag,
+				// Every FCM data value is a string, so the worker reads this back as
+				// one rather than as a boolean.
+				respondable: payload.respondable ? '1' : '0',
+			},
+			webpush: {
+				// Hold undelivered messages for a day; a reminder about tomorrow is
+				// useless a week later.
+				headers: { TTL: '86400', Urgency: 'high' },
+				fcmOptions: { link: payload.url },
+			},
+		});
+
+		results.push(...response.responses.map((result, index) => ({ result, target: chunk[index] })));
+	}
+
+	return results;
 };
 
 /**
