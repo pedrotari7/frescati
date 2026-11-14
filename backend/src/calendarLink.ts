@@ -5,6 +5,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import type { Season } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
 import { hasAppAdminClaim, isSeasonAdmin, requireAuth } from './lib/auth';
+import { requireId } from './lib/ids';
 import { instrument } from './lib/sentry';
 
 /**
@@ -37,8 +38,7 @@ export const getCalendarLink = onCall<{ seasonId: string }>(
 	instrument('getCalendarLink', async request => {
 		const callerUid = requireAuth(request);
 
-		const { seasonId } = request.data;
-		if (!seasonId) throw new HttpsError('invalid-argument', 'A seasonId is required.');
+		const seasonId = requireId(request.data?.seasonId, 'A seasonId is required.');
 
 		const seasonSnap = await db.doc(`seasons/${seasonId}`).get();
 		if (!seasonSnap.exists) throw new HttpsError('not-found', 'That season does not exist.');
@@ -73,8 +73,7 @@ export const rotateCalendarToken = onCall<{ seasonId: string }>(
 	instrument('rotateCalendarToken', async request => {
 		const callerUid = requireAuth(request);
 
-		const { seasonId } = request.data;
-		if (!seasonId) throw new HttpsError('invalid-argument', 'A seasonId is required.');
+		const seasonId = requireId(request.data?.seasonId, 'A seasonId is required.');
 
 		const seasonSnap = await db.doc(`seasons/${seasonId}`).get();
 		if (!seasonSnap.exists) throw new HttpsError('not-found', 'That season does not exist.');

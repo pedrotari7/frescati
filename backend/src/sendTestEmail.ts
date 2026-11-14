@@ -7,6 +7,7 @@ import { db, REGION } from './lib/firebase';
 import { EMAIL_SECRETS, readProfilesAndEmails, sendEmail } from './lib/email';
 import { buildTestPayload } from './lib/testNotifications';
 import { requireAppAdmin } from './lib/auth';
+import { requireId } from './lib/ids';
 import { instrument } from './lib/sentry';
 
 type EmailTestStatus = 'sent' | 'noAddress' | 'emailOff';
@@ -63,7 +64,7 @@ export const sendTestEmail = onCall<{
 
 		// De-duplicated so picking the same person twice in the UI can't double the
 		// "sent" count or, worse, double the mail.
-		const targets = Array.from(new Set(uids ?? []));
+		const targets = Array.from(new Set(uids ?? [])).map(uid => requireId(uid, 'That is not a uid.'));
 
 		if (targets.length === 0) throw new HttpsError('invalid-argument', 'Pick at least one person to send to.');
 

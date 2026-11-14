@@ -5,6 +5,7 @@ import type { AppUser, GameResponse } from '../../shared/types';
 import { createStartingRating, fromDisplayRating, hasPlayed } from '../../shared/rating';
 import { db, REGION } from './lib/firebase';
 import { requireAppAdmin } from './lib/auth';
+import { requireId } from './lib/ids';
 import { chunksOf } from './lib/batch';
 import { invalidateTeams } from './lib/teams';
 import { instrument } from './lib/sentry';
@@ -95,8 +96,8 @@ export const setStartingRating = onCall<{ uid: string; rating: number | null }>(
 	instrument('setStartingRating', async request => {
 		const callerUid = requireAppAdmin(request);
 
-		const { uid, rating } = request.data;
-		if (!uid) throw new HttpsError('invalid-argument', 'A uid is required.');
+		const uid = requireId(request.data?.uid, 'A uid is required.');
+		const rating = request.data?.rating;
 
 		// `null` clears it; anything else has to be a real number on the scale the
 		// admin was shown. Checked rather than clamped, because a request carrying

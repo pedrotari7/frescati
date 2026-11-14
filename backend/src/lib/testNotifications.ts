@@ -4,6 +4,7 @@ import { buildDueRaisedPush, buildDuesPush, buildGamePush, buildNewPlayerPush } 
 import { formatGameWhen } from '../../../shared/format';
 import { SAMPLE_CHARGE, SAMPLE_DEBT } from '../../../shared/debug';
 import { getGame, getMostRecentActiveSeasonId, getSeason } from './data';
+import { requireId } from './ids';
 
 /**
  * Builds the payload for a debug send. Shared by `sendTestPush` and
@@ -38,6 +39,11 @@ export const buildTestPayload = async (
 	kind: AnyNotification,
 	{ sender, seasonId, gameId }: { sender: { uid: string; displayName: string }; seasonId?: string; gameId?: string }
 ): Promise<PushPayload> => {
+	// Both optional, a test send without a season is a real case, but either one
+	// that arrives is about to become part of a path.
+	if (seasonId) requireId(seasonId, 'That is not a season id.');
+	if (gameId) requireId(gameId, 'That is not a game id.');
+
 	if (kind === 'newPlayer') return buildNewPlayerPush({ ...sender, seasonId: await getMostRecentActiveSeasonId() });
 
 	// The two kinds with no stand-in for a missing season. The game kinds all
