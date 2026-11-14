@@ -53,14 +53,15 @@ const aGame = (kickoff: string, endsAt: string) => ({
 	createdBy: SEASON_ADMIN,
 });
 
-const aResponse = (uid: string, role: 'member' | 'extra', extras: Record<string, unknown> = {}) => ({
-	uid,
-	status: 'in',
-	role,
-	respondedAt: '2026-08-30T10:00:00.000Z',
-	updatedAt: '2026-08-30T10:00:00.000Z',
-	...extras,
-});
+/**
+ * A first answer as the client writes one. Stamped now, because the rules hold
+ * a self-written `respondedAt` to within an hour of the write.
+ */
+const aResponse = (uid: string, role: 'member' | 'extra', extras: Record<string, unknown> = {}) => {
+	const now = new Date().toISOString();
+
+	return { uid, status: 'in', role, respondedAt: now, updatedAt: now, ...extras };
+};
 
 beforeAll(async () => {
 	testEnv = await initializeTestEnvironment({
@@ -1309,6 +1310,37 @@ describe('responses', () => {
 		await assertFails(setDoc(doc(authed(EXTRA), responseDoc(MEMBER)), aResponse(MEMBER, 'member')));
 	});
 
+	// `respondedAt` is the extras queue. Written as any time at all, an extra
+	// signing up today could stand ahead of everybody who answered last week.
+	it('stops an extra backdating their sign-up to the front of the queue', async () => {
+		const answer = (respondedAt: string) =>
+			setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), aResponse(EXTRA, 'extra', { respondedAt }));
+
+		await assertFails(answer('2000-01-01T00:00:00.000Z'));
+		await assertFails(answer(new Date(Date.now() - 2 * 3_600_000).toISOString()));
+		await assertFails(answer('first'));
+		await assertFails(answer(new Date(Date.now() + 3_600_000).toISOString()));
+	});
+
+	// Firestore sends a write made offline when the signal comes back, carrying
+	// the time it was tapped. Refusing it would lose the answer.
+	it('takes an answer written offline a little while ago', async () => {
+		const tapped = new Date(Date.now() - 30 * 60_000).toISOString();
+
+		await assertSucceeds(
+			setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), aResponse(EXTRA, 'extra', { respondedAt: tapped }))
+		);
+	});
+
+	it('still lets a season admin record an answer with the time it was given', async () => {
+		await assertSucceeds(
+			setDoc(
+				doc(authed(SEASON_ADMIN), responseDoc(EXTRA)),
+				aResponse(EXTRA, 'extra', { respondedAt: '2026-08-30T10:00:00.000Z' })
+			)
+		);
+	});
+
 	it('rejects a status outside in/out', async () => {
 		await assertFails(
 			setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member', { status: 'maybe' }))
@@ -1349,13 +1381,15 @@ describe('responses', () => {
 	});
 
 	it('lets a player change their mind while respondedAt stays put', async () => {
-		await setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), aResponse(EXTRA, 'extra'));
+		const first = aResponse(EXTRA, 'extra');
+		await setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), first);
 
 		await assertSucceeds(
-			setDoc(
-				doc(authed(EXTRA), responseDoc(EXTRA)),
-				aResponse(EXTRA, 'extra', { status: 'out', updatedAt: '2026-08-31T10:00:00.000Z' })
-			)
+			setDoc(doc(authed(EXTRA), responseDoc(EXTRA)), {
+				...first,
+				status: 'out',
+				updatedAt: new Date().toISOString(),
+			})
 		);
 	});
 
@@ -1459,14 +1493,12 @@ describe('responses', () => {
 	// Which is why the client carries it through rather than dropping it: the
 	// key is on the allowlist so an honest answer change still lands.
 	it('lets a player change their mind while carrying the mark through untouched', async () => {
-		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), aResponse(MEMBER, 'member'));
+		const first = aResponse(MEMBER, 'member');
+		await setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), first);
 		await updateDoc(doc(authed(SEASON_ADMIN), responseDoc(MEMBER)), { absent: true });
 
 		await assertSucceeds(
-			setDoc(
-				doc(authed(MEMBER), responseDoc(MEMBER)),
-				aResponse(MEMBER, 'member', { status: 'out', absent: true })
-			)
+			setDoc(doc(authed(MEMBER), responseDoc(MEMBER)), { ...first, status: 'out', absent: true })
 		);
 	});
 
