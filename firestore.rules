@@ -234,7 +234,20 @@ service cloud.firestore {
                && request.resource.data.get('lastSeenAt', '').size() <= 40
                && (request.resource.data.get('photoURL', null) == null
                    || (request.resource.data.photoURL is string
-                       && request.resource.data.photoURL.size() <= 1000));
+                       && request.resource.data.photoURL.size() <= 1000
+                       && photoIsAnAvatar(request.resource.data.photoURL)));
+      }
+
+      // Every roster renders this as an `<img>` for everybody who opens it, so
+      // a URL of somebody's own choosing is a way to log the whole group's IP
+      // addresses and when each of them opens the app. Google sign-in is the
+      // only real source, and its avatars live on `lhN.googleusercontent.com`.
+      // The seeder's avatars are served by the local app, which is the only
+      // other shape a profile ever carries and points nowhere but the viewer's
+      // own machine.
+      function photoIsAnAvatar(url) {
+        return url.matches('^https://lh[0-9]+[.]googleusercontent[.]com/.*')
+               || url.matches('^http://(localhost|127[.]0[.]0[.]1)(:[0-9]+)?/dev-avatars/[a-z0-9-]+[.]svg$');
       }
 
       // `isAppAdmin` is a display mirror of the custom claim. Let people create
