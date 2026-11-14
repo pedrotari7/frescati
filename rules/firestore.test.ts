@@ -130,6 +130,24 @@ describe('users', () => {
 		);
 	});
 
+	// Every roster draws this as an image for everybody who opens it, so a URL
+	// of the user's own choosing would log the whole group's addresses.
+	it('takes an avatar only from where avatars actually come from', async () => {
+		const withPhoto = (photoURL: string) =>
+			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), {
+				uid: MEMBER,
+				displayName: 'A',
+				isAppAdmin: false,
+				photoURL,
+			});
+
+		await assertFails(withPhoto('https://tracker.example.com/pixel.gif'));
+		await assertFails(withPhoto('https://lh3.googleusercontent.com.example.com/a'));
+		await assertFails(withPhoto('http://localhost:3000/anything/else'));
+		await assertSucceeds(withPhoto('https://lh3.googleusercontent.com/a/ACg8ocK=s96-c'));
+		await assertSucceeds(withPhoto('http://localhost:3000/dev-avatars/anna.svg'));
+	});
+
 	it('stops a user granting themselves the admin badge on create', async () => {
 		await assertFails(
 			setDoc(doc(authed(MEMBER), `users/${MEMBER}`), { uid: MEMBER, displayName: 'A', isAppAdmin: true })
