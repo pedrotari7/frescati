@@ -1,5 +1,5 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
-import { db, REGION } from './lib/firebase';
+import { db, ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { getWatcherUids } from './lib/data';
 import { requireAppAdmin } from './lib/auth';
 import { requireId } from './lib/ids';
@@ -32,7 +32,7 @@ import { instrument } from './lib/sentry';
  * report how long somebody has been paying attention.
  */
 export const getGameWatchers = onCall<{ seasonId: string; gameId: string }>(
-	{ region: REGION },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
 	instrument('getGameWatchers', async request => {
 		requireAppAdmin(request);
 

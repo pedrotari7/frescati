@@ -1,7 +1,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import type { BackendErrorKind } from '../../shared/debug';
 import { BACKEND_ERROR_KINDS } from '../../shared/debug';
-import { REGION } from './lib/firebase';
+import { ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { requireAppAdmin } from './lib/auth';
 import { instrument, reportError } from './lib/sentry';
 
@@ -25,7 +25,7 @@ import { instrument, reportError } from './lib/sentry';
  * Sentry that says `debug` on it.
  */
 export const throwTestError = onCall<{ kind: BackendErrorKind }>(
-	{ region: REGION },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
 	instrument('throwTestError', async request => {
 		const callerUid = requireAppAdmin(request);
 

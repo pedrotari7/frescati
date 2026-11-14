@@ -3,7 +3,7 @@ import { logger } from 'firebase-functions';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { AppUser, GameResponse } from '../../shared/types';
 import { createStartingRating, fromDisplayRating, hasPlayed } from '../../shared/rating';
-import { db, REGION } from './lib/firebase';
+import { db, ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { requireAppAdmin } from './lib/auth';
 import { requireId } from './lib/ids';
 import { chunksOf } from './lib/batch';
@@ -92,7 +92,7 @@ const gamesToRepick = async (uid: string): Promise<{ seasonId: string; gameId: s
 };
 
 export const setStartingRating = onCall<{ uid: string; rating: number | null }>(
-	{ region: REGION },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
 	instrument('setStartingRating', async request => {
 		const callerUid = requireAppAdmin(request);
 

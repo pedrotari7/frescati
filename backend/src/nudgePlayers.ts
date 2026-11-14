@@ -2,7 +2,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import { getGameLifecycle, getSilentMembers } from '../../shared/game';
 import { formatGameWhen } from '../../shared/format';
-import { REGION } from './lib/firebase';
+import { ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { getGame, getResponses, getSeason } from './lib/data';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendGamePush } from './lib/push';
@@ -65,7 +65,7 @@ interface NudgeResult {
  * admin is still looking at it, and that is the whole of the record.
  */
 export const nudgePlayers = onCall<{ seasonId: string; gameId: string; uids: string[] }>(
-	{ region: REGION, secrets: EMAIL_SECRETS },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, secrets: EMAIL_SECRETS },
 	instrument('nudgePlayers', async request => {
 		const seasonId = requireId(request.data?.seasonId, 'A seasonId and a gameId are required.');
 		const gameId = requireId(request.data?.gameId, 'A seasonId and a gameId are required.');

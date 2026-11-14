@@ -3,7 +3,7 @@ import { logger } from 'firebase-functions';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue } from 'firebase-admin/firestore';
 import { DEFAULT_NOTIFICATION_PREFS } from '../../shared/types';
-import { db, REGION } from './lib/firebase';
+import { db, ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { requireAppAdmin } from './lib/auth';
 import { instrument } from './lib/sentry';
 
@@ -20,7 +20,7 @@ import { instrument } from './lib/sentry';
  * with gcloud credentials on it.
  */
 export const setAppAdmin = onCall<{ uid: string; isAdmin: boolean }>(
-	{ region: REGION },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
 	instrument('setAppAdmin', async request => {
 		const callerUid = requireAppAdmin(request);
 

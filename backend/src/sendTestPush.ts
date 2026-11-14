@@ -3,7 +3,7 @@ import { logger } from 'firebase-functions';
 import type { NotificationPrefs } from '../../shared/types';
 import type { AnyNotification } from '../../shared/notifications';
 import { NOTIFICATIONS, NOTIFICATION_PREF } from '../../shared/notifications';
-import { db, REGION } from './lib/firebase';
+import { db, ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendPush } from './lib/push';
 import { buildTestPayload } from './lib/testNotifications';
@@ -33,7 +33,7 @@ import { instrument } from './lib/sentry';
  * player would, and there is no Resend sandbox worth standing up locally.
  */
 export const sendTestPush = onCall<{ kind: AnyNotification; seasonId?: string; gameId?: string }>(
-	{ region: REGION, secrets: EMAIL_SECRETS },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, secrets: EMAIL_SECRETS },
 	instrument('sendTestPush', async request => {
 		const uid = requireAppAdmin(request);
 

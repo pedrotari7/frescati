@@ -1,7 +1,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import type { Debtor } from '../../shared/types';
-import { db, REGION } from './lib/firebase';
+import { db, ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { getProfiles, getSeason } from './lib/data';
 import { isBlockedBy } from './lib/dues';
 import { EMAIL_SECRETS } from './lib/email';
@@ -48,7 +48,7 @@ interface DuesReminderResult {
  * the finances screen is one array and not a second code path.
  */
 export const remindDebtors = onCall<{ seasonId: string; uids?: string[] }>(
-	{ region: REGION, secrets: EMAIL_SECRETS },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, secrets: EMAIL_SECRETS },
 	instrument('remindDebtors', async request => {
 		const seasonId = requireId(request.data?.seasonId, 'A seasonId is required.');
 		const uids = request.data?.uids;
