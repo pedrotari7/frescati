@@ -26,6 +26,12 @@ export interface DebtorMarkResult {
  * what lets the rule be an `exists()` rather than a read of a field it would
  * then have to trust.
  *
+ * Read and written in one transaction. Two charges settled a moment apart fire
+ * two of these, and without one the slower could read the books before the
+ * other settlement landed and write its stale total over the right one, or put
+ * back a mark the faster had just cleared. That mark is what keeps somebody off
+ * the next game, so a stale one is a lock nobody owes.
+ *
  * Exported and given a `dryRun` option so `backfillDebtors.ts` can run the same
  * logic the trigger runs rather than a second copy of it: a charge written
  * before this trigger's first deploy has nothing to redeliver the event, and a
@@ -35,59 +41,60 @@ export const markWhatIsOwed = async (
 	seasonId: string,
 	uid: string,
 	{ dryRun = false }: { dryRun?: boolean } = {}
-): Promise<DebtorMarkResult> => {
-	const snapshot = await db.collection(`seasons/${seasonId}/dues`).where('uid', '==', uid).get();
-	const owing = snapshot.docs.map(doc => doc.data() as Due).filter(due => due.status === 'owing');
-	const outstanding = owing.reduce((total, due) => total + due.amount, 0);
+): Promise<DebtorMarkResult> =>
+	db.runTransaction(async transaction => {
+		const snapshot = await transaction.get(db.collection(`seasons/${seasonId}/dues`).where('uid', '==', uid));
+		const owing = snapshot.docs.map(doc => doc.data() as Due).filter(due => due.status === 'owing');
+		const outstanding = owing.reduce((total, due) => total + due.amount, 0);
 
-	const marker = db.doc(`seasons/${seasonId}/debtors/${uid}`);
-	const existing = await marker.get();
-	const before = existing.exists ? (existing.data() as Debtor) : null;
+		const marker = db.doc(`seasons/${seasonId}/debtors/${uid}`);
+		const existing = await transaction.get(marker);
+		const before = existing.exists ? (existing.data() as Debtor) : null;
 
-	if (outstanding <= 0) {
-		if (!before) return { change: 'unchanged', outstanding, charges: 0 };
+		if (outstanding <= 0) {
+			if (!before) return { change: 'unchanged', outstanding, charges: 0 };
 
-		if (!dryRun) {
-			await marker.delete();
-			logger.debug('Settled up, cleared the mark', { seasonId, uid });
+			if (!dryRun) {
+				transaction.delete(marker);
+				logger.debug('Settled up, cleared the mark', { seasonId, uid });
+			}
+
+			return { change: 'cleared', outstanding, charges: 0 };
 		}
 
-		return { change: 'cleared', outstanding, charges: 0 };
-	}
+		// A redelivery of the same event has to leave the document alone rather than
+		// stamp a new `updatedAt` on the same numbers. Two things turn on that.
+		// `updatedAt` means the moment the debt last moved, which is only true if
+		// nothing else writes it, and a retry that writes costs a version and a
+		// snapshot for a document whose content did not change. Recounting is what
+		// makes this converge; not writing is what makes converging free.
+		if (before && before.outstanding === outstanding && before.charges === owing.length) {
+			return { change: 'unchanged', outstanding, charges: owing.length };
+		}
 
-	// A redelivery of the same event has to leave the document alone rather than
-	// stamp a new `updatedAt` on the same numbers. Two things turn on that.
-	// `updatedAt` means the moment the debt last moved, which is only true if
-	// nothing else writes it, and a retry that writes costs a version and a
-	// snapshot for a document whose content did not change. Recounting is what
-	// makes this converge; not writing is what makes converging free.
-	if (before && before.outstanding === outstanding && before.charges === owing.length) {
-		return { change: 'unchanged', outstanding, charges: owing.length };
-	}
+		if (!dryRun) {
+			const debtor: Debtor = {
+				uid,
+				outstanding,
+				charges: owing.length,
+				updatedAt: new Date().toISOString(),
+				// Carried forward by hand, because this is a whole-document `set` and
+				// `remindDebtors` writes that field on the same document. Losing it would
+				// tell the books nobody had ever been chased every time a charge moved,
+				// which is the moment an admin is most likely to be looking. Explicit
+				// rather than `{ merge: true }`, because merging would also preserve
+				// anything an older shape of this document had left lying around, and the
+				// whole point of the overwrite is that the numbers here are recomputed
+				// rather than adjusted. It goes when the mark does, one branch up.
+				...(before?.remindedAt ? { remindedAt: before.remindedAt } : {}),
+			};
 
-	if (!dryRun) {
-		const debtor: Debtor = {
-			uid,
-			outstanding,
-			charges: owing.length,
-			updatedAt: new Date().toISOString(),
-			// Carried forward by hand, because this is a whole-document `set` and
-			// `remindDebtors` writes that field on the same document. Losing it would
-			// tell the books nobody had ever been chased every time a charge moved,
-			// which is the moment an admin is most likely to be looking. Explicit
-			// rather than `{ merge: true }`, because merging would also preserve
-			// anything an older shape of this document had left lying around, and the
-			// whole point of the overwrite is that the numbers here are recomputed
-			// rather than adjusted. It goes when the mark does, one branch up.
-			...(before?.remindedAt ? { remindedAt: before.remindedAt } : {}),
-		};
+			transaction.set(marker, debtor);
+			logger.debug('Marked what a player owes', { seasonId, uid, outstanding, charges: owing.length });
+		}
 
-		await marker.set(debtor);
-		logger.debug('Marked what a player owes', { seasonId, uid, outstanding, charges: owing.length });
-	}
-
-	return { change: before ? 'updated' : 'created', outstanding, charges: owing.length };
-};
+		return { change: before ? 'updated' : 'created', outstanding, charges: owing.length };
+	});
 
 /**
  * Keeps `debtors/{uid}` in step with the charges underneath it.
