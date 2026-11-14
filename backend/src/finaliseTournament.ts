@@ -5,6 +5,7 @@ import { logger } from 'firebase-functions';
 import type { Game } from '../../shared/types';
 import { db, REGION } from './lib/firebase';
 import { requireSeasonAdmin } from './lib/auth';
+import { requireId } from './lib/ids';
 import { EMAIL_SECRETS } from './lib/email';
 import { AUTO_FINALISE_HOURS } from '../../shared/tournament';
 import { drainAbandonedReplays, finaliseGame, requestRatingReplay } from './lib/finalise';
@@ -27,8 +28,8 @@ export const finaliseTournament = onCall<{ seasonId?: string; gameId?: string }>
 	// nobody. See `sendPush`.
 	{ region: REGION, timeoutSeconds: 300, secrets: EMAIL_SECRETS },
 	instrument('finaliseTournament', async request => {
-		const { seasonId, gameId } = request.data ?? {};
-		if (!seasonId || !gameId) throw new HttpsError('invalid-argument', 'Which game?');
+		const seasonId = requireId(request.data?.seasonId, 'Which game?');
+		const gameId = requireId(request.data?.gameId, 'Which game?');
 
 		const uid = await requireSeasonAdmin(request, seasonId, 'Only a season admin can confirm results.');
 

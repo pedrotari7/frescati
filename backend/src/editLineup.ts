@@ -7,6 +7,7 @@ import { findTeamIndex, withPlayerOn, withTeamsSwapped, wouldEmptyASquad } from 
 import { getElo, getSeedElo } from '../../shared/rating';
 import { db, REGION } from './lib/firebase';
 import { requireSeasonAdmin } from './lib/auth';
+import { requireId } from './lib/ids';
 import { getGame, getProfiles, getResponses, getSeason } from './lib/data';
 import { instrument } from './lib/sentry';
 
@@ -113,9 +114,10 @@ const getDisplayElo = async (seasonId: string, uid: string): Promise<number> => 
 export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: string; teamIndex?: number | null }>(
 	{ region: REGION },
 	instrument('setPlayerTeam', async request => {
-		const { seasonId, gameId, uid, teamIndex } = request.data ?? {};
-
-		if (!seasonId || !gameId || !uid) throw new HttpsError('invalid-argument', 'Which player, on which game?');
+		const seasonId = requireId(request.data?.seasonId, 'Which player, on which game?');
+		const gameId = requireId(request.data?.gameId, 'Which player, on which game?');
+		const uid = requireId(request.data?.uid, 'Which player, on which game?');
+		const teamIndex = request.data?.teamIndex;
 
 		// Spelled out rather than defaulted, because the default would be "take
 		// them off the sheet", the one outcome a caller that forgot the field
@@ -196,9 +198,9 @@ export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: 
 export const setTeamLetter = onCall<{ seasonId?: string; gameId?: string; from?: number; to?: number }>(
 	{ region: REGION },
 	instrument('setTeamLetter', async request => {
-		const { seasonId, gameId, from, to } = request.data ?? {};
-
-		if (!seasonId || !gameId) throw new HttpsError('invalid-argument', 'Which game?');
+		const seasonId = requireId(request.data?.seasonId, 'Which game?');
+		const gameId = requireId(request.data?.gameId, 'Which game?');
+		const { from, to } = request.data ?? {};
 
 		// `typeof` as well as `Number.isInteger`, which answers the question but
 		// tells TypeScript nothing, and every use below would otherwise need an

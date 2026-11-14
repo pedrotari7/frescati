@@ -2,6 +2,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { db, REGION } from './lib/firebase';
 import { getWatcherUids } from './lib/data';
 import { requireAppAdmin } from './lib/auth';
+import { requireId } from './lib/ids';
 import { instrument } from './lib/sentry';
 
 /**
@@ -35,8 +36,8 @@ export const getGameWatchers = onCall<{ seasonId: string; gameId: string }>(
 	instrument('getGameWatchers', async request => {
 		requireAppAdmin(request);
 
-		const { seasonId, gameId } = request.data ?? {};
-		if (!seasonId || !gameId) throw new HttpsError('invalid-argument', 'A seasonId and a gameId are required.');
+		const seasonId = requireId(request.data?.seasonId, 'A seasonId and a gameId are required.');
+		const gameId = requireId(request.data?.gameId, 'A seasonId and a gameId are required.');
 
 		// A game that has been deleted has no watchers left either. The cascade
 		// takes the subcollection with it, so an empty list is the honest answer

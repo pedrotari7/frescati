@@ -7,6 +7,7 @@ import { isBlockedBy } from './lib/dues';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendDuesReminder } from './lib/push';
 import { requireSeasonAdmin } from './lib/auth';
+import { requireId } from './lib/ids';
 import { instrument } from './lib/sentry';
 
 /** What one chase managed to do, for the row it was sent from to report. */
@@ -49,9 +50,8 @@ interface DuesReminderResult {
 export const remindDebtors = onCall<{ seasonId: string; uids?: string[] }>(
 	{ region: REGION, secrets: EMAIL_SECRETS },
 	instrument('remindDebtors', async request => {
-		const { seasonId, uids } = request.data ?? {};
-
-		if (!seasonId) throw new HttpsError('invalid-argument', 'A seasonId is required.');
+		const seasonId = requireId(request.data?.seasonId, 'A seasonId is required.');
+		const uids = request.data?.uids;
 
 		const adminUid = await requireSeasonAdmin(request, seasonId, 'Only a season admin can chase a payment.');
 

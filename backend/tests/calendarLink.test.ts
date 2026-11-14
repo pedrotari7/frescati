@@ -41,6 +41,20 @@ describe('getCalendarLink', () => {
 		});
 	});
 
+	// A seasonId with slashes in it names a different document. Answering
+	// `not-found` for one path and a link for another told anybody signed in
+	// whether a debtor mark existed, and wrote a token under it when it did.
+	it('refuses a seasonId that reaches into a subcollection', async () => {
+		await getDb().doc(`seasons/${SEASON_ID}/debtors/${MEMBER}`).set({ uid: MEMBER, outstanding: 100 });
+
+		await expect(
+			getCalendarLink.run(callRequest({ seasonId: `${SEASON_ID}/debtors/${MEMBER}` }, { uid: EXTRA }))
+		).rejects.toMatchObject({ code: 'invalid-argument' });
+
+		const stray = await getDb().doc(`seasons/${SEASON_ID}/debtors/${MEMBER}/calendar/token`).get();
+		expect(stray.exists).toBe(false);
+	});
+
 	// No allowlist here on purpose, reads are already open to anyone signed
 	// in, and this hands out a link to the same thing, not anything wider.
 	it('mints a link for any signed-in user, member or extra', async () => {

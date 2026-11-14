@@ -7,6 +7,7 @@ import { getGame, getResponses, getSeason } from './lib/data';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendGamePush } from './lib/push';
 import { requireSeasonAdmin } from './lib/auth';
+import { requireId } from './lib/ids';
 import { instrument } from './lib/sentry';
 
 /**
@@ -66,9 +67,10 @@ interface NudgeResult {
 export const nudgePlayers = onCall<{ seasonId: string; gameId: string; uids: string[] }>(
 	{ region: REGION, secrets: EMAIL_SECRETS },
 	instrument('nudgePlayers', async request => {
-		const { seasonId, gameId, uids } = request.data ?? {};
+		const seasonId = requireId(request.data?.seasonId, 'A seasonId and a gameId are required.');
+		const gameId = requireId(request.data?.gameId, 'A seasonId and a gameId are required.');
+		const uids = request.data?.uids;
 
-		if (!seasonId || !gameId) throw new HttpsError('invalid-argument', 'A seasonId and a gameId are required.');
 		if (!uids?.length) throw new HttpsError('invalid-argument', 'Say who to nudge.');
 
 		const adminUid = await requireSeasonAdmin(request, seasonId, 'Only a season admin can nudge a player.');
