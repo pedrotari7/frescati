@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { GoogleAuthProvider, onIdTokenChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { deleteField, doc, getDoc, setDoc } from 'firebase/firestore';
-import { getDb, getFirebaseAuth } from './firebaseClient';
+import { clearLocalData, getDb, getFirebaseAuth } from './firebaseClient';
 import { isStandalone, isVisible, thisDevice } from './device';
 import { captureError, setSentryUser } from './sentry';
 import type { AppUser, ClientInfo } from '@shared/types';
@@ -248,4 +248,14 @@ export const signInWithGoogle = () => {
 	return signInWithPopup(getFirebaseAuth(), provider);
 };
 
-export const signOutOfApp = () => signOut(getFirebaseAuth());
+/**
+ * Signs out, clears what this device has cached, and loads `to` afresh.
+ *
+ * A full load rather than a router push, because clearing the cache shuts
+ * Firestore down for the rest of this page's life.
+ */
+export const signOutOfApp = async (to = '/'): Promise<void> => {
+	await signOut(getFirebaseAuth());
+	await clearLocalData();
+	window.location.assign(to);
+};
