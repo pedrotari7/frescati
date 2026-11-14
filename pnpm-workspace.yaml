@@ -24,3 +24,25 @@ allowBuilds:
   re2: true
   sharp: true
   unrs-resolver: true
+
+# Transitive packages with published advisories, each raised to the first fixed
+# release in the major its consumers already ask for, so none of them changes
+# shape underneath the package that uses it. Delete an entry once the package
+# that pulls it in ships the fix itself; `pnpm audit --prod` says which.
+#
+# Three advisories are left alone because the fix is a new major of somebody
+# else's dependency: glob 10 and 13 (14 fixes it), minimatch 9 and 10 (11), and
+# uuid 8 and 9 (11). The first two only run inside the Sentry and Next build
+# plugins, on our own source. uuid is reached through google-gax, which calls
+# `v4()` with no buffer, and the advisory is about the buffer argument.
+overrides:
+  'proxy-addr@<2.0.8': ^2.0.8
+  '@fastify/busboy@<3.2.2': ^3.2.2
+  '@grpc/grpc-js@<1.14.5': ^1.14.5
+  'body-parser@>=2.0.0 <2.4.0': ^2.4.0
+  'brace-expansion@>=4.0.0 <5.0.12': ^5.0.12
+  'fast-uri@<3.1.9': ^3.1.9
+  'postcss@<8.5.23': ^8.5.23
+  'source-map-js@<1.2.2': ^1.2.2
+  'fast-xml-parser@<5.12.0': ^5.12.0
+  'qs@<6.16.1': ^6.16.1
