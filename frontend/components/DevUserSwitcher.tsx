@@ -224,14 +224,7 @@ const DevUserSwitcher = () => {
 						Close
 					</Button>
 					{user && (
-						<Button
-							variant='secondary'
-							fullWidth
-							onClick={async () => {
-								await signOutOfApp();
-								setOpen(false);
-							}}
-						>
+						<Button variant='secondary' fullWidth onClick={() => signOutOfApp(window.location.pathname)}>
 							Sign out
 						</Button>
 					)}

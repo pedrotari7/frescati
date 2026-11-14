@@ -382,7 +382,6 @@ const AdminLinks = ({ show }: { show: boolean }) => {
 };
 
 const MePage = () => {
-	const router = useRouter();
 	const { user } = useAuth();
 	const { seasonId } = useSeasonScope();
 	const write = useWrite();
@@ -468,14 +467,7 @@ const MePage = () => {
 
 				<AdminLinks show={user.isAppAdmin === true} />
 
-				<Button
-					variant='ghost'
-					fullWidth
-					onClick={async () => {
-						await signOutOfApp();
-						router.push('/');
-					}}
-				>
+				<Button variant='ghost' fullWidth onClick={() => signOutOfApp('/')}>
 					<ArrowRightStartOnRectangleIcon {...stylex.props(styles.out)} aria-hidden='true' />
 					Sign out
 				</Button>

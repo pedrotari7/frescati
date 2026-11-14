@@ -5,10 +5,12 @@ import type { Auth } from 'firebase/auth';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import {
+	clearIndexedDbPersistence,
 	connectFirestoreEmulator,
 	initializeFirestore,
 	persistentLocalCache,
 	persistentMultipleTabManager,
+	terminate,
 } from 'firebase/firestore';
 import type { Functions } from 'firebase/functions';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
@@ -154,6 +156,27 @@ export const getDb = (): Firestore => {
 	}
 
 	return dbInstance;
+};
+
+/**
+ * Wipes this device's copy of the database, for signing out.
+ *
+ * The offline cache holds everything the last person looked at, the books
+ * included, and it outlives a sign-out. On a phone handed round at the pitch,
+ * the next person to open the app could read it back. Clearing it needs the
+ * instance shut down first, and a shut-down instance cannot be used again, so
+ * the caller has to load the page afresh afterwards.
+ *
+ * Another open tab holds the cache too, and clearing then fails. That is not
+ * worth refusing a sign-out over: the cache stays until the last tab closes.
+ */
+export const clearLocalData = async (): Promise<void> => {
+	const db = dbInstance;
+	if (!db) return;
+
+	dbInstance = undefined;
+	await terminate(db);
+	await clearIndexedDbPersistence(db).catch(() => undefined);
 };
 
 /**
