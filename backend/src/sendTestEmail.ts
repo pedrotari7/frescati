@@ -3,7 +3,7 @@ import { logger } from 'firebase-functions';
 import type { AppUser, NotificationPrefs } from '../../shared/types';
 import type { AnyNotification } from '../../shared/notifications';
 import { NOTIFICATIONS, canEmail } from '../../shared/notifications';
-import { db, REGION } from './lib/firebase';
+import { db, ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { EMAIL_SECRETS, readProfilesAndEmails, sendEmail } from './lib/email';
 import { buildTestPayload } from './lib/testNotifications';
 import { requireAppAdmin } from './lib/auth';
@@ -52,7 +52,7 @@ export const sendTestEmail = onCall<{
 	seasonId?: string;
 	gameId?: string;
 }>(
-	{ region: REGION, secrets: EMAIL_SECRETS },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, secrets: EMAIL_SECRETS },
 	instrument('sendTestEmail', async request => {
 		const callerUid = requireAppAdmin(request);
 

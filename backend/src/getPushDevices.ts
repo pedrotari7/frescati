@@ -2,7 +2,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { onCall } from 'firebase-functions/v2/https';
 import type { PushDevice, PushToken } from '../../shared/types';
 import { describeUserAgent } from '../../shared/device';
-import { db, REGION } from './lib/firebase';
+import { db, ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { isEmailConfigured } from './lib/email';
 import { requireAppAdmin } from './lib/auth';
 import { instrument } from './lib/sentry';
@@ -35,7 +35,7 @@ import { instrument } from './lib/sentry';
  * calling somebody unreachable who has been getting the mail all along.
  */
 export const getPushDevices = onCall<void>(
-	{ region: REGION },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
 	instrument('getPushDevices', async request => {
 		requireAppAdmin(request);
 

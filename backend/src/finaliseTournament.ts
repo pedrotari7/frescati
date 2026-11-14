@@ -3,7 +3,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import type { Game } from '../../shared/types';
-import { db, REGION } from './lib/firebase';
+import { db, ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { requireSeasonAdmin } from './lib/auth';
 import { requireId } from './lib/ids';
 import { EMAIL_SECRETS } from './lib/email';
@@ -26,7 +26,7 @@ export const finaliseTournament = onCall<{ seasonId?: string; gameId?: string }>
 	// and asks everybody who played to have their say. Without the secret
 	// declared here that notification's email fallback would silently mail
 	// nobody. See `sendPush`.
-	{ region: REGION, timeoutSeconds: 300, secrets: EMAIL_SECRETS },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, timeoutSeconds: 300, secrets: EMAIL_SECRETS },
 	instrument('finaliseTournament', async request => {
 		const seasonId = requireId(request.data?.seasonId, 'Which game?');
 		const gameId = requireId(request.data?.gameId, 'Which game?');

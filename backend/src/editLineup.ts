@@ -5,7 +5,7 @@ import type { TournamentTeams } from '../../shared/types';
 import { isConfirmed } from '../../shared/game';
 import { findTeamIndex, withPlayerOn, withTeamsSwapped, wouldEmptyASquad } from '../../shared/lineup';
 import { getElo, getSeedElo } from '../../shared/rating';
-import { db, REGION } from './lib/firebase';
+import { db, ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { requireSeasonAdmin } from './lib/auth';
 import { requireId } from './lib/ids';
 import { getGame, getProfiles, getResponses, getSeason } from './lib/data';
@@ -112,7 +112,7 @@ const getDisplayElo = async (seasonId: string, uid: string): Promise<number> => 
 };
 
 export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: string; teamIndex?: number | null }>(
-	{ region: REGION },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
 	instrument('setPlayerTeam', async request => {
 		const seasonId = requireId(request.data?.seasonId, 'Which player, on which game?');
 		const gameId = requireId(request.data?.gameId, 'Which player, on which game?');
@@ -196,7 +196,7 @@ export const setPlayerTeam = onCall<{ seasonId?: string; gameId?: string; uid?: 
  * starts does not want a rebuild an hour later deciding otherwise.
  */
 export const setTeamLetter = onCall<{ seasonId?: string; gameId?: string; from?: number; to?: number }>(
-	{ region: REGION },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
 	instrument('setTeamLetter', async request => {
 		const seasonId = requireId(request.data?.seasonId, 'Which game?');
 		const gameId = requireId(request.data?.gameId, 'Which game?');

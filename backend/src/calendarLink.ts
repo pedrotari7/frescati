@@ -3,7 +3,7 @@ import { getApps } from 'firebase-admin/app';
 import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import type { Season } from '../../shared/types';
-import { db, REGION } from './lib/firebase';
+import { db, ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { hasAppAdminClaim, isSeasonAdmin, requireAuth } from './lib/auth';
 import { requireId } from './lib/ids';
 import { instrument } from './lib/sentry';
@@ -34,7 +34,7 @@ const feedUrl = (token: string): string =>
 	`https://${REGION}-${projectId()}.cloudfunctions.net/calendarFeed?token=${token}`;
 
 export const getCalendarLink = onCall<{ seasonId: string }>(
-	{ region: REGION },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
 	instrument('getCalendarLink', async request => {
 		const callerUid = requireAuth(request);
 
@@ -69,7 +69,7 @@ export const getCalendarLink = onCall<{ seasonId: string }>(
 );
 
 export const rotateCalendarToken = onCall<{ seasonId: string }>(
-	{ region: REGION },
+	{ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
 	instrument('rotateCalendarToken', async request => {
 		const callerUid = requireAuth(request);
 
