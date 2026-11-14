@@ -306,3 +306,38 @@ describe('telling watchers an answer moved', () => {
 		expect(sent).toHaveBeenCalledWith([WATCHER], 'availability', expect.objectContaining({ who: '' }));
 	});
 });
+
+describe('a player flipping their answer over and over', () => {
+	beforeEach(async () => {
+		await writeSeason(SEASON_ID, { memberUids: [MEMBER, OTHER_MEMBER], minPlayers: 2 });
+		await writeGame(SEASON_ID, GAME_ID, upcoming());
+		await writeUser(MEMBER, { displayName: 'Anna Berg' });
+		await writeWatcher(WATCHER);
+	});
+
+	// Every tap is a real change, so without a ceiling one player could buzz
+	// every watcher as fast as they can tap.
+	it('stops telling watchers after the fourth change', async () => {
+		const sent = captureSends();
+
+		for (let flip = 0; flip < 6; flip++) {
+			const [from, to] = flip % 2 === 0 ? (['out', 'in'] as const) : (['in', 'out'] as const);
+			await onResponseWrite.run(
+				responseEvent(aResponse(MEMBER, { status: from }), aResponse(MEMBER, { status: to }))
+			);
+		}
+
+		expect(sent).toHaveBeenCalledTimes(4);
+	});
+
+	it('counts each player on their own', async () => {
+		const sent = captureSends();
+
+		for (let flip = 0; flip < 4; flip++) {
+			await onResponseWrite.run(responseEvent(undefined, aResponse(MEMBER, { status: 'in' })));
+		}
+		await onResponseWrite.run(responseEvent(undefined, aResponse(OTHER_MEMBER, { status: 'in' }), OTHER_MEMBER));
+
+		expect(sent).toHaveBeenCalledTimes(5);
+	});
+});

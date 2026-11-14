@@ -12,6 +12,37 @@ import { enqueueTeamRebuild } from './lib/teams';
 import { instrument } from './lib/sentry';
 
 /**
+ * How many times one player's answer can notify a game's watchers.
+ *
+ * Every tap of In or Out is a real change, so without a ceiling one player
+ * flipping back and forth could push every watcher, or mail the ones with no
+ * device, as fast as they can tap. Four covers anybody genuinely changing their
+ * mind. Past it the roster still shows the answer and the watchers just stop
+ * hearing about this player's.
+ */
+const PINGS_PER_PLAYER = 4;
+
+/**
+ * Counts one notification against this player on this game, or answers `false`
+ * when they have used them all.
+ *
+ * Kept in a document of its own under the game, written by nothing but this.
+ * The catch-all rule closes it to clients, and the game's cascade takes it with
+ * the rest.
+ */
+const takeAPing = (seasonId: string, gameId: string, actor: string): Promise<boolean> =>
+	db.runTransaction(async transaction => {
+		const ref = db.doc(`seasons/${seasonId}/games/${gameId}/watcherPings/${actor}`);
+		const sent = ((await transaction.get(ref)).get('sent') as number | undefined) ?? 0;
+
+		if (sent >= PINGS_PER_PLAYER) return false;
+
+		transaction.set(ref, { sent: sent + 1 });
+
+		return true;
+	});
+
+/**
  * Tells anyone following this game that somebody's answer has moved.
  *
  * The only notification in the app nobody is signed up for by default, and the
@@ -55,6 +86,11 @@ const notifyWatchers = async ({
 	// that was called off already told everyone who answered, and one that has
 	// been played is history. Tidying the roster on either is housekeeping.
 	if (!game || !isWatchable(getGameLifecycle(game, season))) return;
+
+	if (!(await takeAPing(seasonId, gameId, actor))) {
+		logger.info('Kept a player from notifying watchers again', { seasonId, gameId, actor });
+		return;
+	}
 
 	const sent = await sendGamePush(watchers, 'availability', {
 		when: formatGameWhen(game.kickoff, season.slot.timezone),

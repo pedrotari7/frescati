@@ -55,6 +55,7 @@ seasons/{seasonId}/receipts/{receiptId}      the season's paperwork: name, conte
 seasons/{seasonId}/games/{gameId}            kickoff, status, counts (function-owned), atRisk
 seasons/{seasonId}/games/{gameId}/responses/{uid}   status: 'in'|'out', role: 'member'|'extra', absent?
 seasons/{seasonId}/games/{gameId}/watchers/{uid}    following this game, private to its owner
+seasons/{seasonId}/games/{gameId}/watcherPings/{uid} how often this player's answer has notified watchers (function-owned)
 seasons/{seasonId}/games/{gameId}/tournament/teams  generated lineup (function-owned)
 seasons/{seasonId}/games/{gameId}/tournament/result confirmed table + rating deltas (function-owned)
 seasons/{seasonId}/games/{gameId}/tournament/motm   counted man-of-the-match vote (function-owned)
