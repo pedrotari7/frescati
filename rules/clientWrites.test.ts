@@ -350,9 +350,19 @@ describe('the scoreboard', () => {
 	beforeEach(async () => {
 		as(MEMBER);
 		await setResponse(SEASON, GAME, MEMBER, 'in', 'member');
+
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), `seasons/${SEASON}/games/${GAME}/tournament/teams`), {
+				teams: [{ index: 0, uids: [MEMBER] }],
+				elos: {},
+				seed: 0,
+				generation: 1,
+				builtAt: '2026-08-01T00:00:00.000Z',
+			});
+		});
 	});
 
-	it('lets anybody holding a response on the game write a score', async () => {
+	it('lets anybody on the team sheet write a score', async () => {
 		// The same bargain the kit register strikes: two people scoring the same
 		// match write the same document, because the id is the fixture's place in
 		// the running order.

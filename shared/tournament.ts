@@ -273,8 +273,8 @@ export const selectPlayedMatches = (
  * score keep every bit of that power and have to reach for it, instead of
  * finding it under a thumb resting on a `+` while scrolling.
  *
- * `none` covers both of its reasons, somebody signed in who never answered the
- * game and everybody who cannot correct a confirmed one, because the screen
+ * `none` covers both of its reasons, somebody signed in who is not on the team
+ * sheet and everybody who cannot correct a confirmed one, because the screen
  * says something different about each and neither can score.
  */
 export type ScoreAccess = 'open' | 'locked' | 'none';
@@ -282,17 +282,17 @@ export type ScoreAccess = 'open' | 'locked' | 'none';
 export const getScoreAccess = ({
 	finalised,
 	isAdmin,
-	hasResponded,
+	onTheSheet,
 }: {
 	finalised: boolean;
 	/** A season admin or an app admin: the people a correction is allowed from. */
 	isAdmin: boolean;
-	/** Whether they answered this game, which is what stands in for being at the pitch. */
-	hasResponded: boolean;
+	/** Whether they are on the team sheet, the one record of who was at the pitch. An Out is an answer too. */
+	onTheSheet: boolean;
 }): ScoreAccess => {
 	if (finalised) return isAdmin ? 'locked' : 'none';
 
-	return isAdmin || hasResponded ? 'open' : 'none';
+	return isAdmin || onTheSheet ? 'open' : 'none';
 };
 
 export interface ScheduleFit {

@@ -779,7 +779,7 @@ const Sheets = ({
  * "ask again in a moment".
  */
 const useTeamSheet = (seasonId: string, gameId: string) => {
-	const { season, games, myResponses, loading, error, retry, isAdmin, isSeasonAdmin } = useSeasonContext();
+	const { season, games, loading, error, retry, isAdmin, isSeasonAdmin } = useSeasonContext();
 	const { teams: lineup, loading: teamsLoading } = useTournamentTeams(seasonId, gameId);
 	const { matches, loading: matchesLoading } = useMatches(seasonId, gameId);
 	const { result } = useTournamentResult(seasonId, gameId);
@@ -792,7 +792,6 @@ const useTeamSheet = (seasonId: string, gameId: string) => {
 	return {
 		season,
 		game: games.find(candidate => candidate.id === gameId) ?? null,
-		myResponse: myResponses[gameId],
 		lineup,
 		matches,
 		result,
@@ -905,6 +904,10 @@ const useTeamSheetWrites = (seasonId: string, gameId: string, usersByUid: Map<st
 	};
 };
 
+/** Picked for this game, which is what the rules ask of somebody entering a score. */
+const isOnSheet = (lineup: TournamentTeams, uid: string | undefined): boolean =>
+	uid !== undefined && findTeamIndex(lineup.teams, uid) >= 0;
+
 /**
  * What the person looking at this may actually do.
  *
@@ -928,7 +931,7 @@ const readPowers = ({
 	isAdmin,
 	isSeasonAdmin,
 	finalised,
-	hasResponded,
+	onTheSheet,
 	played,
 	correcting,
 }: {
@@ -936,11 +939,11 @@ const readPowers = ({
 	isAdmin: boolean;
 	isSeasonAdmin: boolean;
 	finalised: boolean;
-	hasResponded: boolean;
+	onTheSheet: boolean;
 	played: number;
 	correcting: boolean;
 }): Powers => {
-	const access = getScoreAccess({ finalised, isAdmin, hasResponded });
+	const access = getScoreAccess({ finalised, isAdmin, onTheSheet });
 	const lineupOpen = played === 0 && !finalised;
 
 	return {
@@ -1000,7 +1003,7 @@ const TournamentPage = ({ params }: { params: Promise<{ seasonId: string; gameId
 		isAdmin: read.isAdmin,
 		isSeasonAdmin: read.isSeasonAdmin,
 		finalised: !!game.resultFinalisedAt,
-		hasResponded: !!read.myResponse,
+		onTheSheet: isOnSheet(lineup, user?.uid),
 		played: schedule.played,
 		correcting,
 	});

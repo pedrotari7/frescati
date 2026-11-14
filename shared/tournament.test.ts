@@ -434,18 +434,18 @@ describe('selectPlayedMatches', () => {
 
 describe('getScoreAccess', () => {
 	const access = (overrides: Partial<Parameters<typeof getScoreAccess>[0]> = {}) =>
-		getScoreAccess({ finalised: false, isAdmin: false, hasResponded: false, ...overrides });
+		getScoreAccess({ finalised: false, isAdmin: false, onTheSheet: false, ...overrides });
 
 	// The point of the scoreboard: whoever has a free hand enters the score.
-	it('opens an unconfirmed game to anybody who answered it', () => {
-		expect(access({ hasResponded: true })).toBe('open');
+	it('opens an unconfirmed game to anybody on the team sheet', () => {
+		expect(access({ onTheSheet: true })).toBe('open');
 	});
 
-	it('opens an unconfirmed game to an admin who never answered it', () => {
+	it('opens an unconfirmed game to an admin who is not on the team sheet', () => {
 		expect(access({ isAdmin: true })).toBe('open');
 	});
 
-	it('keeps somebody who never answered off an unconfirmed scoreboard', () => {
+	it('keeps somebody who is not on the team sheet off an unconfirmed scoreboard', () => {
 		expect(access()).toBe('none');
 	});
 
@@ -456,10 +456,10 @@ describe('getScoreAccess', () => {
 	});
 
 	it('locks it whether or not that admin played in it', () => {
-		expect(access({ finalised: true, isAdmin: true, hasResponded: true })).toBe('locked');
+		expect(access({ finalised: true, isAdmin: true, onTheSheet: true })).toBe('locked');
 	});
 
 	it('closes a confirmed game to everybody else, including the people who played', () => {
-		expect(access({ finalised: true, hasResponded: true })).toBe('none');
+		expect(access({ finalised: true, onTheSheet: true })).toBe('none');
 	});
 });
