@@ -404,6 +404,14 @@ service cloud.firestore {
                || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['memberUids']);
       }
 
+      // `copiedFrom` is fixed when the season is created. It is what let a
+      // season admin create this season at all, and `confirmSeason` reads it
+      // to carry the kit over. An admin who could point it at another season
+      // later could pull in kit from a season they don't run.
+      function keepsItsSource() {
+        return request.resource.data.get('copiedFrom', null) == resource.data.get('copiedFrom', null);
+      }
+
       allow read: if isSignedIn();
 
       // An app admin starts any season. A season admin starts only the one
@@ -431,6 +439,7 @@ service cloud.firestore {
       allow update: if isSeasonAdmin(seasonId)
                     && keepsAnAdmin()
                     && seasonShapeOk()
+                    && keepsItsSource()
                     && staysOnItsSideOfDraft()
                     && keepsTheDraftSquad()
                     && !touchesConfirmation();
