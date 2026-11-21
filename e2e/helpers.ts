@@ -25,7 +25,7 @@ import { AT } from './locators';
  * the pill used to print.
  */
 const seasonCards = (page: Page): Locator =>
-	page.locator('a[href^="/s/"]').filter({ has: page.getByText(/^(Active|Draft|Archived)$/) });
+	page.locator('a[href^="/s/"]').filter({ has: page.getByText(/^(Active|Signing up|Archived)$/) });
 
 /**
  * Sign in as somebody and go straight into a season they play in.
