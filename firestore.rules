@@ -42,6 +42,13 @@ service cloud.firestore {
       return isAppAdmin() || (isSignedIn() && request.auth.uid in seasonData(seasonId).adminUids);
     }
 
+    // Still signing up: the squad is being asked who is in, and nothing has
+    // been confirmed. Read with a default so a season written without a
+    // status reads as running rather than erroring every rule that asks.
+    function isSigningUp(seasonId) {
+      return seasonData(seasonId).get('status', '') == 'draft';
+    }
+
     // Anybody the season document names, member or admin.
     //
     // The one thing in the app that is *not* readable by every signed-in user is
@@ -318,7 +325,8 @@ service cloud.firestore {
         return request.resource.data.keys().hasOnly(
                  ['id', 'name', 'status', 'startDate', 'endDate', 'venue', 'slot',
                   'minPlayers', 'responseDeadlineHours', 'reminderHours', 'balance',
-                  'fees', 'memberUids', 'adminUids', 'createdAt', 'createdBy'])
+                  'fees', 'memberUids', 'adminUids', 'createdAt', 'createdBy',
+                  'copiedFrom', 'signupClosesOn', 'confirmedAt', 'confirmedBy', 'quiet'])
                && request.resource.data.get('name', '') is string
                && request.resource.data.get('name', '').size() <= 100
                && request.resource.data.get('status', '') is string
@@ -343,6 +351,16 @@ service cloud.firestore {
                && request.resource.data.get('createdAt', '').size() <= 40
                && request.resource.data.get('createdBy', '') is string
                && request.resource.data.get('createdBy', '').size() <= 128
+               && request.resource.data.get('copiedFrom', '') is string
+               && request.resource.data.get('copiedFrom', '').size() <= 128
+               // A civil date, `YYYY-MM-DD`, the same as the season's own.
+               && request.resource.data.get('signupClosesOn', '') is string
+               && request.resource.data.get('signupClosesOn', '').size() <= 10
+               && request.resource.data.get('confirmedAt', '') is string
+               && request.resource.data.get('confirmedAt', '').size() <= 128
+               && request.resource.data.get('confirmedBy', '') is string
+               && request.resource.data.get('confirmedBy', '').size() <= 128
+               && request.resource.data.get('quiet', false) is bool
                && venueShapeOk(request.resource.data.get('venue', {}))
                && slotShapeOk(request.resource.data.get('slot', {}))
                && balanceShapeOk(request.resource.data.get('balance', {}))
@@ -358,20 +376,64 @@ service cloud.firestore {
                && request.resource.data.adminUids.size() <= 50;
       }
 
+      // Stamped by `confirmSeason` and by nothing else. They record that the
+      // sign-up was closed and by whom, and a client that could write them
+      // could claim a confirmation that never ran.
+      function touchesConfirmation() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+                 .hasAny(['confirmedAt', 'confirmedBy']);
+      }
+
+      // No client write moves a season into or out of draft. A draft leaves it only
+      // through `confirmSeason`, which writes with the Admin SDK and so never
+      // comes through here, because confirming is what turns the answers into
+      // a squad and raises their charges. A status dropdown that could do it
+      // would skip all of that. And nothing goes back: a running season has
+      // games, answers and dues hanging off it that a sign-up knows nothing
+      // about.
+      function staysOnItsSideOfDraft() {
+        return (resource.data.get('status', '') == 'draft')
+               == (request.resource.data.get('status', '') == 'draft');
+      }
+
+      // While the season is signing up, the answers are the squad. An admin
+      // who could edit `memberUids` directly would be building a second one
+      // around them, which confirming would then overwrite.
+      function keepsTheDraftSquad() {
+        return resource.data.get('status', '') != 'draft'
+               || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['memberUids']);
+      }
+
       allow read: if isSignedIn();
 
-      // Only an app admin bootstraps a season, and must name themselves an admin
-      // of it so it can't be created orphaned.
-      allow create: if isAppAdmin()
+      // An app admin starts any season. A season admin starts only the one
+      // that follows a season they already run, so `copiedFrom` is the
+      // permission as well as the provenance, and without it they cannot
+      // start one at all. Either way the creator must name themselves an
+      // admin of it so it can't be created orphaned.
+      //
+      // Every season starts as an empty draft. Members come in through the
+      // sign-up and the confirmation, never through the create form, and the
+      // confirmation stamp is the function's to write.
+      allow create: if (isAppAdmin()
+                        || (request.resource.data.get('copiedFrom', null) is string
+                            && isSeasonAdmin(request.resource.data.copiedFrom)))
                     && request.auth.uid in request.resource.data.adminUids
                     && keepsAnAdmin()
-                    && seasonShapeOk();
+                    && seasonShapeOk()
+                    && request.resource.data.status == 'draft'
+                    && request.resource.data.memberUids is list
+                    && request.resource.data.memberUids.size() == 0
+                    && !request.resource.data.keys().hasAny(['confirmedAt', 'confirmedBy']);
 
       // A season admin can hand over the season but not abandon it: adminUids
       // must never end up empty.
       allow update: if isSeasonAdmin(seasonId)
                     && keepsAnAdmin()
-                    && seasonShapeOk();
+                    && seasonShapeOk()
+                    && staysOnItsSideOfDraft()
+                    && keepsTheDraftSquad()
+                    && !touchesConfirmation();
 
       allow delete: if isAppAdmin();
 
@@ -719,8 +781,13 @@ service cloud.firestore {
           // Games written before `kickoffMillis` existed default to a year far
           // enough out that they stay answerable, the same as the old
           // behaviour, until `backfill-kickoff-millis` has run over them.
+          //
+          // A draft's games are not answerable at all. Its squad does not exist
+          // until the sign-up is confirmed, so an answer here would be counted
+          // against a roster nobody has agreed to yet.
           function responsesOpen(game) {
-            return game.status == 'scheduled'
+            return !isSigningUp(seasonId)
+                   && game.status == 'scheduled'
                    && request.time.toMillis()
                       < game.get('kickoffMillis', 9999999999999)
                         - seasonData(seasonId).responseDeadlineHours * 3600000;
@@ -873,14 +940,58 @@ service cloud.firestore {
           // person as the player being written about only on the self path
           // above. `recountGame` repairs a role that disagrees with the roster
           // anyway, and it reads the document id rather than this field.
+          //
+          // A draft's games are shut to admins too, for the reason
+          // `responsesOpen` gives.
           allow create, update: if isSeasonAdmin(seasonId)
+                                && !isSigningUp(seasonId)
                                 && request.resource.data.uid == uid
                                 && request.resource.data.status in ['in', 'out']
                                 && request.resource.data.role in ['member', 'extra']
                                 && responseShapeOk();
 
-          allow delete: if isSeasonAdmin(seasonId);
+          allow delete: if isSeasonAdmin(seasonId) && !isSigningUp(seasonId);
         }
+      }
+
+      // ── signups ────────────────────────────────────────────────────────────
+      // Who is in for a season that is still signing up. The document id is
+      // the uid, so one person holds one answer, and no document at all means
+      // they have not answered, the same third state responses use.
+      //
+      // Writable only while the season is a draft. `signupClosesOn` does not
+      // lock it: that date only stops the reminders, and an answer that comes
+      // in late is still worth having until somebody confirms. Confirming is
+      // what closes the door, by moving the status on.
+      match /signups/{uid} {
+
+        // `answeredBy` is optional and bounded by the rules below rather than
+        // here, because who may write it depends on who is writing.
+        function signupShapeOk() {
+          return request.resource.data.keys().hasOnly(['status', 'answeredAt', 'updatedAt', 'answeredBy'])
+                 && request.resource.data.status in ['yes', 'no']
+                 && request.resource.data.answeredAt is string
+                 && request.resource.data.answeredAt.size() <= 40
+                 && request.resource.data.updatedAt is string
+                 && request.resource.data.updatedAt.size() <= 40;
+        }
+
+        // Your own answer is unsigned. An admin answering for somebody signs
+        // it with their own uid, so a wrong one can be traced to whoever wrote
+        // it, the same reason a scoreline is signed.
+        function answeredByOk() {
+          return (isSelf(uid) && !request.resource.data.keys().hasAny(['answeredBy']))
+                 || (isSeasonAdmin(seasonId) && request.resource.data.get('answeredBy', null) == request.auth.uid);
+        }
+
+        allow read: if isSignedIn();
+
+        allow create, update: if isSigningUp(seasonId)
+                              && signupShapeOk()
+                              && answeredByOk();
+
+        allow delete: if isSigningUp(seasonId)
+                      && (isSelf(uid) || isSeasonAdmin(seasonId));
       }
 
       // ── kit ────────────────────────────────────────────────────────────────
