@@ -160,5 +160,13 @@ export const addCivilDays = (date: string, days: number): string => {
 	return shifted.toISOString().slice(0, 10);
 };
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Whole days from 1970-01-01 to a `YYYY-MM-DD` civil date, for counting the gap between two. */
+export const civilDayNumber = (date: string): number => {
+	const { year, month, day } = parseCivilDate(date);
+	return Math.round(Date.UTC(year, month - 1, day) / MS_PER_DAY);
+};
+
 export const addHours = (iso: string, hours: number): string =>
 	new Date(new Date(iso).getTime() + hours * 60 * 60 * 1000).toISOString();

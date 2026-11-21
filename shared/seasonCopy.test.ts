@@ -1,5 +1,5 @@
 import { copySeasonSettings, nextSeasonDates } from './seasonCopy';
-import type { Season, SeasonSlot, Signup } from './types';
+import type { Season, SeasonSlot } from './types';
 
 const tuesday: SeasonSlot = { weekday: 2, time: '19:00', durationMinutes: 90, timezone: 'Europe/Stockholm' };
 
@@ -40,19 +40,6 @@ describe('nextSeasonDates', () => {
 	it('finds the weekday when the old end falls on another day', () => {
 		const { startDate } = nextSeasonDates({ startDate: '2026-12-01', endDate: '2026-12-16', slot: tuesday });
 		expect(startDate).toBe('2026-12-22');
-	});
-});
-
-describe('Signup', () => {
-	it('keeps the answerer apart from the player when an admin answered', () => {
-		const signup: Signup = {
-			uid: 'b',
-			status: 'yes',
-			answeredAt: '2026-08-02T10:00:00.000Z',
-			updatedAt: '2026-08-02T10:00:00.000Z',
-			answeredBy: 'a',
-		};
-		expect(signup.answeredBy).not.toBe(signup.uid);
 	});
 });
 

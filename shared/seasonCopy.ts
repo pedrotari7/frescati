@@ -1,12 +1,5 @@
-import { addCivilDays, civilDateWeekday, parseCivilDate } from './datetime';
+import { addCivilDays, civilDateWeekday, civilDayNumber } from './datetime';
 import type { Season } from './types';
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-const civilDayNumber = (date: string): number => {
-	const { year, month, day } = parseCivilDate(date);
-	return Math.round(Date.UTC(year, month - 1, day) / MS_PER_DAY);
-};
 
 /**
  * Dates for the season that follows `source`. It starts on the first slot
