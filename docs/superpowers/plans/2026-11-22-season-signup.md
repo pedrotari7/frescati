@@ -287,6 +287,7 @@
 
 - **Status field.** Hidden on a draft. On an active or archived season, the options are only `active` and `archived`.
 - **Quiet and close date.** On a draft, the settings form shows the quiet switch and the close date.
+- **Squad screen.** On a draft, `s/[seasonId]/admin/members` hides Add and Remove and points to the Sign-up section instead, because the rules freeze `memberUids` until confirm.
 - **Start next season.** On a non-draft season the page shows a "Start next season" link to `/seasons/new?from={id}`, for its admins.
 - **`SignupAdmin`.** On a draft, it shows three groups (Joining, Not joining, No answer) over every user from the existing profiles subscription. The head shows the yes count and `signupShare`. Each row has an answer-for-them control that calls `setSignup(..., adminUid)`, or `clearSignup` to reset.
 - **The Confirm button** is disabled with a reason line until the viewing admin has a `yes`.
