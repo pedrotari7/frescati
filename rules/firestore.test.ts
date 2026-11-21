@@ -777,8 +777,11 @@ describe('a season that is still signing up', () => {
 	});
 
 	it('takes a new season only as an empty draft, from an app admin or an admin of the season it copies', async () => {
+		// A fresh id each time, so every call is a create rather than an update
+		// of the season the last one made.
+		let next = 0;
 		const create = (uid: string, data: Record<string, unknown>, claims?: Record<string, unknown>) =>
-			setDoc(doc(authed(uid, claims), 'seasons/next'), data);
+			setDoc(doc(authed(uid, claims), `seasons/next-${++next}`), data);
 
 		await assertSucceeds(create(SEASON_ADMIN, aDraft(SEASON_ADMIN, { copiedFrom: SEASON })));
 		await assertSucceeds(create(APP_ADMIN, aDraft(APP_ADMIN), { admin: true }));
@@ -799,6 +802,18 @@ describe('a season that is still signing up', () => {
 				admin: true,
 			})
 		);
+	});
+
+	it('fixes the season a draft was copied from when it is created', async () => {
+		const updateDraft = (fields: Record<string, unknown>) =>
+			updateDoc(doc(authed(SEASON_ADMIN), draftDoc()), fields);
+		const updateActive = (fields: Record<string, unknown>) =>
+			updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), fields);
+
+		await assertSucceeds(updateDraft({ copiedFrom: SEASON, name: 'Spring 2027, Tuesdays' }));
+		await assertFails(updateDraft({ copiedFrom: 'season-0' }));
+		await assertFails(updateDraft({ copiedFrom: deleteField() }));
+		await assertFails(updateActive({ copiedFrom: 'season-0' }));
 	});
 
 	it('keeps a draft a draft, and never turns a running season back into one', async () => {
