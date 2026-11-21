@@ -178,7 +178,7 @@ export const formatRelative = (iso: string, now: Date = new Date()): string => {
  * is called.
  */
 export const SEASON_STATUS_LABELS: Record<SeasonStatus, string> = {
-	draft: 'Draft',
+	draft: 'Signing up',
 	active: 'Active',
 	archived: 'Archived',
 };

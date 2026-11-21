@@ -10,6 +10,11 @@
 
 import type { DevicePlatform } from './device';
 
+/**
+ * `draft` is a season that is signing up: it has dates and a slot but no squad
+ * yet, and members say yes or no to it before an admin confirms it. Confirming
+ * makes it `active`. The stored value stays `draft`; the label is "Signing up".
+ */
 export type SeasonStatus = 'draft' | 'active' | 'archived';
 
 /**
@@ -290,6 +295,35 @@ export interface Season {
 	adminUids: string[];
 	createdAt: string;
 	createdBy: string;
+	/** The season this one was copied from. Absent on a season made from scratch. */
+	copiedFrom?: string;
+	/** Civil date, `YYYY-MM-DD`, on which sign-up closes. Absent means no closing date. */
+	signupClosesOn?: string;
+	/** ISO 8601 UTC, when an admin confirmed the squad. */
+	confirmedAt?: string;
+	/** Uid of the admin who confirmed it. */
+	confirmedBy?: string;
+	/** A quiet season sends no notifications at all. */
+	quiet?: boolean;
+}
+
+export type SignupStatus = 'yes' | 'no';
+
+/**
+ * One player's answer to a season that is signing up, at
+ * `seasons/{seasonId}/signups/{uid}`. `uid` is the document id, as for
+ * `GameResponse`. A missing document means no answer yet. Never write a
+ * placeholder.
+ */
+export interface Signup {
+	uid: string;
+	status: SignupStatus;
+	/** ISO 8601 UTC, when the first answer was given. */
+	answeredAt: string;
+	/** ISO 8601 UTC, when the answer last changed. */
+	updatedAt: string;
+	/** Set when a season admin answered for the player. */
+	answeredBy?: string;
 }
 
 /**
