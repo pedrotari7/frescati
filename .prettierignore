@@ -12,3 +12,7 @@ pnpm-lock.yaml
 # `RESUME.md` is session scratch, and `settings.local.json` is machine-local.
 # Formatting any of them would be a diff that comes straight back.
 .claude/
+
+# Scratch an agent keeps while running a plan. It is ignored by a .gitignore of
+# its own inside the directory, which Prettier does not read.
+.superpowers/
