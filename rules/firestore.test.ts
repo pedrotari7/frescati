@@ -523,6 +523,7 @@ describe('seasons', () => {
 		await assertSucceeds(
 			setDoc(doc(authed(APP_ADMIN, { admin: true }), 'seasons/new'), {
 				name: 'Spring',
+				status: 'draft',
 				memberUids: [],
 				adminUids: [APP_ADMIN],
 			})
@@ -533,6 +534,7 @@ describe('seasons', () => {
 		await assertFails(
 			setDoc(doc(authed(APP_ADMIN, { admin: true }), 'seasons/new'), {
 				name: 'Spring',
+				status: 'draft',
 				memberUids: [],
 				adminUids: ['someone-else'],
 			})
@@ -541,7 +543,12 @@ describe('seasons', () => {
 
 	it('stops a non-admin creating a season', async () => {
 		await assertFails(
-			setDoc(doc(authed(MEMBER), 'seasons/new'), { name: 'Spring', memberUids: [], adminUids: [MEMBER] })
+			setDoc(doc(authed(MEMBER), 'seasons/new'), {
+				name: 'Spring',
+				status: 'draft',
+				memberUids: [],
+				adminUids: [MEMBER],
+			})
 		);
 	});
 
@@ -566,7 +573,12 @@ describe('seasons', () => {
 	// against a token that has no `admin` key on either of these paths.
 	it('treats a missing admin claim as false rather than erroring', async () => {
 		await assertFails(
-			setDoc(doc(authed(MEMBER), 'seasons/new'), { name: 'Spring', memberUids: [], adminUids: [MEMBER] })
+			setDoc(doc(authed(MEMBER), 'seasons/new'), {
+				name: 'Spring',
+				status: 'draft',
+				memberUids: [],
+				adminUids: [MEMBER],
+			})
 		);
 		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { name: 'Renamed' }));
 	});
@@ -575,6 +587,7 @@ describe('seasons', () => {
 		await assertFails(
 			setDoc(doc(authed('claims-but-not-admin', { somethingElse: true }), 'seasons/new'), {
 				name: 'Spring',
+				status: 'draft',
 				memberUids: [],
 				adminUids: ['claims-but-not-admin'],
 			})
@@ -686,6 +699,188 @@ describe('seasons', () => {
 		});
 
 		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { name: 'Renamed' }));
+	});
+});
+
+describe('a season that is still signing up', () => {
+	const DRAFT = 'season-draft';
+	const draftDoc = () => `seasons/${DRAFT}`;
+	const draftGameDoc = () => `seasons/${DRAFT}/games/${GAME}`;
+	const draftResponseDoc = (uid: string) => `seasons/${DRAFT}/games/${GAME}/responses/${uid}`;
+	const signupDoc = (uid: string, seasonId = DRAFT) => `seasons/${seasonId}/signups/${uid}`;
+
+	const anAnswer = (extras: Record<string, unknown> = {}) => {
+		const now = new Date().toISOString();
+
+		return { status: 'yes', answeredAt: now, updatedAt: now, ...extras };
+	};
+
+	// What the copy form writes: a draft with nobody in it yet, run by
+	// whoever started it.
+	const aDraft = (creator: string, extras: Record<string, unknown> = {}) => ({
+		name: 'Spring 2027',
+		status: 'draft',
+		startDate: '2027-01-12',
+		endDate: '2027-05-25',
+		venue: { name: 'Frescati IP' },
+		slot: { weekday: 2, time: '19:00', durationMinutes: 90, timezone: 'Europe/Stockholm' },
+		minPlayers: 10,
+		responseDeadlineHours: 24,
+		reminderHours: [72, 24],
+		memberUids: [],
+		adminUids: [creator],
+		createdAt: '2026-11-22T00:00:00.000Z',
+		createdBy: creator,
+		...extras,
+	});
+
+	beforeEach(async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			const db = context.firestore();
+
+			// The sign-up closed yesterday and nobody has confirmed yet. The date
+			// is advice to the reminders, not a lock, so answers stay open.
+			const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+			await setDoc(
+				doc(db, draftDoc()),
+				aDraft(SEASON_ADMIN, { copiedFrom: SEASON, signupClosesOn: yesterday, quiet: false })
+			);
+
+			const open = new Date(Date.now() + 7 * 86_400_000);
+			await setDoc(doc(db, draftGameDoc()), {
+				...aGame(open.toISOString(), new Date(open.getTime() + 5_400_000).toISOString()),
+				seasonId: DRAFT,
+			});
+		});
+	});
+
+	// `seasonShapeOk` is checked against the merged document, so a season
+	// carrying a key the allowlist does not name cannot be edited at all.
+	it('still lets an admin edit a season carrying every sign-up field, and bounds each one', async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await updateDoc(doc(context.firestore(), seasonDoc()), {
+				copiedFrom: 'season-0',
+				signupClosesOn: '2026-08-20',
+				confirmedAt: '2026-08-21T10:00:00.000Z',
+				confirmedBy: SEASON_ADMIN,
+				quiet: true,
+			});
+		});
+
+		const update = (fields: Record<string, unknown>) => updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), fields);
+
+		await assertSucceeds(update({ name: 'Renamed' }));
+		await assertFails(update({ copiedFrom: 'x'.repeat(129) }));
+		await assertFails(update({ signupClosesOn: '2026-08-20T00:00' }));
+		await assertFails(update({ quiet: 'yes' }));
+		await assertSucceeds(update({ quiet: false, signupClosesOn: '2026-08-22' }));
+	});
+
+	it('takes a new season only as an empty draft, from an app admin or an admin of the season it copies', async () => {
+		const create = (uid: string, data: Record<string, unknown>, claims?: Record<string, unknown>) =>
+			setDoc(doc(authed(uid, claims), 'seasons/next'), data);
+
+		await assertSucceeds(create(SEASON_ADMIN, aDraft(SEASON_ADMIN, { copiedFrom: SEASON })));
+		await assertSucceeds(create(APP_ADMIN, aDraft(APP_ADMIN), { admin: true }));
+
+		// A season admin cannot start a blank season, or copy one they do not run.
+		await assertFails(create(SEASON_ADMIN, aDraft(SEASON_ADMIN)));
+		await assertFails(create(MEMBER, aDraft(MEMBER, { copiedFrom: SEASON })));
+		await assertFails(create(SEASON_ADMIN, aDraft(SEASON_ADMIN, { copiedFrom: 'no-such-season' })));
+
+		// Created by somebody who then does not run it.
+		await assertFails(create(SEASON_ADMIN, aDraft(SEASON_ADMIN, { copiedFrom: SEASON, adminUids: [MEMBER] })));
+
+		// Skipping the sign-up, or filling the squad around it.
+		await assertFails(create(APP_ADMIN, aDraft(APP_ADMIN, { status: 'active' }), { admin: true }));
+		await assertFails(create(APP_ADMIN, aDraft(APP_ADMIN, { memberUids: [MEMBER] }), { admin: true }));
+		await assertFails(
+			create(APP_ADMIN, aDraft(APP_ADMIN, { confirmedAt: '2026-11-22T00:00:00.000Z', confirmedBy: APP_ADMIN }), {
+				admin: true,
+			})
+		);
+	});
+
+	it('keeps a draft a draft, and never turns a running season back into one', async () => {
+		const updateDraft = (fields: Record<string, unknown>) =>
+			updateDoc(doc(authed(SEASON_ADMIN), draftDoc()), fields);
+		const updateActive = (fields: Record<string, unknown>) =>
+			updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), fields);
+
+		await assertSucceeds(updateDraft({ name: 'Spring 2027, Tuesdays' }));
+		await assertFails(updateDraft({ status: 'active' }));
+		await assertFails(updateDraft({ status: 'archived' }));
+		await assertFails(updateDoc(doc(authed(APP_ADMIN, { admin: true }), draftDoc()), { status: 'active' }));
+
+		await assertFails(updateActive({ status: 'draft' }));
+		await assertSucceeds(updateActive({ status: 'archived' }));
+	});
+
+	it('freezes the squad of a draft, and keeps the confirmation stamp for the function', async () => {
+		// The draft itself stays editable, so the refusals below are about the
+		// fields they touch.
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), draftDoc()), { quiet: true }));
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), draftDoc()), { memberUids: [MEMBER] }));
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { memberUids: [MEMBER, EXTRA] }));
+
+		const stamp = { confirmedAt: '2026-11-22T00:00:00.000Z', confirmedBy: SEASON_ADMIN };
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), draftDoc()), stamp));
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), stamp));
+		await assertFails(updateDoc(doc(authed(APP_ADMIN, { admin: true }), seasonDoc()), stamp));
+	});
+
+	it('takes sign-up answers from the player, or from an admin who signs them, while the season is a draft', async () => {
+		// Readable by everybody signed in, like the rest of the app.
+		await assertSucceeds(getDoc(doc(authed(EXTRA), signupDoc(MEMBER))));
+		await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), signupDoc(MEMBER))));
+
+		// The player's own, unsigned, after the closing date has passed.
+		await assertSucceeds(setDoc(doc(authed(MEMBER), signupDoc(MEMBER)), anAnswer()));
+		await assertSucceeds(setDoc(doc(authed(MEMBER), signupDoc(MEMBER)), anAnswer({ status: 'no' })));
+		await assertFails(setDoc(doc(authed(MEMBER), signupDoc(MEMBER)), anAnswer({ answeredBy: MEMBER })));
+		await assertFails(setDoc(doc(authed(MEMBER), signupDoc(OTHER_MEMBER)), anAnswer()));
+		await assertSucceeds(deleteDoc(doc(authed(MEMBER), signupDoc(MEMBER))));
+
+		// An admin's, for anybody, signed with their own uid and nobody else's.
+		await assertSucceeds(
+			setDoc(doc(authed(SEASON_ADMIN), signupDoc(EXTRA)), anAnswer({ answeredBy: SEASON_ADMIN }))
+		);
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), signupDoc(OTHER_MEMBER)), anAnswer()));
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), signupDoc(OTHER_MEMBER)), anAnswer({ answeredBy: MEMBER })));
+		await assertFails(deleteDoc(doc(authed(MEMBER), signupDoc(EXTRA))));
+		await assertSucceeds(deleteDoc(doc(authed(SEASON_ADMIN), signupDoc(EXTRA))));
+
+		// The shape.
+		const mine = doc(authed(MEMBER), signupDoc(MEMBER));
+		await assertFails(setDoc(mine, anAnswer({ status: 'maybe' })));
+		await assertFails(setDoc(mine, anAnswer({ payload: 'x' })));
+		await assertFails(setDoc(mine, anAnswer({ answeredAt: 'x'.repeat(41) })));
+		await assertFails(setDoc(mine, { status: 'yes' }));
+
+		// Once the season is running, the sign-up is closed to everybody.
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), signupDoc(MEMBER, SEASON)), anAnswer());
+		});
+		await assertFails(setDoc(doc(authed(MEMBER), signupDoc(MEMBER, SEASON)), anAnswer({ status: 'no' })));
+		await assertFails(deleteDoc(doc(authed(MEMBER), signupDoc(MEMBER, SEASON))));
+		await assertFails(
+			setDoc(doc(authed(SEASON_ADMIN), signupDoc(EXTRA, SEASON)), anAnswer({ answeredBy: SEASON_ADMIN }))
+		);
+		await assertFails(deleteDoc(doc(authed(SEASON_ADMIN), signupDoc(MEMBER, SEASON))));
+	});
+
+	it("refuses every answer to a draft's games, the player's and the admin's", async () => {
+		await assertFails(setDoc(doc(authed(EXTRA), draftResponseDoc(EXTRA)), aResponse(EXTRA, 'extra')));
+		await assertFails(setDoc(doc(authed(SEASON_ADMIN), draftResponseDoc(MEMBER)), aResponse(MEMBER, 'extra')));
+
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), draftResponseDoc(EXTRA)), aResponse(EXTRA, 'extra'));
+		});
+		await assertFails(deleteDoc(doc(authed(EXTRA), draftResponseDoc(EXTRA))));
+		await assertFails(deleteDoc(doc(authed(SEASON_ADMIN), draftResponseDoc(EXTRA))));
+		await assertFails(
+			setDoc(doc(authed(APP_ADMIN, { admin: true }), draftResponseDoc(EXTRA)), aResponse(EXTRA, 'member'))
+		);
 	});
 });
 
