@@ -116,3 +116,9 @@ export const signupsCol = (seasonId: string): CollectionReference =>
 
 export const signupDoc = (seasonId: string, uid: string): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'signups', uid);
+
+/**
+ * Where an admin keeps the Swish number seasons can publish for them. Private:
+ * only its owner and an app admin can read it, and only its owner can write it.
+ */
+export const paymentDoc = (uid: string): DocumentReference => doc(getDb(), 'users', uid, 'private', 'payment');

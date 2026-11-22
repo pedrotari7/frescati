@@ -250,6 +250,13 @@ export interface Payee {
 	swish?: string;
 }
 
+/** One admin in the payee picker. Whether they have a number, never the number. */
+export interface PayeeOption {
+	uid: string;
+	displayName: string;
+	hasNumber: boolean;
+}
+
 /**
  * What it costs to play a season, and where the money goes.
  *

@@ -15,7 +15,7 @@ const POTS = ['entry', 'extras'] as const;
  * `getAppAdminUids` gives. The check is what keeps a season admin from naming
  * any account and pulling its private number into a document everybody reads.
  */
-const isAdminSomewhere = async (uid: string): Promise<boolean> => {
+export const isAdminSomewhere = async (uid: string): Promise<boolean> => {
 	const profile = await db.doc(`users/${uid}`).get();
 	if (profile.get('isAppAdmin') === true) return true;
 
