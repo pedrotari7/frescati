@@ -368,7 +368,7 @@ export const usePlayerLedger = (uid: string | null) => {
 };
 
 /** The Swish number this admin has saved, or `null` when there is none. */
-export const useMyPayment = (uid: string | null): string | null => {
+export const useMyPayment = (uid: string | null | undefined): string | null => {
 	const { data } = useFirestoreSubscription<string | null>(
 		null,
 		uid ? (onChange, onError) => subscribeToMyPayment(uid, onChange, onError) : null,

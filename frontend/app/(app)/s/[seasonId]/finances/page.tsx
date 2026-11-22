@@ -20,7 +20,14 @@ import { counted, formatSek } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useAuth } from '../../../../../lib/auth';
 import { displayNameOf } from '../../../../../lib/people';
-import { useDebtors, useDues, useExpenses, useReceipts, useUsersByUid } from '../../../../../hooks/useData';
+import {
+	useDebtors,
+	useDues,
+	useExpenses,
+	useMyPayment,
+	useReceipts,
+	useUsersByUid,
+} from '../../../../../hooks/useData';
 import { useWrite } from '../../../../../hooks/useWrite';
 import { useReceiptActions } from '../../../../../hooks/useReceiptActions';
 import { useToast } from '../../../../../components/Toast';
@@ -47,7 +54,7 @@ import FinanceOverview from '../../../../../components/FinanceOverview';
 import DuesBook from '../../../../../components/DuesBook';
 import ExpenseList from '../../../../../components/ExpenseList';
 import ReceiptList from '../../../../../components/ReceiptList';
-import SwishPay from '../../../../../components/SwishPay';
+import PaymentCodes from '../../../../../components/PaymentCodes';
 import { SectionHeading } from '../../../../../components/Section';
 import { colors } from '../../../../tokens.stylex';
 import { surfaces } from '../../../../../lib/styles';
@@ -368,52 +375,6 @@ const NoBooks = ({
 	</SeasonShell>
 );
 
-/** How to pay, and the two reasons the code might not help. */
-const HowToPay = ({
-	swish,
-	outstanding,
-	isAdmin,
-	reference,
-}: {
-	swish: string | undefined;
-	outstanding: number;
-	isAdmin: boolean;
-	reference: string;
-}) => {
-	if (outstanding === 0) return null;
-
-	if (!swish) {
-		return (
-			<p {...stylex.props(styles.note)}>
-				No Swish number is set for this season, so ask an admin where to send it. An admin can add one in the
-				season settings.
-			</p>
-		);
-	}
-
-	return (
-		<>
-			<SwishPay payee={swish} amount={outstanding} message={reference} />
-
-			{/* The season collects to somebody, that somebody is almost always an
-			    admin, and they owe their own share like everybody else, so the app
-			    draws them a code to pay themselves. Nothing here can tell: a user
-			    document holds no phone number, so there is nothing to compare
-			    `fees.swish` against. Worth a line rather than nothing, because
-			    Swish refuses a self-payment with the same "the link used to open
-			    the app has an incorrect format" it gives a malformed one, which
-			    reads as a broken app and cost a whole evening to work out. */}
-			{isAdmin && (
-				<p {...stylex.props(styles.note)}>
-					Swish will not let you pay your own number, and it says the link has an incorrect format rather than
-					saying that. If the number above is yours, the code is fine. Mark your own charge paid in the book
-					below instead.
-				</p>
-			)}
-		</>
-	);
-};
-
 /** What the person looking at this owes, and how to settle it. */
 const YourDues = ({
 	uid,
@@ -422,8 +383,8 @@ const YourDues = ({
 	labelFor,
 	collecting,
 	fees,
-	isAdmin,
 	reference,
+	mySwish,
 	onSettle,
 	onDelete,
 }: {
@@ -433,8 +394,8 @@ const YourDues = ({
 	labelFor: (due: Due) => string;
 	collecting: boolean;
 	fees: SeasonFees;
-	isAdmin: boolean;
 	reference: string;
+	mySwish: string | null;
 	onSettle: (due: Due, status: DueStatus) => void;
 	onDelete: (due: Due) => void;
 }) => (
@@ -465,7 +426,7 @@ const YourDues = ({
 			/>
 		)}
 
-		<HowToPay swish={fees.swish} outstanding={mine.outstanding} isAdmin={isAdmin} reference={reference} />
+		<PaymentCodes dues={mine.dues} fees={fees} reference={reference} mySwish={mySwish} />
 	</section>
 );
 
@@ -720,6 +681,7 @@ const TheBook = ({
 /** The season's books, in the order somebody reads them. */
 const Books = ({ viewer, terms, ledgers, hands }: { viewer: Viewer; terms: Terms; ledgers: Ledgers; hands: Hands }) => {
 	const { season, games, fees, collecting } = terms;
+	const mySwish = useMyPayment(viewer.uid);
 
 	// Shared with the season's own debt notice, which names the same charges to
 	// the person who owes them. It lives in `shared/finances.ts` because the two
@@ -737,8 +699,8 @@ const Books = ({ viewer, terms, ledgers, hands }: { viewer: Viewer; terms: Terms
 				labelFor={labelFor}
 				collecting={collecting}
 				fees={fees}
-				isAdmin={viewer.isAdmin}
 				reference={paymentReference(season.name, viewer.displayName)}
+				mySwish={mySwish}
 				onSettle={hands.actions.settle}
 				onDelete={hands.actions.removeDue}
 			/>
