@@ -6,11 +6,11 @@ const mockClear = vi.fn();
 let mockSaved: string | null = null;
 
 vi.mock('../lib/db/payment', () => ({
-	saveMyPayment: (...args: unknown[]) => mockSave(...args),
-	clearMyPayment: (...args: unknown[]) => mockClear(...args),
+	savePayment: (...args: unknown[]) => mockSave(...args),
+	clearPayment: (...args: unknown[]) => mockClear(...args),
 }));
 
-vi.mock('../hooks/useData', () => ({ useMyPayment: () => mockSaved }));
+vi.mock('../hooks/useData', () => ({ usePayment: () => mockSaved }));
 
 vi.mock('../hooks/useWrite', () => ({
 	useWrite: () => async (action: () => Promise<unknown>) => {
@@ -74,6 +74,17 @@ describe('SwishNumberField', () => {
 		fireEvent.change(field(), { target: { value: '  ' } });
 
 		expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+	});
+
+	it("names whose number it is when an app admin edits somebody else's", async () => {
+		render(<SwishNumberField uid='anna' ownerName='Anna' />);
+
+		expect(screen.getByRole('heading', { name: "Anna's Swish number" })).toBeInTheDocument();
+
+		fireEvent.change(field(), { target: { value: '0709998877' } });
+		await press('Save');
+
+		expect(mockSave).toHaveBeenCalledWith('anna', '0709998877');
 	});
 
 	it('says who sees the number', () => {

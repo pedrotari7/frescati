@@ -8,7 +8,7 @@ import type { DebtStanding } from '@shared/finances';
 import { groupGames } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
 import { useAuth } from '../../../../lib/auth';
-import { useMyPayment, useSignups, useUsersByUid } from '../../../../hooks/useData';
+import { usePayment, useSignups, useUsersByUid } from '../../../../hooks/useData';
 import { useRespond } from '../../../../hooks/useRespond';
 import { useWatchGames } from '../../../../hooks/useWatchGames';
 import { useLiveGameRedirect } from '../../../../hooks/useLiveGameRedirect';
@@ -231,7 +231,7 @@ const DraftHome = ({ season, games, answering }: { season: Season; games: Game[]
 /** The debt notice, given who is looking: their name for the reference and their own Swish number to skip. */
 const ViewerDebtNotice = ({ debt, season, games }: { debt: DebtStanding; season: Season; games: Game[] }) => {
 	const { user } = useAuth();
-	const mySwish = useMyPayment(user?.uid);
+	const mySwish = usePayment(user?.uid);
 
 	return (
 		<SeasonDebtNotice

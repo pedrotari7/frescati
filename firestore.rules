@@ -349,9 +349,11 @@ service cloud.firestore {
                  && request.resource.data.updatedAt.size() <= 40;
         }
 
+        // An app admin can write it too, to set up or fix the number of an
+        // admin who never does it themselves.
         allow read: if isSelf(uid) || isAppAdmin();
-        allow create, update: if isSelf(uid) && paymentShapeOk();
-        allow delete: if isSelf(uid);
+        allow create, update: if (isSelf(uid) || isAppAdmin()) && paymentShapeOk();
+        allow delete: if isSelf(uid) || isAppAdmin();
       }
     }
 

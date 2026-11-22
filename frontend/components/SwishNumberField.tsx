@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
-import { useMyPayment } from '../hooks/useData';
+import { usePayment } from '../hooks/useData';
 import { useWrite } from '../hooks/useWrite';
-import { clearMyPayment, saveMyPayment } from '../lib/db/payment';
+import { clearPayment, savePayment } from '../lib/db/payment';
 import { surfaces } from '../lib/styles';
 import { colors } from '../app/tokens.stylex';
 import Button from './Button';
@@ -18,15 +18,18 @@ const styles = stylex.create({
 });
 
 /**
- * An admin's own Swish number, which seasons that pay to them show to whoever
- * owes money.
+ * An admin's Swish number, which seasons that pay to them show to whoever owes
+ * money.
+ *
+ * Their own on `/me`. `ownerName` is an app admin editing somebody else's on
+ * their profile, which changes only the wording.
  *
  * Saving an empty field clears the number rather than writing a blank one:
  * "no number" is the absence of the document, which is what the backend
  * sync and the picker both test.
  */
-const SwishNumberField = ({ uid }: { uid: string }) => {
-	const saved = useMyPayment(uid);
+const SwishNumberField = ({ uid, ownerName }: { uid: string; ownerName?: string }) => {
+	const saved = usePayment(uid);
 	const write = useWrite();
 	const [value, setValue] = useState('');
 
@@ -39,19 +42,26 @@ const SwishNumberField = ({ uid }: { uid: string }) => {
 		if (!changed) return;
 
 		await write(
-			() => (trimmed ? saveMyPayment(uid, trimmed) : clearMyPayment(uid)),
-			"Couldn't save your Swish number."
+			() => (trimmed ? savePayment(uid, trimmed) : clearPayment(uid)),
+			ownerName ? `Couldn't save ${ownerName}'s Swish number.` : "Couldn't save your Swish number."
 		);
 	};
 
 	return (
 		<section {...stylex.props(surfaces.glass, styles.card)}>
-			<h2 {...stylex.props(styles.title)}>Your Swish number</h2>
+			<h2 {...stylex.props(styles.title)}>{ownerName ? `${ownerName}'s Swish number` : 'Your Swish number'}</h2>
 
-			<p {...stylex.props(styles.blurb)}>
-				Shown on any season that names you as its payee, where anybody in the app can see it. App admins can
-				also see it here. Admins picking a payee see your name, not the number.
-			</p>
+			{ownerName ? (
+				<p {...stylex.props(styles.blurb)}>
+					Shown on any season that names {ownerName} as its payee, where anybody in the app can see it. Only
+					app admins and {ownerName} can see or change it here.
+				</p>
+			) : (
+				<p {...stylex.props(styles.blurb)}>
+					Shown on any season that names you as its payee, where anybody in the app can see it. App admins can
+					also see and change it. Admins picking a payee see your name, not the number.
+				</p>
+			)}
 
 			<form
 				onSubmit={event => {

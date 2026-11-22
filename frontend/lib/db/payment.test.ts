@@ -11,13 +11,13 @@ vi.mock('./paths', () => ({ paymentDoc: (uid: string) => `users/${uid}/private/p
 vi.mock('./subscribe', () => ({ subscribeToDoc: vi.fn() }));
 vi.mock('./call', () => ({ callFunction: (...args: unknown[]) => mockCall(...args) }));
 
-import { clearMyPayment, listPayees, saveMyPayment } from './payment';
+import { clearPayment, listPayees, savePayment } from './payment';
 
 beforeEach(() => vi.clearAllMocks());
 
-describe('saveMyPayment', () => {
+describe('savePayment', () => {
 	it('writes the trimmed number with a timestamp, and nothing else', async () => {
-		await saveMyPayment('anna', ' 0701234567 ');
+		await savePayment('anna', ' 0701234567 ');
 
 		const [path, data] = mockSetDoc.mock.calls[0];
 
@@ -27,15 +27,15 @@ describe('saveMyPayment', () => {
 	});
 
 	it('refuses an empty number rather than writing it', async () => {
-		await expect(saveMyPayment('anna', '   ')).rejects.toThrow();
+		await expect(savePayment('anna', '   ')).rejects.toThrow();
 
 		expect(mockSetDoc).not.toHaveBeenCalled();
 	});
 });
 
-describe('clearMyPayment', () => {
+describe('clearPayment', () => {
 	it('deletes the document', async () => {
-		await clearMyPayment('anna');
+		await clearPayment('anna');
 
 		expect(mockDeleteDoc).toHaveBeenCalledWith('users/anna/private/payment');
 	});

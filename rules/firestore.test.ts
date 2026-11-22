@@ -533,16 +533,24 @@ describe("an admin's Swish number", () => {
 		await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), paymentDoc(SEASON_ADMIN))));
 	});
 
-	it('is written and deleted by its owner alone, not even by an app admin', async () => {
+	it('is written and deleted by its owner and the app admins, and by nobody else', async () => {
 		await assertSucceeds(setDoc(doc(authed(MEMBER), paymentDoc(MEMBER)), aNumber('0709876543')));
 		await assertSucceeds(updateDoc(doc(authed(MEMBER), paymentDoc(MEMBER)), { swish: '1231234567' }));
 		await assertSucceeds(deleteDoc(doc(authed(MEMBER), paymentDoc(MEMBER))));
 
 		await assertFails(setDoc(doc(authed(MEMBER), paymentDoc(SEASON_ADMIN)), aNumber('0709876543')));
-		await assertFails(
-			updateDoc(doc(authed(APP_ADMIN, { admin: true }), paymentDoc(SEASON_ADMIN)), { swish: '0709876543' })
-		);
-		await assertFails(deleteDoc(doc(authed(APP_ADMIN, { admin: true }), paymentDoc(SEASON_ADMIN))));
+		await assertFails(updateDoc(doc(authed(MEMBER), paymentDoc(SEASON_ADMIN)), { swish: '0709876543' }));
+		await assertFails(deleteDoc(doc(authed(MEMBER), paymentDoc(SEASON_ADMIN))));
+
+		const appAdmin = authed(APP_ADMIN, { admin: true });
+		await assertSucceeds(updateDoc(doc(appAdmin, paymentDoc(SEASON_ADMIN)), { swish: '0709876543' }));
+		await assertSucceeds(deleteDoc(doc(appAdmin, paymentDoc(SEASON_ADMIN))));
+		await assertSucceeds(setDoc(doc(appAdmin, paymentDoc(SEASON_ADMIN)), aNumber('0701112233')));
+	});
+
+	// An app admin writing for somebody is held to the same shape as the owner.
+	it('holds an app admin to the same shape', async () => {
+		await assertFails(setDoc(doc(authed(APP_ADMIN, { admin: true }), paymentDoc(SEASON_ADMIN)), aNumber('')));
 	});
 
 	// An empty string would be published as the number and draw a Swish code
