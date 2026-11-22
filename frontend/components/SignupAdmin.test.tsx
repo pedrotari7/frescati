@@ -96,6 +96,19 @@ describe('SignupAdmin', () => {
 		expect(mockSetSignup).toHaveBeenCalledWith('season-1', 'c', 'yes', 'a');
 	});
 
+	it("records the admin's own answer without signing it as a proxy", async () => {
+		await draw([]);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Answer for Player a' }));
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: "They're in" }));
+		});
+
+		expect(mockSetSignup).toHaveBeenCalledWith('season-1', 'a', 'yes', undefined);
+	});
+
 	it('takes an answer away with a delete', async () => {
 		await draw([signup('b', 'no')]);
 

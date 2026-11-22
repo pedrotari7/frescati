@@ -81,7 +81,12 @@ const SignupAdmin = ({
 			() =>
 				answer === null
 					? clearSignup(seasonId, uid)
-					: setSignup(seasonId, uid, answer === 'in' ? 'yes' : 'no', viewerUid),
+					: setSignup(
+							seasonId,
+							uid,
+							answer === 'in' ? 'yes' : 'no',
+							uid === viewerUid ? undefined : viewerUid
+						),
 			`Couldn't record the answer for ${name}.`
 		);
 	};
