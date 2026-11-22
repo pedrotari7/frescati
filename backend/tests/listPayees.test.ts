@@ -58,6 +58,15 @@ describe('listPayees', () => {
 		expect(payees.map(payee => payee.displayName)).toEqual(['Anna', 'Johan', 'Mateo']);
 	});
 
+	it('leaves out an admin with no profile, so the picker never shows a blank name', async () => {
+		await profile(ANNA, 'Anna');
+		await season('s1', [ANNA, JOHAN]);
+
+		const { payees } = await listPayees.run(callRequest({}, { uid: ANNA }));
+
+		expect(payees.map(payee => payee.uid)).toEqual([ANNA]);
+	});
+
 	it('says who has a number saved', async () => {
 		await profile(ANNA, 'Anna');
 		await profile(JOHAN, 'Johan');

@@ -24,6 +24,15 @@ const headingFor = (pots: Payment['pots']) => {
 /** Swish numbers are typed by hand, so compare what they dial rather than how they were written. */
 const isMine = (swish: string, mySwish: string | null) => mySwish !== null && sameNumber(swish, mySwish);
 
+/** Only somebody who can settle charges is told to; anybody else is sent to somebody who can. */
+const paidToYou = (canSettle: boolean, hasBook: boolean) => {
+	if (!canSettle) return 'This one is paid to you. Ask an admin of this season to mark it paid.';
+
+	return hasBook
+		? 'This one is paid to you. Mark it paid in the book below.'
+		: 'This one is paid to you, so mark it paid yourself.';
+};
+
 /**
  * One Swish code for each number the viewer owes money to.
  *
@@ -38,6 +47,7 @@ const PaymentCodes = ({
 	fees,
 	reference,
 	mySwish,
+	canSettle,
 	hasBook = true,
 }: {
 	dues: Pick<Due, 'kind' | 'amount' | 'status'>[];
@@ -45,6 +55,8 @@ const PaymentCodes = ({
 	reference: string;
 	/** The viewer's own saved number, or null when they have none. */
 	mySwish: string | null;
+	/** Whether the viewer can mark a charge paid in this season: one of its admins, or an app admin. */
+	canSettle: boolean;
 	/** Whether the screen has the book below it to mark a charge paid in. */
 	hasBook?: boolean;
 }) => {
@@ -66,11 +78,7 @@ const PaymentCodes = ({
 								No Swish number is set for this, so ask an admin where to send it.
 							</p>
 						) : isMine(swish, mySwish) ? (
-							<p {...stylex.props(styles.note)}>
-								{hasBook
-									? 'This one is paid to you. Mark it paid in the book below.'
-									: 'This one is paid to you, so mark it paid yourself.'}
-							</p>
+							<p {...stylex.props(styles.note)}>{paidToYou(canSettle, hasBook)}</p>
 						) : (
 							<SwishPay payee={swish} amount={amount} message={reference} />
 						)}

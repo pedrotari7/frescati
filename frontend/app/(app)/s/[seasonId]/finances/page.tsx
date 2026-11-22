@@ -385,6 +385,7 @@ const YourDues = ({
 	fees,
 	reference,
 	mySwish,
+	canSettle,
 	onSettle,
 	onDelete,
 }: {
@@ -396,6 +397,7 @@ const YourDues = ({
 	fees: SeasonFees;
 	reference: string;
 	mySwish: string | null;
+	canSettle: boolean;
 	onSettle: (due: Due, status: DueStatus) => void;
 	onDelete: (due: Due) => void;
 }) => (
@@ -426,7 +428,7 @@ const YourDues = ({
 			/>
 		)}
 
-		<PaymentCodes dues={mine.dues} fees={fees} reference={reference} mySwish={mySwish} />
+		<PaymentCodes dues={mine.dues} fees={fees} reference={reference} mySwish={mySwish} canSettle={canSettle} />
 	</section>
 );
 
@@ -701,6 +703,7 @@ const Books = ({ viewer, terms, ledgers, hands }: { viewer: Viewer; terms: Terms
 				fees={fees}
 				reference={paymentReference(season.name, viewer.displayName)}
 				mySwish={mySwish}
+				canSettle={viewer.isAdmin}
 				onSettle={hands.actions.settle}
 				onDelete={hands.actions.removeDue}
 			/>

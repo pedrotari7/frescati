@@ -118,6 +118,9 @@ const SeasonDebtNotice = ({
 				fees={fees}
 				reference={paymentReference(season.name, displayName)}
 				mySwish={mySwish}
+				// Only an admin's standing is `owing`, which is the same test as being
+				// able to settle a charge.
+				canSettle={debt.standing === 'owing'}
 				hasBook={false}
 			/>
 
