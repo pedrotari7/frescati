@@ -164,7 +164,7 @@ const main = async () => {
 		[
 			`  ${summary.seasons} seasons, ${summary.games} games, ${summary.responses} responses`,
 			`  ${summary.confirmedGames} confirmed games, ${summary.ratedPlayers} rated players, ${summary.kit} pieces of kit`,
-			`  ${summary.dues} charges, ${summary.expenses} expenses`,
+			`  ${summary.dues} charges, ${summary.expenses} expenses, ${summary.signups} sign-up answers`,
 			`  ${summary.devUsers.length} accounts written to frontend/public/dev-users.json`,
 		].join('\n')
 	);
