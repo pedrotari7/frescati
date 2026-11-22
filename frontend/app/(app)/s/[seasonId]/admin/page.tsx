@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarDaysIcon, CalendarIcon, PlusCircleIcon, UsersIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
-import type { Game, Season, SeasonStatus } from '@shared/types';
+import type { Game, PayeeOption, Season, SeasonStatus } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
 import { SEASON_STATUS_LABELS, counted, formatSek } from '@shared/format';
 import { entryShare } from '@shared/finances';
@@ -18,8 +18,11 @@ import { useToast } from '../../../../../components/Toast';
 import { useSignups, useUsersByUid } from '../../../../../hooks/useData';
 import SignupAdmin from '../../../../../components/SignupAdmin';
 import SignupSettingsFields from '../../../../../components/SignupSettingsFields';
+import { captureError } from '../../../../../lib/sentry';
+import { listPayees } from '../../../../../lib/db/payment';
 import { deleteSeason, updateSeason } from '../../../../../lib/db/seasons';
 import { updateVenueForUpcomingGames } from '../../../../../lib/db/games';
+import PayeePicker from '../../../../../components/PayeePicker';
 import SeasonSlotFields from '../../../../../components/SeasonSlotFields';
 import SeasonShell from '../../../../../components/SeasonShell';
 import CalendarSubscribeSheet from '../../../../../components/CalendarSubscribeSheet';
@@ -164,7 +167,7 @@ const saveSettings = async (
 ) => {
 	const venue = venueFrom(form);
 
-	await updateSeason(seasonId, seasonUpdateFrom(form, counts, season.slot.timezone));
+	await updateSeason(seasonId, seasonUpdateFrom(form, counts, season.slot.timezone, season.fees));
 
 	if (venueMoved(venue, season)) await updateVenueForUpcomingGames(seasonId, games, venue);
 };
@@ -219,6 +222,48 @@ const DraftFields = ({ form, setForm }: { form: SeasonForm; setForm: (form: Seas
  * function. The form state belongs to this half of the screen and nothing above
  * it reads it.
  */
+/**
+ * The admins a fee can be paid to, asked for once when the card opens. Null is
+ * still loading; a failure leaves the custom number usable.
+ */
+const usePayeeOptions = () => {
+	const [payees, setPayees] = useState<PayeeOption[] | null>(null);
+	const [payeesFailed, setPayeesFailed] = useState(false);
+
+	useEffect(() => {
+		listPayees().then(setPayees, error => {
+			captureError(error);
+			setPayeesFailed(true);
+		});
+	}, []);
+
+	return { payees, payeesFailed };
+};
+
+const PayeeFields = ({ form, setForm }: { form: SeasonForm; setForm: (form: SeasonForm) => void }) => {
+	const { payees, payeesFailed } = usePayeeOptions();
+
+	return (
+		<>
+			<PayeePicker
+				label='Season fee paid to'
+				choice={form.entryPayee}
+				onChange={entryPayee => setForm({ ...form, entryPayee })}
+				options={payees}
+				failed={payeesFailed}
+			/>
+
+			<PayeePicker
+				label="Extras' fees paid to"
+				choice={form.extrasPayee}
+				onChange={extrasPayee => setForm({ ...form, extrasPayee })}
+				options={payees}
+				failed={payeesFailed}
+			/>
+		</>
+	);
+};
+
 const SeasonSettingsCard = ({ seasonId, season, games }: { seasonId: string; season: Season; games: Game[] }) => {
 	const write = useWrite();
 	const { notify } = useToast();
@@ -444,18 +489,7 @@ const SeasonSettingsCard = ({ seasonId, season, games }: { seasonId: string; sea
 					/>
 				</Field>
 
-				<Field
-					label='Swish number'
-					hint='The number that collects. Anybody paying gets a QR code for it with the amount and the reference already filled in.'
-				>
-					<TextInput
-						value={form.swish}
-						onChange={e => setForm({ ...form, swish: e.target.value })}
-						placeholder='0701234567'
-						inputMode='tel'
-						maxLength={20}
-					/>
-				</Field>
+				<PayeeFields form={form} setForm={setForm} />
 			</SettingsBlock>
 
 			{/* Seeding once means this form can go stale, so it says so

@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import * as stylex from '@stylexjs/stylex';
 import type { Season, Weekday } from '@shared/types';
 import { parseCount } from '@shared/game';
 import { copySeasonSettings, nextSeasonDates } from '@shared/seasonCopy';
 import type { CopiedSettings } from '@shared/seasonCopy';
+import { useUsersByUid } from '../hooks/useData';
 import { captureError } from '../lib/sentry';
 import { createSeason } from '../lib/db/seasons';
 import { colors } from '../app/tokens.stylex';
@@ -89,6 +90,8 @@ const NewSeasonForm = ({
 	uid: string;
 }) => {
 	const router = useRouter();
+	const { usersByUid } = useUsersByUid();
+	const names = useMemo(() => new Map([...usersByUid].map(([id, person]) => [id, person.displayName])), [usersByUid]);
 
 	const startId = sources.find(season => season.id === preferredId)?.id ?? sources[0]?.id ?? BLANK;
 	const [sourceId, setSourceId] = useState(startId);
@@ -206,7 +209,11 @@ const NewSeasonForm = ({
 					onQuiet={setQuiet}
 				/>
 
-				<CopiedSettingsSummary settings={source ? copySeasonSettings(source, uid) : null} creatorUid={uid} />
+				<CopiedSettingsSummary
+					settings={source ? copySeasonSettings(source, uid) : null}
+					creatorUid={uid}
+					names={names}
+				/>
 
 				{error && <p {...stylex.props(styles.error)}>{error}</p>}
 
