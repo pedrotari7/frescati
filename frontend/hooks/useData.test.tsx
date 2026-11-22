@@ -217,6 +217,24 @@ describe('the two subscriptions that need nothing', () => {
 		expect(seasons.subscribeToSeasons).toHaveBeenCalledTimes(1);
 	});
 
+	it('useDraftSeasons keeps only the seasons still signing up, newest first', () => {
+		const made = (id: string, status: string, createdAt: string) => ({ id, status, createdAt });
+
+		(seasons.subscribeToSeasons as Mock).mockImplementationOnce((onChange: (list: unknown[]) => void) => {
+			onChange([
+				made('old', 'draft', '2026-01-01'),
+				made('live', 'active', '2026-03-01'),
+				made('new', 'draft', '2026-02-01'),
+			]);
+
+			return vi.fn();
+		});
+
+		const { result } = renderHook(() => data.useDraftSeasons());
+
+		expect(result.current.map(season => season.id)).toEqual(['new', 'old']);
+	});
+
 	it('useUsers subscribes immediately', () => {
 		// The roster is readable by anybody signed in, so there is no id to wait
 		// for, which is what makes `useUsersByUid` safe to call anywhere.
