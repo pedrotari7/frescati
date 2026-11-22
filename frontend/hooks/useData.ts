@@ -59,6 +59,17 @@ export const useSeasons = () => {
 	return { seasons: data, loading, error };
 };
 
+/** Every season still signing up, newest first. */
+export const useDraftSeasons = (): Season[] => {
+	const { seasons } = useSeasons();
+
+	return useMemo(
+		() =>
+			seasons.filter(season => season.status === 'draft').sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+		[seasons]
+	);
+};
+
 export const useSeason = (seasonId: string | null) => {
 	const { data, loading, error, retry } = useFirestoreSubscription<Season | null>(
 		null,

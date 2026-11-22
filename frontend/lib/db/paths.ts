@@ -105,3 +105,14 @@ export const matchesCol = (seasonId: string, gameId: string): CollectionReferenc
 /** The document id is the fixture's place in the running order. */
 export const matchDoc = (seasonId: string, gameId: string, order: number): DocumentReference =>
 	doc(getDb(), 'seasons', seasonId, 'games', gameId, 'matches', String(order));
+
+/**
+ * Who said yes to a season that is still signing up. The id is the uid, and no
+ * document means no answer. Written by the player, or by a season admin for
+ * them with `answeredBy` set.
+ */
+export const signupsCol = (seasonId: string): CollectionReference =>
+	collection(getDb(), 'seasons', seasonId, 'signups');
+
+export const signupDoc = (seasonId: string, uid: string): DocumentReference =>
+	doc(getDb(), 'seasons', seasonId, 'signups', uid);
