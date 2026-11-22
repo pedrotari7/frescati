@@ -25,6 +25,7 @@ import Button from '../../../../components/Button';
 import StatusPill from '../../../../components/StatusPill';
 import RatingChart from '../../../../components/RatingChart';
 import RatingMovement from '../../../../components/RatingMovement';
+import SwishNumberField from '../../../../components/SwishNumberField';
 import { SectionHeading } from '../../../../components/Section';
 import { bp, colors, tint } from '../../../tokens.stylex';
 import { surfaces, utils } from '../../../../lib/styles';
@@ -542,10 +543,20 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 
 	const trend = getRatingTrend(record.games).map(toDisplayRating);
 
+	// An app admin can set somebody else's Swish number, but only for somebody a
+	// season could name as its payee, the same test `/me` uses for your own.
+	// Their own is on `/me`.
+	const canEditSwish =
+		user?.isAppAdmin === true &&
+		uid !== user.uid &&
+		(player.isAppAdmin || [...seasonsById.values()].some(season => season.adminUids?.includes(uid)));
+
 	return (
 		<PageShell title={player.displayName} {...shell}>
 			<div {...stylex.props(styles.page)}>
 				<IdentityCard player={player} users={users} uid={uid} isYou={uid === user?.uid} motm={record.motm} />
+
+				{canEditSwish && <SwishNumberField uid={uid} ownerName={player.displayName} />}
 
 				{record.appearances === 0 ? (
 					<EmptyState icon={<TrophyIcon />} title='No games yet' message={noGamesNote(player)} />

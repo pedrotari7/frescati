@@ -20,14 +20,7 @@ import { counted, formatSek } from '@shared/format';
 import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useAuth } from '../../../../../lib/auth';
 import { displayNameOf } from '../../../../../lib/people';
-import {
-	useDebtors,
-	useDues,
-	useExpenses,
-	useMyPayment,
-	useReceipts,
-	useUsersByUid,
-} from '../../../../../hooks/useData';
+import { useDebtors, useDues, useExpenses, usePayment, useReceipts, useUsersByUid } from '../../../../../hooks/useData';
 import { useWrite } from '../../../../../hooks/useWrite';
 import { useReceiptActions } from '../../../../../hooks/useReceiptActions';
 import { useToast } from '../../../../../components/Toast';
@@ -683,7 +676,7 @@ const TheBook = ({
 /** The season's books, in the order somebody reads them. */
 const Books = ({ viewer, terms, ledgers, hands }: { viewer: Viewer; terms: Terms; ledgers: Ledgers; hands: Hands }) => {
 	const { season, games, fees, collecting } = terms;
-	const mySwish = useMyPayment(viewer.uid);
+	const mySwish = usePayment(viewer.uid);
 
 	// Shared with the season's own debt notice, which names the same charges to
 	// the person who owes them. It lives in `shared/finances.ts` because the two
