@@ -514,6 +514,57 @@ describe('users', () => {
 	});
 });
 
+describe("an admin's Swish number", () => {
+	const paymentDoc = (uid: string) => `users/${uid}/private/payment`;
+	const aNumber = (swish: unknown) => ({ swish, updatedAt: '2026-11-23T10:00:00.000Z' });
+
+	beforeEach(async () => {
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await setDoc(doc(context.firestore(), paymentDoc(SEASON_ADMIN)), aNumber('0701234567'));
+		});
+	});
+
+	// Every profile is readable by the whole group, so the number lives in a
+	// document of its own. Its owner and the app admins are the only readers.
+	it('is read by its owner and the app admins, and by nobody else', async () => {
+		await assertSucceeds(getDoc(doc(authed(SEASON_ADMIN), paymentDoc(SEASON_ADMIN))));
+		await assertSucceeds(getDoc(doc(authed(APP_ADMIN, { admin: true }), paymentDoc(SEASON_ADMIN))));
+		await assertFails(getDoc(doc(authed(MEMBER), paymentDoc(SEASON_ADMIN))));
+		await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), paymentDoc(SEASON_ADMIN))));
+	});
+
+	it('is written and deleted by its owner alone, not even by an app admin', async () => {
+		await assertSucceeds(setDoc(doc(authed(MEMBER), paymentDoc(MEMBER)), aNumber('0709876543')));
+		await assertSucceeds(updateDoc(doc(authed(MEMBER), paymentDoc(MEMBER)), { swish: '1231234567' }));
+		await assertSucceeds(deleteDoc(doc(authed(MEMBER), paymentDoc(MEMBER))));
+
+		await assertFails(setDoc(doc(authed(MEMBER), paymentDoc(SEASON_ADMIN)), aNumber('0709876543')));
+		await assertFails(
+			updateDoc(doc(authed(APP_ADMIN, { admin: true }), paymentDoc(SEASON_ADMIN)), { swish: '0709876543' })
+		);
+		await assertFails(deleteDoc(doc(authed(APP_ADMIN, { admin: true }), paymentDoc(SEASON_ADMIN))));
+	});
+
+	// An empty string would be published as the number and draw a Swish code
+	// that pays nobody.
+	it('is a number and a timestamp, bounded, and nothing else', async () => {
+		const write = (data: Record<string, unknown>) => setDoc(doc(authed(MEMBER), paymentDoc(MEMBER)), data);
+
+		await assertFails(write(aNumber('')));
+		await assertFails(write(aNumber('0'.repeat(21))));
+		await assertFails(write(aNumber(701234567)));
+		await assertFails(write({ swish: '0701234567' }));
+		await assertFails(write({ swish: '0701234567', updatedAt: 'x'.repeat(41) }));
+		await assertFails(write({ ...aNumber('0701234567'), payload: 'y'.repeat(50_000) }));
+		await assertSucceeds(write(aNumber('0'.repeat(20))));
+	});
+
+	it('is the only document under private', async () => {
+		await assertFails(setDoc(doc(authed(MEMBER), `users/${MEMBER}/private/other`), aNumber('0701234567')));
+		await assertFails(getDoc(doc(authed(MEMBER), `users/${MEMBER}/private/other`)));
+	});
+});
+
 describe('seasons', () => {
 	it('lets any signed-in user read a season, so extras can find games', async () => {
 		await assertSucceeds(getDoc(doc(authed(EXTRA), seasonDoc())));
@@ -699,6 +750,86 @@ describe('seasons', () => {
 		});
 
 		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { name: 'Renamed' }));
+	});
+});
+
+describe("a season's payees", () => {
+	const fees = (payees: Record<string, unknown>) => ({ total: 31240, perGame: 70, payees });
+	const update = (payees: Record<string, unknown>) =>
+		updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { fees: fees(payees) });
+
+	it('names an admin by uid, or a custom number, for each pot', async () => {
+		await assertSucceeds(update({ entry: { uid: SEASON_ADMIN }, extras: { swish: '0701234567' } }));
+		await assertSucceeds(update({ entry: { swish: '0701234567' } }));
+	});
+
+	// The allowlist stops at the edge of a map, twice over here.
+	it('rejects junk in the payees or in a pot, and a pot no charge pays into', async () => {
+		await assertFails(update({ entry: { uid: SEASON_ADMIN }, late: { uid: SEASON_ADMIN } }));
+		await assertFails(update({ entry: { uid: SEASON_ADMIN, payload: 'y'.repeat(50_000) } }));
+		await assertFails(update({ entry: 'season-admin' }));
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { fees: { total: 1, payees: 'x' } }));
+	});
+
+	// An empty number resolves to '' and draws a Swish code that pays nobody.
+	it('bounds a payee and refuses an empty one', async () => {
+		await assertFails(update({ entry: { swish: '' } }));
+		await assertFails(update({ entry: { swish: '0'.repeat(21) } }));
+		await assertFails(update({ entry: { swish: 701234567 } }));
+		await assertFails(update({ entry: { uid: '' } }));
+		await assertFails(update({ entry: { uid: 'u'.repeat(129) } }));
+		await assertSucceeds(update({ entry: { swish: '0'.repeat(20) } }));
+	});
+
+	// The digits for an admin come only from the function, so a client that
+	// could write both could put its own number under somebody else's name.
+	it('never takes a number for an admin from a client', async () => {
+		await assertFails(update({ entry: { uid: SEASON_ADMIN, swish: '0701234567' } }));
+		await assertFails(update({ extras: { uid: SEASON_ADMIN, swish: '0701234567' } }));
+		await assertFails(
+			setDoc(doc(authed(APP_ADMIN, { admin: true }), 'seasons/new'), {
+				name: 'Spring',
+				status: 'draft',
+				memberUids: [],
+				adminUids: [APP_ADMIN],
+				fees: fees({ entry: { uid: APP_ADMIN, swish: '0701234567' } }),
+			})
+		);
+		await assertSucceeds(
+			setDoc(doc(authed(APP_ADMIN, { admin: true }), 'seasons/new'), {
+				name: 'Spring',
+				status: 'draft',
+				memberUids: [],
+				adminUids: [APP_ADMIN],
+				fees: fees({ entry: { uid: APP_ADMIN } }),
+			})
+		);
+	});
+
+	describe('once the function has copied an admin number across', () => {
+		beforeEach(async () => {
+			await testEnv.withSecurityRulesDisabled(async context => {
+				await updateDoc(doc(context.firestore(), seasonDoc()), {
+					fees: fees({ entry: { uid: SEASON_ADMIN, swish: '0701234567' } }),
+				});
+			});
+		});
+
+		// On an update the rules see the merged document, so the copied pot is
+		// in every write the settings screen makes.
+		it('still lets an admin make an unrelated edit', async () => {
+			await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { name: 'Renamed' }));
+		});
+
+		it('refuses a client changing the copied number, or moving it to another admin', async () => {
+			await assertFails(update({ entry: { uid: SEASON_ADMIN, swish: '0709876543' } }));
+			await assertFails(update({ entry: { uid: APP_ADMIN, swish: '0701234567' } }));
+		});
+
+		it('lets an admin pick somebody else, or a custom number, in its place', async () => {
+			await assertSucceeds(update({ entry: { uid: APP_ADMIN } }));
+			await assertSucceeds(update({ entry: { swish: '0709876543' } }));
+		});
 	});
 });
 
