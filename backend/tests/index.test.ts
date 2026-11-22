@@ -60,6 +60,7 @@ const DEPLOYED = [
 	'getCalendarLink',
 	'getGameWatchers',
 	'getPushDevices',
+	'listPayees',
 	'nudgePlayers',
 	'onBudgetAlert',
 	'onDueWrite',

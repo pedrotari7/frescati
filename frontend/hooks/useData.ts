@@ -34,6 +34,7 @@ import {
 } from '../lib/db/tournament';
 import { subscribeToMotm, subscribeToMotmVoters, subscribeToMyMotmVote } from '../lib/db/motm';
 import { subscribeToReceipts } from '../lib/db/receipts';
+import { subscribeToMyPayment } from '../lib/db/payment';
 import { subscribeToUser, subscribeToUsers } from '../lib/db/users';
 import { useFirestoreSubscription } from './useFirestoreSubscription';
 
@@ -364,6 +365,18 @@ export const usePlayerLedger = (uid: string | null) => {
 	);
 
 	return { entries: data, loading, error };
+};
+
+/** The Swish number this admin has saved, or `null` when there is none. */
+export const useMyPayment = (uid: string | null): string | null => {
+	const { data } = useFirestoreSubscription<string | null>(
+		null,
+		uid ? (onChange, onError) => subscribeToMyPayment(uid, onChange, onError) : null,
+		[uid],
+		'payment'
+	);
+
+	return data;
 };
 
 export const useUser = (uid: string | null) => {
