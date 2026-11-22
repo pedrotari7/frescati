@@ -13,7 +13,9 @@ import {
 	owesForGame,
 	paymentReference,
 	planDues,
+	payeeFor,
 	planGameDues,
+	splitByPayee,
 	summarise,
 } from './finances';
 import type { Due, Expense, Game, GameResponse } from './types';
@@ -552,5 +554,68 @@ describe('paymentReference', () => {
 
 	it('stays inside what a Swish message will carry', () => {
 		expect(paymentReference('A'.repeat(40), 'B'.repeat(40)).length).toBe(50);
+	});
+});
+
+describe('payeeFor', () => {
+	const base = { total: 0, perGame: 70 };
+
+	it('sends both pots to the legacy number when no payee is named', () => {
+		const fees = { ...base, swish: '0709' };
+		expect(payeeFor(fees, 'entry')).toBe('0709');
+		expect(payeeFor(fees, 'game')).toBe('0709');
+	});
+
+	it('sends entry charges to the entry payee and leaves the other pot on the legacy number', () => {
+		const fees = { ...base, swish: '0709', payees: { entry: { uid: 'a', swish: '0701' } } };
+		expect(payeeFor(fees, 'entry')).toBe('0701');
+		expect(payeeFor(fees, 'game')).toBe('0709');
+	});
+
+	it('gives nothing for a pot whose admin has no saved number', () => {
+		const fees = { ...base, swish: '0709', payees: { extras: { uid: 'b' } } };
+		expect(payeeFor(fees, 'game')).toBeUndefined();
+		expect(payeeFor(fees, 'late')).toBeUndefined();
+	});
+});
+
+describe('splitByPayee', () => {
+	const base = { total: 0, perGame: 70 };
+	const entry = { kind: 'entry', amount: 500, status: 'owing' } as const;
+	const game = { kind: 'game', amount: 70, status: 'owing' } as const;
+
+	it('makes one payment per number', () => {
+		const fees = { ...base, payees: { entry: { swish: '0701' }, extras: { swish: '0702' } } };
+		expect(splitByPayee([entry, game], fees)).toEqual([
+			{ swish: '0701', pots: ['entry'], amount: 500 },
+			{ swish: '0702', pots: ['extras'], amount: 70 },
+		]);
+	});
+
+	it('merges the pots that share a number', () => {
+		const fees = { ...base, swish: '0701' };
+		expect(splitByPayee([entry, game], fees)).toEqual([{ swish: '0701', pots: ['entry', 'extras'], amount: 570 }]);
+	});
+
+	it('ignores charges that are paid', () => {
+		const fees = { ...base, swish: '0701' };
+		expect(splitByPayee([entry, { ...game, status: 'paid' }], fees)).toEqual([
+			{ swish: '0701', pots: ['entry'], amount: 500 },
+		]);
+	});
+
+	it('makes one payment when only game charges are owing', () => {
+		const fees = { ...base, swish: '0701' };
+		expect(splitByPayee([game, { ...game, kind: 'late' }], fees)).toEqual([
+			{ swish: '0701', pots: ['extras'], amount: 140 },
+		]);
+	});
+
+	it('keeps a pot with no number as its own payment', () => {
+		const fees = { ...base, payees: { extras: { uid: 'b' } }, swish: '0701' };
+		expect(splitByPayee([entry, game], fees)).toEqual([
+			{ swish: '0701', pots: ['entry'], amount: 500 },
+			{ swish: undefined, pots: ['extras'], amount: 70 },
+		]);
 	});
 });
