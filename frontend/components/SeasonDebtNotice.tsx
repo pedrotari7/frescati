@@ -8,7 +8,7 @@ import type { DebtStanding } from '@shared/finances';
 import { dueLabel, feesFor, paymentReference } from '@shared/finances';
 import { formatSek } from '@shared/format';
 import StatusPill from './StatusPill';
-import SwishPay from './SwishPay';
+import PaymentCodes from './PaymentCodes';
 import { colors } from '../app/tokens.stylex';
 import { animations, elevation, surfaces } from '../lib/styles';
 
@@ -58,6 +58,7 @@ const SeasonDebtNotice = ({
 	season,
 	games,
 	displayName,
+	mySwish,
 }: {
 	/**
 	 * Takes the whole standing rather than an amount and a boolean, so this
@@ -68,6 +69,8 @@ const SeasonDebtNotice = ({
 	games: Game[];
 	/** Goes on the payment, so an admin reading a bank statement knows whose it is. */
 	displayName: string;
+	/** The viewer's own saved Swish number, so a charge paid to them is not offered as a code. */
+	mySwish: string | null;
 }) => {
 	if (debt.standing === 'clear') return null;
 
@@ -110,17 +113,13 @@ const SeasonDebtNotice = ({
 				))}
 			</ul>
 
-			{fees.swish ? (
-				<SwishPay
-					payee={fees.swish}
-					amount={debt.outstanding}
-					message={paymentReference(season.name, displayName)}
-				/>
-			) : (
-				<p {...stylex.props(styles.footnote)}>
-					No Swish number is set for this season, so ask an admin where to send it.
-				</p>
-			)}
+			<PaymentCodes
+				dues={debt.dues}
+				fees={fees}
+				reference={paymentReference(season.name, displayName)}
+				mySwish={mySwish}
+				hasBook={false}
+			/>
 
 			{/* Paying is not the same event as being marked paid, and only an admin
 			    can do the second one. Without this the notice reads as a thing that

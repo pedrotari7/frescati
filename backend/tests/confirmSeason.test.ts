@@ -195,6 +195,21 @@ describe('confirmSeason', () => {
 			expect(sent).toHaveBeenCalledWith('b', expect.objectContaining({ share: 500, blocked: true }));
 		});
 
+		it('names the number the season fee is paid to, not the extras one', async () => {
+			await draft({
+				fees: {
+					total: 1000,
+					perGame: 70,
+					swish: '0700000000',
+					payees: { entry: { swish: '0701111111' }, extras: { swish: '0702222222' } },
+				},
+			});
+
+			await call();
+
+			expect(sent).toHaveBeenCalledWith('a', expect.objectContaining({ swish: '0701111111' }));
+		});
+
 		it('stays silent for a quiet season', async () => {
 			await draft({ quiet: true });
 
