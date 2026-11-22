@@ -6,8 +6,17 @@ import type {
 	GameNotification,
 	GameNotificationContext,
 	PushPayload,
+	SeasonConfirmedContext,
+	SignupContext,
 } from '../../../shared/notifications';
-import { NOTIFICATION_PREF, buildDueRaisedPush, buildDuesPush, buildGamePush } from '../../../shared/notifications';
+import {
+	NOTIFICATION_PREF,
+	buildDueRaisedPush,
+	buildDuesPush,
+	buildGamePush,
+	buildSeasonConfirmedPush,
+	buildSignupPush,
+} from '../../../shared/notifications';
 import { db, messaging } from './firebase';
 import { chunksOf } from './batch';
 import { sendEmail } from './email';
@@ -232,3 +241,25 @@ export const sendDuesReminder = (uid: string, context: DuesReminderContext): Pro
  */
 export const sendDueRaised = (uid: string, context: DueRaisedContext): Promise<SendResult> =>
 	sendPush([uid], buildDueRaisedPush(context), NOTIFICATION_PREF.dueRaised);
+
+/**
+ * Ask a list of people whether they are in for a season that is signing up.
+ *
+ * One payload for everybody, since the copy names the season and not the
+ * reader. The kind picks the wording and, through `NOTIFICATION_PREF`, the
+ * `reminders` switch that can silence it.
+ */
+export const sendSignupPush = (
+	uids: string[],
+	kind: 'signupOpen' | 'signupReminder',
+	context: SignupContext
+): Promise<SendResult> => sendPush(uids, buildSignupPush(kind, context), NOTIFICATION_PREF[kind]);
+
+/**
+ * Tell one player the season is confirmed and what their place costs.
+ *
+ * One uid because the copy names the reader's own share and says whether their
+ * own first In is held, the same reason `sendDueRaised` is one uid.
+ */
+export const sendSeasonConfirmed = (uid: string, context: SeasonConfirmedContext): Promise<SendResult> =>
+	sendPush([uid], buildSeasonConfirmedPush(context), NOTIFICATION_PREF.seasonConfirmed);

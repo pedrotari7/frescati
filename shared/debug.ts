@@ -1,3 +1,6 @@
+import type { AnyNotification, PushPayload } from './notifications';
+import { buildSeasonConfirmedPush, buildSignupPush } from './notifications';
+
 /**
  * The deliberate failures an app admin can fire from the debug screen.
  *
@@ -61,3 +64,20 @@ export const SAMPLE_DEBT = { outstanding: 1735, charges: 2 };
  * `buildTestContext` uses for a game nobody picked.
  */
 export const SAMPLE_CHARGE = { amount: 70, when: 'Tue 1 Sep' };
+
+/** The kinds that are about a season signing up rather than a game or the books. */
+export type SignupNotification = 'signupOpen' | 'signupReminder' | 'seasonConfirmed';
+
+export const isSignupNotification = (kind: AnyNotification): kind is SignupNotification =>
+	kind === 'signupOpen' || kind === 'signupReminder' || kind === 'seasonConfirmed';
+
+/**
+ * What a test send of a sign-up kind says, with invented figures for the reason
+ * `SAMPLE_DEBT` is invented: the debug screen labels an unsent row from the same
+ * builder, and a real season's fee would make the row relabel itself the moment
+ * a send came back.
+ */
+export const buildSignupSample = (kind: SignupNotification, seasonId: string, seasonName: string): PushPayload =>
+	kind === 'seasonConfirmed'
+		? buildSeasonConfirmedPush({ seasonId, seasonName, share: 1736, swish: '0701234567', blocked: true })
+		: buildSignupPush(kind, { seasonId, seasonName, closesOn: '1 Dec' });

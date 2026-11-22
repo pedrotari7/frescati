@@ -1,6 +1,7 @@
 import type { AvailabilityChange, NotificationPrefs } from './types';
 import { MOTM_VOTING_HOURS } from './motm';
 import { counted, formatSek } from './format';
+import { toLocal } from './swish';
 
 /**
  * Every notification the app sends, built in one place.
@@ -78,9 +79,15 @@ const APP_NOTIFICATIONS: AppNotification[] = ['newPlayer'];
  * piled up and lands when an admin has sat down with the books. Folding them
  * together would mean one of the two lying about the other's numbers.
  */
-export type SeasonNotification = 'duesReminder' | 'dueRaised';
+export type SeasonNotification = 'duesReminder' | 'dueRaised' | 'signupOpen' | 'signupReminder' | 'seasonConfirmed';
 
-const SEASON_NOTIFICATIONS: SeasonNotification[] = ['duesReminder', 'dueRaised'];
+const SEASON_NOTIFICATIONS: SeasonNotification[] = [
+	'duesReminder',
+	'dueRaised',
+	'signupOpen',
+	'signupReminder',
+	'seasonConfirmed',
+];
 
 /** Every kind the app can send. */
 export type AnyNotification = GameNotification | AppNotification | SeasonNotification;
@@ -177,6 +184,14 @@ export const NOTIFICATION_PREF: Record<AnyNotification, keyof NotificationPrefs 
 	// hand, but "would you like us not to tell you what you owe" is not a
 	// setting worth building either.
 	dueRaised: null,
+	// Being asked to answer is being reminded, and somebody who muted reminders
+	// has said they do not want to be chased for an answer.
+	signupOpen: 'reminders',
+	signupReminder: 'reminders',
+	// The answer to a yes the player gave themselves, and the bill that comes
+	// with it. Same argument as `dueRaised`: a switch would silence the one
+	// message that says how to pay for the place they asked for.
+	seasonConfirmed: null,
 };
 
 /**
@@ -550,6 +565,86 @@ export const buildDueRaisedPush = ({
 	tag: `due-${seasonId}-${gameId}`,
 	respondable: false,
 });
+
+export interface SignupContext {
+	seasonId: string;
+	seasonName: string;
+	/** The last day to answer, already formatted. Absent when the season has none. */
+	closesOn?: string;
+}
+
+/**
+ * A season is signing up, and you have not said whether you are in.
+ *
+ * One tag per season, so the reminder replaces the first ask on the lock screen
+ * instead of stacking under it. Never `respondable`: the worker's shortcut
+ * answers a game, and a season still signing up has none that can be answered.
+ */
+export const buildSignupPush = (
+	kind: 'signupOpen' | 'signupReminder',
+	{ seasonId, seasonName, closesOn }: SignupContext
+): PushPayload => ({
+	title: kind === 'signupOpen' ? `${seasonName} is starting` : `Are you in for ${seasonName}?`,
+	body: closesOn ? `Are you in? Answer by ${closesOn}.` : 'Are you in?',
+	url: `/s/${seasonId}`,
+	tag: `signup-${seasonId}`,
+	respondable: false,
+});
+
+export interface SeasonConfirmedContext {
+	seasonId: string;
+	seasonName: string;
+	/** SEK, the entry fee this player now owes. Zero when the season has no fee. */
+	share: number;
+	/** The number that collects, any form `toLocal` accepts. */
+	swish?: string;
+	/**
+	 * Whether the unpaid share also holds their first In. A season admin owes
+	 * their share like anybody else and is never locked out by it, the same split
+	 * `dueRaised` makes.
+	 */
+	blocked: boolean;
+}
+
+/**
+ * The season is confirmed and you are in the squad.
+ *
+ * With a fee this is also the bill, so the amount is in the title where a lock
+ * screen will not cut it off, and the body says where to send it. It replaces
+ * `dueRaised` for these charges. Without one there is nothing to pay and
+ * nothing in it mentions money.
+ */
+export const buildSeasonConfirmedPush = ({
+	seasonId,
+	seasonName,
+	share,
+	swish,
+	blocked,
+}: SeasonConfirmedContext): PushPayload => {
+	const tag = `season-confirmed-${seasonId}`;
+
+	if (share <= 0) {
+		return {
+			title: `You're in for ${seasonName}`,
+			body: 'The squad is set. Answer each game as it comes up.',
+			url: `/s/${seasonId}`,
+			tag,
+			respondable: false,
+		};
+	}
+
+	const pay = swish ? `You're in. Swish it to ${toLocal(swish)}.` : "You're in. Ask an admin how to pay it.";
+
+	return {
+		title: `Your share of ${seasonName} is ${formatSek(share)}`,
+		body: blocked
+			? `${pay} Your first In opens once it is paid.`
+			: `${pay} Mark it paid in the books once you have settled it.`,
+		url: `/s/${seasonId}/finances`,
+		tag,
+		respondable: false,
+	};
+};
 
 /**
  * The same notification, as an email.

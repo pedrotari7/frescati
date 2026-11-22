@@ -8,12 +8,15 @@ import {
 	buildEmail,
 	buildGamePush,
 	buildNewPlayerPush,
+	buildSeasonConfirmedPush,
+	buildSignupPush,
 	canEmail,
 	getPushReach,
 	getReachLevel,
 	normaliseNotificationPrefs,
 	relevantPrefs,
 } from './notifications';
+import { formatSek } from './format';
 import { DEFAULT_NOTIFICATION_PREFS } from './types';
 
 const CONTEXT: GameNotificationContext = {
@@ -386,6 +389,86 @@ describe('buildDueRaisedPush', () => {
 	});
 });
 
+describe('buildSignupPush', () => {
+	const OPEN = { seasonId: 'autumn', seasonName: 'Autumn 2026' };
+
+	it('asks the question and names the season', () => {
+		expect(buildSignupPush('signupOpen', OPEN)).toMatchObject({
+			title: 'Autumn 2026 is starting',
+			body: 'Are you in?',
+		});
+	});
+
+	it('puts the close date in the reminder', () => {
+		const push = buildSignupPush('signupReminder', { ...OPEN, closesOn: '1 Dec' });
+
+		expect(push.title).toContain('Autumn 2026');
+		expect(push.body).toContain('1 Dec');
+	});
+
+	it('opens the draft season and replaces its earlier asks on the lock screen', () => {
+		const push = buildSignupPush('signupOpen', OPEN);
+
+		expect(push.url).toBe('/s/autumn');
+		expect(push.tag).toBe('signup-autumn');
+		expect(buildSignupPush('signupReminder', OPEN).tag).toBe(push.tag);
+	});
+
+	// There are no games to say yes to yet, so the shortcut would do nothing.
+	it('carries no respond shortcut', () => {
+		expect(buildSignupPush('signupOpen', OPEN).respondable).toBe(false);
+	});
+});
+
+describe('buildSeasonConfirmedPush', () => {
+	const CONFIRMED = {
+		seasonId: 'autumn',
+		seasonName: 'Autumn 2026',
+		share: 1736,
+		swish: '0701234567',
+		blocked: true,
+	};
+
+	it('leads with the share and says where to pay it', () => {
+		const push = buildSeasonConfirmedPush(CONFIRMED);
+
+		expect(push.title).toContain(formatSek(1736));
+		expect(push.body).toContain('0701234567');
+		expect(push.body).toContain('Your first In opens once it is paid.');
+	});
+
+	it('says nothing about the lock to somebody it does not lock', () => {
+		const body = buildSeasonConfirmedPush({ ...CONFIRMED, blocked: false }).body;
+
+		expect(body).not.toContain('opens once it is paid');
+		expect(body).toContain('0701234567');
+	});
+
+	it('has no amount in it when the season has no fee', () => {
+		const push = buildSeasonConfirmedPush({ ...CONFIRMED, share: 0, swish: undefined });
+
+		expect(push.title).toContain('Autumn 2026');
+		expect(push.title).not.toMatch(/kr/);
+		expect(push.body).not.toMatch(/kr/);
+	});
+
+	it('asks the player to find an admin when no number collects', () => {
+		expect(buildSeasonConfirmedPush({ ...CONFIRMED, swish: undefined }).body).toContain('Ask an admin how to pay');
+	});
+
+	it('opens the books when there is something to pay and the season otherwise', () => {
+		expect(buildSeasonConfirmedPush(CONFIRMED).url).toBe('/s/autumn/finances');
+		expect(buildSeasonConfirmedPush({ ...CONFIRMED, share: 0 }).url).toBe('/s/autumn');
+	});
+
+	it('is tagged per season and carries no respond shortcut', () => {
+		const push = buildSeasonConfirmedPush(CONFIRMED);
+
+		expect(push.tag).toBe('season-confirmed-autumn');
+		expect(push.respondable).toBe(false);
+	});
+});
+
 describe('NOTIFICATION_PREF', () => {
 	it('gates every kind behind a preference, or explicitly behind none', () => {
 		for (const kind of NOTIFICATIONS) {
@@ -414,10 +497,19 @@ describe('NOTIFICATION_PREF', () => {
 		expect(NOTIFICATION_PREF.dueRaised).toBeNull();
 	});
 
-	// Those three are the only ones that may be `null`. Everything else goes out
+	// Asking somebody to answer is the same thing as reminding them to, so
+	// whoever muted reminders has said they do not want to be chased. The
+	// answer to their own yes is the other way round: they asked for it.
+	it('puts the sign-up asks on the reminders switch and the confirmation on none', () => {
+		expect(NOTIFICATION_PREF.signupOpen).toBe('reminders');
+		expect(NOTIFICATION_PREF.signupReminder).toBe('reminders');
+		expect(NOTIFICATION_PREF.seasonConfirmed).toBeNull();
+	});
+
+	// Those four are the only ones that may be `null`. Everything else goes out
 	// to a standing audience nobody signed up for, so the profile has to be able
 	// to say no to it.
-	const UNGATED = ['availability', 'duesReminder', 'dueRaised'];
+	const UNGATED = ['availability', 'duesReminder', 'dueRaised', 'seasonConfirmed'];
 
 	it('keeps every standing-audience kind on a preference', () => {
 		for (const kind of NOTIFICATIONS.filter(candidate => !UNGATED.includes(candidate))) {
