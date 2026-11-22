@@ -39,24 +39,39 @@ const publishableSwish = async (uid: string): Promise<string | undefined> => {
  * already in step is not written, so the write this makes, which retriggers
  * `onSeasonWrite`, finds nothing to do. Custom pots, with no `uid`, are never
  * touched.
+ *
+ * `season` is only a hint that something may need doing. The decision is made
+ * again against the document as it is inside a transaction, so an admin who
+ * switches a pot to a custom number while this runs is not overwritten.
  */
 export const syncSeasonPayees = async (seasonId: string, season: Season): Promise<void> => {
-	const updates: Record<string, string | FieldValue> = {};
+	if (!POTS.some(pot => season.fees?.payees?.[pot]?.uid)) return;
 
-	for (const pot of POTS) {
-		const payee: Payee | undefined = season.fees?.payees?.[pot];
-		if (!payee?.uid) continue;
+	const ref = db.doc(`seasons/${seasonId}`);
 
-		const wanted = await publishableSwish(payee.uid);
-		if (wanted === payee.swish) continue;
+	const pots = await db.runTransaction(async transaction => {
+		const snapshot = await transaction.get(ref);
+		if (!snapshot.exists) throw new Error(`Season ${seasonId} no longer exists`);
 
-		updates[`fees.payees.${pot}.swish`] = wanted ?? FieldValue.delete();
-	}
+		const current = snapshot.data() as Season;
+		const updates: Record<string, string | FieldValue> = {};
 
-	if (Object.keys(updates).length === 0) return;
+		for (const pot of POTS) {
+			const payee: Payee | undefined = current.fees?.payees?.[pot];
+			if (!payee?.uid) continue;
 
-	await db.doc(`seasons/${seasonId}`).update(updates);
-	logger.info('Updated the Swish number a season shows', { seasonId, pots: Object.keys(updates).length });
+			const wanted = await publishableSwish(payee.uid);
+			if (wanted === payee.swish) continue;
+
+			updates[`fees.payees.${pot}.swish`] = wanted ?? FieldValue.delete();
+		}
+
+		if (Object.keys(updates).length > 0) transaction.update(ref, updates);
+
+		return Object.keys(updates).length;
+	});
+
+	if (pots > 0) logger.info('Updated the Swish number a season shows', { seasonId, pots });
 };
 
 /** An admin saved, changed or cleared their Swish number: every season naming them follows. */
