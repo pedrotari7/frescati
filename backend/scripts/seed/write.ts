@@ -316,9 +316,10 @@ const todayIn = (timezone: string): string => {
 
 /**
  * A pot's payee as the app stores it. An admin carries the number the sync
- * function would have copied on from their saved one, because the seed runs
- * before any function can, and a payee with no number is how a season looks
- * until it has.
+ * function would have copied on from their saved one, so the sync finds
+ * nothing to change when it runs on the seeded write. That holds only because
+ * the seeded payee is a season admin, which is who the sync publishes for. A
+ * payee with no number is how a season looks until it has one.
  */
 const buildPayees = (
 	payees: NonNullable<FeesPlan['payees']>,

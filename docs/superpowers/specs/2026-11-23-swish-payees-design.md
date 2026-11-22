@@ -22,7 +22,7 @@ This change gives each of the two pots its own payee, and lets an admin keep the
 
 ## Anti-goals
 
-- **An admin's number readable by anybody who doesn't need it.** Numbers are published only on a season that pays to that admin, which is where payers have to read them anyway. The picker never sees the digits.
+- **An admin's number readable by anybody who doesn't need it.** Numbers are published only on a season that pays to that admin, which is where payers have to read them anyway, and there anybody signed in can read them. App admins can also read the private document. The picker never sees the digits.
 - **A payer shown a stale number after the admin changed theirs.**
 - **Existing seasons breaking.** A season that only has `fees.swish` must keep paying to it, for both pots.
 
@@ -64,7 +64,7 @@ interface SeasonFees {
 }
 ```
 
-- **One shared reader.** `payeeFor(fees, kind: DueKind): string | undefined` in `shared/finances.ts` decides which number a charge is paid to. `entry` charges read `payees.entry.swish`, while `game` and `late` read `payees.extras.swish`. They fall back to `fees.swish` only when that pot has no payee at all. A pot that names an admin who has no saved number resolves to nothing, rather than to the old number, because paying the wrong person is worse than being told to ask. Every screen and notification asks this function. None of them reads `fees.swish` directly any more.
+- **One shared reader.** `payeeFor(fees, kind: DueKind): string | undefined` in `shared/finances.ts` decides which number a charge is paid to. `entry` charges read `payees.entry.swish`, while `game` and `late` read `payees.extras.swish`. They fall back to `fees.swish` only when that pot has no payee at all. A pot that names an admin who has no saved number resolves to nothing, rather than to the old number, because paying the wrong person is worse than being told to ask. Every screen and notification asks this function. None of them decides a payment from `fees.swish` directly. The season form reads it only to prefill the pickers.
 - **Client writes are limited by the rules.** A client may write a payee as `{ uid }` alone, or as `{ swish }` alone (a custom number). It may never write `{ uid, swish }` together, because the digits for an admin come only from the function. Allowlists: `feesShapeOk` gains `payees`, and each payee is `hasOnly(['uid','swish'])` with the same 20-character bound.
 - **Copying a season** copies `fees` whole, payees included (`copySeasonSettings`), so a new season pays the same people.
 
@@ -85,12 +85,12 @@ One function module, `backend/src/payees.ts`, with two triggers that share one h
 
 ## The admin's own number
 
-On `/me`, an admin (app admin, or in `adminUids` of any season) sees a "Your Swish number" field. It explains that the number is only shown to people paying a season that sends money to you. Saving writes `users/{uid}/private/payment`, and clearing it deletes the document.
+On `/me`, an admin (app admin, or in `adminUids` of any season) sees a "Your Swish number" field. It says the number is shown on any season that names the admin as its payee, where anybody in the app can see it, that app admins can also see it on the private document, and that admins picking a payee see a name and not the number. Saving writes `users/{uid}/private/payment`, and clearing it deletes the document.
 
 ## Paying
 
 - **Splitting what is owed.** The finances screen ("What you owe") and the debt notice on the season home split the person's outstanding charges by payee number, using `payeeFor`. Each distinct number gets its own `SwishPay` code and amount, labelled "Season fee" or "Extras' fees". When both resolve to the same number there is one code for the total, as today. A pot with no number shows the existing "ask an admin" line for that pot only.
-- **Your own number.** The old warning, "Swish will not let you pay your own number", becomes exact. The viewer can read their own payment doc, so when a code's number equals it, the code is replaced by "This one is paid to you. Mark it paid in the book below." This needs no other read, because only the owner compares against their own number.
+- **Your own number.** The old warning, "Swish will not let you pay your own number", becomes exact. The viewer can read their own payment doc, so when a code's number equals it, the code is replaced by "This one is paid to you. Mark it paid in the book below." for somebody who can settle charges in that season, and by "This one is paid to you. Ask an admin of this season to mark it paid." for anybody else This needs no other read, because only the owner compares against their own number.
 - **`seasonConfirmed`** names the entry payee's number, the season fee.
 - **`PaymentTriggers`** on `/debug` uses the entry payee.
 

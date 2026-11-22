@@ -18,8 +18,23 @@ const split: SeasonFees = {
 	payees: { entry: { swish: '0701111111' }, extras: { swish: '0702222222' } },
 };
 
-const draw = (dues: ReturnType<typeof due>[], fees: SeasonFees, mySwish: string | null = null, hasBook = true) =>
-	render(<PaymentCodes dues={dues} fees={fees} reference='Fall 2026: Anna' mySwish={mySwish} hasBook={hasBook} />);
+const draw = (
+	dues: ReturnType<typeof due>[],
+	fees: SeasonFees,
+	mySwish: string | null = null,
+	hasBook = true,
+	canSettle = true
+) =>
+	render(
+		<PaymentCodes
+			dues={dues}
+			fees={fees}
+			reference='Fall 2026: Anna'
+			mySwish={mySwish}
+			canSettle={canSettle}
+			hasBook={hasBook}
+		/>
+	);
 
 describe('PaymentCodes', () => {
 	it('draws one code for each number, with that number is amount', () => {
@@ -64,6 +79,15 @@ describe('PaymentCodes', () => {
 		draw([due('entry', 500)], split, '0701111111', false);
 
 		expect(screen.getByText('This one is paid to you, so mark it paid yourself.')).toBeInTheDocument();
+	});
+
+	it('sends a viewer who cannot settle charges to an admin, with a book or without', () => {
+		draw([due('entry', 500)], split, '0701111111', true, false);
+
+		expect(
+			screen.getByText('This one is paid to you. Ask an admin of this season to mark it paid.')
+		).toBeInTheDocument();
+		expect(screen.queryByText(/book below/)).not.toBeInTheDocument();
 	});
 
 	it('asks for an admin on a pot with no number and still draws the other code', () => {
