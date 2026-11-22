@@ -1,6 +1,7 @@
-import { deleteDoc, getDoc, setDoc } from 'firebase/firestore';
+import { deleteDoc, getDoc, setDoc, waitForPendingWrites } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import type { Signup, SignupStatus } from '@shared/types';
+import { getDb } from '../firebaseClient';
 import { callFunction } from './call';
 import { signupDoc, signupsCol } from './paths';
 import { subscribeToCollection } from './subscribe';
@@ -51,6 +52,18 @@ export const setSignup = async (
 /** Back to no answer: the third state is the absence of a document. */
 export const clearSignup = (seasonId: string, uid: string): Promise<void> => deleteDoc(signupDoc(seasonId, uid));
 
-/** Turns the yeses into the squad and takes the season out of sign-up. Season admins only. */
-export const confirmSeason = (seasonId: string): Promise<{ members: number; share: number; demoted: string[] }> =>
-	callFunction('confirmSeason', { seasonId });
+/**
+ * Turns the yeses into the squad and takes the season out of sign-up. Season admins only.
+ *
+ * Waits for this client's own writes to reach the server first. The function
+ * reads the yeses there, while the admin screen draws them from the local cache,
+ * pending ones included, so an admin who tapped Join a moment ago saw
+ * themselves in the list and was refused for not having said they were in.
+ */
+export const confirmSeason = async (
+	seasonId: string
+): Promise<{ members: number; share: number; demoted: string[] }> => {
+	await waitForPendingWrites(getDb());
+
+	return callFunction('confirmSeason', { seasonId });
+};
