@@ -54,6 +54,7 @@ const DEPLOYED = [
 	'auditGameCounts',
 	'calendarFeed',
 	'closeMotmVoting',
+	'confirmSeason',
 	'finaliseDueTournaments',
 	'finaliseTournament',
 	'getCalendarLink',

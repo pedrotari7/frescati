@@ -13,7 +13,7 @@ import {
 	buildNewPlayerPush,
 } from '@shared/notifications';
 import { getSilentMembers } from '@shared/game';
-import { SAMPLE_CHARGE, SAMPLE_DEBT } from '@shared/debug';
+import { SAMPLE_CHARGE, SAMPLE_DEBT, buildSignupSample, isSignupNotification } from '@shared/debug';
 import { counted, formatGameWhen, plural } from '@shared/format';
 import { useAuth } from '../../../lib/auth';
 import type { PushSupport } from '../../../lib/push';
@@ -171,6 +171,8 @@ const titleFor = (kind: AnyNotification) => {
 		return buildDuesPush({ seasonId: '', seasonName: '', ...SAMPLE_DEBT, blocked: true }).title;
 	}
 
+	if (isSignupNotification(kind)) return buildSignupSample(kind, '', '').title;
+
 	if (kind === 'dueRaised') {
 		return buildDueRaisedPush({ seasonId: '', seasonName: '', gameId: '', ...SAMPLE_CHARGE, blocked: true }).title;
 	}
@@ -194,6 +196,12 @@ const DESCRIPTIONS: Record<AnyNotification, string> = {
 		'Really goes to one person an admin chased from the season books, with what they owe read off the books rather than typed. Needs the season above; sends a made-up amount. Opens the finances screen.',
 	dueRaised:
 		'Really goes to each extra the moment a game they played is confirmed, one send each, with the fee off the season. Needs the season above; sends a made-up amount and date. Opens the finances screen.',
+	signupOpen:
+		'Really goes to everybody in the app when a season opens for sign-up, unless it is quiet. Needs the season above. Opens the season.',
+	signupReminder:
+		'Really goes every third day to everybody who has not answered, until the close date. Needs the season above. Opens the season.',
+	seasonConfirmed:
+		'Really goes to each new member when an admin confirms the season, one send each, with their share. Needs the season above; sends a made-up amount. Opens the finances screen.',
 };
 
 const STATUS_TONE: Record<EmailTestStatus, PillTone> = { sent: 'in', noAddress: 'out', emailOff: 'neutral' };
