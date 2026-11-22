@@ -12,9 +12,10 @@ import { disablePush, enablePush } from '../../../lib/push';
 import { usePushRegistration } from '../../../hooks/usePushRegistration';
 import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
 import type { NotificationPrefs } from '@shared/types';
-import { useUser } from '../../../hooks/useData';
+import { useSeasons, useUser } from '../../../hooks/useData';
 import { useWrite } from '../../../hooks/useWrite';
 import { setNotificationPrefs } from '../../../lib/db/users';
+import SwishNumberField from '../../../components/SwishNumberField';
 import Toggle from '../../../components/Toggle';
 import { seasonNavItems } from '../../../components/BottomNav';
 import { useSeasonScope } from '../../../components/SeasonScope';
@@ -423,6 +424,10 @@ const MePage = () => {
 		void write(() => setNotificationPrefs(uid, { ...prefs, [key]: next }), "Couldn't save that preference.");
 	};
 
+	// Anybody a season could name as its payee: an app admin, or an admin of any season.
+	const { seasons } = useSeasons();
+	const canReceive = user?.isAppAdmin === true || (!!uid && seasons.some(season => season.adminUids?.includes(uid)));
+
 	if (!user) return null;
 
 	// Me is a tab of the season the user came from, so the bar it was tapped on
@@ -462,6 +467,8 @@ const MePage = () => {
 					setEnabled={setEnabled}
 					onSavePref={savePref}
 				/>
+
+				{canReceive && <SwishNumberField uid={user.uid} />}
 
 				<LinkCard title='Seasons' label='Switch season' href='/seasons?browse=1' />
 
