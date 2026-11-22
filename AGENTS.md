@@ -46,6 +46,7 @@ Mobile-first PWA for running a recurring football group. A **season** defines a 
 ```
 users/{uid}                                  profile + notificationPrefs + client + rating (function-owned)
 users/{uid}/pushTokens/{token}               FCM registration tokens, private to their owner
+users/{uid}/private/payment                  an admin's Swish number, readable by its owner and app admins
 seasons/{seasonId}                           slot, venue, minPlayers, balance, fees, memberUids[], adminUids[]
 seasons/{seasonId}/signups/{uid}                status: 'yes'|'no'. Who is joining a season still signing up (`draft`)
 seasons/{seasonId}/kit/{itemId}              a ball, the vests: name, kind, holderUid
@@ -80,7 +81,7 @@ Each of these is deep and specific to one part of the app, deliberately kept out
 - `docs/answering-for-somebody.md` — a season admin recording somebody else's answer: when it is offered and when the no-show mark takes over, why the player is the one person nobody tells.
 - `docs/season-signup.md`, starting a season. Copying an old one, the `draft` sign-up phase and its answers, quiet seasons, the reminders, and `confirmSeason`, which turns the yeses into the squad, the dues and the kit.
 - `docs/kit.md` — the kit register (`seasons/{id}/kit`): coverage, handovers, who can edit what.
-- `docs/finances.md` — the season's books (`seasons/{id}/dues`, `seasons/{id}/expenses`, `seasons/{id}/receipts`): the fees on the season, why a charge is a stored document, the sweep that raises the missing ones and the confirmation that raises an extra's without asking and tells them, paying by Swish, the lock an unpaid charge puts on signing up for another game, chasing the people it caught, and the receipts a player claims their friskvardsbidrag with, which are the one thing here that is a file in Cloud Storage rather than a document.
+- `docs/finances.md` — the season's books (`seasons/{id}/dues`, `seasons/{id}/expenses`, `seasons/{id}/receipts`): the fees on the season, why a charge is a stored document, the sweep that raises the missing ones and the confirmation that raises an extra's without asking and tells them, paying by Swish, who each pot is paid to and how an admin's saved number reaches the season, the lock an unpaid charge puts on signing up for another game, chasing the people it caught, and the receipts a player claims their friskvardsbidrag with, which are the one thing here that is a file in Cloud Storage rather than a document.
 - `docs/notifications.md` — push/email: reach, per-kind preferences, routing a tap to an open window, the `/debug` send paths.
 - `docs/error-reporting.md` — the Sentry wiring: what gets reported and from where, the scheduled-sweep monitors, `/debug`'s self-tests.
 - `docs/members-vs-extras.md` — member vs extra, and what an extra's In actually does before an admin confirms it.
