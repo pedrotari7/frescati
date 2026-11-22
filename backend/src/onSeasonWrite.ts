@@ -6,6 +6,10 @@ import { chunksOf } from './lib/batch';
 import { recountGame } from './lib/recount';
 import { enqueueTeamRebuild } from './lib/teams';
 import { instrument, reportError } from './lib/sentry';
+import { EMAIL_SECRETS } from './lib/email';
+import { getAllUserUids } from './lib/data';
+import { sendSignupPush } from './lib/push';
+import { signupContext } from './lib/signupContext';
 
 const sameMembers = (before: string[] = [], after: string[] = []): boolean =>
 	before.length === after.length && [...before].sort().join() === [...after].sort().join();
@@ -16,6 +20,17 @@ const membershipDiff = (before: string[] = [], after: string[] = []): string[] =
 	const isMember = new Set(after);
 
 	return [...new Set([...before.filter(uid => !isMember.has(uid)), ...after.filter(uid => !wasMember.has(uid))])];
+};
+
+/**
+ * Whether this write is the moment a season starts asking people to join: it
+ * was created as a draft that is not quiet, or a draft that was quiet stopped
+ * being. Saving a draft that was already asking is not.
+ */
+const opensSignup = (before: Season | undefined, after: Season): boolean => {
+	if (after.status !== 'draft' || after.quiet) return false;
+
+	return !before || (before.status === 'draft' && before.quiet === true);
 };
 
 /** Firestore takes at most 30 values in an `in` filter. */
@@ -78,10 +93,24 @@ const gamesHoldingAnswersFrom = async (seasonId: string, uids: string[]): Promis
  * case costs one query and nothing else.
  */
 export const onSeasonWrite = onDocumentWritten(
-	{ document: 'seasons/{seasonId}', region: REGION, timeoutSeconds: 300 },
+	// `EMAIL_SECRETS` because the sign-up announcement falls back to email for
+	// anybody it reached no device for. See `sendPush`.
+	{ document: 'seasons/{seasonId}', region: REGION, timeoutSeconds: 300, secrets: EMAIL_SECRETS },
 	instrument('onSeasonWrite', async event => {
 		const before = event.data?.before.data() as Season | undefined;
 		const after = event.data?.after.data() as Season | undefined;
+
+		// Before the early return below, because a create has no `before`.
+		if (after && opensSignup(before, after)) {
+			const { seasonId } = event.params;
+			const sent = await sendSignupPush(
+				await getAllUserUids(),
+				'signupOpen',
+				signupContext({ ...after, id: seasonId })
+			);
+
+			logger.info('Asked everybody to join a season', { seasonId, ...sent });
+		}
 
 		// A new season has no games yet, and a deleted one is handled by the
 		// cascade. Neither needs a recount.

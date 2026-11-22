@@ -16,6 +16,7 @@ export { remindDebtors } from './remindDebtors';
 export { nudgePlayers } from './nudgePlayers';
 export { onGameDeleted, onSeasonDeleted } from './cascadeDeletes';
 export { sendReminders } from './sendReminders';
+export { sendSignupReminders } from './sendSignupReminders';
 export { auditGameCounts } from './auditCounts';
 export { onBudgetAlert } from './onBudgetAlert';
 export { setAppAdmin } from './setAppAdmin';
