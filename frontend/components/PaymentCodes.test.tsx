@@ -80,6 +80,26 @@ describe('PaymentCodes', () => {
 		expect(screen.getByText(/70 kr to 0702222222/)).toBeInTheDocument();
 	});
 
+	it('draws one code when both pots hold the same number written two ways', () => {
+		draw([due('entry', 500), due('game', 70)], {
+			total: 0,
+			perGame: 70,
+			payees: { entry: { swish: '070 111 11 11' }, extras: { swish: '0701111111' } },
+		});
+
+		expect(screen.getAllByTestId('swish-qr')).toHaveLength(1);
+		expect(screen.getByText(/570 kr/)).toBeInTheDocument();
+	});
+
+	it('asks for an admin on a blank number, even when the viewer has a blank one saved', () => {
+		draw([due('entry', 500)], { total: 0, perGame: 70, payees: { entry: { swish: ' ' } } }, ' ');
+
+		expect(
+			screen.getByText('No Swish number is set for this, so ask an admin where to send it.')
+		).toBeInTheDocument();
+		expect(screen.queryByTestId('swish-qr')).not.toBeInTheDocument();
+	});
+
 	it('draws nothing when nothing is owed', () => {
 		const { container } = draw([], split);
 

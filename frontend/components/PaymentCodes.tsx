@@ -3,8 +3,7 @@
 import * as stylex from '@stylexjs/stylex';
 import type { Due, SeasonFees } from '@shared/types';
 import type { Payment } from '@shared/finances';
-import { splitByPayee } from '@shared/finances';
-import { toAlias } from '@shared/swish';
+import { sameNumber, splitByPayee } from '@shared/finances';
 import SwishPay from './SwishPay';
 import { colors } from '../app/tokens.stylex';
 import { text } from '../lib/styles';
@@ -23,7 +22,7 @@ const headingFor = (pots: Payment['pots']) => {
 };
 
 /** Swish numbers are typed by hand, so compare what they dial rather than how they were written. */
-const isMine = (swish: string, mySwish: string | null) => mySwish !== null && toAlias(swish) === toAlias(mySwish);
+const isMine = (swish: string, mySwish: string | null) => mySwish !== null && sameNumber(swish, mySwish);
 
 /**
  * One Swish code for each number the viewer owes money to.
