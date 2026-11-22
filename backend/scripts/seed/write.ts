@@ -31,6 +31,7 @@ import type {
 	PushToken,
 	RatingLedgerEntry,
 	Season,
+	Signup,
 	TournamentMatch,
 	TournamentMotm,
 	TournamentResult,
@@ -348,9 +349,36 @@ const buildSeason = (plan: SeasonPlan, createdBy: string, runId: string): Season
 			: {}),
 		memberUids: plan.memberKeys.map(uidFor),
 		adminUids: plan.adminKeys.map(uidFor),
-		createdAt: addHours(`${startDate}T12:00:00.000Z`, -24 * 14),
+		// A season that is signing up was opened a few days ago, which is what
+		// its answers are dated against. Two weeks before the start would be
+		// in the future for a draft that starts in two months.
+		createdAt:
+			plan.status === 'draft'
+				? addHours(new Date().toISOString(), -24 * 3)
+				: addHours(`${startDate}T12:00:00.000Z`, -24 * 14),
 		createdBy,
+		...(plan.quiet ? { quiet: true } : {}),
 	};
+};
+
+/* ----------------------------------------------------------------- signups */
+
+/**
+ * The answers to a season that is signing up. A person on neither list gets no
+ * document, because no document is what "not answered" is. Dated after the
+ * season was opened, one hour apart, so the order they came in is stable.
+ */
+const buildSignups = (plan: SeasonPlan, season: Season): (Signup & { seasonId: string })[] => {
+	const answers = [
+		...(plan.signups?.yes ?? []).map(key => ({ key, status: 'yes' as const })),
+		...(plan.signups?.no ?? []).map(key => ({ key, status: 'no' as const })),
+	];
+
+	return answers.map(({ key, status }, index) => {
+		const answeredAt = addHours(season.createdAt, index + 1);
+
+		return { seasonId: season.id, uid: uidFor(key), status, answeredAt, updatedAt: answeredAt };
+	});
 };
 
 /* --------------------------------------------------------------------- kit */
@@ -604,7 +632,9 @@ const defaultResponseMode = (offset: number, plan: SeasonPlan): 'full' | 'partia
 };
 
 const buildGames = (plan: SeasonPlan, season: Season, createdBy: string): PlannedGame[] => {
-	if (plan.history === 'empty' && plan.status === 'draft') return [];
+	// A season that is not being played has no calendar until somebody makes
+	// one: a draft is about to, and a source kept only to be copied never does.
+	if (plan.history === 'empty' && plan.status !== 'active') return [];
 
 	const generated = generateGameDates(season.slot, season.startDate, season.endDate);
 	const now = new Date().toISOString();
@@ -1025,6 +1055,7 @@ export interface SeedSummary {
 	kit: number;
 	dues: number;
 	expenses: number;
+	signups: number;
 	confirmedGames: number;
 	ratedPlayers: number;
 	devUsers: DevUser[];
@@ -1222,6 +1253,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 	// actually played, which is not known until the responses exist.
 	const dues = scenario.seasons.flatMap((plan, index) => buildDues(plan, seasons[index], planned));
 	const expenses = scenario.seasons.flatMap((plan, index) => buildExpenses(plan, seasons[index]));
+	const signups = scenario.seasons.flatMap((plan, index) => buildSignups(plan, seasons[index]));
 
 	const documents: ((batch: WriteBatch) => void)[] = [
 		...profiles,
@@ -1244,6 +1276,11 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 		...expenses.map(expense => (batch: WriteBatch) => {
 			const { id, seasonId, ...data } = expense;
 			batch.set(db().doc(`seasons/${seasonId}/expenses/${id}`), data);
+		}),
+		// The document id is the uid, which is what the rules bind it to.
+		...signups.map(signup => (batch: WriteBatch) => {
+			const { uid, seasonId, ...data } = signup;
+			batch.set(db().doc(`seasons/${seasonId}/signups/${uid}`), data);
 		}),
 	];
 
@@ -1295,6 +1332,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 		kit: kit.length,
 		dues: dues.length,
 		expenses: expenses.length,
+		signups: signups.length,
 		confirmedGames: [...games.values()].filter(game => game.result).length,
 		ratedPlayers: ratings.size,
 		devUsers,

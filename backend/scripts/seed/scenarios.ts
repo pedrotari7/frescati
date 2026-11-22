@@ -184,6 +184,14 @@ export interface SeasonPlan {
 	finances?: FinancePlan;
 	/** Keyed by offset from the next upcoming game: `0` is next, `-1` is last. */
 	pins?: Record<number, GamePin>;
+	/**
+	 * Who has answered a season that is signing up, as cast keys. Anybody on
+	 * neither list has not answered, which is a real third state and writes
+	 * nothing. Only meaningful on a draft.
+	 */
+	signups?: { yes: string[]; no: string[] };
+	/** Set up quietly, so seeding sends nobody a notification. */
+	quiet?: boolean;
 }
 
 export interface Scenario {
@@ -478,7 +486,9 @@ const full: Scenario = {
 			minPlayers: 12,
 			responseDeadlineHours: 6,
 			reminderHours: [72, 24],
-			memberKeys: ['pedro', 'anna', 'rafael', 'omar', 'noah'],
+			// Nobody is on the squad of a season that is still signing up. The
+			// squad is whoever says yes, once an admin confirms.
+			memberKeys: [],
 			adminKeys: ['pedro'],
 			extraKeys: [],
 			startWeeks: 8,
@@ -487,6 +497,33 @@ const full: Scenario = {
 			// A draft season has not generated its calendar yet. That is the
 			// button an admin is about to press.
 			history: 'empty',
+			quiet: true,
+			// Fees so the card can say what each person would owe so far.
+			finances: { total: 15000, perGame: 60, charges: 'unraised', expenses: [] },
+			// A mix on purpose: a few in, one out, and the rest not asked yet.
+			signups: { yes: ['pedro', 'anna', 'rafael', 'omar'], no: ['mateo'] },
+		},
+		// Held for `e2e/signup.spec.ts` alone: the season its journey copies from.
+		// Nothing else reads it, so the spec can start a season from it every run.
+		// It ended today, which puts the season copied from it on the next slot day,
+		// three days ahead, so the games the spec generates are all still to come.
+		{
+			id: 'season-signup-source',
+			name: 'Midsummer Cup',
+			status: 'archived',
+			venue: FRESCATI,
+			slot: currentEvening(),
+			minPlayers: 10,
+			responseDeadlineHours: 3,
+			reminderHours: [48, 6],
+			memberKeys: ['pedro'],
+			adminKeys: ['pedro'],
+			extraKeys: [],
+			startWeeks: -8,
+			endWeeks: 0,
+			turnout: [0, 0],
+			history: 'empty',
+			finances: { total: 12000, perGame: 60, charges: 'unraised', expenses: [] },
 		},
 	],
 };
