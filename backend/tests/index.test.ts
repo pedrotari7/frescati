@@ -67,6 +67,7 @@ const DEPLOYED = [
 	'onGameWrite',
 	'onMatchWrite',
 	'onMotmVoteWrite',
+	'onPaymentWrite',
 	'onResponseWrite',
 	'onSeasonDeleted',
 	'onSeasonWrite',
@@ -103,6 +104,7 @@ const WATCHES: Record<string, { eventType: 'created' | 'written' | 'deleted'; do
 	onResponseWrite: { eventType: 'written', document: 'seasons/{seasonId}/games/{gameId}/responses/{uid}' },
 	onMatchWrite: { eventType: 'written', document: 'seasons/{seasonId}/games/{gameId}/matches/{order}' },
 	onMotmVoteWrite: { eventType: 'written', document: 'seasons/{seasonId}/games/{gameId}/motmVotes/{uid}' },
+	onPaymentWrite: { eventType: 'written', document: 'users/{uid}/private/payment' },
 	onDueWrite: { eventType: 'written', document: 'seasons/{seasonId}/dues/{dueId}' },
 };
 
