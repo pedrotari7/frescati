@@ -84,3 +84,25 @@ describe('copySeasonSettings', () => {
 		}
 	});
 });
+
+describe('copySeasonSettings, payees', () => {
+	const copied = (payees: NonNullable<NonNullable<Season['fees']>['payees']>) =>
+		copySeasonSettings({ ...source, fees: { total: 1000, perGame: 50, payees } }, 'a').fees?.payees;
+
+	it('keeps who an admin pot names and drops the number copied in beside it', () => {
+		expect(copied({ entry: { uid: 'a', swish: '0701' }, extras: { uid: 'b' } })).toEqual({
+			entry: { uid: 'a' },
+			extras: { uid: 'b' },
+		});
+	});
+
+	it('leaves a custom number alone', () => {
+		expect(copied({ entry: { swish: '0705' } })).toEqual({ entry: { swish: '0705' } });
+	});
+
+	it('does not mutate the source', () => {
+		const fees = { total: 1000, perGame: 50, payees: { entry: { uid: 'a', swish: '0701' } } };
+		copySeasonSettings({ ...source, fees }, 'a');
+		expect(fees.payees.entry.swish).toBe('0701');
+	});
+});
