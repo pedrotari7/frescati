@@ -277,7 +277,7 @@ export const seasonUpdateFrom = (
 	form: SeasonForm,
 	counts: Record<CountField, number | null>,
 	timezone: string,
-	stored?: SeasonFees
+	stored: SeasonFees | undefined
 ): SeasonUpdate => ({
 	name: form.name.trim(),
 	// Never `draft`: a season crosses that line only through `confirmSeason`, and

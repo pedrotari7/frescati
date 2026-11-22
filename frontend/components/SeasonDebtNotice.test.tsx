@@ -115,10 +115,18 @@ describe('SeasonDebtNotice', () => {
 	});
 
 	it("draws no code for a number that is the viewer's own", () => {
-		notice({ standing: 'blocked', outstanding: 70, dues: [charge()] }, {}, '0701234567');
+		notice({ standing: 'owing', outstanding: 70, dues: [charge()] }, {}, '0701234567');
 
 		expect(screen.queryByTestId('swish-qr')).not.toBeInTheDocument();
 		expect(screen.getByText('This one is paid to you, so mark it paid yourself.')).toBeInTheDocument();
+	});
+
+	it('sends a blocked player whose number it is to an admin, since only an admin can mark it', () => {
+		notice({ standing: 'blocked', outstanding: 70, dues: [charge()] }, {}, '0701234567');
+
+		expect(
+			screen.getByText('This one is paid to you. Ask an admin of this season to mark it paid.')
+		).toBeInTheDocument();
 	});
 
 	// Paying and being marked paid are separate events, and only an admin can do

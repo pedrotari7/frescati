@@ -79,6 +79,8 @@ describe('SwishNumberField', () => {
 	it('says who sees the number', () => {
 		render(<SwishNumberField uid='anna' />);
 
-		expect(screen.getByText(/only shown to people paying a season that sends money to you/i)).toBeInTheDocument();
+		expect(
+			screen.getByText(/shown on any season that names you as its payee, where anybody in the app can see it/i)
+		).toBeInTheDocument();
 	});
 });

@@ -202,7 +202,8 @@ describe('venueMoved', () => {
 });
 
 describe('seasonUpdateFrom', () => {
-	const update = (form = EMPTY_FORM) => seasonUpdateFrom(form, readCounts(form).counts, 'Europe/Stockholm');
+	const update = (form = EMPTY_FORM) =>
+		seasonUpdateFrom(form, readCounts(form).counts, 'Europe/Stockholm', undefined);
 
 	it('turns the typed boxes back into numbers', () => {
 		const written = update({ ...EMPTY_FORM, durationMinutes: '120', minPlayers: '12', seasonCost: '31240' });
@@ -296,7 +297,8 @@ describe('statusOptionsFor', () => {
 });
 
 describe('the sign-up settings', () => {
-	const update = (form = EMPTY_FORM) => seasonUpdateFrom(form, readCounts(form).counts, 'Europe/Stockholm');
+	const update = (form = EMPTY_FORM) =>
+		seasonUpdateFrom(form, readCounts(form).counts, 'Europe/Stockholm', undefined);
 
 	it('reads the quiet switch and the close date off a draft', () => {
 		const form = formFromSeason(

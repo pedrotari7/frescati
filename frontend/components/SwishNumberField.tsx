@@ -49,8 +49,8 @@ const SwishNumberField = ({ uid }: { uid: string }) => {
 			<h2 {...stylex.props(styles.title)}>Your Swish number</h2>
 
 			<p {...stylex.props(styles.blurb)}>
-				Only shown to people paying a season that sends money to you. Admins pick a payee by name and never see
-				the number.
+				Shown on any season that names you as its payee, where anybody in the app can see it. App admins can
+				also see it here. Admins picking a payee see your name, not the number.
 			</p>
 
 			<form

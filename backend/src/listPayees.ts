@@ -52,8 +52,14 @@ export const listPayees = onCall<void>(
 				.map(doc => doc.ref.parent.parent?.id)
 		);
 
+		// An account with no profile has no name to pick it by, and a blank row
+		// in the picker is worse than a missing one.
 		const payees: PayeeOption[] = uids
-			.map(uid => ({ uid, displayName: profiles.get(uid)?.displayName ?? '', hasNumber: saved.has(uid) }))
+			.flatMap(uid => {
+				const profile = profiles.get(uid);
+
+				return profile ? [{ uid, displayName: profile.displayName, hasNumber: saved.has(uid) }] : [];
+			})
 			.sort(byDisplayName);
 
 		return { payees };
