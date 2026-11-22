@@ -1,3 +1,4 @@
+import { deleteField } from 'firebase/firestore';
 import type { Season } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
 import {
@@ -6,6 +7,7 @@ import {
 	readCounts,
 	sameForm,
 	seasonUpdateFrom,
+	statusOptionsFor,
 	venueFrom,
 	venueMoved,
 } from './seasonForm';
@@ -236,5 +238,62 @@ describe('seasonUpdateFrom', () => {
 		expect(update({ ...EMPTY_FORM, venueName: ' Frescati IP ', venueAddress: '' }).venue).toEqual({
 			name: 'Frescati IP',
 		});
+	});
+});
+
+describe('statusOptionsFor', () => {
+	it('offers only active and archived on a season that has started', () => {
+		expect(statusOptionsFor('active')).toEqual(['active', 'archived']);
+		expect(statusOptionsFor('archived')).toEqual(['active', 'archived']);
+	});
+
+	it('offers nothing on a season that is signing up, because only confirming takes it out', () => {
+		expect(statusOptionsFor('draft')).toEqual([]);
+	});
+});
+
+describe('the sign-up settings', () => {
+	const update = (form = EMPTY_FORM) => seasonUpdateFrom(form, readCounts(form).counts, 'Europe/Stockholm');
+
+	it('reads the quiet switch and the close date off a draft', () => {
+		const form = formFromSeason(
+			season({ status: 'draft', quiet: true, signupClosesOn: '2026-12-01' }),
+			DEFAULT_BALANCE_SETTINGS
+		);
+
+		expect(form.quiet).toBe(true);
+		expect(form.signupClosesOn).toBe('2026-12-01');
+	});
+
+	it('reads a season with neither as quiet off and no date', () => {
+		const form = formFromSeason(season({ status: 'draft' }), DEFAULT_BALANCE_SETTINGS);
+
+		expect(form.quiet).toBe(false);
+		expect(form.signupClosesOn).toBe('');
+	});
+
+	it('writes both on a draft, and keeps the status a draft', () => {
+		const written = update({ ...EMPTY_FORM, status: 'draft', quiet: true, signupClosesOn: '2026-12-01' });
+
+		expect(written.status).toBe('draft');
+		expect(written.quiet).toBe(true);
+		expect(written.signupClosesOn).toBe('2026-12-01');
+	});
+
+	it('deletes the close date when the box is empty, since a merge cannot clear it any other way', () => {
+		const written = update({ ...EMPTY_FORM, status: 'draft', signupClosesOn: '' });
+
+		expect(written.signupClosesOn).toEqual(deleteField());
+	});
+
+	it('never sends the squad, which the rules freeze until the season is confirmed', () => {
+		expect(update({ ...EMPTY_FORM, status: 'draft' })).not.toHaveProperty('memberUids');
+	});
+
+	it('leaves both alone on a season that has started', () => {
+		const written = update({ ...EMPTY_FORM, status: 'active', quiet: true, signupClosesOn: '2026-12-01' });
+
+		expect(written).not.toHaveProperty('quiet');
+		expect(written).not.toHaveProperty('signupClosesOn');
 	});
 });

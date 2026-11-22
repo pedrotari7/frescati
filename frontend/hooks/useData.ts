@@ -13,6 +13,7 @@ import type {
 	Receipt,
 	Season,
 	RatingLedgerEntry,
+	Signup,
 	TournamentMatch,
 	TournamentMotm,
 	TournamentResult,
@@ -22,6 +23,7 @@ import { subscribeToSeason, subscribeToSeasons } from '../lib/db/seasons';
 import { subscribeToGame, subscribeToGames } from '../lib/db/games';
 import { subscribeToResponses } from '../lib/db/responses';
 import { subscribeToKit } from '../lib/db/kit';
+import { subscribeToSignups } from '../lib/db/signups';
 import { subscribeToDebtors, subscribeToDues, subscribeToExpenses, subscribeToMyDues } from '../lib/db/finances';
 import {
 	subscribeToMatches,
@@ -42,6 +44,7 @@ const NO_USERS: AppUser[] = [];
 const NO_MATCHES: TournamentMatch[] = [];
 const NO_LEDGER: RatingLedgerEntry[] = [];
 const NO_KIT: KitItem[] = [];
+const NO_SIGNUPS: Signup[] = [];
 const NO_VOTERS: string[] = [];
 const NO_DUES: Due[] = [];
 const NO_DEBTORS: Debtor[] = [];
@@ -112,6 +115,18 @@ export const useResponses = (seasonId: string | null, gameId: string | null) => 
 	);
 
 	return { responses: data, loading, error };
+};
+
+/** Everybody's answer to a season that is signing up. Nobody who has not answered has a document. */
+export const useSignups = (seasonId: string | null) => {
+	const { data, loading, error } = useFirestoreSubscription<Signup[]>(
+		NO_SIGNUPS,
+		seasonId ? (onChange, onError) => subscribeToSignups(seasonId, onChange, onError) : null,
+		[seasonId],
+		'signups'
+	);
+
+	return { signups: data, loading, error };
 };
 
 /**

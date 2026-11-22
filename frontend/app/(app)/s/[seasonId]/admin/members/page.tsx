@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import * as stylex from '@stylexjs/stylex';
 import type { AppUser, Game, Season } from '@shared/types';
 import { counted, formatSek } from '@shared/format';
@@ -29,6 +30,7 @@ import { NameSearch } from '../../../../../../components/Field';
 import { ListCard, ListEmpty, listRow, SectionHeading } from '../../../../../../components/Section';
 import { searchByName } from '../../../../../../lib/people';
 import { colors } from '../../../../../tokens.stylex';
+import { surfaces } from '../../../../../../lib/styles';
 
 const styles = stylex.create({
 	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
@@ -44,6 +46,10 @@ const styles = stylex.create({
 	   column one word wide. Overrides `Person`'s own body, which shrinks to
 	   nothing, because this is the only row here carrying two of them. */
 	body: { minWidth: 160 },
+	notice: { display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 16, padding: 20 },
+	noticeTitle: { color: colors.ink, fontSize: 16, lineHeight: '24px', fontWeight: 600 },
+	noticeBody: { color: colors.muted, fontSize: 14, lineHeight: 1.625 },
+	noticeLink: { color: colors.brand, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
 	note: { color: colors.faint, marginTop: 12, paddingInline: 4, fontSize: 12, lineHeight: 1.625 },
 });
 
@@ -119,6 +125,24 @@ const EveryoneElse = ({
 			hand up for individual games as an extra, but they only count towards the headcount once you give them a
 			spot on the game screen.
 		</p>
+	</section>
+);
+
+/**
+ * What stands in for the squad while the season is signing up. The rules freeze
+ * `memberUids` on a draft, so adding or removing somebody here would be refused
+ * anyway: the yeses become the squad when the season is confirmed.
+ */
+const SigningUpNotice = ({ seasonId }: { seasonId: string }) => (
+	<section {...stylex.props(surfaces.glass, styles.notice)}>
+		<h2 {...stylex.props(styles.noticeTitle)}>The squad is whoever says yes</h2>
+		<p {...stylex.props(styles.noticeBody)}>
+			This season is still signing up, so nobody can be added or removed here. See who is joining, answer for
+			somebody and confirm the season from the Sign-up section.
+		</p>
+		<Link href={`/s/${seasonId}/admin`} {...stylex.props(styles.noticeLink)}>
+			Go to Sign-up
+		</Link>
 	</section>
 );
 
@@ -214,57 +238,63 @@ const AdminMembersPage = () => {
 			backHref={`/s/${seasonId}/admin`}
 		>
 			<div {...stylex.props(styles.page)}>
-				<NameSearch value={search} onChange={setSearch} />
+				{season.status === 'draft' ? (
+					<SigningUpNotice seasonId={seasonId} />
+				) : (
+					<>
+						<NameSearch value={search} onChange={setSearch} />
 
-				<section>
-					<SectionHeading sx={styles.heading}>In the squad ({members.length})</SectionHeading>
+						<section>
+							<SectionHeading sx={styles.heading}>In the squad ({members.length})</SectionHeading>
 
-					<ListCard>
-						{members.length === 0 && <ListEmpty>Nobody yet, add players from below.</ListEmpty>}
+							<ListCard>
+								{members.length === 0 && <ListEmpty>Nobody yet, add players from below.</ListEmpty>}
 
-						{members.map(user => {
-							const isSeasonAdmin = season.adminUids.includes(user.uid);
+								{members.map(user => {
+									const isSeasonAdmin = season.adminUids.includes(user.uid);
 
-							return (
-								<div key={user.uid} {...stylex.props(listRow, styles.person)}>
-									<Person person={user} sx={styles.body}>
-										{isSeasonAdmin && <StatusPill tone='brand'>Admin</StatusPill>}
-									</Person>
+									return (
+										<div key={user.uid} {...stylex.props(listRow, styles.person)}>
+											<Person person={user} sx={styles.body}>
+												{isSeasonAdmin && <StatusPill tone='brand'>Admin</StatusPill>}
+											</Person>
 
-									<Button
-										size='sm'
-										variant='ghost'
-										disabled={isLastAdmin(user.uid)}
-										onClick={() =>
-											isSeasonAdmin
-												? write(
-														() => removeSeasonAdmin(seasonId, user.uid),
-														`Couldn't demote ${user.displayName}.`
-													)
-												: write(
-														() => addSeasonAdmin(seasonId, user.uid),
-														`Couldn't make ${user.displayName} an admin.`
-													)
-										}
-									>
-										{isSeasonAdmin ? 'Demote' : 'Make admin'}
-									</Button>
+											<Button
+												size='sm'
+												variant='ghost'
+												disabled={isLastAdmin(user.uid)}
+												onClick={() =>
+													isSeasonAdmin
+														? write(
+																() => removeSeasonAdmin(seasonId, user.uid),
+																`Couldn't demote ${user.displayName}.`
+															)
+														: write(
+																() => addSeasonAdmin(seasonId, user.uid),
+																`Couldn't make ${user.displayName} an admin.`
+															)
+												}
+											>
+												{isSeasonAdmin ? 'Demote' : 'Make admin'}
+											</Button>
 
-									<Button
-										size='sm'
-										variant='danger'
-										disabled={isLastAdmin(user.uid)}
-										onClick={() => handleRemove(user)}
-									>
-										Remove
-									</Button>
-								</div>
-							);
-						})}
-					</ListCard>
-				</section>
+											<Button
+												size='sm'
+												variant='danger'
+												disabled={isLastAdmin(user.uid)}
+												onClick={() => handleRemove(user)}
+											>
+												Remove
+											</Button>
+										</div>
+									);
+								})}
+							</ListCard>
+						</section>
 
-				<EveryoneElse others={others} search={search} onAdd={squad.add} />
+						<EveryoneElse others={others} search={search} onAdd={squad.add} />
+					</>
+				)}
 			</div>
 
 			<LateJoinSheet

@@ -320,6 +320,8 @@ export const text = stylex.create({
 	ink: { color: colors.ink },
 	muted: { color: colors.muted },
 	faint: { color: colors.faint },
+	/** The small line of explanation under a form. */
+	note: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
 	/** A small-caps section label. */
 	sectionHeading: {
 		color: colors.faint,

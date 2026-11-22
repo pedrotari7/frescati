@@ -1,3 +1,5 @@
+import { deleteField } from 'firebase/firestore';
+import type { FieldValue } from 'firebase/firestore';
 import type { BalanceSettings, Season, SeasonStatus, Venue, Weekday } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_FEES } from '@shared/types';
 import { parseCount, parseReminderHours } from '@shared/game';
@@ -52,7 +54,24 @@ export interface SeasonForm {
 	perGameFee: string;
 	/** The Swish number that collects, as somebody would write it: `0701234567`. */
 	swish: string;
+	/** A draft's quiet switch. Only written while the season is signing up. */
+	quiet: boolean;
+	/** A draft's close date, `YYYY-MM-DD`, or empty for none. Only written while signing up. */
+	signupClosesOn: string;
 }
+
+/**
+ * What the Status field offers. Nothing on a draft: `confirmSeason` is the only
+ * way out of sign-up and the rules refuse a client write that tries, and nothing
+ * goes back into it either.
+ */
+export const statusOptionsFor = (status: SeasonStatus): SeasonStatus[] =>
+	status === 'draft' ? [] : ['active', 'archived'];
+
+/** The season as written by the form. `signupClosesOn` may be a delete, because a merge cannot clear a field. */
+export type SeasonUpdate = Omit<Partial<Omit<Season, 'id'>>, 'signupClosesOn'> & {
+	signupClosesOn?: string | FieldValue;
+};
 
 export const EMPTY_FORM: SeasonForm = {
 	name: '',
@@ -74,6 +93,8 @@ export const EMPTY_FORM: SeasonForm = {
 	seasonCost: String(DEFAULT_FEES.total),
 	perGameFee: String(DEFAULT_FEES.perGame),
 	swish: '',
+	quiet: false,
+	signupClosesOn: '',
 };
 
 /**
@@ -110,6 +131,8 @@ export const formFromSeason = (season: Season, balance: BalanceSettings): Season
 		seasonCost: String(fees.total),
 		perGameFee: String(fees.perGame),
 		swish: fees.swish ?? '',
+		quiet: season.quiet ?? false,
+		signupClosesOn: season.signupClosesOn ?? '',
 	};
 };
 
@@ -208,7 +231,7 @@ export const seasonUpdateFrom = (
 	form: SeasonForm,
 	counts: Record<CountField, number | null>,
 	timezone: string
-): Partial<Omit<Season, 'id'>> => ({
+): SeasonUpdate => ({
 	name: form.name.trim(),
 	status: form.status,
 	venue: venueFrom(form),
@@ -234,4 +257,8 @@ export const seasonUpdateFrom = (
 		perGame: counts.perGameFee!,
 		...(form.swish.trim() ? { swish: form.swish.trim() } : {}),
 	},
+	// The squad is never sent: the rules freeze it on a draft until confirmSeason
+	// runs. The sign-up settings are a draft's alone, and the close date is a
+	// delete when emptied because `updateDoc` merges.
+	...(form.status === 'draft' ? { quiet: form.quiet, signupClosesOn: form.signupClosesOn || deleteField() } : {}),
 });

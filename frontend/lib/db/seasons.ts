@@ -11,6 +11,7 @@ import {
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { Season } from '@shared/types';
 import { dueId } from '@shared/finances';
+import type { SeasonUpdate } from '../seasonForm';
 import { getDb } from '../firebaseClient';
 import { dueDoc, seasonDoc, seasonsCol } from './paths';
 import { subscribeToCollection, subscribeToDoc } from './subscribe';
@@ -41,8 +42,7 @@ export const createSeason = async (season: Omit<Season, 'id'>): Promise<string> 
 	return ref.id;
 };
 
-export const updateSeason = (seasonId: string, changes: Partial<Omit<Season, 'id'>>) =>
-	updateDoc(seasonDoc(seasonId), changes);
+export const updateSeason = (seasonId: string, changes: SeasonUpdate) => updateDoc(seasonDoc(seasonId), changes);
 
 export const addSeasonMember = (seasonId: string, uid: string) =>
 	updateDoc(seasonDoc(seasonId), { memberUids: arrayUnion(uid) });
