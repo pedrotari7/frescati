@@ -239,6 +239,7 @@ const RespondControl = ({
 	onClear,
 	disabled = false,
 	debtLock,
+	draft = false,
 	size = 'lg',
 }: {
 	/**
@@ -258,6 +259,12 @@ const RespondControl = ({
 	 * hold them inside a headcount somebody is booking a pitch against.
 	 */
 	debtLock?: DebtLock;
+	/**
+	 * The season is still signing up. The rules refuse every response write on
+	 * a draft, so the buttons give way to the line saying when they come back,
+	 * here rather than in each screen that draws the pair.
+	 */
+	draft?: boolean;
 	size?: 'sm' | 'lg';
 }) => {
 	const [pending, setPending] = useState<ResponseStatus | 'clear' | null>(null);
@@ -366,6 +373,8 @@ const RespondControl = ({
 	 */
 	const busy = disabled || pending !== null;
 	const large = size === 'lg';
+
+	if (draft) return <p {...stylex.props(styles.unanswered)}>Answers open once the season is confirmed</p>;
 
 	return (
 		<div {...stylex.props(styles.root)}>

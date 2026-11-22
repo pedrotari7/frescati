@@ -173,6 +173,7 @@ const Answer = ({
 	myResponse,
 	isExtra,
 	debtLock,
+	draft,
 	onRespond,
 	onClear,
 }: {
@@ -181,6 +182,7 @@ const Answer = ({
 	myResponse: GameResponse | undefined;
 	isExtra: boolean;
 	debtLock?: DebtLock;
+	draft: boolean;
 	onRespond: (status: ResponseStatus) => Promise<void>;
 	onClear: () => Promise<void>;
 }) => {
@@ -196,6 +198,7 @@ const Answer = ({
 				onClear={onClear}
 				disabled={lifecycle !== 'open'}
 				debtLock={debtLock}
+				draft={draft}
 			/>
 
 			<ExtraSpotNote isExtra={isExtra} myResponse={myResponse} lifecycle={lifecycle} />
@@ -245,6 +248,7 @@ const GameCard = ({
 			myResponse={myResponse}
 			isExtra={isExtra}
 			debtLock={debtLock}
+			draft={season.status === 'draft'}
 			onRespond={onRespond}
 			onClear={onClear}
 		/>

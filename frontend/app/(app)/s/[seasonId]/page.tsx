@@ -7,6 +7,7 @@ import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
 import { groupGames } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
 import { useAuth } from '../../../../lib/auth';
+import { useSignups, useUsersByUid } from '../../../../hooks/useData';
 import { useRespond } from '../../../../hooks/useRespond';
 import { useWatchGames } from '../../../../hooks/useWatchGames';
 import { useLiveGameRedirect } from '../../../../hooks/useLiveGameRedirect';
@@ -20,6 +21,9 @@ import GameRow from '../../../../components/GameRow';
 import type { DebtLock } from '../../../../components/RespondControl';
 import MotmVoteCallout from '../../../../components/MotmVoteCallout';
 import SeasonDebtNotice from '../../../../components/SeasonDebtNotice';
+import SignupCard from '../../../../components/SignupCard';
+import SignupQuestions from '../../../../components/SignupQuestions';
+import WhosJoining from '../../../../components/WhosJoining';
 import Button from '../../../../components/Button';
 import CalendarSubscribeSheet from '../../../../components/CalendarSubscribeSheet';
 import PlayedSection from '../../../../components/PlayedSection';
@@ -179,6 +183,50 @@ const ComingUp = ({ games, answering, watch }: { games: Game[]; answering: Answe
 	);
 };
 
+/**
+ * A season that is still signing up: the question, who has said yes, and the
+ * games with no In/Out buttons on them. Nothing is answerable until an admin
+ * confirms, so there is no next-game hero and no bell.
+ */
+const DraftHome = ({ season, games, answering }: { season: Season; games: Game[]; answering: Answering }) => {
+	const { user } = useAuth();
+	const { signups } = useSignups(season.id);
+	const { usersByUid } = useUsersByUid();
+
+	return (
+		<SeasonShell title={season.name} subtitle={season.venue.name}>
+			<div {...stylex.props(styles.page)}>
+				{/* Any other season signing up, but not this one, which is the card below. */}
+				<SignupQuestions skip={season.id} />
+
+				{user && (
+					<SignupCard
+						season={season}
+						signup={signups.find(signup => signup.uid === user.uid)}
+						yesCount={signups.filter(signup => signup.status === 'yes').length}
+						uid={user.uid}
+					/>
+				)}
+
+				<WhosJoining signups={signups} usersByUid={usersByUid} />
+
+				<section>
+					<SectionHeading sx={styles.heading}>Games</SectionHeading>
+					{games.length === 0 ? (
+						<EmptyState
+							icon={<CalendarDaysIcon />}
+							title='No games scheduled'
+							message='Nothing on the calendar yet. An admin will add games soon.'
+						/>
+					) : (
+						<GameRows games={games} answering={answering} />
+					)}
+				</section>
+			</div>
+		</SeasonShell>
+	);
+};
+
 const SeasonHomePage = () => {
 	const { seasonId, season, games, myResponses, loading, error, retry, isAdmin, role, debt, debtLock } =
 		useSeasonContext();
@@ -218,10 +266,19 @@ const SeasonHomePage = () => {
 
 	const answering = { season, myResponses, debtLock, now, onRespond: respond, onClear: clear };
 
+	if (season.status === 'draft') {
+		return <DraftHome season={season} games={games} answering={answering} />;
+	}
+
 	return (
 		<>
 			<SeasonShell title={season.name} subtitle={season.venue.name}>
 				<div {...stylex.props(styles.page)}>
+					{/* The question every season that is signing up puts to everybody,
+					    above everything else because it is the one thing here with a
+					    deadline that nobody is reminded of by the games below. */}
+					<SignupQuestions />
+
 					{/* First on the screen, and above the card whose In button it
 					    explains. Not instead of the games: hiding the calendar
 					    collects nothing and takes away what somebody needs in order
