@@ -103,13 +103,20 @@ export const onSeasonWrite = onDocumentWritten(
 		// Before the early return below, because a create has no `before`.
 		if (after && opensSignup(before, after)) {
 			const { seasonId } = event.params;
-			const sent = await sendSignupPush(
-				await getAllUserUids(),
-				'signupOpen',
-				signupContext({ ...after, id: seasonId })
-			);
 
-			logger.info('Asked everybody to join a season', { seasonId, ...sent });
+			// Guarded so a failed announcement cannot skip the recount below,
+			// which a roster change in the same write still needs.
+			try {
+				const sent = await sendSignupPush(
+					await getAllUserUids(),
+					'signupOpen',
+					signupContext({ ...after, id: seasonId })
+				);
+
+				logger.info('Asked everybody to join a season', { seasonId, ...sent });
+			} catch (error) {
+				reportError('Could not announce a season that is signing up', { seasonId }, error);
+			}
 		}
 
 		// A new season has no games yet, and a deleted one is handled by the

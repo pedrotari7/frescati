@@ -1,7 +1,20 @@
+vi.mock('../src/lib/teams', () => ({ enqueueTeamRebuild: vi.fn().mockResolvedValue(undefined) }));
+
 import { onSeasonWrite } from '../src/onSeasonWrite';
 import { sendSignupReminders } from '../src/sendSignupReminders';
 import * as push from '../src/lib/push';
-import { aSeason, clearAuth, clearFirestore, getDb, writeSeason, writeUser, writtenEvent } from './helpers';
+import {
+	aSeason,
+	clearAuth,
+	clearFirestore,
+	getDb,
+	readResponse,
+	writeGame,
+	writeResponse,
+	writeSeason,
+	writeUser,
+	writtenEvent,
+} from './helpers';
 
 /**
  * The two ways a season signing up gets announced: once when it opens, and
@@ -99,6 +112,25 @@ describe('announcing a season that is signing up', () => {
 	});
 });
 
+describe('a failure while announcing', () => {
+	it('does not stop the roster recount in the same write', async () => {
+		await writeGame(SEASON_ID, 'game-1', { kickoff: new Date(Date.now() + 86_400_000).toISOString() });
+		await writeResponse(SEASON_ID, 'game-1', JOHAN, { status: 'in', role: 'extra' });
+		sendSpy.mockRejectedValue(new Error('FCM is down'));
+
+		await onSeasonWrite.run(
+			writtenEvent(
+				{ seasonId: SEASON_ID },
+				draft({ quiet: true, memberUids: [ANNA] }),
+				draft({ quiet: false, memberUids: [ANNA, JOHAN] })
+			) as never
+		);
+
+		expect(sendSpy).toHaveBeenCalledTimes(1);
+		expect((await readResponse(SEASON_ID, 'game-1', JOHAN))?.role).toBe('member');
+	});
+});
+
 describe('sendSignupReminders', () => {
 	it('reminds only the users who have not answered, on a due day', async () => {
 		await writeSeason(SEASON_ID, { status: 'draft', memberUids: [], createdAt: createdDaysAgo(3) });
@@ -158,6 +190,28 @@ describe('sendSignupReminders', () => {
 		await sendSignupReminders.run(undefined as never);
 
 		expect(sendSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it('still reminds the next season when the first one fails', async () => {
+		await writeSeason('season-a', { status: 'draft', createdAt: createdDaysAgo(3) });
+		await writeSeason('season-b', { status: 'draft', createdAt: createdDaysAgo(3) });
+		sendSpy.mockRejectedValueOnce(new Error('FCM is down'));
+
+		await sendSignupReminders.run(undefined as never);
+
+		expect(sendSpy).toHaveBeenCalledTimes(2);
+	});
+
+	it('still reminds the other seasons when a draft is malformed', async () => {
+		await writeSeason(SEASON_ID, { status: 'draft', createdAt: createdDaysAgo(3) });
+		await getDb()
+			.doc('seasons/broken')
+			.set({ status: 'draft', name: 'Broken', createdAt: createdDaysAgo(3) });
+
+		await sendSignupReminders.run(undefined as never);
+
+		expect(sendSpy).toHaveBeenCalledTimes(1);
+		expect(sendSpy.mock.calls[0]![2]).toMatchObject({ seasonId: SEASON_ID });
 	});
 
 	it('sends nothing when everybody has answered', async () => {
