@@ -222,6 +222,51 @@ test.describe('the season books', () => {
 		await expect(rowsOwing(page).first()).toBeVisible();
 	});
 
+	/**
+	 * One code for each number a person owes, and none for their own.
+	 *
+	 * Sunday Kickabout pays its season fee to Yara, whose number is saved on her
+	 * private payment document, and its extras' fees to a number typed in. Greta
+	 * is an extra who has since joined the squad, so once the sweep above has
+	 * raised the books she owes into both pots, and the screen has to draw two
+	 * codes rather than one for the total. Yara owes the season fee like any
+	 * member, to herself, which is the case where Swish refuses the payment.
+	 *
+	 * After the sweep on purpose. The charges do not exist until somebody has
+	 * pressed the button, and the files in this directory hand state on in order.
+	 */
+	test('draw a code for each number owed, and none for your own', async ({ page }) => {
+		const greta = readCast().users.find(user => user.displayName === 'Greta Lund');
+		expect(greta, 'Greta Lund is not a seeded account').toBeTruthy();
+
+		await openSeasonAs(page, itsAdmin());
+		await openTheBooks(page);
+
+		const books = page.url();
+
+		await signInAs(page, greta!);
+		await expect(page).toHaveURL(books);
+
+		const owe = sectionUnder(page, /^What you owe$/).last();
+		await expect(owe, 'Greta owes into both pots and was shown nothing').toBeVisible();
+
+		await expect(owe.getByRole('heading', { name: 'Season fee' })).toBeVisible();
+		await expect(owe.getByRole('heading', { name: "Extras' fees" })).toBeVisible();
+		await expect(owe.getByTestId('swish-qr'), 'two numbers owed should be two codes').toHaveCount(2);
+
+		// Each code names the number it pays, so the split is by payee and not just
+		// by how many pots there are.
+		await expect(owe.getByText(/to 0701112233\./)).toBeVisible();
+		await expect(owe.getByText(/to 0709998877\./)).toBeVisible();
+
+		await signInAs(page, itsAdmin());
+		await expect(page).toHaveURL(books);
+
+		const mine = sectionUnder(page, /^What you owe$/).last();
+		await expect(mine.getByText('This one is paid to you. Mark it paid in the book below.')).toBeVisible();
+		await expect(mine.getByTestId('swish-qr'), 'a code was drawn for a payment to yourself').toHaveCount(0);
+	});
+
 	test("report a payment against one person's charge", async ({ page }) => {
 		await openSeasonAs(page, aSeasonAdmin());
 		await openTheBooks(page);

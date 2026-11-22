@@ -26,11 +26,13 @@ import type {
 	GameResponse,
 	KitItem,
 	MotmVote,
+	Payee,
 	NotificationPrefs,
 	PlayerRating,
 	PushToken,
 	RatingLedgerEntry,
 	Season,
+	SeasonFees,
 	Signup,
 	TournamentMatch,
 	TournamentMotm,
@@ -57,7 +59,7 @@ import { MOTM_VOTING_HOURS, tallyMotmVotes } from '../../../shared/motm';
 import { getPositions, getStandings } from '../../../shared/standings';
 import { CAST, avatarPath, castMember, emailFor, googleSubFor, uidFor } from './cast';
 import type { CastMember } from './cast';
-import type { GamePin, KitPlan, Scenario, SeasonPlan } from './scenarios';
+import type { FeesPlan, GamePin, KitPlan, PayeePlan, Scenario, SeasonPlan } from './scenarios';
 import { commitInBatches } from '../../src/lib/batch';
 
 /** Seconds `settle` watches for before it will believe the triggers are done. */
@@ -312,7 +314,31 @@ const todayIn = (timezone: string): string => {
 	return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
 
-const buildSeason = (plan: SeasonPlan, createdBy: string, runId: string): Season => {
+/**
+ * A pot's payee as the app stores it. An admin carries the number the sync
+ * function would have copied on from their saved one, because the seed runs
+ * before any function can, and a payee with no number is how a season looks
+ * until it has.
+ */
+const buildPayees = (
+	payees: NonNullable<FeesPlan['payees']>,
+	numbers: Record<string, string>
+): SeasonFees['payees'] => {
+	const payee = (plan: PayeePlan): Payee => {
+		if (!('adminKey' in plan)) return { swish: plan.swish };
+
+		const swish = numbers[plan.adminKey];
+
+		return { uid: uidFor(plan.adminKey), ...(swish ? { swish } : {}) };
+	};
+
+	return {
+		...(payees.entry ? { entry: payee(payees.entry) } : {}),
+		...(payees.extras ? { extras: payee(payees.extras) } : {}),
+	};
+};
+
+const buildSeason = (plan: SeasonPlan, createdBy: string, runId: string, numbers: Record<string, string>): Season => {
 	const today = todayIn(plan.slot.timezone);
 	const startDate = addCivilDays(today, plan.startWeeks * 7);
 	const endDate = addCivilDays(today, plan.endWeeks * 7);
@@ -344,6 +370,7 @@ const buildSeason = (plan: SeasonPlan, createdBy: string, runId: string): Season
 						total: plan.finances.total,
 						perGame: plan.finances.perGame,
 						...(plan.finances.swish ? { swish: plan.finances.swish } : {}),
+						...(plan.finances.payees ? { payees: buildPayees(plan.finances.payees, numbers) } : {}),
 					},
 				}
 			: {}),
@@ -561,7 +588,16 @@ const buildResponses = (
 	if (mode === 'none') return [];
 
 	const target = pin.playing ?? between(rng, plan.turnout[0], plan.turnout[1]);
-	const memberUids = shuffled(season.memberUids, rng);
+	// A key in both lists is an extra who has since joined the squad. They are
+	// an extra on a game already played, which is what they were then, and a
+	// member on one still to come.
+	const joined = new Set(plan.extraKeys.filter(key => plan.memberKeys.includes(key)).map(uidFor));
+	const played = hasBeenPlayed(game);
+	const memberUids = shuffled(
+		season.memberUids.filter(uid => !(played && joined.has(uid))),
+		rng
+	);
+	const extraUids = plan.extraKeys.map(uidFor).filter(uid => played || !joined.has(uid));
 
 	// Extras top up a thin game rather than swelling a healthy one, which is
 	// what they are for. Derived from the overshoot unless the pin says
@@ -569,7 +605,7 @@ const buildResponses = (
 	// fifteen never overshoots, so nothing tops it up and no extra is ever
 	// confirmed. `extrasPlaying` is how a game says a few members were away and
 	// a friend filled in, which is what a real one looks like.
-	const extraTarget = Math.min(plan.extraKeys.length, pin.extrasPlaying ?? Math.max(0, target - memberUids.length));
+	const extraTarget = Math.min(extraUids.length, pin.extrasPlaying ?? Math.max(0, target - memberUids.length));
 	const membersIn = Math.max(0, Math.min(memberUids.length, target - extraTarget));
 
 	const responses: GameResponse[] = [];
@@ -592,7 +628,7 @@ const buildResponses = (
 		});
 	});
 
-	shuffled(plan.extraKeys.map(uidFor), rng).forEach((uid, rank) => {
+	shuffled(extraUids, rng).forEach((uid, rank) => {
 		const isIn = rank < extraTarget + 2;
 
 		if (mode === 'partial' && rng() < 0.4) return;
@@ -1180,6 +1216,14 @@ const buildProfiles = (
 		];
 	});
 
+/** The numbers admins have saved, where the app keeps them: private to the admin. */
+const buildSwishNumbers = (scenario: Scenario, now: string): ((batch: WriteBatch) => void)[] =>
+	Object.entries(scenario.swishNumbers ?? {}).map(
+		([key, swish]) =>
+			(batch: WriteBatch) =>
+				batch.set(db().doc(`users/${uidFor(key)}/private/payment`), { swish, updatedAt: now })
+	);
+
 /** Everything one played game leaves behind under it. */
 const playedGameDocuments = (
 	gameRef: DocumentReference,
@@ -1237,13 +1281,14 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 	await importCast(scenario);
 
 	const creator = uidFor(scenario.appAdminKeys[0] ?? CAST[0].key);
-	const seasons = scenario.seasons.map(plan => buildSeason(plan, creator, runId));
+	const seasons = scenario.seasons.map(plan => buildSeason(plan, creator, runId, scenario.swishNumbers ?? {}));
 
 	const planned = scenario.seasons.flatMap((plan, index) => buildGames(plan, seasons[index], creator));
 
 	const { ratings, games } = playEveryGame(planned);
 	const now = new Date().toISOString();
 	const profiles = buildProfiles(scenario, ratings, now);
+	const numbers = buildSwishNumbers(scenario, now);
 
 	// Built after the games, because a scenario says who holds a piece of kit in
 	// terms of how they answered the next one.
@@ -1257,6 +1302,7 @@ export const seedScenario = async (scenario: Scenario, origin: string, runId: st
 
 	const documents: ((batch: WriteBatch) => void)[] = [
 		...profiles,
+		...numbers,
 		...seasons.map(season => (batch: WriteBatch) => {
 			const { id: _id, ...data } = season;
 			batch.set(db().doc(`seasons/${season.id}`), data);
