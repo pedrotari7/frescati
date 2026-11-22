@@ -20,7 +20,7 @@ import { signupContext } from './lib/signupContext';
  */
 export const sendSignupReminders = onSchedule(
 	{ schedule: '0 18 * * *', timeZone: 'Europe/Stockholm', region: REGION, secrets: EMAIL_SECRETS },
-	// A day of margin: a reminder an hour late still lands the same evening.
+	// Two hours of margin: a reminder a little late still lands the same evening.
 	instrumentSchedule('sendSignupReminders', { schedule: DAILY, checkinMargin: 120, maxRuntime: 10 }, async () => {
 		const now = new Date();
 		const draftsSnap = await db.collection('seasons').where('status', '==', 'draft').get();
@@ -28,9 +28,11 @@ export const sendSignupReminders = onSchedule(
 
 		for (const seasonDoc of draftsSnap.docs) {
 			const season = { ...seasonDoc.data(), id: seasonDoc.id } as Season;
-			if (!signupReminderDue(season, now)) continue;
 
 			try {
+				// Inside the try so a draft missing a field cannot stop the rest.
+				if (!signupReminderDue(season, now)) continue;
+
 				const [everybody, answered] = await Promise.all([
 					getAllUserUids(),
 					db.collection(`seasons/${season.id}/signups`).select().get(),
