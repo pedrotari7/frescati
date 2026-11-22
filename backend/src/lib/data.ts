@@ -107,3 +107,17 @@ export const getAppAdminUids = async (): Promise<string[]> => {
 
 	return snapshot.docs.map(doc => doc.id);
 };
+
+/**
+ * Every account in the app.
+ *
+ * Reads the ids of the `users` collection, with no fields, rather than paging
+ * Firebase Auth. `onUserCreated` writes a profile for every sign-in, so the two
+ * lists agree for everybody who has ever opened the app, and an empty projection
+ * keeps the read to the ids.
+ */
+export const getAllUserUids = async (): Promise<string[]> => {
+	const snapshot = await db.collection('users').select().get();
+
+	return snapshot.docs.map(doc => doc.id);
+};

@@ -75,6 +75,7 @@ const DEPLOYED = [
 	'remindDebtors',
 	'rotateCalendarToken',
 	'sendReminders',
+	'sendSignupReminders',
 	'sendTestEmail',
 	'sendTestPush',
 	'setAppAdmin',
@@ -108,6 +109,7 @@ const WATCHES: Record<string, { eventType: 'created' | 'written' | 'deleted'; do
 /** The sweeps, and how often each is expected to come round. */
 const SWEEPS: Record<string, string> = {
 	sendReminders: 'every 60 minutes',
+	sendSignupReminders: '0 18 * * *',
 	finaliseDueTournaments: 'every 1 hours',
 	closeMotmVoting: 'every 1 hours',
 	auditGameCounts: 'every 24 hours',
@@ -128,9 +130,11 @@ const REACHES_EMAIL = [
 	'nudgePlayers',
 	'onGameWrite',
 	'onResponseWrite',
+	'onSeasonWrite',
 	'onUserCreated',
 	'remindDebtors',
 	'sendReminders',
+	'sendSignupReminders',
 	'sendTestEmail',
 	'sendTestPush',
 ];
