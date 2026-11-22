@@ -243,6 +243,13 @@ export const DEFAULT_BALANCE_SETTINGS: BalanceSettings = {
 	matchMinutes: 5,
 };
 
+export interface Payee {
+	/** Set when the payee is an admin. The published number then follows theirs. */
+	uid?: string;
+	/** The number payers see. Typed in for a custom payee, written by a function for an admin. */
+	swish?: string;
+}
+
 /**
  * What it costs to play a season, and where the money goes.
  *
@@ -264,6 +271,8 @@ export interface SeasonFees {
 	perGame: number;
 	/** The Swish number that collects, local form, e.g. '0701234567'. */
 	swish?: string;
+	/** Who collects each pot. A pot with no payee here falls back to `swish`. */
+	payees?: { entry?: Payee; extras?: Payee };
 }
 
 export const DEFAULT_FEES: SeasonFees = {

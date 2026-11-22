@@ -439,3 +439,48 @@ export const REFERENCE_LIMIT = 50;
  */
 export const paymentReference = (seasonName: string, displayName: string): string =>
 	`${seasonName}: ${displayName}`.slice(0, REFERENCE_LIMIT);
+
+/**
+ * The Swish number a charge is paid to. Entry charges go to the entry payee,
+ * game and late charges to the extras payee. A pot with no payee falls back to
+ * the season's `swish`. A pot that names an admin with no saved number gives
+ * nothing, because paying the wrong person is worse than being told to ask.
+ */
+export const payeeFor = (fees: Pick<SeasonFees, 'swish' | 'payees'>, kind: DueKind): string | undefined => {
+	const payee = kind === 'entry' ? fees.payees?.entry : fees.payees?.extras;
+	return payee ? payee.swish : fees.swish;
+};
+
+/** What one Swish number is owed: the pots it covers and the SEK across them. */
+export interface Payment {
+	swish: string | undefined;
+	pots: ('entry' | 'extras')[];
+	amount: number;
+}
+
+/**
+ * The owing charges grouped by who they are paid to, entry first. Pots that
+ * share a number merge into one payment. A pot with no number stays apart.
+ */
+export const splitByPayee = (
+	dues: Pick<Due, 'kind' | 'amount' | 'status'>[],
+	fees: Pick<SeasonFees, 'swish' | 'payees'>
+): Payment[] => {
+	const owing = dues.filter(d => d.status === 'owing');
+	const pots = [
+		{ pot: 'entry', kind: 'entry' },
+		{ pot: 'extras', kind: 'game' },
+	] as const;
+	const payments: Payment[] = [];
+	for (const { pot, kind } of pots) {
+		const amount = owing.filter(d => (d.kind === 'entry') === (pot === 'entry')).reduce((n, d) => n + d.amount, 0);
+		if (amount === 0) continue;
+		const swish = payeeFor(fees, kind);
+		const same = swish === undefined ? undefined : payments.find(p => p.swish === swish);
+		if (same) {
+			same.pots.push(pot);
+			same.amount += amount;
+		} else payments.push({ swish, pots: [pot], amount });
+	}
+	return payments;
+};
