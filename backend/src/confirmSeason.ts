@@ -29,6 +29,8 @@ import { instrument, reportError } from './lib/sentry';
  * What is decided, who is in, who keeps the admin role, what each owes and
  * where the kit goes, is `planConfirmation`'s, and is unit tested in `shared/`.
  *
+ * An entry charge that is already there is left as it is.
+ *
  * **No `dueRaised` goes out for the entry charges.** `seasonConfirmed` is the
  * bill and the welcome in one message, so nobody gets two. `onDueWrite` still marks each member a
  * debtor, which is what holds their first In until they have paid.
@@ -71,6 +73,13 @@ export const confirmSeason = onCall<{ seasonId?: string }>(
 			const planned = planConfirmation(signups, current, sourceKit, uid);
 			const now = new Date().toISOString();
 
+			// Every read comes before the first write. A season admin can raise dues
+			// on a draft, so an entry charge may already exist, paid even, and a
+			// blind set would put it back to owing.
+			const refs = planned.dues.map(due => db.doc(`seasons/${seasonId}/dues/${due.id}`));
+			const existing = refs.length > 0 ? await tx.getAll(...refs) : [];
+			const taken = new Set(existing.filter(due => due.exists).map(due => due.id));
+
 			tx.update(snapshot.ref, {
 				status: 'active',
 				memberUids: planned.memberUids,
@@ -79,7 +88,7 @@ export const confirmSeason = onCall<{ seasonId?: string }>(
 				confirmedBy: uid,
 			});
 
-			for (const due of planned.dues) {
+			for (const due of planned.dues.filter(raised => !taken.has(raised.id))) {
 				const document: Omit<Due, 'id'> = {
 					uid: due.uid,
 					kind: due.kind,

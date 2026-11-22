@@ -275,7 +275,6 @@ describe('the sign-up settings', () => {
 	it('writes both on a draft, and keeps the status a draft', () => {
 		const written = update({ ...EMPTY_FORM, status: 'draft', quiet: true, signupClosesOn: '2026-12-01' });
 
-		expect(written.status).toBe('draft');
 		expect(written.quiet).toBe(true);
 		expect(written.signupClosesOn).toBe('2026-12-01');
 	});
@@ -284,6 +283,12 @@ describe('the sign-up settings', () => {
 		const written = update({ ...EMPTY_FORM, status: 'draft', signupClosesOn: '' });
 
 		expect(written.signupClosesOn).toEqual(deleteField());
+	});
+
+	it('never sends a status that would move a season into or out of draft', () => {
+		expect(update({ ...EMPTY_FORM, status: 'draft' })).not.toHaveProperty('status');
+		expect(update({ ...EMPTY_FORM, status: 'active' }).status).toBe('active');
+		expect(update({ ...EMPTY_FORM, status: 'archived' }).status).toBe('archived');
 	});
 
 	it('never sends the squad, which the rules freeze until the season is confirmed', () => {

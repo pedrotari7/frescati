@@ -20,7 +20,7 @@ Part of Frescati's AGENTS.md context. See the root `AGENTS.md` for the app overv
 
 ## Quiet
 
-- **A quiet season sends `signupOpen`, `signupReminder` and `seasonConfirmed`, and nothing else is muted.** It exists so the whole flow can be tried on the live app without messaging thirty people. Each sender checks the season document it already loads. Answers, confirm, dues and kit behave exactly as they would in a loud season, and once the season is active its game notifications go out as usual whether or not it was quiet. Archive or delete a test season after confirming it.
+- **A quiet season sends none of `signupOpen`, `signupReminder` and `seasonConfirmed`, and nothing else is muted.** It exists so the whole flow can be tried on the live app without messaging thirty people. The check sits in the callers: `opensSignup` in `onSeasonWrite`, `signupReminderDue` in the reminder sweep, and `confirmSeason` before it tells the squad. Answers, confirm, dues and kit behave exactly as they would in a loud season, and once the season is active its game notifications go out as usual whether or not it was quiet. Archive or delete a test season after confirming it.
 - **Turning quiet off on a draft sends `signupOpen` then.** `onSeasonWrite` treats a draft going from quiet to loud as the opening of the sign-up, so a season set up and checked in private can go live without being recreated. The same function fires it for a draft created loud. Saving a draft that was already asking announces nothing.
 - **The switch is on the create form and on the admin settings page while the season is a draft.** After confirm there is nothing left for it to mute.
 

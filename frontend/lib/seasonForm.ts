@@ -233,7 +233,9 @@ export const seasonUpdateFrom = (
 	timezone: string
 ): SeasonUpdate => ({
 	name: form.name.trim(),
-	status: form.status,
+	// Never `draft`: a season crosses that line only through `confirmSeason`, and
+	// the rules refuse a write that tries it from either side.
+	...(form.status === 'draft' ? {} : { status: form.status }),
 	venue: venueFrom(form),
 	slot: {
 		weekday: form.weekday,

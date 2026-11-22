@@ -252,11 +252,17 @@ const SeasonSettingsCard = ({ seasonId, season, games }: { seasonId: string; sea
 	 * Two admins on a Sunday evening is not a hypothetical.
 	 *
 	 * `live` moving is now reported rather than applied. See `theirs` below.
+	 *
+	 * The status is part of the key because confirming from this very page
+	 * changes it, and a form still saying `draft` is a form describing a season
+	 * that is gone.
 	 */
 	useEffect(() => {
-		if (seededFor.current === season.id) return;
+		const key = `${season.id}:${season.status}`;
 
-		seededFor.current = season.id;
+		if (seededFor.current === key) return;
+
+		seededFor.current = key;
 		baseline.current = live;
 		setForm(live);
 	}, [season, live]);

@@ -303,7 +303,7 @@ export interface Season {
 	confirmedAt?: string;
 	/** Uid of the admin who confirmed it. */
 	confirmedBy?: string;
-	/** A quiet season sends no notifications at all. */
+	/** A quiet season sends none of the three sign-up notifications. Everything else goes out as usual. */
 	quiet?: boolean;
 }
 

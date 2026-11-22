@@ -46,6 +46,12 @@ describe('planConfirmation', () => {
 		expect(plan.adminUids).toEqual(['a']);
 	});
 
+	it('makes the confirmer the admin when none of the old admins said yes', () => {
+		const plan = planConfirmation([signup('a', 'yes'), signup('b', 'yes')], { adminUids: ['z'] }, [], 'b');
+		expect(plan.adminUids).toEqual(['b']);
+		expect(plan.demotedAdminUids).toEqual(['z']);
+	});
+
 	it('splits the bill across the yes answers and raises one entry charge each', () => {
 		const plan = planConfirmation(yeses(18), { adminUids: [], fees: { total: 31240, perGame: 0 } }, [], 'p0');
 		expect(plan.share).toBe(1736);

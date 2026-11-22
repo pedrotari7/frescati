@@ -85,6 +85,29 @@ describe('confirmSeason', () => {
 		expect(dues.entry_b).toMatchObject({ uid: 'b', kind: 'entry', amount: 500, status: 'owing' });
 	});
 
+	it('leaves an entry charge that already exists as it is', async () => {
+		await getDb()
+			.doc(`seasons/${SEASON}/dues/entry_a`)
+			.set({ uid: 'a', kind: 'entry', amount: 400, status: 'paid', createdAt: 'then' });
+
+		await call();
+
+		const dues = await readDues();
+
+		expect(dues.entry_a).toMatchObject({ amount: 400, status: 'paid', createdAt: 'then' });
+		expect(dues.entry_b).toMatchObject({ amount: 500, status: 'owing' });
+		expect(sent).toHaveBeenCalledWith('a', expect.objectContaining({ share: 500 }));
+	});
+
+	it('makes the confirmer the admin when an app admin confirms and no season admin said yes', async () => {
+		await draft({ adminUids: ['d'] });
+		await answer('z', 'yes');
+
+		await call({ uid: 'z', admin: true });
+
+		expect((await readSeason()).adminUids).toEqual(['z']);
+	});
+
 	it('writes no charges for a season with no fee', async () => {
 		await draft();
 		await getDb().doc(`seasons/${SEASON}`).update({ fees: FieldValue.delete() });
