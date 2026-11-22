@@ -16,7 +16,7 @@ const settings: CopiedSettings = {
 
 describe('CopiedSettingsSummary', () => {
 	it('names the fees, the deadline, the reminders and the other admins', () => {
-		render(<CopiedSettingsSummary settings={settings} creatorUid='me' />);
+		render(<CopiedSettingsSummary settings={settings} creatorUid='me' names={new Map()} />);
 
 		const text = screen.getByText(/Also copied/).textContent;
 
@@ -31,7 +31,7 @@ describe('CopiedSettingsSummary', () => {
 	it('says nothing about fees or balance when the source had none', () => {
 		const { balance: _balance, fees: _fees, ...bare } = settings;
 
-		render(<CopiedSettingsSummary settings={{ ...bare, adminUids: ['me'] }} creatorUid='me' />);
+		render(<CopiedSettingsSummary settings={{ ...bare, adminUids: ['me'] }} creatorUid='me' names={new Map()} />);
 
 		const text = screen.getByText(/Also copied/).textContent;
 
@@ -40,8 +40,32 @@ describe('CopiedSettingsSummary', () => {
 		expect(text).not.toContain('admin');
 	});
 
+	it('names who each fee is paid to, and calls a typed number a custom one', () => {
+		const names = new Map([
+			['ana', 'Anna'],
+			['mateo', 'Mateo'],
+		]);
+		const paid = (payees: NonNullable<CopiedSettings['fees']>['payees']) =>
+			render(
+				<CopiedSettingsSummary
+					settings={{ ...settings, fees: { total: 31240, perGame: 100, payees } }}
+					creatorUid='me'
+					names={names}
+				/>
+			);
+
+		const { unmount } = paid({ entry: { uid: 'ana' }, extras: { uid: 'mateo' } });
+		expect(screen.getByText(/Also copied/).textContent).toContain('season fee to Anna, extras to Mateo');
+		unmount();
+
+		paid({ entry: { uid: 'ana' }, extras: { swish: '0701234567' } });
+		const text = screen.getByText(/Also copied/).textContent;
+		expect(text).toContain('season fee to Anna, extras to a custom number');
+		expect(text).not.toContain('0701234567');
+	});
+
 	it('renders nothing for a blank start', () => {
-		const { container } = render(<CopiedSettingsSummary settings={null} creatorUid='me' />);
+		const { container } = render(<CopiedSettingsSummary settings={null} creatorUid='me' names={new Map()} />);
 
 		expect(container).toBeEmptyDOMElement();
 	});
