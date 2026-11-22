@@ -11,8 +11,13 @@ import {
 	writeUser,
 	writtenEvent,
 } from './helpers';
+import { reportError } from '../src/lib/sentry';
 import type { Season } from '../../shared/types';
 
+vi.mock('../src/lib/sentry', async importOriginal => ({
+	...(await importOriginal<Record<string, unknown>>()),
+	reportError: vi.fn(),
+}));
 vi.mock('../src/lib/teams', () => ({ enqueueTeamRebuild: vi.fn().mockResolvedValue(undefined) }));
 
 const ADMIN = 'a';
@@ -33,6 +38,7 @@ beforeEach(async () => {
 	await clearFirestore();
 	await clearAuth();
 	await writeUser(ADMIN, { isAppAdmin: true });
+	vi.mocked(reportError).mockClear();
 });
 
 describe('onPaymentWrite', () => {
@@ -119,6 +125,18 @@ describe('syncSeasonPayees', () => {
 	});
 });
 
+describe('syncSeasonPayees, against a newer write', () => {
+	it('does not overwrite a pot that became a custom number after the snapshot it was handed', async () => {
+		await savePayment(ADMIN, '0701');
+		const stale = aSeason({ fees: fees({ entry: { uid: ADMIN } }) });
+		await writeSeason('s1', { fees: fees({ entry: { swish: '0705' } }) });
+
+		await syncSeasonPayees('s1', stale);
+
+		expect((await readFees('s1'))?.payees).toEqual({ entry: { swish: '0705' } });
+	});
+});
+
 describe('onSeasonWrite, publishing a number', () => {
 	it('fills the number in on a season write', async () => {
 		await savePayment(ADMIN, '0701');
@@ -141,5 +159,10 @@ describe('onSeasonWrite, publishing a number', () => {
 
 		const game = (await getDb().doc('seasons/season-1/games/g1').get()).data();
 		expect(game?.counts.membersIn).toBe(1);
+		expect(reportError).toHaveBeenCalledWith(
+			'Could not update the Swish number on a season',
+			{ seasonId: 'season-1' },
+			expect.anything()
+		);
 	});
 });
