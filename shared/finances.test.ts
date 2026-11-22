@@ -597,6 +597,21 @@ describe('splitByPayee', () => {
 		expect(splitByPayee([entry, game], fees)).toEqual([{ swish: '0701', pots: ['entry', 'extras'], amount: 570 }]);
 	});
 
+	it('merges one number written two ways, keeping the first spelling', () => {
+		const fees = { ...base, payees: { entry: { swish: '070 111 11 11' }, extras: { swish: '0701111111' } } };
+		expect(splitByPayee([entry, game], fees)).toEqual([
+			{ swish: '070 111 11 11', pots: ['entry', 'extras'], amount: 570 },
+		]);
+	});
+
+	it('treats a blank number as no number', () => {
+		const fees = { ...base, payees: { entry: { swish: '  ' }, extras: { swish: '' } } };
+		expect(splitByPayee([entry, game], fees)).toEqual([
+			{ swish: undefined, pots: ['entry'], amount: 500 },
+			{ swish: undefined, pots: ['extras'], amount: 70 },
+		]);
+	});
+
 	it('ignores charges that are paid', () => {
 		const fees = { ...base, swish: '0701' };
 		expect(splitByPayee([entry, { ...game, status: 'paid' }], fees)).toEqual([
