@@ -63,7 +63,8 @@ describe('formFromSeason', () => {
 
 		expect(form.seasonCost).toBe('0');
 		expect(form.perGameFee).toBe('70');
-		expect(form.swish).toBe('');
+		expect(form.entryPayee).toEqual({ kind: 'custom', swish: '' });
+		expect(form.extrasPayee).toEqual({ kind: 'custom', swish: '' });
 	});
 
 	it('reads the fees a season carries', () => {
@@ -74,7 +75,8 @@ describe('formFromSeason', () => {
 
 		expect(form.seasonCost).toBe('31240');
 		expect(form.perGameFee).toBe('70');
-		expect(form.swish).toBe('0701234567');
+		expect(form.entryPayee).toEqual({ kind: 'custom', swish: '0701234567' });
+		expect(form.extrasPayee).toEqual({ kind: 'custom', swish: '0701234567' });
 	});
 
 	it('reads a season with no reminder windows as an empty box', () => {
@@ -228,10 +230,51 @@ describe('seasonUpdateFrom', () => {
 	});
 
 	// An empty string is a number the payment screen would try to build a QR code
-	// out of, so the field is left off instead.
-	it('leaves an empty Swish number off the fees', () => {
-		expect(update({ ...EMPTY_FORM, swish: '  ' }).fees).not.toHaveProperty('swish');
-		expect(update({ ...EMPTY_FORM, swish: ' 0701234567 ' }).fees?.swish).toBe('0701234567');
+	// out of, so the pot is left off instead.
+	it('leaves a pot with an empty custom number off the payees', () => {
+		const written = update({
+			...EMPTY_FORM,
+			entryPayee: { kind: 'custom', swish: '  ' },
+			extrasPayee: { kind: 'custom', swish: ' 0701234567 ' },
+		});
+
+		expect(written.fees?.payees).toEqual({ extras: { swish: '0701234567' } });
+		expect(update().fees).not.toHaveProperty('payees');
+	});
+
+	it('writes an admin choice as a uid alone', () => {
+		const written = update({ ...EMPTY_FORM, entryPayee: { kind: 'admin', uid: 'ana' } });
+
+		expect(written.fees?.payees?.entry).toEqual({ uid: 'ana' });
+		expect(written.fees?.payees?.entry).not.toHaveProperty('swish');
+	});
+
+	it('opens a legacy season on its number and saves it as payees, leaving fees.swish as it was', () => {
+		const legacy = season({ fees: { total: 31240, perGame: 70, swish: '0701234567' } });
+		const form = formFromSeason(legacy, DEFAULT_BALANCE_SETTINGS);
+		const written = seasonUpdateFrom(form, readCounts(form).counts, 'Europe/Stockholm', legacy.fees);
+
+		expect(written.fees?.payees).toEqual({ entry: { swish: '0701234567' }, extras: { swish: '0701234567' } });
+		expect(written.fees?.swish).toBe('0701234567');
+	});
+
+	it('writes a stored admin pot back unchanged, and a different admin as a uid alone', () => {
+		const stored = {
+			total: 0,
+			perGame: 70,
+			payees: { entry: { uid: 'a', swish: '0701' }, extras: { uid: 'a', swish: '0701' } },
+		};
+		const form = formFromSeason(season({ fees: stored }), DEFAULT_BALANCE_SETTINGS);
+		const counts = readCounts(form).counts;
+
+		expect(seasonUpdateFrom(form, counts, 'Europe/Stockholm', stored).fees?.payees).toEqual(stored.payees);
+
+		const moved = { ...form, extrasPayee: { kind: 'admin', uid: 'b' } as const };
+
+		expect(seasonUpdateFrom(moved, counts, 'Europe/Stockholm', stored).fees?.payees).toEqual({
+			entry: { uid: 'a', swish: '0701' },
+			extras: { uid: 'b' },
+		});
 	});
 
 	it('writes the venue the way the form has it', () => {

@@ -1,6 +1,6 @@
 import { deleteField } from 'firebase/firestore';
 import type { FieldValue } from 'firebase/firestore';
-import type { BalanceSettings, Season, SeasonStatus, Venue, Weekday } from '@shared/types';
+import type { BalanceSettings, Payee, Season, SeasonFees, SeasonStatus, Venue, Weekday } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_FEES } from '@shared/types';
 import { parseCount, parseReminderHours } from '@shared/game';
 import { feesFor } from '@shared/finances';
@@ -21,6 +21,9 @@ import { feesFor } from '@shared/finances';
  * percentages, the reminder windows as the comma-separated string somebody
  * typed, every number box as typed, and converted back on save.
  */
+/** Who a pot is paid to: one of the listed admins, or a number typed in. */
+export type PayeeChoice = { kind: 'admin'; uid: string } | { kind: 'custom'; swish: string };
+
 export interface SeasonForm {
 	name: string;
 	status: SeasonStatus;
@@ -52,8 +55,9 @@ export interface SeasonForm {
 	 */
 	seasonCost: string;
 	perGameFee: string;
-	/** The Swish number that collects, as somebody would write it: `0701234567`. */
-	swish: string;
+	/** Who the season fee is paid to, and who the extras' fees are. */
+	entryPayee: PayeeChoice;
+	extrasPayee: PayeeChoice;
 	/** A draft's quiet switch. Only written while the season is signing up. */
 	quiet: boolean;
 	/** A draft's close date, `YYYY-MM-DD`, or empty for none. Only written while signing up. */
@@ -92,10 +96,18 @@ export const EMPTY_FORM: SeasonForm = {
 	repeatLookback: String(DEFAULT_BALANCE_SETTINGS.repeatLookback),
 	seasonCost: String(DEFAULT_FEES.total),
 	perGameFee: String(DEFAULT_FEES.perGame),
-	swish: '',
+	entryPayee: { kind: 'custom', swish: '' },
+	extrasPayee: { kind: 'custom', swish: '' },
 	quiet: false,
 	signupClosesOn: '',
 };
+
+/**
+ * A pot as the form shows it. A pot with no payee at all is the legacy case:
+ * the season's own `swish` is what collects, so it opens as that number typed in.
+ */
+const choiceFrom = (payee: Payee | undefined, legacySwish: string | undefined): PayeeChoice =>
+	payee?.uid ? { kind: 'admin', uid: payee.uid } : { kind: 'custom', swish: payee?.swish ?? legacySwish ?? '' };
 
 /**
  * What the form would read if it were showing this season exactly.
@@ -130,11 +142,15 @@ export const formFromSeason = (season: Season, balance: BalanceSettings): Season
 		repeatLookback: String(balance.repeatLookback),
 		seasonCost: String(fees.total),
 		perGameFee: String(fees.perGame),
-		swish: fees.swish ?? '',
+		entryPayee: choiceFrom(fees.payees?.entry, fees.swish),
+		extrasPayee: choiceFrom(fees.payees?.extras, fees.swish),
 		quiet: season.quiet ?? false,
 		signupClosesOn: season.signupClosesOn ?? '',
 	};
 };
+
+const samePayee = (a: PayeeChoice, b: PayeeChoice): boolean =>
+	a.kind === 'admin' ? b.kind === 'admin' && a.uid === b.uid : b.kind === 'custom' && a.swish === b.swish;
 
 /**
  * Whether two forms say the same thing.
@@ -144,7 +160,9 @@ export const formFromSeason = (season: Season, balance: BalanceSettings): Season
  * exactly the edit it is watching for.
  */
 export const sameForm = (a: SeasonForm, b: SeasonForm): boolean =>
-	(Object.keys(a) as (keyof SeasonForm)[]).every(key => a[key] === b[key]);
+	(Object.keys(a) as (keyof SeasonForm)[]).every(key =>
+		key === 'entryPayee' || key === 'extrasPayee' ? samePayee(a[key], b[key]) : a[key] === b[key]
+	);
 
 /**
  * What is wrong with a count box, in the words of the setting rather than of
@@ -213,6 +231,33 @@ export const venueMoved = (venue: Venue, season: Season): boolean =>
 	venue.name !== season.venue.name || (venue.address ?? '') !== (season.venue.address ?? '');
 
 /**
+ * The pot as it should be written, or nothing when there is nothing to write.
+ *
+ * An admin who is still the stored payee writes the stored pot back whole,
+ * `swish` included: the function put that number there, and the rules accept a
+ * pot holding both only when it is unchanged. A different admin is `{ uid }`
+ * alone. An empty custom number is no pot rather than an empty string, which the
+ * payment screen would try to build a QR code out of.
+ */
+const potFrom = (choice: PayeeChoice, stored: Payee | undefined): Payee | undefined => {
+	if (choice.kind === 'admin') return stored?.uid === choice.uid ? stored : { uid: choice.uid };
+
+	return choice.swish.trim() ? { swish: choice.swish.trim() } : undefined;
+};
+
+const feesFrom = (form: SeasonForm, counts: Record<CountField, number | null>, stored?: SeasonFees): SeasonFees => {
+	const entry = potFrom(form.entryPayee, stored?.payees?.entry);
+	const extras = potFrom(form.extrasPayee, stored?.payees?.extras);
+
+	return {
+		total: counts.seasonCost!,
+		perGame: counts.perGameFee!,
+		...(stored?.swish ? { swish: stored.swish } : {}),
+		...(entry || extras ? { payees: { ...(entry && { entry }), ...(extras && { extras }) } } : {}),
+	};
+};
+
+/**
  * The season the form is asking for, ready to write.
  *
  * In this file for the reason everything else here is: turning nineteen strings
@@ -221,8 +266,9 @@ export const venueMoved = (venue: Venue, season: Season): boolean =>
  * form because no control on the screen sets it; it comes back from the season
  * unchanged.
  *
- * `swish` is left off rather than written empty, since an empty string is a
- * number the payment screen would try to build a QR code out of. `fees` and
+ * `stored` is the season's fees as they are now: the legacy `swish` is carried
+ * across untouched, because it is still the fallback for a pot with no payee,
+ * and an admin pot keeps its stored copy (see `potFrom`). `fees` and
  * `balance` are written whole because the rules check the shape of each as one
  * object, so a partial write would have to satisfy a check over fields it is
  * not sending.
@@ -230,7 +276,8 @@ export const venueMoved = (venue: Venue, season: Season): boolean =>
 export const seasonUpdateFrom = (
 	form: SeasonForm,
 	counts: Record<CountField, number | null>,
-	timezone: string
+	timezone: string,
+	stored?: SeasonFees
 ): SeasonUpdate => ({
 	name: form.name.trim(),
 	// Never `draft`: a season crosses that line only through `confirmSeason`, and
@@ -254,11 +301,7 @@ export const seasonUpdateFrom = (
 		repeatPenalty: Number(form.repeatPenalty) / 100,
 		repeatLookback: counts.repeatLookback!,
 	},
-	fees: {
-		total: counts.seasonCost!,
-		perGame: counts.perGameFee!,
-		...(form.swish.trim() ? { swish: form.swish.trim() } : {}),
-	},
+	fees: feesFrom(form, counts, stored),
 	// The squad is never sent: the rules freeze it on a draft until confirmSeason
 	// runs. The sign-up settings are a draft's alone, and the close date is a
 	// delete when emptied because `updateDoc` merges.

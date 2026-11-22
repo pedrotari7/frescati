@@ -6,6 +6,7 @@ const mockCreateSeason = vi.fn();
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: mockReplace }) }));
 vi.mock('../lib/db/seasons', () => ({ createSeason: (...args: unknown[]) => mockCreateSeason(...args) }));
+vi.mock('../hooks/useData', () => ({ useUsersByUid: () => ({ usersByUid: new Map() }) }));
 vi.mock('../lib/sentry', () => ({ captureError: vi.fn() }));
 
 import NewSeasonForm from './NewSeasonForm';
