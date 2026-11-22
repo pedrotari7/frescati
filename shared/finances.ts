@@ -1,6 +1,7 @@
 import { isAbsent, isConfirmed } from './game';
 import { zonedCivilDate } from './datetime';
 import { counted, formatCivilDate, formatGameDate } from './format';
+import { toAlias } from './swish';
 import { DEFAULT_FEES } from './types';
 import type { Due, DueKind, Expense, Game, GameResponse, Season, SeasonFees } from './types';
 
@@ -448,8 +449,12 @@ export const paymentReference = (seasonName: string, displayName: string): strin
  */
 export const payeeFor = (fees: Pick<SeasonFees, 'swish' | 'payees'>, kind: DueKind): string | undefined => {
 	const payee = kind === 'entry' ? fees.payees?.entry : fees.payees?.extras;
-	return payee ? payee.swish : fees.swish;
+	const swish = payee ? payee.swish : fees.swish;
+	return swish?.trim() ? swish : undefined;
 };
+
+/** Whether two typed Swish numbers dial the same phone. Needs a digit, so two blanks never match. */
+export const sameNumber = (a: string, b: string): boolean => /\d/.test(a) && toAlias(a) === toAlias(b);
 
 /** What one Swish number is owed: the pots it covers and the SEK across them. */
 export interface Payment {
@@ -476,7 +481,8 @@ export const splitByPayee = (
 		const amount = owing.filter(d => (d.kind === 'entry') === (pot === 'entry')).reduce((n, d) => n + d.amount, 0);
 		if (amount === 0) continue;
 		const swish = payeeFor(fees, kind);
-		const same = swish === undefined ? undefined : payments.find(p => p.swish === swish);
+		const same =
+			swish === undefined ? undefined : payments.find(p => p.swish !== undefined && sameNumber(p.swish, swish));
 		if (same) {
 			same.pots.push(pot);
 			same.amount += amount;
