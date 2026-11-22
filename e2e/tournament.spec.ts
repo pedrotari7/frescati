@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
+import { MIN_TOURNAMENT_PLAYERS } from '../shared/tournament';
 import { aSeasonAdmin, readCast, signInAs } from './fixtures';
 import { openSeasonAs } from './helpers';
 import { AT, expand, gameLinks, sectionUnder } from './locators';
@@ -48,18 +49,25 @@ const openAPlayedGame = async (page: Page, wanted?: (page: Page) => Promise<bool
 	// Reversed by `groupGames`, so this walks back from the most recent. Not
 	// every played game has a lineup: a cancelled one has none, and a turnout
 	// short of eight is not a tournament.
-	const hrefs = await games.evaluateAll(nodes => nodes.map(node => node.getAttribute('href') ?? ''));
+	//
+	// Which ones do is read off the row, whose "N played" is the game doc's
+	// `counts`, rather than off the game page. That page counts the responses
+	// it has loaded, and its first snapshot comes from the local cache, which
+	// holds only your own answer. A five second wait for the Teams link took a
+	// slow server for a game nobody played, and walked past the one game here
+	// still waiting on Confirm.
+	const rows = await games.evaluateAll(nodes =>
+		nodes.map(node => ({ href: node.getAttribute('href') ?? '', text: node.textContent ?? '' }))
+	);
+	const hrefs = rows
+		.filter(({ text }) => Number(/(\d+) played/.exec(text)?.[1] ?? 0) >= MIN_TOURNAMENT_PLAYERS)
+		.map(({ href }) => href);
 
 	for (const href of hrefs) {
 		await page.goto(href);
 
 		const teamSheet = page.getByRole('link', { name: /Team sheet|Teams|Tournament/i }).first();
-		const hasLineup = await teamSheet
-			.waitFor({ state: 'visible', timeout: 5_000 })
-			.then(() => true)
-			.catch(() => false);
-
-		if (!hasLineup) continue;
+		await expect(teamSheet, `${href} played a tournament and offered no team sheet`).toBeVisible();
 
 		await teamSheet.click();
 		await expect(page).toHaveURL(AT.teamSheet);
@@ -72,7 +80,7 @@ const openAPlayedGame = async (page: Page, wanted?: (page: Page) => Promise<bool
 		return;
 	}
 
-	throw new Error(`no played game here has a lineup, looked at ${hrefs.length}`);
+	throw new Error(`no played game here has a lineup, looked at ${hrefs.length} of ${rows.length}`);
 };
 
 /**

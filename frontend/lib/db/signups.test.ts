@@ -2,13 +2,17 @@ const mockSetDoc = vi.fn();
 const mockGetDoc = vi.fn();
 const mockDeleteDoc = vi.fn();
 const mockOnSnapshot = vi.fn();
+const mockWaitForPendingWrites = vi.fn();
 
 vi.mock('firebase/firestore', () => ({
 	setDoc: (...args: unknown[]) => mockSetDoc(...args),
 	getDoc: (...args: unknown[]) => mockGetDoc(...args),
 	deleteDoc: (...args: unknown[]) => mockDeleteDoc(...args),
 	onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+	waitForPendingWrites: (...args: unknown[]) => mockWaitForPendingWrites(...args),
 }));
+
+vi.mock('../firebaseClient', () => ({ getDb: () => ({}) }));
 
 vi.mock('./paths', () => ({
 	signupDoc: (seasonId: string, uid: string) => ({ seasonId, uid }),
@@ -89,6 +93,22 @@ describe('confirmSeason', () => {
 
 		await expect(confirmSeason('s1')).resolves.toEqual({ members: 12, share: 260, demoted: [] });
 		expect(mockCallFunction).toHaveBeenCalledWith('confirmSeason', { seasonId: 's1' });
+	});
+
+	it("does not call the function until this client's own writes have landed", async () => {
+		let land = () => {};
+		mockWaitForPendingWrites.mockReturnValue(new Promise<void>(resolve => (land = resolve)));
+		mockCallFunction.mockResolvedValue({ members: 2, share: 6000, demoted: [] });
+
+		const confirming = confirmSeason('s1');
+		await Promise.resolve();
+
+		expect(mockCallFunction).not.toHaveBeenCalled();
+
+		land();
+		await confirming;
+
+		expect(mockCallFunction).toHaveBeenCalledTimes(1);
 	});
 });
 
