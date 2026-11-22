@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarDaysIcon, CalendarIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, CalendarIcon, PlusCircleIcon, UsersIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { Game, Season, SeasonStatus } from '@shared/types';
 import { DEFAULT_BALANCE_SETTINGS } from '@shared/types';
@@ -15,6 +15,9 @@ import { useSeasonContext } from '../../../../../components/SeasonProvider';
 import { useWrite } from '../../../../../hooks/useWrite';
 import { useConfirm } from '../../../../../components/ConfirmDialog';
 import { useToast } from '../../../../../components/Toast';
+import { useSignups, useUsersByUid } from '../../../../../hooks/useData';
+import SignupAdmin from '../../../../../components/SignupAdmin';
+import SignupSettingsFields from '../../../../../components/SignupSettingsFields';
 import { deleteSeason, updateSeason } from '../../../../../lib/db/seasons';
 import { updateVenueForUpcomingGames } from '../../../../../lib/db/games';
 import SeasonSlotFields from '../../../../../components/SeasonSlotFields';
@@ -32,6 +35,7 @@ import {
 	readCounts,
 	sameForm,
 	seasonUpdateFrom,
+	statusOptionsFor,
 	venueFrom,
 	venueMoved,
 } from '../../../../../lib/seasonForm';
@@ -166,6 +170,46 @@ const saveSettings = async (
 };
 
 /**
+ * The status of a season that has started. A draft has none to pick: only
+ * confirming takes it out of sign-up, so the field is not drawn at all.
+ */
+const StatusField = ({
+	status,
+	value,
+	onChange,
+}: {
+	status: SeasonStatus;
+	value: SeasonStatus;
+	onChange: (status: SeasonStatus) => void;
+}) => {
+	const options = statusOptionsFor(status);
+
+	if (options.length === 0) return null;
+
+	return (
+		<Field label='Status' hint='Archived seasons stay readable but drop off the main list.'>
+			<Select value={value} onChange={e => onChange(e.target.value as SeasonStatus)}>
+				{options.map(option => (
+					<option key={option} value={option}>
+						{SEASON_STATUS_LABELS[option]}
+					</option>
+				))}
+			</Select>
+		</Field>
+	);
+};
+
+/** The settings only a season that is signing up has: its close date and whether it is quiet. */
+const DraftFields = ({ form, setForm }: { form: SeasonForm; setForm: (form: SeasonForm) => void }) => (
+	<SignupSettingsFields
+		signupClosesOn={form.signupClosesOn}
+		onClosesOn={signupClosesOn => setForm({ ...form, signupClosesOn })}
+		quiet={form.quiet}
+		onQuiet={quiet => setForm({ ...form, quiet })}
+	/>
+);
+
+/**
  * Everything about the season somebody can change, in one form.
  *
  * A component rather than the middle of the page for the reason the page had a
@@ -261,18 +305,7 @@ const SeasonSettingsCard = ({ seasonId, season, games }: { seasonId: string; sea
 				<TextInput value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
 			</Field>
 
-			<Field label='Status' hint='Archived seasons stay readable but drop off the main list.'>
-				<Select
-					value={form.status}
-					onChange={e => setForm({ ...form, status: e.target.value as SeasonStatus })}
-				>
-					{(Object.keys(SEASON_STATUS_LABELS) as SeasonStatus[]).map(status => (
-						<option key={status} value={status}>
-							{SEASON_STATUS_LABELS[status]}
-						</option>
-					))}
-				</Select>
-			</Field>
+			<StatusField status={season.status} value={form.status} onChange={status => setForm({ ...form, status })} />
 
 			<SeasonSlotFields form={form} setForm={setForm} startLabel='Season starts' endLabel='Season ends' />
 
@@ -319,6 +352,8 @@ const SeasonSettingsCard = ({ seasonId, season, games }: { seasonId: string; sea
 					inputMode='numeric'
 				/>
 			</Field>
+
+			{season.status === 'draft' && <DraftFields form={form} setForm={setForm} />}
 
 			<SettingsBlock
 				title='Team selection'
@@ -484,6 +519,17 @@ const DangerZone = ({ seasonId, season }: { seasonId: string; season: Season }) 
 	);
 };
 
+/**
+ * The sign-up half of a draft's admin page, subscribed here so `SignupAdmin`
+ * stays a function of its props.
+ */
+const DraftSignup = ({ seasonId, season, viewerUid }: { seasonId: string; season: Season; viewerUid: string }) => {
+	const { users } = useUsersByUid();
+	const { signups } = useSignups(seasonId);
+
+	return <SignupAdmin seasonId={seasonId} season={season} users={users} signups={signups} viewerUid={viewerUid} />;
+};
+
 const SeasonAdminPage = () => {
 	const { user } = useAuth();
 	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
@@ -549,6 +595,18 @@ const SeasonAdminPage = () => {
 							<p {...stylex.props(styles.small)}>Get or rotate the season&apos;s subscribe link</p>
 						</button>
 					</div>
+
+					{season.status === 'draft' && user && (
+						<DraftSignup seasonId={seasonId} season={season} viewerUid={user.uid} />
+					)}
+
+					{season.status !== 'draft' && (
+						<Link href={`/seasons/new?from=${seasonId}`} {...stylex.props(surfaces.glassCard, styles.tile)}>
+							<PlusCircleIcon {...stylex.props(styles.tileIcon)} aria-hidden='true' />
+							<p {...stylex.props(styles.tileTitle)}>Start next season</p>
+							<p {...stylex.props(styles.small)}>Copy this one&apos;s settings and open sign-up</p>
+						</Link>
+					)}
 
 					<SeasonSettingsCard seasonId={seasonId} season={season} games={games} />
 

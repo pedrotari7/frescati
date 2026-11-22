@@ -1,11 +1,7 @@
 import * as stylex from '@stylexjs/stylex';
 import type { CopiedSettings } from '@shared/seasonCopy';
 import { formatSek } from '@shared/format';
-import { colors } from '../app/tokens.stylex';
-
-const styles = stylex.create({
-	note: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
-});
+import { text } from '../lib/styles';
 
 /** The settings a copied season carries along that the form does not show, in one line. */
 const summarise = (settings: CopiedSettings, creatorUid: string): string => {
@@ -31,6 +27,6 @@ const summarise = (settings: CopiedSettings, creatorUid: string): string => {
 };
 
 const CopiedSettingsSummary = ({ settings, creatorUid }: { settings: CopiedSettings | null; creatorUid: string }) =>
-	settings && <p {...stylex.props(styles.note)}>{summarise(settings, creatorUid)}</p>;
+	settings && <p {...stylex.props(text.note)}>{summarise(settings, creatorUid)}</p>;
 
 export default CopiedSettingsSummary;

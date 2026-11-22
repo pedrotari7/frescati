@@ -10,13 +10,12 @@ import type { CopiedSettings } from '@shared/seasonCopy';
 import { captureError } from '../lib/sentry';
 import { createSeason } from '../lib/db/seasons';
 import { colors } from '../app/tokens.stylex';
-import { surfaces } from '../lib/styles';
+import { surfaces, text } from '../lib/styles';
 import Button from './Button';
 import CopiedSettingsSummary from './CopiedSettingsSummary';
-import DatePicker from './DatePicker';
 import { Field, Select, TextInput } from './Field';
 import SeasonSlotFields from './SeasonSlotFields';
-import Toggle from './Toggle';
+import SignupSettingsFields from './SignupSettingsFields';
 
 const styles = stylex.create({
 	page: { padding: 16 },
@@ -32,7 +31,6 @@ const styles = stylex.create({
 	pair: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 },
 
 	error: { color: colors.out, fontSize: 14, lineHeight: '20px' },
-	note: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
 });
 
 /** The group plays in Stockholm; a per-season picker can come later if needed. */
@@ -201,21 +199,11 @@ const NewSeasonForm = ({
 					</Field>
 				</div>
 
-				<Field label='Sign-up closes' hint='Optional. Reminders stop after this day.'>
-					<DatePicker value={signupClosesOn} onChange={setSignupClosesOn} placeholder='No closing date' />
-				</Field>
-
-				{signupClosesOn && (
-					<Button variant='secondary' fullWidth onClick={() => setSignupClosesOn('')}>
-						Remove closing date
-					</Button>
-				)}
-
-				<Toggle
-					label="Don't notify anyone"
-					description='Set the season up quietly. Nobody is asked to sign up until you turn this off.'
-					checked={quiet}
-					onChange={setQuiet}
+				<SignupSettingsFields
+					signupClosesOn={signupClosesOn}
+					onClosesOn={setSignupClosesOn}
+					quiet={quiet}
+					onQuiet={setQuiet}
 				/>
 
 				<CopiedSettingsSummary settings={source ? copySeasonSettings(source, uid) : null} creatorUid={uid} />
@@ -226,7 +214,7 @@ const NewSeasonForm = ({
 					Create season
 				</Button>
 
-				<p {...stylex.props(styles.note)}>
+				<p {...stylex.props(text.note)}>
 					The season opens for sign-up. Everybody who says yes becomes the squad when you confirm it.
 				</p>
 			</section>
