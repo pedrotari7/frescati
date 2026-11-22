@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { PencilSquareIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
-import type { AppUser, Season, Signup, SignupStatus } from '@shared/types';
+import type { AppUser, Season, SignupStatus } from '@shared/types';
 import { formatSek } from '@shared/format';
 import { signupShare } from '@shared/signup';
 import { clearSignup, setSignup } from '../lib/db/signups';
+import type { SeenSignup } from '../lib/db/signups';
 import { personRow } from '../lib/people';
 import { useWrite } from '../hooks/useWrite';
 import { colors } from '../app/tokens.stylex';
@@ -53,7 +54,7 @@ const SignupAdmin = ({
 	seasonId: string;
 	season: Season;
 	users: AppUser[];
-	signups: Signup[];
+	signups: SeenSignup[];
 	viewerUid: string;
 }) => {
 	const write = useWrite();
@@ -64,7 +65,10 @@ const SignupAdmin = ({
 	const usersByUid = new Map(users.map(person => [person.uid, person]));
 	const yesUids = signups.filter(signup => signup.status === 'yes').map(signup => signup.uid);
 	const share = signupShare(season, yesUids.length);
-	const viewerIsIn = statusByUid.get(viewerUid) === 'yes';
+	const viewerSaidYes = statusByUid.get(viewerUid) === 'yes';
+	// And the server has it, which is where `confirmSeason` looks. A yes tapped a
+	// moment ago is drawn from the local cache before it gets there.
+	const viewerIsIn = signups.some(signup => signup.uid === viewerUid && signup.status === 'yes' && !signup.pending);
 
 	const target = answeringFor ? usersByUid.get(answeringFor) : undefined;
 	const targetStatus = answeringFor ? statusByUid.get(answeringFor) : undefined;
@@ -103,7 +107,7 @@ const SignupAdmin = ({
 					Confirm season
 				</Button>
 
-				{!viewerIsIn && (
+				{!viewerSaidYes && (
 					<p {...stylex.props(text.note)}>
 						Say yes yourself first. Confirming makes the yeses the squad, and an admin who is not in it
 						loses the role.

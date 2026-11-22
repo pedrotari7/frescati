@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { AppUser, Season, Signup } from '@shared/types';
+import type { SeenSignup } from '../lib/db/signups';
 import SignupAdmin from './SignupAdmin';
 
 const mockSetSignup = vi.fn().mockResolvedValue(undefined);
@@ -35,7 +36,7 @@ const season = (overrides: Partial<Season> = {}): Season =>
 		...overrides,
 	}) as Season;
 
-const draw = async (signups: Signup[], viewerUid = 'a', seasonOverrides: Partial<Season> = {}) => {
+const draw = async (signups: SeenSignup[], viewerUid = 'a', seasonOverrides: Partial<Season> = {}) => {
 	render(
 		<SignupAdmin
 			seasonId='season-1'
@@ -74,6 +75,13 @@ describe('SignupAdmin', () => {
 
 		expect(screen.getByRole('button', { name: 'Confirm season' })).toBeDisabled();
 		expect(screen.getByText(/Say yes yourself first/)).toBeInTheDocument();
+	});
+
+	it("holds confirming while the viewing admin's yes has not reached the server", async () => {
+		await draw([{ ...signup('a', 'yes'), pending: true }]);
+
+		expect(screen.getByRole('button', { name: 'Confirm season' })).toBeDisabled();
+		expect(screen.queryByText(/Say yes yourself first/)).not.toBeInTheDocument();
 	});
 
 	it('enables confirming once the viewing admin is in', async () => {
