@@ -30,8 +30,16 @@ const charge = (overrides: Partial<Due> = {}): Due =>
 		...overrides,
 	}) as Due;
 
-const notice = (debt: DebtStanding, seasonOverrides: Partial<Season> = {}) =>
-	render(<SeasonDebtNotice debt={debt} season={season(seasonOverrides)} games={games} displayName='Anna Berg' />);
+const notice = (debt: DebtStanding, seasonOverrides: Partial<Season> = {}, mySwish: string | null = null) =>
+	render(
+		<SeasonDebtNotice
+			debt={debt}
+			season={season(seasonOverrides)}
+			games={games}
+			displayName='Anna Berg'
+			mySwish={mySwish}
+		/>
+	);
 
 describe('SeasonDebtNotice', () => {
 	it('says nothing at all to somebody who is paid up', () => {
@@ -83,6 +91,34 @@ describe('SeasonDebtNotice', () => {
 
 		expect(screen.queryByText('Pay with Swish')).not.toBeInTheDocument();
 		expect(screen.getByText(/ask an admin where to send it/)).toBeInTheDocument();
+	});
+
+	it('draws a code for each number owed', () => {
+		const split = {
+			fees: {
+				total: 0,
+				perGame: 70,
+				payees: { entry: { swish: '0701111111' }, extras: { swish: '0702222222' } },
+			},
+		};
+
+		notice(
+			{
+				standing: 'blocked',
+				outstanding: 570,
+				dues: [charge(), charge({ id: 'entry_anna', kind: 'entry', gameId: undefined, amount: 500 })],
+			},
+			split
+		);
+
+		expect(screen.getAllByTestId('swish-qr')).toHaveLength(2);
+	});
+
+	it("draws no code for a number that is the viewer's own", () => {
+		notice({ standing: 'blocked', outstanding: 70, dues: [charge()] }, {}, '0701234567');
+
+		expect(screen.queryByTestId('swish-qr')).not.toBeInTheDocument();
+		expect(screen.getByText('This one is paid to you, so mark it paid yourself.')).toBeInTheDocument();
 	});
 
 	// Paying and being marked paid are separate events, and only an admin can do

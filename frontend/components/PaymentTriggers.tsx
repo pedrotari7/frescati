@@ -6,7 +6,7 @@ import * as stylex from '@stylexjs/stylex';
 import type { Season } from '@shared/types';
 import type { SwishPayment } from '@shared/swish';
 import { swishAppUrl, toAlias, toInternational, toLocal } from '@shared/swish';
-import { REFERENCE_LIMIT, entryShare, feesFor, paymentReference } from '@shared/finances';
+import { REFERENCE_LIMIT, entryShare, feesFor, payeeFor, paymentReference } from '@shared/finances';
 import { formatSek } from '@shared/format';
 import { useWrite } from '../hooks/useWrite';
 import Button from './Button';
@@ -52,13 +52,15 @@ const styles = stylex.create({
 const readSeason = (season: Season, displayName: string) => {
 	const fees = feesFor(season);
 	const share = entryShare(fees.total, season.memberUids.length);
+	const swish = payeeFor(fees, 'entry') ?? payeeFor(fees, 'game');
 
 	return {
 		fees,
+		swish,
 		share,
 		members: season.memberUids.length,
 		payment: {
-			payee: fees.swish ?? '',
+			payee: swish ?? '',
 			amount: share || fees.perGame,
 			message: paymentReference(season.name, displayName),
 		},
@@ -134,8 +136,8 @@ const PaymentTriggers = ({ season, displayName }: { season: Season | null; displ
 				<Field
 					label='Swish number'
 					hint={
-						from?.fees.swish
-							? `The season collects to ${toLocal(from.fees.swish)}. Swish refuses a payment to your own number, so scan this from a phone that is not the one this number belongs to.`
+						from?.swish
+							? `The season collects to ${toLocal(from.swish)}. Swish refuses a payment to your own number, so scan this from a phone that is not the one this number belongs to.`
 							: 'This season has no number set, so the app offers its players no way to pay. Type one to test the handoff anyway.'
 					}
 				>

@@ -1,7 +1,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import type { Due, KitItem, Season, Signup } from '../../shared/types';
-import { feesFor } from '../../shared/finances';
+import { feesFor, payeeFor } from '../../shared/finances';
 import { planConfirmation } from '../../shared/signup';
 import { db, ENFORCE_APP_CHECK, REGION } from './lib/firebase';
 import { hasAppAdminClaim, isSeasonAdmin, requireAuth } from './lib/auth';
@@ -127,7 +127,7 @@ const tellTheSquad = async (
 ): Promise<void> => {
 	const profiles = await getProfiles(memberUids);
 	const confirmed = { ...season, adminUids };
-	const { swish } = feesFor(season);
+	const swish = payeeFor(feesFor(season), 'entry');
 
 	await Promise.all(
 		memberUids.map(uid =>

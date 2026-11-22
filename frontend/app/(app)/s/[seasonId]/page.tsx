@@ -4,10 +4,11 @@ import { useMemo, useState } from 'react';
 import { CalendarDaysIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import type { Game, GameResponse, ResponseStatus, Season } from '@shared/types';
+import type { DebtStanding } from '@shared/finances';
 import { groupGames } from '@shared/game';
 import { useSeasonContext } from '../../../../components/SeasonProvider';
 import { useAuth } from '../../../../lib/auth';
-import { useSignups, useUsersByUid } from '../../../../hooks/useData';
+import { useMyPayment, useSignups, useUsersByUid } from '../../../../hooks/useData';
 import { useRespond } from '../../../../hooks/useRespond';
 import { useWatchGames } from '../../../../hooks/useWatchGames';
 import { useLiveGameRedirect } from '../../../../hooks/useLiveGameRedirect';
@@ -227,10 +228,25 @@ const DraftHome = ({ season, games, answering }: { season: Season; games: Game[]
 	);
 };
 
+/** The debt notice, given who is looking: their name for the reference and their own Swish number to skip. */
+const ViewerDebtNotice = ({ debt, season, games }: { debt: DebtStanding; season: Season; games: Game[] }) => {
+	const { user } = useAuth();
+	const mySwish = useMyPayment(user?.uid);
+
+	return (
+		<SeasonDebtNotice
+			debt={debt}
+			season={season}
+			games={games}
+			displayName={user?.displayName ?? ''}
+			mySwish={mySwish}
+		/>
+	);
+};
+
 const SeasonHomePage = () => {
 	const { seasonId, season, games, myResponses, loading, error, retry, isAdmin, role, debt, debtLock } =
 		useSeasonContext();
-	const { user } = useAuth();
 	const { respond, clear } = useRespond(seasonId, role, myResponses);
 
 	// One listener for the whole calendar, which is what lets the bell leave the
@@ -283,7 +299,7 @@ const SeasonHomePage = () => {
 					    explains. Not instead of the games: hiding the calendar
 					    collects nothing and takes away what somebody needs in order
 					    to decide whether paying is worth it. */}
-					<SeasonDebtNotice debt={debt} season={season} games={games} displayName={user?.displayName ?? ''} />
+					<ViewerDebtNotice debt={debt} season={season} games={games} />
 
 					<NextUp
 						next={next}
