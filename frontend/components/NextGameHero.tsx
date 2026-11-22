@@ -157,6 +157,7 @@ const Answer = ({
 					onClear={onClear}
 					disabled={lifecycle !== 'open'}
 					debtLock={debtLock}
+					draft={season.status === 'draft'}
 				/>
 			</div>
 

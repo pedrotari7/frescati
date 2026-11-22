@@ -188,6 +188,7 @@ const GameRow = ({
 						onRespond={onRespond}
 						onClear={onClear}
 						debtLock={debtLock}
+						draft={season.status === 'draft'}
 						size='sm'
 					/>
 				</div>

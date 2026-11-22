@@ -40,6 +40,13 @@ vi.mock('./Toast', () => ({
 describe('RespondControl', () => {
 	beforeEach(() => vi.clearAllMocks());
 
+	it('draws the line and no buttons while the season is still signing up', () => {
+		render(<RespondControl response={undefined} onRespond={vi.fn()} onClear={vi.fn()} draft />);
+
+		expect(screen.getByText('Answers open once the season is confirmed')).toBeInTheDocument();
+		expect(screen.queryByRole('button')).not.toBeInTheDocument();
+	});
+
 	it('says which answer is yours in words, not only in colour', () => {
 		render(<RespondControl response={answered('in')} onRespond={vi.fn()} onClear={vi.fn()} />);
 
