@@ -54,6 +54,8 @@ export interface KitPlan {
  * which is the same rule the rest of the seeder follows: nothing is invented
  * that the app could work out for itself.
  */
+export type PayeePlan = { adminKey: string } | { swish: string };
+
 export interface FeesPlan {
 	/** SEK the season costs to run, split equally between the members. */
 	total: number;
@@ -61,6 +63,8 @@ export interface FeesPlan {
 	perGame: number;
 	/** The number the QR code collects to. Left out for a season collecting by hand. */
 	swish?: string;
+	/** Who each pot is paid to. Left out for a season that predates payees. */
+	payees?: { entry?: PayeePlan; extras?: PayeePlan };
 	/** What the extras' money has bought already. `weeksAgo` counts back from today. */
 	expenses: { description: string; amount: number; weeksAgo: number }[];
 }
@@ -203,6 +207,8 @@ export interface Scenario {
 	 * who just signed in with Google actually looks like.
 	 */
 	newcomerKeys: string[];
+	/** Swish numbers admins have saved, by cast key. Only an admin has anywhere to keep one. */
+	swishNumbers?: Record<string, string>;
 	seasons: SeasonPlan[];
 }
 
@@ -273,6 +279,7 @@ const full: Scenario = {
 	summary: 'Three seasons, a full ladder, and a fixture list covering every game state',
 	appAdminKeys: ['pedro'],
 	newcomerKeys: ['zoe'],
+	swishNumbers: { yara: '0701112233' },
 	seasons: [
 		{
 			id: 'season-previous',
@@ -459,7 +466,11 @@ const full: Scenario = {
 			balance: { randomness: 0.5, repeatPenalty: 0.2, repeatLookback: 3, matchMinutes: 5 },
 			memberKeys: ['yara', 'sofia', 'elena', 'nina', 'priya', 'hanna', 'linnea', 'greta', 'maja', 'astrid'],
 			adminKeys: ['yara'],
-			extraKeys: ['claudia', 'wilma'],
+			// Greta is in both lists: an extra who has since joined the squad. She
+			// played as an extra before that, so she owes the season fee and, once
+			// the books are opened, an extras' fee as well, which is the one way
+			// to owe into both pots.
+			extraKeys: ['claudia', 'wilma', 'greta'],
 			startWeeks: -6,
 			endWeeks: 12,
 			turnout: [8, 11],
@@ -470,10 +481,19 @@ const full: Scenario = {
 			// Fees set, books never opened. The only season in a seeded database
 			// where "raise the missing charges" has anything to do, because the
 			// state stops existing the first time anybody presses it.
-			finances: { total: 9600, perGame: 50, charges: 'unraised', expenses: [] },
+			// Two pots, two payees: the season fee goes to Yara's saved number and
+			// the extras' fees to somebody who is not an admin.
+			finances: {
+				total: 9600,
+				perGame: 50,
+				payees: { entry: { adminKey: 'yara' }, extras: { swish: '0709998877' } },
+				charges: 'unraised',
+				expenses: [],
+			},
 			pins: {
-				// So the sweep has a game charge to raise as well as ten entry ones.
-				[-2]: { extrasPlaying: 2 },
+				// So the sweep has game charges to raise as well as ten entry ones,
+				// Greta's among them.
+				[-2]: { extrasPlaying: 3 },
 				[0]: { responses: 'partial', playing: 9 },
 				[1]: { responses: 'none' },
 			},
