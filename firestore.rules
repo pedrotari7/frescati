@@ -113,15 +113,42 @@ service cloud.firestore {
     // next one is raised from. `total` is the season's bill, divided between the
     // squad when a charge is raised, so moving it is an ordinary season edit
     // rather than something that rewrites history.
+    //
+    // `swish` is the number seasons used before they named payees, and is
+    // still where a pot with no payee falls back to.
     function feesShapeOk(fees) {
-      return fees.keys().hasOnly(['total', 'perGame', 'swish'])
+      return fees.keys().hasOnly(['total', 'perGame', 'swish', 'payees'])
              && fees.get('total', 0) is number
              && fees.get('total', 0) >= 0
              && fees.get('total', 0) <= 10000000
              && fees.get('perGame', 0) is number
              && fees.get('perGame', 0) >= 0
              && fees.get('swish', '') is string
-             && fees.get('swish', '').size() <= 20;
+             && fees.get('swish', '').size() <= 20
+             && payeesShapeOk(fees.get('payees', {}));
+    }
+
+    // Who each pot pays: `entry` for the season's own charges, `extras` for
+    // the games an extra plays and the late fees. One more map the allowlist
+    // stops at the edge of.
+    function payeesShapeOk(payees) {
+      return payees is map
+             && payees.keys().hasOnly(['entry', 'extras'])
+             && payeeShapeOk(payees.get('entry', {}))
+             && payeeShapeOk(payees.get('extras', {}));
+    }
+
+    // An admin by `uid`, or a number typed in. Neither may be empty when it is
+    // there: an empty number is still a number to the screen that draws the
+    // Swish code, and it pays nobody. Only the function writes both at once,
+    // and `writesNoAdminNumber` below refuses that from a client.
+    function payeeShapeOk(payee) {
+      return payee is map
+             && payee.keys().hasOnly(['uid', 'swish'])
+             && (!payee.keys().hasAny(['uid'])
+                 || (payee.uid is string && payee.uid.size() > 0 && payee.uid.size() <= 128))
+             && (!payee.keys().hasAny(['swish'])
+                 || (payee.swish is string && payee.swish.size() > 0 && payee.swish.size() <= 20));
     }
 
     // Fields the client may never write. Cloud Functions own them.
@@ -305,6 +332,27 @@ service cloud.firestore {
         allow read, delete: if isSelf(uid);
         allow create, update: if isSelf(uid) && pushTokenShapeOk();
       }
+
+      // The Swish number an admin is paid to. Not on the profile, because
+      // everybody reads that. A function copies it onto each season that
+      // names this person as a payee, which is the only way it reaches a
+      // payer. App admins read it to see who has one set.
+      //
+      // `payment` is the only document allowed under `private`.
+      match /private/payment {
+        function paymentShapeOk() {
+          return request.resource.data.keys().hasOnly(['swish', 'updatedAt'])
+                 && request.resource.data.swish is string
+                 && request.resource.data.swish.size() > 0
+                 && request.resource.data.swish.size() <= 20
+                 && request.resource.data.updatedAt is string
+                 && request.resource.data.updatedAt.size() <= 40;
+        }
+
+        allow read: if isSelf(uid) || isAppAdmin();
+        allow create, update: if isSelf(uid) && paymentShapeOk();
+        allow delete: if isSelf(uid);
+      }
     }
 
     // ── seasons ──────────────────────────────────────────────────────────────
@@ -412,6 +460,26 @@ service cloud.firestore {
         return request.resource.data.get('copiedFrom', null) == resource.data.get('copiedFrom', null);
       }
 
+      // A pot naming an admin gets its number from that admin's private
+      // document, copied across by a function. A client that could write
+      // `{ uid, swish }` itself could put its own digits under somebody else's
+      // name, and every payer would read them as that admin's.
+      function seasonPot(pot) {
+        return request.resource.data.get(['fees', 'payees', pot], {});
+      }
+
+      function writesNoAdminNumber(pot) {
+        return !seasonPot(pot).keys().hasAll(['uid', 'swish']);
+      }
+
+      // On an update the rules see the merged document, so a pot the function
+      // filled in is in every settings save that follows. Left as it was, it is
+      // not the client's write.
+      function keepsAdminNumberOrWritesNone(pot) {
+        return writesNoAdminNumber(pot)
+               || seasonPot(pot) == resource.data.get(['fees', 'payees', pot], null);
+      }
+
       allow read: if isSignedIn();
 
       // An app admin starts any season. A season admin starts only the one
@@ -429,6 +497,8 @@ service cloud.firestore {
                     && request.auth.uid in request.resource.data.adminUids
                     && keepsAnAdmin()
                     && seasonShapeOk()
+                    && writesNoAdminNumber('entry')
+                    && writesNoAdminNumber('extras')
                     && request.resource.data.status == 'draft'
                     && request.resource.data.memberUids is list
                     && request.resource.data.memberUids.size() == 0
@@ -439,6 +509,8 @@ service cloud.firestore {
       allow update: if isSeasonAdmin(seasonId)
                     && keepsAnAdmin()
                     && seasonShapeOk()
+                    && keepsAdminNumberOrWritesNone('entry')
+                    && keepsAdminNumberOrWritesNone('extras')
                     && keepsItsSource()
                     && staysOnItsSideOfDraft()
                     && keepsTheDraftSquad()
