@@ -10,6 +10,7 @@ import { EMAIL_SECRETS } from './lib/email';
 import { getAllUserUids } from './lib/data';
 import { sendSignupPush } from './lib/push';
 import { signupContext } from './lib/signupContext';
+import { syncSeasonPayees } from './payees';
 
 const sameMembers = (before: string[] = [], after: string[] = []): boolean =>
 	before.length === after.length && [...before].sort().join() === [...after].sort().join();
@@ -116,6 +117,20 @@ export const onSeasonWrite = onDocumentWritten(
 				logger.info('Asked everybody to join a season', { seasonId, ...sent });
 			} catch (error) {
 				reportError('Could not announce a season that is signing up', { seasonId }, error);
+			}
+		}
+
+		// Same guard, same reason: the number a season shows is copied in here
+		// when a pot names an admin, and a failure must not skip the recount.
+		if (after) {
+			try {
+				await syncSeasonPayees(event.params.seasonId, { ...after, id: event.params.seasonId });
+			} catch (error) {
+				reportError(
+					'Could not update the Swish number on a season',
+					{ seasonId: event.params.seasonId },
+					error
+				);
 			}
 		}
 

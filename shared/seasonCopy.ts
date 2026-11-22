@@ -31,6 +31,24 @@ export type CopiedSettings = Pick<
 >;
 
 /**
+ * The fees with the digits taken off any pot that names an account. The name
+ * is the setting. The number is the account's own, and the rules refuse a
+ * season created carrying both, so the season-write sync fills it back in.
+ */
+const withoutCopiedNumbers = (fees: NonNullable<Season['fees']>): NonNullable<Season['fees']> => {
+	if (!fees.payees) return fees;
+
+	const payees: NonNullable<Season['fees']>['payees'] = {};
+
+	for (const pot of ['entry', 'extras'] as const) {
+		const payee = fees.payees[pot];
+		if (payee) payees[pot] = payee.uid ? { uid: payee.uid } : payee;
+	}
+
+	return { ...fees, payees };
+};
+
+/**
  * What a copied season keeps from its source: where and when it plays, the
  * rules and the admins. Not the name, dates or status, and not the squad, which
  * has to sign up again. `balance` and `fees` are left out when the source has
@@ -43,7 +61,7 @@ export const copySeasonSettings = (source: Season, creatorUid: string): CopiedSe
 	responseDeadlineHours: source.responseDeadlineHours,
 	reminderHours: source.reminderHours,
 	...(source.balance && { balance: source.balance }),
-	...(source.fees && { fees: source.fees }),
+	...(source.fees && { fees: withoutCopiedNumbers(source.fees) }),
 	adminUids: [creatorUid, ...source.adminUids.filter(uid => uid !== creatorUid)],
 	copiedFrom: source.id,
 });

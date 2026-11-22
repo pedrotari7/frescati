@@ -6,6 +6,7 @@ setGlobalOptions({ region: REGION, maxInstances: 10 });
 export { onResponseWrite } from './onResponseWrite';
 export { onGameWrite } from './onGameWrite';
 export { onSeasonWrite } from './onSeasonWrite';
+export { onPaymentWrite } from './payees';
 export { onUserCreated } from './onUserCreated';
 export { rebuildTeams } from './rebuildTeams';
 export { finaliseTournament, finaliseDueTournaments, onMatchWrite } from './finaliseTournament';
