@@ -43,6 +43,18 @@ export const colors = stylex.defineVars({
 	teamB: '#a78bfa',
 	teamC: '#fb923c',
 	teamD: '#e879f9',
+
+	/*
+	 * The season recap's party colours, and nothing else's. A recap is the one
+	 * screen that celebrates rather than informs, so it gets a palette that
+	 * means nothing anywhere else: the medals on its podium, and the light
+	 * behind its awards, its banter and the reader's own season.
+	 */
+	gold: '#fcd34d',
+	silver: '#cbd5e1',
+	bronze: '#f59e0b',
+	flare: '#f472b6',
+	sky: '#818cf8',
 });
 
 /**
@@ -129,6 +141,12 @@ export const tint = stylex.defineConsts({
 	teamB40: `color-mix(in srgb, ${colors.teamB} 40%, transparent)`,
 	teamC40: `color-mix(in srgb, ${colors.teamC} 40%, transparent)`,
 	teamD40: `color-mix(in srgb, ${colors.teamD} 40%, transparent)`,
+
+	gold30: `color-mix(in srgb, ${colors.gold} 30%, transparent)`,
+	silver30: `color-mix(in srgb, ${colors.silver} 30%, transparent)`,
+	bronze30: `color-mix(in srgb, ${colors.bronze} 30%, transparent)`,
+	flare30: `color-mix(in srgb, ${colors.flare} 30%, transparent)`,
+	sky30: `color-mix(in srgb, ${colors.sky} 30%, transparent)`,
 });
 
 export const fonts = stylex.defineVars({

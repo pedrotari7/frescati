@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { colors, tint } from '../../app/tokens.stylex';
-import { animations } from '../../lib/styles';
+import { motion } from './motion';
 
 /** How far a finger has to travel sideways before it is a swipe and not a tap. */
 const SWIPE_PX = 40;
@@ -21,13 +21,12 @@ const styles = stylex.create({
 		borderRadius: 28,
 		overflow: 'hidden',
 		backgroundColor: colors.surface,
-		backgroundImage: `radial-gradient(120% 80% at 50% 0%, ${tint.brand25}, transparent 60%)`,
 		touchAction: 'pan-y',
 		userSelect: 'none',
 	},
 	progress: { display: 'flex', gap: 4, padding: 12, position: 'relative', zIndex: 2 },
-	segment: { flexGrow: 1, height: 3, borderRadius: 9999, backgroundColor: tint.white15 },
-	segmentDone: { backgroundColor: colors.ink },
+	segment: { flexGrow: 1, height: 3, borderRadius: 9999, overflow: 'hidden', backgroundColor: tint.white15 },
+	segmentFill: { display: 'block', height: '100%', backgroundColor: colors.ink },
 	slide: {
 		position: 'relative',
 		zIndex: 1,
@@ -62,16 +61,24 @@ const styles = stylex.create({
  * almost every tap means. Arrow keys and a sideways swipe do the same, for a
  * desktop window and for a thumb. `onLast` fires the first time the last slide
  * is reached and never again, so going back and forward over it can't write
- * anything twice. Reduced motion needs nothing here: `globals.css` already cuts
- * every animation short for it.
+ * anything twice. A slide comes in from the side the story is heading towards,
+ * and the segment it belongs to fills as it does. Reduced motion needs nothing
+ * here: `globals.css` already cuts every animation short for it.
  */
 const Story = ({ slides, onLast }: { slides: ReactNode[]; onLast: () => void }) => {
 	const [index, setIndex] = useState(0);
+	const [forward, setForward] = useState(true);
 	const reachedEnd = useRef(false);
 	const swipeFrom = useRef<number | null>(null);
 	const last = slides.length - 1;
 
-	const go = useCallback((step: number) => setIndex(current => Math.max(0, Math.min(last, current + step))), [last]);
+	const go = useCallback(
+		(step: number) => {
+			setForward(step > 0);
+			setIndex(current => Math.max(0, Math.min(last, current + step)));
+		},
+		[last]
+	);
 
 	useEffect(() => {
 		if (index !== last || reachedEnd.current) return;
@@ -114,7 +121,14 @@ const Story = ({ slides, onLast }: { slides: ReactNode[]; onLast: () => void }) 
 				{...stylex.props(styles.progress)}
 			>
 				{slides.map((_, position) => (
-					<span key={position} {...stylex.props(styles.segment, position <= index && styles.segmentDone)} />
+					<span key={position} {...stylex.props(styles.segment)}>
+						{position <= index && (
+							<span
+								key={position === index ? `at-${index}` : 'done'}
+								{...stylex.props(styles.segmentFill, position === index && motion.fill)}
+							/>
+						)}
+					</span>
 				))}
 			</div>
 
@@ -135,7 +149,7 @@ const Story = ({ slides, onLast }: { slides: ReactNode[]; onLast: () => void }) 
 				/>
 			</div>
 
-			<div key={index} {...stylex.props(styles.slide, animations.rise)}>
+			<div key={index} {...stylex.props(styles.slide, forward ? motion.fromRight : motion.fromLeft)}>
 				{slides[index]}
 			</div>
 		</div>

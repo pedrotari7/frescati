@@ -1,15 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode, SVGProps } from 'react';
 import Link from 'next/link';
 import * as stylex from '@stylexjs/stylex';
+import {
+	ArrowTrendingUpIcon,
+	CalendarDaysIcon,
+	ClockIcon,
+	FaceFrownIcon,
+	FireIcon,
+	NoSymbolIcon,
+	TrophyIcon,
+} from '@heroicons/react/24/outline';
 import type { Award, AwardsRecap, BanterRecap, ClubRecap, MatchHighlight, PersonalRecap } from '@shared/recap';
 import type { Season } from '@shared/types';
 import { toDisplayMovement } from '@shared/leaderboard';
 import { toDisplayRating } from '@shared/rating';
 import { counted, formatGameDate, placeLabel, signed } from '@shared/format';
 import { colors, tint } from '../../app/tokens.stylex';
+import Confetti from './Confetti';
+import CountUp from './CountUp';
+import Podium from './Podium';
+import Sparkline from './Sparkline';
+import { glow, motion } from './motion';
+import type { Tone } from './motion';
 
 const styles = stylex.create({
 	eyebrow: {
@@ -20,7 +34,30 @@ const styles = stylex.create({
 		letterSpacing: '0.08em',
 		textTransform: 'uppercase',
 	},
-	title: { color: colors.ink, fontSize: 32, lineHeight: 1.1, fontWeight: 800, marginTop: 8 },
+	title: { color: colors.ink, fontSize: 36, lineHeight: 1.05, fontWeight: 800, marginTop: 8 },
+	content: { display: 'flex', flexDirection: 'column' },
+	/* Two lights drifting behind the slide, past its edges, clipped by the stage. */
+	backdrop: { position: 'absolute', inset: -80, zIndex: -1, overflow: 'hidden' },
+	orb: { position: 'absolute', width: 340, height: 340, borderRadius: 9999 },
+	orbHigh: { top: 0, left: -40 },
+	orbLow: { bottom: 0, right: -60, animationDelay: '-4s' },
+	medal: {
+		position: 'relative',
+		alignSelf: 'flex-start',
+		width: 72,
+		height: 72,
+		marginBottom: 20,
+		display: 'grid',
+		placeItems: 'center',
+	},
+	ring: {
+		position: 'absolute',
+		inset: 0,
+		borderRadius: 9999,
+		backgroundImage: `conic-gradient(${colors.gold}, ${tint.gold30}, ${colors.flare}, ${tint.gold30}, ${colors.gold})`,
+	},
+	ringHole: { position: 'absolute', inset: 3, borderRadius: 9999, backgroundColor: colors.surface },
+	medalIcon: { position: 'relative', width: 34, height: 34, color: colors.gold },
 	body: { color: colors.muted, fontSize: 16, lineHeight: 1.5, marginTop: 12 },
 	badge: {
 		alignSelf: 'flex-start',
@@ -64,52 +101,82 @@ const styles = stylex.create({
 	link: { pointerEvents: 'auto' },
 	rowLabel: { color: colors.muted, fontSize: 14 },
 	rowValue: { color: colors.ink, fontSize: 16, fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
-	spark: { width: '100%', height: 96, marginTop: 24, overflow: 'visible' },
-	sparkLine: { fill: 'none', stroke: colors.brand, strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' },
 });
 
 /** "Anna", "Anna and Bosse", "Anna, Bosse and Cia". */
 const joinNames = (names: string[]): string =>
 	names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 
-const prefersMotion = (): boolean =>
-	typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: no-preference)').matches;
+type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
-/** A number that counts up from zero when its slide opens, unless motion is turned down. */
-const CountUp = ({ value, format = String }: { value: number; format?: (value: number) => string }) => {
-	const [shown, setShown] = useState(() => (prefersMotion() ? 0 : value));
+/** Where the slide's own content starts, after its eyebrow and title have landed. */
+const CONTENT_MS = 260;
 
-	useEffect(() => {
-		if (!prefersMotion()) {
-			setShown(value);
-			return;
-		}
+/** How far apart the items of a list or grid come in. */
+const STAGGER_MS = 100;
 
-		const started = performance.now();
-		let frame = 0;
-		const tick = (now: number) => {
-			const progress = Math.min(1, (now - started) / 700);
-			setShown(Math.round(value * (1 - (1 - progress) ** 3)));
-			if (progress < 1) frame = requestAnimationFrame(tick);
-		};
+const Backdrop = ({ tone }: { tone: Tone }) => (
+	<div aria-hidden='true' {...stylex.props(styles.backdrop, motion.rise)}>
+		<span {...stylex.props(styles.orb, styles.orbHigh, glow[tone], motion.drift)} />
+		<span {...stylex.props(styles.orb, styles.orbLow, glow[tone], motion.drift)} />
+	</div>
+);
 
-		frame = requestAnimationFrame(tick);
-		return () => cancelAnimationFrame(frame);
-	}, [value]);
+/** An award's icon in a turning ring, which pops in before the name does. */
+const Medal = ({ icon: Glyph }: { icon: Icon }) => (
+	<div aria-hidden='true' {...stylex.props(styles.medal, motion.pop)}>
+		<span {...stylex.props(styles.ring, motion.turn)} />
+		<span {...stylex.props(styles.ringHole)} />
+		<Glyph {...stylex.props(styles.medalIcon)} />
+	</div>
+);
 
-	return <>{format(shown)}</>;
-};
-
-const Slide = ({ eyebrow, title, children }: { eyebrow: string; title: string; children?: ReactNode }) => (
+/**
+ * One slide: the light behind it, then the eyebrow, the title and whatever
+ * else it has, each landing a beat after the last. An award adds its medal
+ * and lets the light catch the winner's name; the opening and the goodbye
+ * throw confetti.
+ */
+const Slide = ({
+	eyebrow,
+	title,
+	tone = 'brand',
+	icon,
+	confetti = false,
+	children,
+}: {
+	eyebrow: string;
+	title: string;
+	tone?: Tone;
+	icon?: Icon;
+	confetti?: boolean;
+	children?: ReactNode;
+}) => (
 	<>
-		<p {...stylex.props(styles.eyebrow)}>{eyebrow}</p>
-		<h2 {...stylex.props(styles.title)}>{title}</h2>
-		{children}
+		<Backdrop tone={tone} />
+		{confetti && <Confetti />}
+		{icon && <Medal icon={icon} />}
+		<p {...stylex.props(styles.eyebrow, motion.rise)}>{eyebrow}</p>
+		<h2 {...stylex.props(styles.title, motion.pop, motion.after(90))}>
+			{/* Its own span, because the shine is an animation too and would replace the pop. */}
+			<span {...stylex.props(icon && motion.shine)}>{title}</span>
+		</h2>
+		<div {...stylex.props(styles.content, motion.rise, motion.after(CONTENT_MS))}>{children}</div>
 	</>
 );
 
-const Stat = ({ value, label, format }: { value: number; label: string; format?: (value: number) => string }) => (
-	<div {...stylex.props(styles.stat)}>
+const Stat = ({
+	value,
+	label,
+	format,
+	order,
+}: {
+	value: number;
+	label: string;
+	format?: (value: number) => string;
+	order: number;
+}) => (
+	<div {...stylex.props(styles.stat, motion.pop, motion.after(CONTENT_MS + order * STAGGER_MS))}>
 		<p {...stylex.props(styles.statValue)}>
 			<CountUp value={value} format={format} />
 		</p>
@@ -117,7 +184,7 @@ const Stat = ({ value, label, format }: { value: number; label: string; format?:
 	</div>
 );
 
-const Row = ({ label, value, href }: { label: string; value: string; href?: string }) => {
+const Row = ({ label, value, href, order = 0 }: { label: string; value: string; href?: string; order?: number }) => {
 	const content = (
 		<>
 			<span {...stylex.props(styles.rowLabel)}>{label}</span>
@@ -126,7 +193,7 @@ const Row = ({ label, value, href }: { label: string; value: string; href?: stri
 	);
 
 	return (
-		<li>
+		<li {...stylex.props(motion.slideIn, motion.after(CONTENT_MS + order * STAGGER_MS))}>
 			{href ? (
 				<Link href={href} {...stylex.props(styles.row, styles.link)}>
 					{content}
@@ -135,21 +202,6 @@ const Row = ({ label, value, href }: { label: string; value: string; href?: stri
 				<div {...stylex.props(styles.row)}>{content}</div>
 			)}
 		</li>
-	);
-};
-
-/** The rating journey on the 0–100 scale every other screen shows. */
-const Sparkline = ({ elos }: { elos: number[] }) => {
-	const values = elos.map(toDisplayRating);
-	const [low, high] = [Math.min(...values), Math.max(...values)];
-	const span = Math.max(1, high - low);
-	const step = 100 / Math.max(1, values.length - 1);
-	const points = values.map((value, index) => `${index * step},${40 - ((value - low) / span) * 40}`).join(' ');
-
-	return (
-		<svg viewBox='0 0 100 40' preserveAspectRatio='none' aria-hidden='true' {...stylex.props(styles.spark)}>
-			<polyline points={points} vectorEffect='non-scaling-stroke' {...stylex.props(styles.sparkLine)} />
-		</svg>
 	);
 };
 
@@ -169,7 +221,7 @@ export interface SlideContext {
 const score = (highlight: MatchHighlight) => `${highlight.match.scoreA}–${highlight.match.scoreB}`;
 
 const intro = ({ season, club, preview }: SlideContext) => (
-	<Slide key='intro' eyebrow={season.name} title="That's a wrap">
+	<Slide key='intro' eyebrow={season.name} title="That's a wrap" confetti>
 		<p {...stylex.props(styles.body)}>
 			{counted(club.gamesPlayed, 'game')} at {season.venue.name}. Here is how it went.
 		</p>
@@ -184,47 +236,45 @@ const intro = ({ season, club, preview }: SlideContext) => (
 const numbers = ({ club }: SlideContext) => (
 	<Slide key='numbers' eyebrow='The club' title='The season in numbers'>
 		<div {...stylex.props(styles.grid)}>
-			<Stat value={club.gamesPlayed} label='Games played' />
-			<Stat value={club.totalGoals} label='Goals' />
-			<Stat value={club.players} label='Players' />
-			<Stat value={club.extras} label='Extras' />
-			<Stat value={club.averageTurnout} label='Average turnout' />
+			<Stat order={0} value={club.gamesPlayed} label='Games played' />
+			<Stat order={1} value={club.totalGoals} label='Goals' />
+			<Stat order={2} value={club.players} label='Players' />
+			<Stat order={3} value={club.extras} label='Extras' />
+			<Stat order={4} value={club.averageTurnout} label='Average turnout' />
 		</div>
 	</Slide>
 );
 
 const podium = ({ club, nameOf }: SlideContext) => (
-	<Slide key='podium' eyebrow='The table' title='The podium'>
-		<ul {...stylex.props(styles.list)}>
-			{club.podium.map(row => (
-				<Row
-					key={row.uid}
-					label={placeLabel(row.position)}
-					value={`${nameOf(row.uid)}, ${counted(row.wins, 'win')}`}
-				/>
-			))}
-		</ul>
+	<Slide key='podium' eyebrow='The table' title='The podium' tone='gold'>
+		<Podium rows={club.podium} nameOf={nameOf} />
 	</Slide>
 );
 
 const remembered = ({ season, club }: SlideContext) => {
 	const date = (kickoff: string) => formatGameDate(kickoff, season.slot.timezone);
-	const matches: [string, MatchHighlight | null][] = [
-		['Most goals', club.highestScoring],
-		['Biggest win', club.biggestWin],
-		['Closest finish', club.closestFinish],
-	];
+	const matches = (
+		[
+			['Most goals', club.highestScoring],
+			['Biggest win', club.biggestWin],
+			['Closest finish', club.closestFinish],
+		] as [string, MatchHighlight | null][]
+	).filter((pair): pair is [string, MatchHighlight] => !!pair[1]);
 
 	return (
 		<Slide key='games' eyebrow='The games' title='Games to remember'>
 			<ul {...stylex.props(styles.list)}>
-				{matches.map(([label, highlight]) =>
-					highlight ? (
-						<Row key={label} label={`${label}, ${date(highlight.kickoff)}`} value={score(highlight)} />
-					) : null
-				)}
+				{matches.map(([label, highlight], order) => (
+					<Row
+						key={label}
+						order={order}
+						label={`${label}, ${date(highlight.kickoff)}`}
+						value={score(highlight)}
+					/>
+				))}
 				{club.bestTurnout && (
 					<Row
+						order={matches.length}
 						label={`Biggest turnout, ${date(club.bestTurnout.kickoff)}`}
 						value={counted(club.bestTurnout.turnout, 'player')}
 					/>
@@ -234,72 +284,93 @@ const remembered = ({ season, club }: SlideContext) => {
 	);
 };
 
+interface AwardSpec {
+	key: string;
+	eyebrow: string;
+	award: Award | null;
+	icon: Icon;
+	detail: (value: number) => string;
+	extra?: ReactNode;
+}
+
 const awardSlide = (
-	key: string,
-	eyebrow: string,
-	award: Award | null,
-	detail: (value: number) => string,
-	nameOf: (uid: string) => string,
-	extra?: ReactNode
+	{ key, eyebrow, award, icon, detail, extra }: AwardSpec,
+	tone: Tone,
+	nameOf: SlideContext['nameOf']
 ) =>
 	award && (
-		<Slide key={key} eyebrow={eyebrow} title={joinNames(award.uids.map(nameOf))}>
+		<Slide key={key} eyebrow={eyebrow} title={joinNames(award.uids.map(nameOf))} tone={tone} icon={icon}>
 			<p {...stylex.props(styles.body)}>{detail(award.value)}</p>
 			{extra}
 		</Slide>
 	);
 
-const awardSlides = ({ awards, nameOf }: SlideContext): ReactNode[] => [
-	awardSlide(
-		'motm',
-		'Man of the match',
-		awards.motm,
-		value => `Voted best on the pitch ${counted(value, 'time')}.`,
-		nameOf
-	),
-	awardSlide(
-		'iron',
-		'Iron man',
-		awards.ironMan,
-		value => `Turned up for ${counted(value, 'game')}.`,
-		nameOf,
-		awards.perfectAttendance.length > 0 && (
-			<p {...stylex.props(styles.body)}>Never missed one: {joinNames(awards.perfectAttendance.map(nameOf))}.</p>
-		)
-	),
-	awardSlide(
-		'climber',
-		'Biggest climber',
-		awards.climber,
-		value => `${signed(toDisplayMovement(value))} on the rating.`,
-		nameOf
-	),
-	awardSlide('streak', 'Longest winning run', awards.streak, value => `${counted(value, 'win')} in a row.`, nameOf),
-];
+/* The awards in gold, the banter in a louder pink, so the turn into teasing shows. */
+const awardSlides = ({ awards, nameOf }: SlideContext): ReactNode[] =>
+	(
+		[
+			{
+				key: 'motm',
+				eyebrow: 'Man of the match',
+				award: awards.motm,
+				icon: TrophyIcon,
+				detail: value => `Voted best on the pitch ${counted(value, 'time')}.`,
+			},
+			{
+				key: 'iron',
+				eyebrow: 'Iron man',
+				award: awards.ironMan,
+				icon: CalendarDaysIcon,
+				detail: value => `Turned up for ${counted(value, 'game')}.`,
+				extra: awards.perfectAttendance.length > 0 && (
+					<p {...stylex.props(styles.body)}>
+						Never missed one: {joinNames(awards.perfectAttendance.map(nameOf))}.
+					</p>
+				),
+			},
+			{
+				key: 'climber',
+				eyebrow: 'Biggest climber',
+				award: awards.climber,
+				icon: ArrowTrendingUpIcon,
+				detail: value => `${signed(toDisplayMovement(value))} on the rating.`,
+			},
+			{
+				key: 'streak',
+				eyebrow: 'Longest winning run',
+				award: awards.streak,
+				icon: FireIcon,
+				detail: value => `${counted(value, 'win')} in a row.`,
+			},
+		] satisfies AwardSpec[]
+	).map(spec => awardSlide(spec, 'gold', nameOf));
 
-const banterSlides = ({ banter, nameOf }: SlideContext): ReactNode[] => [
-	awardSlide(
-		'noshows',
-		'Most no-shows',
-		banter.noShows,
-		value => `Said they were in and didn't show, ${counted(value, 'time')}.`,
-		nameOf
-	),
-	awardSlide(
-		'lucy',
-		'Last-minute Lucy',
-		banter.lastMinute,
-		value => `${counted(value, 'answer')} given or changed in the 24 hours before kickoff.`,
-		nameOf
-	),
-	awardSlide(
-		'spoon',
-		'Wooden spoon',
-		banter.woodenSpoon,
-		value => `Bottom of the table on ${counted(value, 'win')}. There is always next season.`,
-		nameOf
-	),
-];
+const banterSlides = ({ banter, nameOf }: SlideContext): ReactNode[] =>
+	(
+		[
+			{
+				key: 'noshows',
+				eyebrow: 'Most no-shows',
+				award: banter.noShows,
+				icon: NoSymbolIcon,
+				detail: value => `Said they were in and didn't show, ${counted(value, 'time')}.`,
+			},
+			{
+				key: 'lucy',
+				eyebrow: 'Last-minute Lucy',
+				award: banter.lastMinute,
+				icon: ClockIcon,
+				detail: value => `${counted(value, 'answer')} given or changed in the 24 hours before kickoff.`,
+			},
+			{
+				key: 'spoon',
+				eyebrow: 'Wooden spoon',
+				award: banter.woodenSpoon,
+				icon: FaceFrownIcon,
+				detail: value => `Bottom of the table on ${counted(value, 'win')}. There is always next season.`,
+			},
+		] satisfies AwardSpec[]
+	).map(spec => awardSlide(spec, 'flare', nameOf));
 
 const personalSlides = ({ season, personal, mine, nameOf }: SlideContext): ReactNode[] => {
 	if (!personal) return [];
@@ -308,33 +379,41 @@ const personalSlides = ({ season, personal, mine, nameOf }: SlideContext): React
 	const [start, end] = [personal.journey[0], personal.journey[personal.journey.length - 1]];
 
 	return [
-		<Slide key='line' eyebrow={whose} title={placeLabel(personal.row.position)}>
+		<Slide key='line' eyebrow={whose} title={placeLabel(personal.row.position)} tone='sky'>
 			<div {...stylex.props(styles.grid)}>
-				<Stat value={personal.row.appearances} label='Games' />
-				<Stat value={personal.row.wins} label='Wins' />
-				<Stat value={Math.round(personal.winRate * 100)} label='Win rate' format={value => `${value}%`} />
-				<Stat value={personal.motmVotes} label='Man-of-the-match votes' />
+				<Stat order={0} value={personal.row.appearances} label='Games' />
+				<Stat order={1} value={personal.row.wins} label='Wins' />
+				<Stat
+					order={2}
+					value={Math.round(personal.winRate * 100)}
+					label='Win rate'
+					format={value => `${value}%`}
+				/>
+				<Stat order={3} value={personal.motmVotes} label='Man-of-the-match votes' />
 			</div>
 		</Slide>,
-		<Slide key='journey' eyebrow={whose} title={`${toDisplayRating(start)} to ${toDisplayRating(end)}`}>
+		<Slide key='journey' eyebrow={whose} title={`${toDisplayRating(start)} to ${toDisplayRating(end)}`} tone='sky'>
 			<Sparkline elos={personal.journey} />
 		</Slide>,
-		<Slide key='people' eyebrow={whose} title='The people'>
+		<Slide key='people' eyebrow={whose} title='The people' tone='sky'>
 			<ul {...stylex.props(styles.list)}>
 				{personal.bestTeammate && (
 					<Row
+						order={0}
 						label='Won most with'
 						value={`${nameOf(personal.bestTeammate.uid)}, ${personal.bestTeammate.wonTogether}`}
 					/>
 				)}
 				{personal.nemesis && (
 					<Row
+						order={1}
 						label='Nemesis'
 						value={`${nameOf(personal.nemesis.uid)}, ${personal.nemesis.beat}–${personal.nemesis.lostTo}`}
 					/>
 				)}
 				{personal.bestGame && (
 					<Row
+						order={2}
 						label={`Best game, ${formatGameDate(personal.bestGame.kickoff, season.slot.timezone)}`}
 						value={signed(toDisplayMovement(personal.bestGame.gain))}
 					/>
@@ -345,7 +424,7 @@ const personalSlides = ({ season, personal, mine, nameOf }: SlideContext): React
 };
 
 const outro = ({ season }: SlideContext) => (
-	<Slide key='outro' eyebrow={season.name} title='See you next season'>
+	<Slide key='outro' eyebrow={season.name} title='See you next season' confetti>
 		<ul {...stylex.props(styles.list)}>
 			<Row label='The full table' value='Open' href={`/s/${season.id}/table`} />
 		</ul>
