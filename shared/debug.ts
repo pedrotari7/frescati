@@ -1,5 +1,5 @@
 import type { AnyNotification, PushPayload } from './notifications';
-import { buildSeasonConfirmedPush, buildSignupPush } from './notifications';
+import { buildRecapReadyPush, buildSeasonConfirmedPush, buildSignupPush } from './notifications';
 
 /**
  * The deliberate failures an app admin can fire from the debug screen.
@@ -65,11 +65,15 @@ export const SAMPLE_DEBT = { outstanding: 1735, charges: 2 };
  */
 export const SAMPLE_CHARGE = { amount: 70, when: 'Tue 1 Sep' };
 
-/** The kinds that are about a season signing up rather than a game or the books. */
-export type SignupNotification = 'signupOpen' | 'signupReminder' | 'seasonConfirmed';
+/**
+ * The kinds about a season starting or ending rather than a game or the books.
+ * The name is from before the recap joined them; what they share is that a test
+ * send needs a season and no game.
+ */
+export type SignupNotification = 'signupOpen' | 'signupReminder' | 'seasonConfirmed' | 'recapReady';
 
 export const isSignupNotification = (kind: AnyNotification): kind is SignupNotification =>
-	kind === 'signupOpen' || kind === 'signupReminder' || kind === 'seasonConfirmed';
+	kind === 'signupOpen' || kind === 'signupReminder' || kind === 'seasonConfirmed' || kind === 'recapReady';
 
 /**
  * What a test send of a sign-up kind says, with invented figures for the reason
@@ -77,7 +81,10 @@ export const isSignupNotification = (kind: AnyNotification): kind is SignupNotif
  * builder, and a real season's fee would make the row relabel itself the moment
  * a send came back.
  */
-export const buildSignupSample = (kind: SignupNotification, seasonId: string, seasonName: string): PushPayload =>
-	kind === 'seasonConfirmed'
+export const buildSignupSample = (kind: SignupNotification, seasonId: string, seasonName: string): PushPayload => {
+	if (kind === 'recapReady') return buildRecapReadyPush({ seasonId, seasonName });
+
+	return kind === 'seasonConfirmed'
 		? buildSeasonConfirmedPush({ seasonId, seasonName, share: 1736, swish: '0701234567', blocked: true })
 		: buildSignupPush(kind, { seasonId, seasonName, closesOn: '1 Dec' });
+};

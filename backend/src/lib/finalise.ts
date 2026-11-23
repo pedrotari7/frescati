@@ -25,6 +25,7 @@ import { getGame, getProfiles, getSeason } from './data';
 import { clearPendingIfUnmoved, readPendingFrom, withDrainedLadderLock, withLadderLock } from './ladderLock';
 import { getMotmDecision, openMotmVoting } from './motm';
 import { raiseGameDues } from './dues';
+import { announceRecapIfReady } from './recap';
 import { reportError } from './sentry';
 
 /**
@@ -311,6 +312,14 @@ export const finaliseGame = async (
 			);
 
 			await openMotmVoting(seasonId, gameId, season);
+
+			// Last, so a player who played the final game hears about the vote
+			// before the send-off. Swallowed like the charges above: the game is
+			// confirmed either way, and the next confirmation or cancellation in
+			// this season asks again.
+			await announceRecapIfReady(seasonId).catch(error =>
+				reportError('Could not announce the season recap', { seasonId }, error)
+			);
 		}
 	}
 

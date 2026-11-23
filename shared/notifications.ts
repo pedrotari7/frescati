@@ -79,7 +79,13 @@ const APP_NOTIFICATIONS: AppNotification[] = ['newPlayer'];
  * piled up and lands when an admin has sat down with the books. Folding them
  * together would mean one of the two lying about the other's numbers.
  */
-export type SeasonNotification = 'duesReminder' | 'dueRaised' | 'signupOpen' | 'signupReminder' | 'seasonConfirmed';
+export type SeasonNotification =
+	| 'duesReminder'
+	| 'dueRaised'
+	| 'signupOpen'
+	| 'signupReminder'
+	| 'seasonConfirmed'
+	| 'recapReady';
 
 const SEASON_NOTIFICATIONS: SeasonNotification[] = [
 	'duesReminder',
@@ -87,6 +93,7 @@ const SEASON_NOTIFICATIONS: SeasonNotification[] = [
 	'signupOpen',
 	'signupReminder',
 	'seasonConfirmed',
+	'recapReady',
 ];
 
 /** Every kind the app can send. */
@@ -192,6 +199,9 @@ export const NOTIFICATION_PREF: Record<AnyNotification, keyof NotificationPrefs 
 	// with it. Same argument as `dueRaised`: a switch would silence the one
 	// message that says how to pay for the place they asked for.
 	seasonConfirmed: null,
+	// Once a season, and only to the people who played in it. The one thing a
+	// switch could do is silence the send-off, so there isn't one.
+	recapReady: null,
 };
 
 /**
@@ -645,6 +655,20 @@ export const buildSeasonConfirmedPush = ({
 		respondable: false,
 	};
 };
+
+export interface RecapReadyContext {
+	seasonId: string;
+	seasonName: string;
+}
+
+/** The last game is confirmed and the season's story is waiting. Nothing to answer, so it just opens it. */
+export const buildRecapReadyPush = ({ seasonId, seasonName }: RecapReadyContext): PushPayload => ({
+	title: `${seasonName} is over`,
+	body: 'Your season recap is ready.',
+	url: `/s/${seasonId}/recap`,
+	tag: `recap-${seasonId}`,
+	respondable: false,
+});
 
 /**
  * The same notification, as an email.
