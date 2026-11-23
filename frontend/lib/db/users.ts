@@ -1,4 +1,4 @@
-import { updateDoc } from 'firebase/firestore';
+import { arrayUnion, updateDoc } from 'firebase/firestore';
 import type { DocumentData, Unsubscribe } from 'firebase/firestore';
 import type { AppUser, NotificationPrefs } from '@shared/types';
 import { normaliseNotificationPrefs } from '@shared/notifications';
@@ -55,3 +55,11 @@ export const setNotificationPrefs = (uid: string, notificationPrefs: Notificatio
  * already run by the time anything here fires.
  */
 export const recordVisit = (uid: string, at: string) => updateDoc(userDoc(uid), { lastSeenAt: at });
+
+/**
+ * This player reached the last slide of a season's recap, so it stops taking
+ * over their home screen. `arrayUnion` so two devices finishing it at once both
+ * land, and so watching it again writes nothing new.
+ */
+export const markRecapWatched = (uid: string, seasonId: string) =>
+	updateDoc(userDoc(uid), { recapsWatched: arrayUnion(seasonId) });

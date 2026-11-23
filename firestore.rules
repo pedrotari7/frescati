@@ -261,8 +261,13 @@ service cloud.firestore {
       function userShapeOk() {
         return request.resource.data.keys().hasOnly(
                  ['uid', 'displayName', 'photoURL', 'createdAt', 'lastSeenAt',
-                  'isAppAdmin', 'notificationPrefs', 'email', 'rating', 'client'])
+                  'isAppAdmin', 'notificationPrefs', 'email', 'rating', 'client',
+                  'recapsWatched'])
                && clientShapeOk()
+               // Season ids, one per recap watched to the end. Bounded for the
+               // reason `client` is: everybody downloads this document.
+               && request.resource.data.get('recapsWatched', []) is list
+               && request.resource.data.get('recapsWatched', []).size() <= 200
                && notificationPrefsShapeOk()
                && request.resource.data.get('displayName', '') is string
                && request.resource.data.get('displayName', '').size() <= 100

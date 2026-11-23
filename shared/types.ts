@@ -166,6 +166,12 @@ export interface AppUser {
 	 * as a missing response document.
 	 */
 	rating?: PlayerRating;
+	/**
+	 * Season ids whose recap this player has watched to the last slide. A
+	 * season in here no longer takes over their home screen. Absent until the
+	 * first one.
+	 */
+	recapsWatched?: string[];
 }
 
 export interface PushToken {
