@@ -18,7 +18,7 @@ const RECAP = /\/s\/[^/]+\/recap$/;
 const HOME = /\/s\/[^/]+$/;
 
 const viewer = (testInfo: TestInfo): DevUser => {
-	const uid = testInfo.project.name === 'desktop' ? 'dev-tariq' : 'dev-felipe';
+	const uid = testInfo.project.name === 'desktop' ? 'dev-lukas' : 'dev-omar';
 	const user = readCast().users.find(candidate => candidate.uid === uid);
 
 	expect(user, `${uid} is not in the seeded cast`).toBeDefined();

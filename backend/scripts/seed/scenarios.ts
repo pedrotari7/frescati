@@ -530,9 +530,10 @@ const full: Scenario = {
 			signups: { yes: ['pedro', 'anna', 'rafael', 'omar'], no: ['mateo'] },
 		},
 		// Held for `e2e/recap.spec.ts` alone: a season that is over, rated end to
-		// end and stamped, so its home opens on the recap. Played mostly by the
-		// cast nobody else's roster uses, so adding it moves no other spec's pick
-		// of who to sign in as.
+		// end and stamped, so its home opens on the recap. Played only by people
+		// already on the running season, so the set of "Member of" hints and
+		// their order stay exactly as they were: `signup.spec.ts` picks the last
+		// two members on the cast list and needs both on an active season.
 		{
 			id: 'season-recap',
 			name: 'Winter league 2025',
@@ -542,7 +543,7 @@ const full: Scenario = {
 			minPlayers: 8,
 			responseDeadlineHours: 3,
 			reminderHours: [48, 6],
-			memberKeys: ['felipe', 'tariq', 'noah', 'erik', 'omar', 'lukas', 'tobias', 'rafael'],
+			memberKeys: ['omar', 'lukas', 'tobias', 'rafael', 'viktor', 'dimitri', 'elena', 'nina'],
 			adminKeys: ['pedro'],
 			extraKeys: ['ingrid'],
 			startWeeks: -30,

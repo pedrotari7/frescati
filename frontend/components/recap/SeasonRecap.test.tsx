@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { RecapInput } from '@shared/recap';
-import type { AppUser, Game, RatingLedgerEntry, Season } from '@shared/types';
+import type { AppUser, Game, RatingLedgerEntry, Season, TournamentMatch } from '@shared/types';
 import { markRecapWatched } from '../../lib/db/users';
 import SeasonRecap from './SeasonRecap';
 
@@ -125,6 +125,21 @@ describe('SeasonRecap', () => {
 		expect(screen.getByText('See you next season')).toBeInTheDocument();
 		expect(mark).toHaveBeenCalledTimes(1);
 		expect(mark).toHaveBeenCalledWith('anna', SEASON_ID);
+	});
+
+	// A link on a slide catches the tap that would have moved the story on, so
+	// only the goodbye, which has nothing after it, carries one.
+	it('keeps every slide but the last free of links', () => {
+		mockRecap.input = {
+			...INPUT,
+			matches: { g1: [{ order: 0, teamA: 0, teamB: 1, scoreA: 3, scoreB: 1 } as TournamentMatch] },
+		};
+		render(<SeasonRecap />);
+
+		while (!screen.getByRole('button', { name: 'Next' }).hasAttribute('disabled')) {
+			expect(screen.queryAllByRole('link')).toHaveLength(0);
+			fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+		}
 	});
 
 	it('ends on your own season when you played in it', () => {
