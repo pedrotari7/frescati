@@ -44,7 +44,7 @@ export const main = async ({ db, dryRun }: ScriptContext): Promise<void> => {
 	for (const season of seasons.docs) {
 		if (season.get('recapReadyAt')) continue;
 
-		const { finished, players } = await readSeasonEnd(db, season.ref, now);
+		const { finished, players } = await readSeasonEnd(db, season.ref);
 		if (!finished) continue;
 
 		const profiles = players.length > 0 ? await db.getAll(...players.map(uid => db.doc(`users/${uid}`))) : [];

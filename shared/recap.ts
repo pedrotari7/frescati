@@ -67,22 +67,26 @@ export interface ClubRecap {
 /**
  * Whether there is nothing left in the season to happen.
  *
- * Every game still on the calendar has to have ended and been rated. A
- * cancelled one is off the calendar. A game that was played and never scored
- * holds the whole thing back, on purpose: a recap with a result missing would
- * tell a different story from the table beside it, and the fix is one score or
- * one cancellation away. A season with nothing left that counts was never
- * played, so it never finishes.
+ * Every game still on the calendar has to have been rated. A cancelled one is
+ * off the calendar. A game that was played and never scored holds the whole
+ * thing back, on purpose: a recap with a result missing would tell a different
+ * story from the table beside it, and the fix is one score or one cancellation
+ * away. A season with nothing left that counts was never played, so it never
+ * finishes.
+ *
+ * No clock. A rated game has been played whatever its `endsAt` says, because
+ * the confirm button has no time on it, and the confirmation that rates the
+ * last game is the one chance the backend gets to notice. An unrated game
+ * fails on the rating whether or not it has ended.
  */
 export const isSeasonFinished = (
-	games: Pick<Game, 'id' | 'status' | 'endsAt'>[],
-	entries: Pick<RatingLedgerEntry, 'gameId'>[],
-	nowIso: string
+	games: Pick<Game, 'id' | 'status'>[],
+	entries: Pick<RatingLedgerEntry, 'gameId'>[]
 ): boolean => {
 	const counted = games.filter(game => game.status !== 'cancelled');
 	const rated = new Set(entries.map(entry => entry.gameId));
 
-	return counted.length > 0 && counted.every(game => game.endsAt <= nowIso && rated.has(game.id));
+	return counted.length > 0 && counted.every(game => rated.has(game.id));
 };
 
 /** The largest value with every uid on it, or `null` when nobody beats `floor`. */

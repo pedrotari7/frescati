@@ -345,14 +345,14 @@ export const useMyMotmVote = (seasonId: string | null, gameId: string | null, ui
 };
 
 export const useSeasonLedger = (seasonId: string | null) => {
-	const { data, loading, error } = useFirestoreSubscription<RatingLedgerEntry[]>(
+	const { data, loading, error, retry } = useFirestoreSubscription<RatingLedgerEntry[]>(
 		NO_LEDGER,
 		seasonId ? (onChange, onError) => subscribeToSeasonLedger(seasonId, onChange, onError) : null,
 		[seasonId],
 		'seasonLedger'
 	);
 
-	return { entries: data, loading, error };
+	return { entries: data, loading, error, retry };
 };
 
 /** Every rated game one player has appeared in, whatever season it was in. */

@@ -75,40 +75,51 @@ const input = (overrides: Partial<RecapInput>): RecapInput => ({
 });
 
 describe('isSeasonFinished', () => {
-	const NOW = '2026-10-01T00:00:00.000Z';
 	const PAST = '2026-09-01T18:00:00.000Z';
 	const FUTURE = '2026-10-08T18:00:00.000Z';
 
 	it('is finished when every game has ended and been rated', () => {
 		const games = [game('g1', 'played', PAST), game('g2', 'scheduled', PAST)];
 
-		expect(isSeasonFinished(games, [{ gameId: 'g1' }, { gameId: 'g2' }], NOW)).toBe(true);
+		expect(isSeasonFinished(games, [{ gameId: 'g1' }, { gameId: 'g2' }])).toBe(true);
 	});
 
 	it('waits for a game that ended without a rating', () => {
-		expect(
-			isSeasonFinished([game('g1', 'played', PAST), game('g2', 'scheduled', PAST)], [{ gameId: 'g1' }], NOW)
-		).toBe(false);
+		expect(isSeasonFinished([game('g1', 'played', PAST), game('g2', 'scheduled', PAST)], [{ gameId: 'g1' }])).toBe(
+			false
+		);
 	});
 
 	it('waits for a game still to come', () => {
-		const games = [game('g1', 'played', PAST), game('g2', 'scheduled', FUTURE)];
-
-		expect(isSeasonFinished(games, [{ gameId: 'g1' }, { gameId: 'g2' }], NOW)).toBe(false);
+		expect(
+			isSeasonFinished([game('g1', 'played', PAST), game('g2', 'scheduled', FUTURE)], [{ gameId: 'g1' }])
+		).toBe(false);
 	});
 
-	it('leaves a cancelled game out of it', () => {
+	// The confirm button has no clock on it. An admin who scores the last game
+	// and confirms it ten minutes before its slot ends has still ended the
+	// season, and nothing else would ever ask again.
+	it('counts a game confirmed before its slot was up', () => {
 		expect(
-			isSeasonFinished([game('g1', 'played', PAST), game('g2', 'cancelled', PAST)], [{ gameId: 'g1' }], NOW)
+			isSeasonFinished(
+				[game('g1', 'played', PAST), game('g2', 'played', FUTURE)],
+				[{ gameId: 'g1' }, { gameId: 'g2' }]
+			)
 		).toBe(true);
 	});
 
+	it('leaves a cancelled game out of it', () => {
+		expect(isSeasonFinished([game('g1', 'played', PAST), game('g2', 'cancelled', PAST)], [{ gameId: 'g1' }])).toBe(
+			true
+		);
+	});
+
 	it('never calls a season with no games finished', () => {
-		expect(isSeasonFinished([], [], NOW)).toBe(false);
+		expect(isSeasonFinished([], [])).toBe(false);
 	});
 
 	it('never calls a season of cancelled games finished', () => {
-		expect(isSeasonFinished([game('g1', 'cancelled', PAST)], [], NOW)).toBe(false);
+		expect(isSeasonFinished([game('g1', 'cancelled', PAST)], [])).toBe(false);
 	});
 });
 

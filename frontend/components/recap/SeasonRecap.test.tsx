@@ -46,7 +46,14 @@ const INPUT: RecapInput = {
 	matches: {},
 };
 
-const mockSeason = { seasonId: SEASON_ID, season: season() as Season | null, games: [] as Game[] };
+const mockSeason = {
+	seasonId: SEASON_ID,
+	season: season() as Season | null,
+	games: [] as Game[],
+	loading: false,
+	error: null as Error | null,
+	retry: vi.fn(),
+};
 const mockRecap = {
 	input: INPUT as RecapInput | null,
 	ratedCount: 2,
@@ -68,6 +75,7 @@ vi.mock('../SeasonShell', () => ({ default: ({ children }: { children: React.Rea
 vi.mock('../../hooks/useSeasonRecap', () => ({ useSeasonRecap: () => mockRecap }));
 vi.mock('../../hooks/useData', () => ({ useUser: () => mockMe, useUsersByUid: () => mockUsers }));
 vi.mock('../../lib/auth', () => ({ useAuth: () => mockAuth }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock('../../lib/db/users', () => ({ markRecapWatched: vi.fn().mockResolvedValue(undefined) }));
 
 const mark = markRecapWatched as ReturnType<typeof vi.fn>;
@@ -87,6 +95,9 @@ const watchToTheEnd = () => {
 
 beforeEach(() => {
 	mockSeason.season = season();
+	mockSeason.loading = false;
+	mockSeason.error = null;
+	window.sessionStorage.clear();
 	mockRecap.input = INPUT;
 	mockRecap.ratedCount = 2;
 	mockRecap.gameCount = 2;
@@ -180,5 +191,32 @@ describe('SeasonRecap', () => {
 		render(<SeasonRecap />);
 
 		expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+	});
+	// Opened from a notification or a profile, nothing else has claimed the
+	// session, and closing it would land on a home that sends you straight back.
+	it('tells the season home it has already been shown this session', () => {
+		render(<SeasonRecap />);
+
+		expect(window.sessionStorage.getItem('frescati:recap')).toBe(SEASON_ID);
+	});
+
+	it('says so when the season is gone, rather than waiting for it', () => {
+		mockSeason.season = null;
+		mockRecap.input = null;
+
+		render(<SeasonRecap />);
+
+		expect(screen.getByText('This season is gone')).toBeInTheDocument();
+	});
+
+	it('offers to try again when the season itself could not be read', () => {
+		mockSeason.season = null;
+		mockSeason.error = new Error('offline');
+		mockRecap.input = null;
+
+		render(<SeasonRecap />);
+		fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+
+		expect(mockSeason.retry).toHaveBeenCalled();
 	});
 });
