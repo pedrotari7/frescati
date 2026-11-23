@@ -6,6 +6,7 @@ import type {
 	GameNotification,
 	GameNotificationContext,
 	PushPayload,
+	RecapReadyContext,
 	SeasonConfirmedContext,
 	SignupContext,
 } from '../../../shared/notifications';
@@ -14,6 +15,7 @@ import {
 	buildDueRaisedPush,
 	buildDuesPush,
 	buildGamePush,
+	buildRecapReadyPush,
 	buildSeasonConfirmedPush,
 	buildSignupPush,
 } from '../../../shared/notifications';
@@ -263,3 +265,12 @@ export const sendSignupPush = (
  */
 export const sendSeasonConfirmed = (uid: string, context: SeasonConfirmedContext): Promise<SendResult> =>
 	sendPush([uid], buildSeasonConfirmedPush(context), NOTIFICATION_PREF.seasonConfirmed);
+
+/**
+ * Tell everybody who played in a season that its recap is ready.
+ *
+ * One payload for all of them, since the copy names the season and not the
+ * reader. No switch silences it; see `NOTIFICATION_PREF.recapReady`.
+ */
+export const sendRecapReady = (uids: string[], context: RecapReadyContext): Promise<SendResult> =>
+	sendPush(uids, buildRecapReadyPush(context), NOTIFICATION_PREF.recapReady);

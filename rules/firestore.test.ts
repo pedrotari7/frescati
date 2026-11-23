@@ -983,6 +983,22 @@ describe('a season that is still signing up', () => {
 		await assertFails(updateDoc(doc(authed(APP_ADMIN, { admin: true }), seasonDoc()), stamp));
 	});
 
+	it('keeps the recap stamp for the function, and out of the way of every other edit', async () => {
+		const stamp = { recapReadyAt: '2026-11-22T00:00:00.000Z' };
+
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), stamp));
+		await assertFails(updateDoc(doc(authed(APP_ADMIN, { admin: true }), seasonDoc()), stamp));
+		await assertFails(setDoc(doc(authed(APP_ADMIN, { admin: true }), 'seasons/stamped'), aDraft(APP_ADMIN, stamp)));
+
+		// Once the function has written it, the season is still the admins' to edit.
+		await testEnv.withSecurityRulesDisabled(async context => {
+			await updateDoc(doc(context.firestore(), seasonDoc()), stamp);
+		});
+
+		await assertSucceeds(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { name: 'Autumn, the end' }));
+		await assertFails(updateDoc(doc(authed(SEASON_ADMIN), seasonDoc()), { recapReadyAt: deleteField() }));
+	});
+
 	it('takes sign-up answers from the player, or from an admin who signs them, while the season is a draft', async () => {
 		// Readable by everybody signed in, like the rest of the app.
 		await assertSucceeds(getDoc(doc(authed(EXTRA), signupDoc(MEMBER))));

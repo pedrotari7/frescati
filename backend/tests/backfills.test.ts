@@ -6,6 +6,8 @@ import { main as backfillLedgerSeed } from '../scripts/backfillLedgerSeed';
 import { main as backfillLedgerTeams } from '../scripts/backfillLedgerTeams';
 import { main as backfillMotmTurnout } from '../scripts/backfillMotmTurnout';
 import { main as backfillMotmVoters } from '../scripts/backfillMotmVoters';
+import { main as backfillRecapReady } from '../scripts/backfillRecapReady';
+import * as push from '../src/lib/push';
 import type { ScriptContext } from '../scripts/lib/script';
 import {
 	clearAuth,
@@ -17,13 +19,14 @@ import {
 	writeMotmVote,
 	writeSeason,
 	writeTeams,
+	writeUser,
 } from './helpers';
 import type { Mock, MockInstance } from 'vitest';
 
 /**
  * The one-shot repairs, and the line all six of them walk.
  *
- * Every one exists because a field was added after the data was, so each has to
+ * Every one but the recap stamp exists because a field was added after the data was, so each has to
  * reconstruct history from a second copy of it. That makes them the scripts most
  * able to do quiet damage: a backfill that guesses writes a plausible number
  * into a permanent record, and a replay years later preserves the guess rather
@@ -462,5 +465,73 @@ describe('backfill-late-entries', () => {
 
 		expect((await readDue('entry_ermanno'))?.kind).toBe('entry');
 		expect(output()).toContain('Would move 1 charge(s)');
+	});
+});
+
+describe('backfill-recap-ready', () => {
+	const ENDED = '2020-09-01T18:30:00.000Z';
+	const season = async (id: string) => (await getDb().doc(`seasons/${id}`).get()).data();
+	const watched = async (uid: string) => (await getDb().doc(`users/${uid}`).get()).data()?.recapsWatched;
+
+	beforeEach(async () => {
+		await writeUser('anna');
+		await writeUser('bosse');
+	});
+
+	it('stamps a season that is already over, marks it watched for everybody who played, and tells nobody', async () => {
+		await writeSeason(SEASON_ID);
+		await writeGame(SEASON_ID, GAME_ID, { endsAt: ENDED, status: 'played' });
+		await writeLedger(GAME_ID);
+		const send = vi.spyOn(push, 'sendRecapReady');
+
+		await backfillRecapReady(context());
+
+		expect((await season(SEASON_ID))?.recapReadyAt).toEqual(expect.any(String));
+		expect(await watched('anna')).toEqual([SEASON_ID]);
+		expect(await watched('bosse')).toEqual([SEASON_ID]);
+		expect(send).not.toHaveBeenCalled();
+		send.mockRestore();
+	});
+
+	it('leaves a season still being played, and one already stamped, alone', async () => {
+		await writeSeason(SEASON_ID);
+		await writeGame(SEASON_ID, GAME_ID, { endsAt: ENDED, status: 'played' });
+		await writeGame(SEASON_ID, 'game-2', { endsAt: ENDED });
+		await writeLedger(GAME_ID);
+
+		await writeSeason('season-2', { recapReadyAt: '2026-01-01T00:00:00.000Z' });
+		await writeGame('season-2', 'game-3', { endsAt: ENDED, status: 'played' });
+		await writeLedger('game-3', { seasonId: 'season-2' });
+
+		await backfillRecapReady(context());
+
+		expect((await season(SEASON_ID))?.recapReadyAt).toBeUndefined();
+		expect((await season('season-2'))?.recapReadyAt).toBe('2026-01-01T00:00:00.000Z');
+		expect(await watched('anna')).toBeUndefined();
+	});
+
+	// A player forgotten since is gone from `users`, and an update would fail
+	// the whole batch, while a set would bring back a profile somebody deleted.
+	it('skips a player with no profile', async () => {
+		await writeSeason(SEASON_ID);
+		await writeGame(SEASON_ID, GAME_ID, { endsAt: ENDED, status: 'played' });
+		await writeLedger(GAME_ID, { positions: { anna: 0, gone: 1 } });
+
+		await backfillRecapReady(context());
+
+		expect(await watched('anna')).toEqual([SEASON_ID]);
+		expect((await getDb().doc('users/gone').get()).exists).toBe(false);
+	});
+
+	it('writes nothing on a dry run', async () => {
+		await writeSeason(SEASON_ID);
+		await writeGame(SEASON_ID, GAME_ID, { endsAt: ENDED, status: 'played' });
+		await writeLedger(GAME_ID);
+
+		await backfillRecapReady(context({ dryRun: true }));
+
+		expect((await season(SEASON_ID))?.recapReadyAt).toBeUndefined();
+		expect(await watched('anna')).toBeUndefined();
+		expect(output()).toContain(SEASON_ID);
 	});
 });

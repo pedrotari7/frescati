@@ -376,7 +376,8 @@ service cloud.firestore {
                  ['id', 'name', 'status', 'startDate', 'endDate', 'venue', 'slot',
                   'minPlayers', 'responseDeadlineHours', 'reminderHours', 'balance',
                   'fees', 'memberUids', 'adminUids', 'createdAt', 'createdBy',
-                  'copiedFrom', 'signupClosesOn', 'confirmedAt', 'confirmedBy', 'quiet'])
+                  'copiedFrom', 'signupClosesOn', 'confirmedAt', 'confirmedBy', 'quiet',
+                  'recapReadyAt'])
                && request.resource.data.get('name', '') is string
                && request.resource.data.get('name', '').size() <= 100
                && request.resource.data.get('status', '') is string
@@ -426,12 +427,21 @@ service cloud.firestore {
                && request.resource.data.adminUids.size() <= 50;
       }
 
-      // Stamped by `confirmSeason` and by nothing else. They record that the
-      // sign-up was closed and by whom, and a client that could write them
-      // could claim a confirmation that never ran.
-      function touchesConfirmation() {
+      // Stamped by functions and by nothing else. `confirmedAt` and
+      // `confirmedBy` come from `confirmSeason` and record that the sign-up was
+      // closed and by whom, so a client that could write them could claim a
+      // confirmation that never ran. `recapReadyAt` comes from
+      // `announceRecapIfReady` once the last game is confirmed; a client that
+      // could write it could start the takeover early, or clear it and have the
+      // next confirmation announce the season a second time.
+      //
+      // One diff for all three rather than one each. The update rule is close to
+      // Firestore's 1000-expression ceiling on a season with a copied payee, and
+      // a second `diff()` tipped it over. That is also why `recapReadyAt` has no
+      // shape check of its own: no client write can carry it.
+      function touchesFunctionStamps() {
         return request.resource.data.diff(resource.data).affectedKeys()
-                 .hasAny(['confirmedAt', 'confirmedBy']);
+                 .hasAny(['confirmedAt', 'confirmedBy', 'recapReadyAt']);
       }
 
       // No client write moves a season into or out of draft. A draft leaves it only
@@ -504,7 +514,7 @@ service cloud.firestore {
                     && request.resource.data.status == 'draft'
                     && request.resource.data.memberUids is list
                     && request.resource.data.memberUids.size() == 0
-                    && !request.resource.data.keys().hasAny(['confirmedAt', 'confirmedBy']);
+                    && !request.resource.data.keys().hasAny(['confirmedAt', 'confirmedBy', 'recapReadyAt']);
 
       // A season admin can hand over the season but not abandon it: adminUids
       // must never end up empty.
@@ -516,7 +526,7 @@ service cloud.firestore {
                     && keepsItsSource()
                     && staysOnItsSideOfDraft()
                     && keepsTheDraftSquad()
-                    && !touchesConfirmation();
+                    && !touchesFunctionStamps();
 
       allow delete: if isAppAdmin();
 

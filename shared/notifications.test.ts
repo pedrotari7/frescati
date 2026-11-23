@@ -8,6 +8,7 @@ import {
 	buildEmail,
 	buildGamePush,
 	buildNewPlayerPush,
+	buildRecapReadyPush,
 	buildSeasonConfirmedPush,
 	buildSignupPush,
 	canEmail,
@@ -420,6 +421,26 @@ describe('buildSignupPush', () => {
 	});
 });
 
+describe('buildRecapReadyPush', () => {
+	const push = buildRecapReadyPush({ seasonId: 'autumn', seasonName: 'Autumn 2026' });
+
+	it('says the season is over and opens its recap', () => {
+		expect(push).toEqual({
+			title: 'Autumn 2026 is over',
+			body: 'Your season recap is ready.',
+			url: '/s/autumn/recap',
+			tag: 'recap-autumn',
+			respondable: false,
+		});
+	});
+
+	// Once a season, to the people who played in it: a switch would only ever
+	// be the one that silences the send-off.
+	it('has no switch to turn it off', () => {
+		expect(NOTIFICATION_PREF.recapReady).toBeNull();
+	});
+});
+
 describe('buildSeasonConfirmedPush', () => {
 	const CONFIRMED = {
 		seasonId: 'autumn',
@@ -509,7 +530,7 @@ describe('NOTIFICATION_PREF', () => {
 	// Those four are the only ones that may be `null`. Everything else goes out
 	// to a standing audience nobody signed up for, so the profile has to be able
 	// to say no to it.
-	const UNGATED = ['availability', 'duesReminder', 'dueRaised', 'seasonConfirmed'];
+	const UNGATED = ['availability', 'duesReminder', 'dueRaised', 'seasonConfirmed', 'recapReady'];
 
 	it('keeps every standing-audience kind on a preference', () => {
 		for (const kind of NOTIFICATIONS.filter(candidate => !UNGATED.includes(candidate))) {

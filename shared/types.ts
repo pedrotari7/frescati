@@ -321,6 +321,12 @@ export interface Season {
 	confirmedBy?: string;
 	/** A quiet season sends none of the three sign-up notifications. Everything else goes out as usual. */
 	quiet?: boolean;
+	/**
+	 * ISO 8601 UTC, when the last game was settled and the recap opened.
+	 * Function-owned: written once by `announceRecapIfReady`, which also sends
+	 * the notification, and by `backfill-recap-ready` for older seasons.
+	 */
+	recapReadyAt?: string;
 }
 
 export type SignupStatus = 'yes' | 'no';

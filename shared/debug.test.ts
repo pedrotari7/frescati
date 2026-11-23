@@ -1,10 +1,11 @@
 import { buildSignupSample, isSignupNotification } from './debug';
 
 describe('isSignupNotification', () => {
-	it('recognises the three sign-up kinds and nothing else', () => {
+	it('recognises the season kinds and nothing else', () => {
 		expect(isSignupNotification('signupOpen')).toBe(true);
 		expect(isSignupNotification('signupReminder')).toBe(true);
 		expect(isSignupNotification('seasonConfirmed')).toBe(true);
+		expect(isSignupNotification('recapReady')).toBe(true);
 		expect(isSignupNotification('dueRaised')).toBe(false);
 		expect(isSignupNotification('reminder')).toBe(false);
 	});
@@ -19,5 +20,6 @@ describe('buildSignupSample', () => {
 
 	it('gives the reminders a close date to show', () => {
 		expect(buildSignupSample('signupReminder', 'autumn', 'Autumn 2026').body).toContain('1 Dec');
+		expect(buildSignupSample('recapReady', 'autumn', 'Autumn 2026').url).toBe('/s/autumn/recap');
 	});
 });

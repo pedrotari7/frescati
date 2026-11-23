@@ -202,6 +202,8 @@ const DESCRIPTIONS: Record<AnyNotification, string> = {
 		'Really goes every third day to everybody who has not answered, until the close date. Needs the season above. Opens the season.',
 	seasonConfirmed:
 		'Really goes to each new member when an admin confirms the season, one send each, with their share. Needs the season above; sends a made-up amount. Opens the finances screen.',
+	recapReady:
+		'Really goes once, to everybody who played, when the last game of the season is confirmed. Needs the season above. Opens its recap.',
 };
 
 const STATUS_TONE: Record<EmailTestStatus, PillTone> = { sent: 'in', noAddress: 'out', emailOff: 'neutral' };

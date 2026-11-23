@@ -24,6 +24,7 @@
 		"backfill-motm-turnout": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillMotmTurnout.ts",
 		"backfill-ledger-teams": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillLedgerTeams.ts",
 		"backfill-ledger-seed": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillLedgerSeed.ts",
+		"backfill-recap-ready": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillRecapReady.ts",
 		"backfill-debtors": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillDebtors.ts",
 		"backfill-late-entries": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/backfillLateEntries.ts",
 		"strip-user-emails": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/stripUserEmails.ts",

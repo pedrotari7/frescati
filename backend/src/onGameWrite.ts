@@ -8,6 +8,7 @@ import { getResponses, getSeason, getUidsWhoSaidIn } from './lib/data';
 import { EMAIL_SECRETS } from './lib/email';
 import { sendGamePush } from './lib/push';
 import { enqueueTeamRebuild } from './lib/teams';
+import { announceRecapIfReady } from './lib/recap';
 import { instrument, reportError } from './lib/sentry';
 
 /**
@@ -98,6 +99,12 @@ const notifyGameChange = async (seasonId: string, gameId: string, before: Game, 
 		});
 
 		logger.info('Notified players of a cancellation', { seasonId, gameId, ...sent });
+
+		// Calling off the one game nobody scored is the other way a season can
+		// end. Swallowed, because the cancellation has already been told.
+		await announceRecapIfReady(seasonId).catch(error =>
+			reportError('Could not announce the season recap', { seasonId, gameId }, error)
+		);
 		return;
 	}
 
