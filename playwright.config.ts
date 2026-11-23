@@ -75,6 +75,9 @@ export default defineConfig({
 		// for `--project=desktop` runs mobile first, so it is not a way to test
 		// one viewport; and a failure in mobile leaves desktop reported as never
 		// run rather than as passing.
+		//
+		// CI skips the ordering. `e2e.yml` runs each viewport in a job of its
+		// own, against a database of its own, with `--no-deps`.
 		{ name: 'desktop', use: { ...devices['Desktop Chrome'] }, dependencies: ['mobile'] },
 	],
 	/**
