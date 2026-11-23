@@ -1,6 +1,8 @@
 import { getSeasonTable } from './leaderboard';
 import type { SeasonRow } from './leaderboard';
 import { seasonExtras } from './availability';
+import { getPlayerLinks } from './player';
+import type { PlayerLink } from './player';
 import type { SeasonResponses } from './availability';
 import type { Game, RatingLedgerEntry, TournamentMatch, TournamentMotm } from './types';
 
@@ -15,6 +17,9 @@ import type { Game, RatingLedgerEntry, TournamentMatch, TournamentMotm } from '.
 
 /** Fewer games than this and the bottom of the table is bad luck, not a spoon. */
 export const SPOON_MIN_APPEARANCES = 3;
+
+/** One meeting is a result. A nemesis has to have done it twice. */
+export const NEMESIS_MIN_GAMES = 2;
 
 /** How close to kickoff an answer has to be last touched to count as late. */
 const LAST_MINUTE_HOURS = 24;
@@ -123,6 +128,20 @@ export interface BanterRecap {
 	woodenSpoon: Award | null;
 }
 
+export interface PersonalRecap {
+	row: SeasonRow;
+	/** wins / appearances, 0..1. */
+	winRate: number;
+	/** Elo before their first game, then after each game they played, in kickoff order. */
+	journey: number[];
+	bestTeammate: { uid: string; wonTogether: number } | null;
+	/** The opponent who beat them most, among those met `NEMESIS_MIN_GAMES` times who have the better of it. */
+	nemesis: { uid: string; beat: number; lostTo: number } | null;
+	motmVotes: number;
+	motmWins: number;
+	bestGame: { gameId: string; kickoff: string; gain: number } | null;
+}
+
 const roundToTenth = (value: number): number => Math.round(value * 10) / 10;
 
 /** Every scoreline, earliest game first, so a tie between two goes to the one that came first. */
@@ -153,7 +172,7 @@ const bestTurnout = (entries: RatingLedgerEntry[]): ClubRecap['bestTurnout'] => 
 	let best: ClubRecap['bestTurnout'] = null;
 
 	for (const entry of entries) {
-		const turnout = Object.keys(entry.positions ?? {}).length;
+		const turnout = Object.keys(entry.positions).length;
 		if (!best || turnout > best.turnout) best = { gameId: entry.gameId, kickoff: entry.kickoff, turnout };
 	}
 
@@ -163,8 +182,8 @@ const bestTurnout = (entries: RatingLedgerEntry[]): ClubRecap['bestTurnout'] => 
 export const getClubRecap = (input: RecapInput): ClubRecap => {
 	const entries = seasonEntries(input);
 	const highlights = allMatches(entries, input.matches);
-	const appearances = entries.reduce((sum, entry) => sum + Object.keys(entry.positions ?? {}).length, 0);
-	const players = new Set(entries.flatMap(entry => Object.keys(entry.positions ?? {})));
+	const appearances = entries.reduce((sum, entry) => sum + Object.keys(entry.positions).length, 0);
+	const players = new Set(entries.flatMap(entry => Object.keys(entry.positions)));
 
 	return {
 		gamesPlayed: entries.length,
@@ -195,7 +214,7 @@ const longestStreaks = (entries: RatingLedgerEntry[]): Map<string, number> => {
 	const best = new Map<string, number>();
 
 	for (const entry of entries) {
-		for (const [uid, position] of Object.entries(entry.positions ?? {})) {
+		for (const [uid, position] of Object.entries(entry.positions)) {
 			const run = position === 0 ? (current.get(uid) ?? 0) + 1 : 0;
 
 			current.set(uid, run);
@@ -268,5 +287,82 @@ export const getBanter = (input: RecapInput): BanterRecap => {
 		noShows: topAward(noShows(answers)),
 		lastMinute: topAward(lastMinuteAnswers(answers)),
 		woodenSpoon: woodenSpoon(getSeasonTable(entries, input.seasonId)),
+	};
+};
+
+/**
+ * Where a player's rating stood going into a game. An arrival with no rating
+ * was rated off the seed, as `getSeasonTable` counts it, and an entry from
+ * before the seed was stored falls back to no movement at all.
+ */
+const ratingBefore = (entry: RatingLedgerEntry, uid: string): number =>
+	entry.before[uid]?.elo ?? entry.seedElo ?? entry.after[uid]?.elo ?? 0;
+
+/** Called only for somebody with a row in the table, so `played` is never empty. */
+const journeyOf = (played: RatingLedgerEntry[], uid: string): number[] => [
+	ratingBefore(played[0], uid),
+	...played.map(entry => entry.after[uid]?.elo ?? ratingBefore(entry, uid)),
+];
+
+const bestGameOf = (played: RatingLedgerEntry[], uid: string): PersonalRecap['bestGame'] => {
+	let best: PersonalRecap['bestGame'] = null;
+
+	for (const entry of played) {
+		const gain = (entry.after[uid]?.elo ?? ratingBefore(entry, uid)) - ratingBefore(entry, uid);
+		if (gain > 0 && (!best || gain > best.gain)) best = { gameId: entry.gameId, kickoff: entry.kickoff, gain };
+	}
+
+	return best;
+};
+
+/** Most wins together, then most games together, then uid, so the same season always names the same person. */
+const bestTeammateOf = (links: PlayerLink[]): PersonalRecap['bestTeammate'] => {
+	const [best] = links
+		.filter(link => link.wonTogether > 0)
+		.sort((a, b) => b.wonTogether - a.wonTogether || b.together - a.together || (a.uid < b.uid ? -1 : 1));
+
+	return best ? { uid: best.uid, wonTogether: best.wonTogether } : null;
+};
+
+const nemesisOf = (links: PlayerLink[]): PersonalRecap['nemesis'] => {
+	const [worst] = links
+		.filter(link => link.against >= NEMESIS_MIN_GAMES && link.lostTo > link.beat)
+		.sort((a, b) => b.lostTo - a.lostTo || a.beat - b.beat || (a.uid < b.uid ? -1 : 1));
+
+	return worst ? { uid: worst.uid, beat: worst.beat, lostTo: worst.lostTo } : null;
+};
+
+const motmFor = (played: RatingLedgerEntry[], motm: RecapInput['motm'], uid: string) => {
+	let votes = 0;
+	let wins = 0;
+
+	for (const entry of played) {
+		const counted = motm[entry.gameId];
+		votes += counted?.counts.find(count => count.uid === uid)?.votes ?? 0;
+		if (counted?.winners.includes(uid)) wins++;
+	}
+
+	return { motmVotes: votes, motmWins: wins };
+};
+
+/** Null when `uid` has no appearance in this season. */
+export const getPersonalRecap = (input: RecapInput, uid: string): PersonalRecap | null => {
+	const entries = seasonEntries(input);
+	const row = getSeasonTable(entries, input.seasonId).find(candidate => candidate.uid === uid);
+
+	if (!row) return null;
+
+	// `getPlayerLinks` is career-wide, so it only ever sees this season's games here.
+	const links = getPlayerLinks(entries, uid);
+	const played = entries.filter(entry => entry.positions?.[uid] !== undefined);
+
+	return {
+		row,
+		winRate: row.wins / row.appearances,
+		journey: journeyOf(played, uid),
+		bestTeammate: bestTeammateOf(links),
+		nemesis: nemesisOf(links),
+		...motmFor(played, input.motm, uid),
+		bestGame: bestGameOf(played, uid),
 	};
 };
