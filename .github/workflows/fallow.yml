@@ -28,7 +28,7 @@ jobs:
       # compares against the merge-base with the target branch, and a clone one
       # commit deep has no merge-base to find; it fails the job outright rather
       # than quietly auditing everything.
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -44,7 +44,7 @@ jobs:
       # it. The local hooks never saw it, because a working tree always has the
       # directory.
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -67,7 +67,7 @@ jobs:
       # pins, and there is one place to bump it.
       - name: Check the whole repo
         if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
-        uses: fallow-rs/fallow@4f3bd9720ca6b22c8547adb7f1d225f57fc502d4 # v3.26.0
+        uses: fallow-rs/fallow@b802ddc49a09ad9df4e9894cdd465f5b51b1b0c8 # v3.45.0
         with:
           auto-changed-since: false
           max-crap: 10000
@@ -84,7 +84,7 @@ jobs:
       # to main or merged over a red check, stops here rather than shipping.
       - name: Scan main
         if: ${{ github.event_name == 'push' }}
-        uses: fallow-rs/fallow@4f3bd9720ca6b22c8547adb7f1d225f57fc502d4 # v3.26.0
+        uses: fallow-rs/fallow@b802ddc49a09ad9df4e9894cdd465f5b51b1b0c8 # v3.45.0
         with:
           max-crap: 10000
           format: sarif
@@ -97,7 +97,7 @@ jobs:
       # failed it are exactly the ones worth reading on the diff.
       - name: Upload to code scanning
         if: ${{ !cancelled() }}
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
         with:
           sarif_file: fallow-results.sarif
           category: fallow
