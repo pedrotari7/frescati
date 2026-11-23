@@ -1,4 +1,13 @@
-import { SPOON_MIN_APPEARANCES, getAwards, getBanter, getClubRecap, isSeasonFinished, topAward } from './recap';
+import {
+	NEMESIS_MIN_GAMES,
+	SPOON_MIN_APPEARANCES,
+	getAwards,
+	getBanter,
+	getClubRecap,
+	getPersonalRecap,
+	isSeasonFinished,
+	topAward,
+} from './recap';
 import type { RecapInput } from './recap';
 import type { Game, GameResponse, RatingLedgerEntry, TournamentMatch, TournamentMotm } from './types';
 
@@ -250,6 +259,13 @@ describe('getAwards', () => {
 		expect(awards.streak).toEqual({ uids: ['a'], value: 3 });
 	});
 
+	it('reads two games kicking off at once in game id order', () => {
+		// Same kickoff: g1 is a win and g2 a loss, so the run that ends the season is g3 alone.
+		const entries = [entry('g2', 1, { a: 1 }), entry('g1', 1, { a: 0 }), entry('g3', 8, { a: 0 })];
+
+		expect(getAwards(input({ entries })).streak).toEqual({ uids: ['a'], value: 1 });
+	});
+
 	it('shares the streak when two runs are as long', () => {
 		const awards = getAwards(
 			input({
@@ -364,5 +380,172 @@ describe('getBanter', () => {
 				})
 			).woodenSpoon
 		).toBeNull();
+	});
+});
+
+describe('getPersonalRecap', () => {
+	/** A game with teams and ratings: `elo` is each player's [before, after], `null` before for an arrival. */
+	const rated = (
+		gameId: string,
+		day: number,
+		positions: Record<string, number>,
+		teams: Record<string, number> | undefined,
+		elo: Record<string, [number | null, number]>,
+		seedElo?: number
+	): RatingLedgerEntry =>
+		({
+			...entry(gameId, day, positions, teams),
+			before: Object.fromEntries(Object.entries(elo).map(([uid, [b]]) => [uid, b === null ? null : { elo: b }])),
+			after: Object.fromEntries(Object.entries(elo).map(([uid, [, a]]) => [uid, { elo: a }])),
+			...(seedElo === undefined ? {} : { seedElo }),
+		}) as unknown as RatingLedgerEntry;
+
+	it('has nothing for somebody who never played', () => {
+		expect(getPersonalRecap(input({ entries: season([{ a: 0 }]) }), 'z')).toBeNull();
+	});
+
+	it('follows one game from before to after', () => {
+		const personal = getPersonalRecap(
+			input({ entries: [rated('g1', 1, { a: 0, b: 1 }, undefined, { a: [1000, 1010], b: [1000, 990] })] }),
+			'a'
+		);
+
+		expect(personal?.journey).toEqual([1000, 1010]);
+		expect(personal?.winRate).toBe(1);
+		expect(personal?.row.appearances).toBe(1);
+	});
+
+	it('starts an arrival at the seed the game rated them from', () => {
+		const personal = getPersonalRecap(
+			input({ entries: [rated('g1', 1, { a: 0, b: 1 }, undefined, { a: [null, 1012], b: [1000, 990] }, 1002)] }),
+			'a'
+		);
+
+		expect(personal?.journey).toEqual([1002, 1012]);
+	});
+
+	it('finds the teammate they won most with', () => {
+		const personal = getPersonalRecap(
+			input({
+				entries: [
+					rated('g1', 1, { a: 0, b: 0, c: 1 }, { a: 0, b: 0, c: 1 }, {}),
+					rated('g2', 8, { a: 0, b: 1, c: 0 }, { a: 0, b: 1, c: 0 }, {}),
+					rated('g3', 15, { a: 0, b: 0, c: 1 }, { a: 0, b: 0, c: 1 }, {}),
+				],
+			}),
+			'a'
+		);
+
+		expect(personal?.bestTeammate).toEqual({ uid: 'b', wonTogether: 2 });
+	});
+
+	it('needs two meetings before somebody is a nemesis', () => {
+		const once = [rated('g1', 1, { a: 1, n: 0 }, { a: 0, n: 1 }, {})];
+		const twice = [...once, rated('g2', 8, { a: 1, n: 0 }, { a: 0, n: 1 }, {})];
+
+		expect(NEMESIS_MIN_GAMES).toBe(2);
+		expect(getPersonalRecap(input({ entries: once }), 'a')?.nemesis).toBeNull();
+		expect(getPersonalRecap(input({ entries: twice }), 'a')?.nemesis).toEqual({ uid: 'n', beat: 0, lostTo: 2 });
+	});
+
+	it('has no nemesis for an even record', () => {
+		const entries = [
+			rated('g1', 1, { a: 1, n: 0 }, { a: 0, n: 1 }, {}),
+			rated('g2', 8, { a: 0, n: 1 }, { a: 0, n: 1 }, {}),
+		];
+
+		expect(getPersonalRecap(input({ entries }), 'a')?.nemesis).toBeNull();
+	});
+
+	it('leaves the people out of games written before teams were stored', () => {
+		const personal = getPersonalRecap(
+			input({
+				entries: season([
+					{ a: 0, b: 0, c: 1 },
+					{ a: 1, c: 0 },
+				]),
+			}),
+			'a'
+		);
+
+		expect(personal?.bestTeammate).toBeNull();
+		expect(personal?.nemesis).toBeNull();
+	});
+
+	it('only counts meetings from this season', () => {
+		const other = { ...rated('x1', 1, { a: 1, n: 0 }, { a: 0, n: 1 }, {}), seasonId: 'other' };
+		const entries = [other, other, rated('g1', 8, { a: 1, n: 0 }, { a: 0, n: 1 }, {})];
+
+		expect(getPersonalRecap(input({ entries }), 'a')?.nemesis).toBeNull();
+	});
+
+	it('adds up their man-of-the-match votes and wins', () => {
+		const personal = getPersonalRecap(
+			input({
+				entries: season([
+					{ a: 0, b: 1 },
+					{ a: 0, b: 1 },
+				]),
+				motm: { g1: motm(['a'], { a: 3, b: 1 }), g2: motm(['b'], { a: 1, b: 2 }) },
+			}),
+			'a'
+		);
+
+		expect(personal?.motmVotes).toBe(4);
+		expect(personal?.motmWins).toBe(1);
+	});
+
+	it('picks the game they gained the most in', () => {
+		const personal = getPersonalRecap(
+			input({
+				entries: [
+					rated('g1', 1, { a: 0 }, undefined, { a: [1000, 1008] }),
+					rated('g2', 8, { a: 0 }, undefined, { a: [1008, 1020] }),
+					rated('g3', 15, { a: 1 }, undefined, { a: [1020, 1010] }),
+				],
+			}),
+			'a'
+		);
+
+		expect(personal?.bestGame).toEqual({ gameId: 'g2', kickoff: '2026-09-08T17:00:00.000Z', gain: 12 });
+	});
+
+	it('breaks a tie between teammates on games together, then on name', () => {
+		const games = [
+			rated('g1', 1, { a: 0, b: 0, c: 0, d: 0, x: 1 }, { a: 0, b: 0, c: 0, d: 0, x: 1 }, {}),
+			rated('g2', 8, { a: 1, b: 1, x: 0 }, { a: 0, b: 0, x: 1 }, {}),
+		];
+
+		// b, c and d each won once with a; b also lost once beside them.
+		expect(getPersonalRecap(input({ entries: games }), 'a')?.bestTeammate?.uid).toBe('b');
+		expect(getPersonalRecap(input({ entries: games.slice(0, 1) }), 'a')?.bestTeammate?.uid).toBe('b');
+	});
+
+	it('breaks a tie between nemeses on the fewer wins against them, then on name', () => {
+		const lose = (gameId: string, day: number, to: string) =>
+			rated(gameId, day, { a: 1, [to]: 0 }, { a: 0, [to]: 1 }, {});
+		const beat = (gameId: string, day: number, who: string) =>
+			rated(gameId, day, { a: 0, [who]: 1 }, { a: 0, [who]: 1 }, {});
+
+		const uneven = [
+			lose('g1', 1, 'm'),
+			lose('g2', 2, 'm'),
+			beat('g3', 3, 'm'),
+			lose('g4', 4, 'n'),
+			lose('g5', 5, 'n'),
+		];
+		expect(getPersonalRecap(input({ entries: uneven }), 'a')?.nemesis?.uid).toBe('n');
+
+		const level = [lose('g1', 1, 'n'), lose('g2', 2, 'n'), lose('g3', 3, 'm'), lose('g4', 4, 'm')];
+		expect(getPersonalRecap(input({ entries: level }), 'a')?.nemesis?.uid).toBe('m');
+	});
+
+	it('has no best game when every game cost them', () => {
+		const personal = getPersonalRecap(
+			input({ entries: [rated('g1', 1, { a: 1 }, undefined, { a: [1000, 990] })] }),
+			'a'
+		);
+
+		expect(personal?.bestGame).toBeNull();
 	});
 });
