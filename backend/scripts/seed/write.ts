@@ -377,6 +377,7 @@ const buildSeason = (plan: SeasonPlan, createdBy: string, runId: string, numbers
 			: {}),
 		memberUids: plan.memberKeys.map(uidFor),
 		adminUids: plan.adminKeys.map(uidFor),
+		...(plan.recapReady ? { recapReadyAt: new Date().toISOString() } : {}),
 		// A season that is signing up was opened a few days ago, which is what
 		// its answers are dated against. Two weeks before the start would be
 		// in the future for a draft that starts in two months.
