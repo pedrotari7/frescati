@@ -56,7 +56,11 @@ const styles = stylex.create({
 		color: colors.ink,
 		textDecoration: 'none',
 	},
-	/* The slide lets taps fall through to the story; a link has to catch its own. */
+	/*
+	 * The slide lets taps fall through to the story, and a link has to catch its
+	 * own, which takes that patch of screen away from Next. So only the goodbye
+	 * has one, where there is no next slide to lose.
+	 */
 	link: { pointerEvents: 'auto' },
 	rowLabel: { color: colors.muted, fontSize: 14 },
 	rowValue: { color: colors.ink, fontSize: 16, fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
@@ -204,7 +208,6 @@ const podium = ({ club, nameOf }: SlideContext) => (
 );
 
 const remembered = ({ season, club }: SlideContext) => {
-	const gameHref = (gameId: string) => `/s/${season.id}/g/${gameId}`;
 	const date = (kickoff: string) => formatGameDate(kickoff, season.slot.timezone);
 	const matches: [string, MatchHighlight | null][] = [
 		['Most goals', club.highestScoring],
@@ -217,19 +220,13 @@ const remembered = ({ season, club }: SlideContext) => {
 			<ul {...stylex.props(styles.list)}>
 				{matches.map(([label, highlight]) =>
 					highlight ? (
-						<Row
-							key={label}
-							label={`${label}, ${date(highlight.kickoff)}`}
-							value={score(highlight)}
-							href={gameHref(highlight.gameId)}
-						/>
+						<Row key={label} label={`${label}, ${date(highlight.kickoff)}`} value={score(highlight)} />
 					) : null
 				)}
 				{club.bestTurnout && (
 					<Row
 						label={`Biggest turnout, ${date(club.bestTurnout.kickoff)}`}
 						value={counted(club.bestTurnout.turnout, 'player')}
-						href={gameHref(club.bestTurnout.gameId)}
 					/>
 				)}
 			</ul>
@@ -340,7 +337,6 @@ const personalSlides = ({ season, personal, mine, nameOf }: SlideContext): React
 					<Row
 						label={`Best game, ${formatGameDate(personal.bestGame.kickoff, season.slot.timezone)}`}
 						value={signed(toDisplayMovement(personal.bestGame.gain))}
-						href={`/s/${season.id}/g/${personal.bestGame.gameId}`}
 					/>
 				)}
 			</ul>

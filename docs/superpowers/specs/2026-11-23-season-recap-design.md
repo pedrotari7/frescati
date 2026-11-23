@@ -78,7 +78,7 @@ The order is: intro, club, awards, banter, then personal. The last slide is "You
 
 - **Season in numbers.** Games played, total goals across all matches, average turnout, distinct players, and how many of them were extras.
 - **Podium.** The top three from `getSeasonTable` in its default `won` order. Ties share a step.
-- **Games to remember.** The highest-scoring match, the biggest winning margin, the closest finish and the game with the best turnout. The closest finish is the smallest margin among decided matches, since a level one is a draw, not a finish. Each one links to its game.
+- **Games to remember.** The highest-scoring match, the biggest winning margin, the closest finish and the game with the best turnout. The closest finish is the smallest margin among decided matches, since a level one is a draw, not a finish. They are not links: a link on a slide catches the tap that would have moved the story on.
 
 ### Awards
 
