@@ -196,6 +196,12 @@ export interface SeasonPlan {
 	signups?: { yes: string[]; no: string[] };
 	/** Set up quietly, so seeding sends nobody a notification. */
 	quiet?: boolean;
+	/**
+	 * Stamp `recapReadyAt`, as `announceRecapIfReady` would once the last game
+	 * was confirmed. Only for a season whose every game is in the past and
+	 * played, or the stamp claims an ending the ledger does not have.
+	 */
+	recapReady?: boolean;
 }
 
 export interface Scenario {
@@ -522,6 +528,28 @@ const full: Scenario = {
 			finances: { total: 15000, perGame: 60, charges: 'unraised', expenses: [] },
 			// A mix on purpose: a few in, one out, and the rest not asked yet.
 			signups: { yes: ['pedro', 'anna', 'rafael', 'omar'], no: ['mateo'] },
+		},
+		// Held for `e2e/recap.spec.ts` alone: a season that is over, rated end to
+		// end and stamped, so its home opens on the recap. Played mostly by the
+		// cast nobody else's roster uses, so adding it moves no other spec's pick
+		// of who to sign in as.
+		{
+			id: 'season-recap',
+			name: 'Winter league 2025',
+			status: 'archived',
+			venue: FRESCATI,
+			slot: tuesdayEvening,
+			minPlayers: 8,
+			responseDeadlineHours: 3,
+			reminderHours: [48, 6],
+			memberKeys: ['felipe', 'tariq', 'noah', 'erik', 'omar', 'lukas', 'tobias', 'rafael'],
+			adminKeys: ['pedro'],
+			extraKeys: ['ingrid'],
+			startWeeks: -30,
+			endWeeks: -22,
+			turnout: [8, 9],
+			history: 'played',
+			recapReady: true,
 		},
 		// Held for `e2e/signup.spec.ts` alone: the season its journey copies from.
 		// Nothing else reads it, so the spec can start a season from it every run.
