@@ -132,7 +132,11 @@ test.describe('signing up for the next season', () => {
 			await expect(sheet.getByText(new RegExp(`Each owes ${escapeForRegExp(formatSek(SHARE))}`))).toBeVisible();
 
 			await sheet.getByRole('button', { name: 'Confirm season' }).click();
-			await dialogGone(page);
+
+			// The sheet waits for `confirmSeason` to answer, and this is the first
+			// call to it in the run, so the emulator cold-starts it first. On CI
+			// that took sixteen seconds before the function began.
+			await dialogGone(page, { timeout: 45_000 });
 
 			await expect(page.getByText(`${name} is on with 2 members.`)).toBeVisible();
 		});

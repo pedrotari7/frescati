@@ -131,9 +131,14 @@ export const dialog = (page: Page): Locator => page.getByRole('dialog');
  * register came back naming the old holder. It failed four times running on CI
  * and passed every time on a laptop quick enough to get the request out inside
  * those 40ms.
+ *
+ * `timeout` is for a sheet that closes on a callable rather than a Firestore
+ * write. The first call to a callable in a run cold-starts its worker in the
+ * functions emulator, and on a busy CI runner that alone has taken sixteen
+ * seconds, longer than the default wait.
  */
-export const dialogGone = async (page: Page): Promise<void> => {
-	await expect(dialog(page)).toHaveCount(0);
+export const dialogGone = async (page: Page, { timeout }: { timeout?: number } = {}): Promise<void> => {
+	await expect(dialog(page)).toHaveCount(0, { timeout });
 };
 
 /**
