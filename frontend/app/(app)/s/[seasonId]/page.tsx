@@ -12,6 +12,7 @@ import { usePayment, useSignups, useUsersByUid } from '../../../../hooks/useData
 import { useRespond } from '../../../../hooks/useRespond';
 import { useWatchGames } from '../../../../hooks/useWatchGames';
 import { useLiveGameRedirect } from '../../../../hooks/useLiveGameRedirect';
+import { useSeasonRecapTakeover } from '../../../../hooks/useRecapTakeover';
 import { useNow } from '../../../../hooks/useNow';
 import SeasonShell from '../../../../components/SeasonShell';
 import Skeleton from '../../../../components/Skeleton';
@@ -29,6 +30,7 @@ import Button from '../../../../components/Button';
 import CalendarSubscribeSheet from '../../../../components/CalendarSubscribeSheet';
 import PlayedSection from '../../../../components/PlayedSection';
 import { SectionHeading } from '../../../../components/Section';
+import RecapCard from '../../../../components/recap/RecapCard';
 
 const styles = stylex.create({
 	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
@@ -271,6 +273,8 @@ const SeasonHomePage = () => {
 		ready: !loading,
 	});
 
+	useSeasonRecapTakeover(season, !loading);
+
 	const { next, upcoming, voting, played } = useMemo(
 		() => (season ? groupGames(games, now) : { next: null, upcoming: [], voting: [], played: [] }),
 		[games, season, now]
@@ -294,6 +298,8 @@ const SeasonHomePage = () => {
 					    above everything else because it is the one thing here with a
 					    deadline that nobody is reminded of by the games below. */}
 					<SignupQuestions />
+
+					{season.recapReadyAt && <RecapCard seasonId={seasonId} seasonName={season.name} />}
 
 					{/* First on the screen, and above the card whose In button it
 					    explains. Not instead of the games: hiding the calendar

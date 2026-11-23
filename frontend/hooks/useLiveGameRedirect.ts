@@ -1,37 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Game, GameResponse, Season } from '@shared/types';
 import { findLiveGame } from '@shared/game';
 import { isVisible } from '../lib/device';
+import { claimOnce, useOnArrival } from './useArrival';
 
 const SENT_KEY = 'frescati:live-game';
-
-/**
- * Whether this is the first time we've offered to open this game, recording it
- * if so.
- *
- * The mark is the game id rather than a flag, so next week's game gets its own
- * offer, an installed app can sit in one document for weeks, and a
- * once-per-session flag would spend itself on the first game and never fire
- * again.
- *
- * `sessionStorage` throws outright where storage is blocked, which on Safari in
- * private mode is a phone this app really runs on. Being unable to record the
- * jump means not taking it: the season page is a perfectly good place to land,
- * and an unrecorded redirect is one the back button can't escape.
- */
-const claimRedirect = (gameId: string): boolean => {
-	try {
-		if (window.sessionStorage.getItem(SENT_KEY) === gameId) return false;
-
-		window.sessionStorage.setItem(SENT_KEY, gameId);
-		return true;
-	} catch {
-		return false;
-	}
-};
 
 /**
  * Opens the game somebody is playing in right now when they come to the app.
@@ -83,7 +59,9 @@ export const useLiveGameRedirect = ({
 		if (!ready || !season || !isVisible()) return;
 
 		const live = findLiveGame(games, season, myResponses);
-		if (!live || !claimRedirect(live.id)) return;
+		// The mark is the game id rather than a flag, so next week's game gets its
+		// own offer: an installed app can sit in one document for weeks.
+		if (!live || !claimOnce(SENT_KEY, live.id)) return;
 
 		// `replace`, not `push`: nobody chose the season page this time round, it
 		// was on the way through. Pushing would spend a Back tap undoing a
@@ -91,29 +69,5 @@ export const useLiveGameRedirect = ({
 		router.replace(`/s/${seasonId}/g/${live.id}`);
 	}, [router]);
 
-	// The load: the first render where the answer is knowable, and only that one.
-	//
-	// Latched on a ref rather than left to the dependency array, which would make
-	// "arrived" mean "nothing in this list changed", and `router` is in that
-	// list. A `useRouter` that handed back a fresh object per render would turn
-	// every re-render into another arrival, which is precisely the tick-driven
-	// jump this hook exists to avoid.
-	const arrived = useRef(false);
-
-	useEffect(() => {
-		if (!ready || arrived.current) return;
-
-		// Set before the attempt, not after: a page that loaded in the background
-		// has had its load arrival, and the trip to the foreground below is the
-		// one that should decide.
-		arrived.current = true;
-		arrive();
-	}, [ready, arrive]);
-
-	// The resume.
-	useEffect(() => {
-		document.addEventListener('visibilitychange', arrive);
-
-		return () => document.removeEventListener('visibilitychange', arrive);
-	}, [arrive]);
+	useOnArrival(ready, arrive);
 };
