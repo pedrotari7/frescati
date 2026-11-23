@@ -43,6 +43,12 @@ const GROUPS: { title: string; status: SignupStatus | null; empty: string }[] = 
  * answer. The pencil reuses `AnswerSheet`, which speaks in/out, so the choice is
  * mapped to yes/no on the way out. Confirming waits for the viewing admin's own
  * yes: they have to end up in the squad to keep their admin rights.
+ *
+ * Whether the confirm sheet is open belongs to the caller. `confirmSeason`
+ * flips the season out of draft, and the season's snapshot can land before the
+ * callable answers. A caller that draws this only for a draft would unmount the
+ * sheet halfway through its own write, so it keeps this on screen until the
+ * sheet closes.
  */
 const SignupAdmin = ({
 	seasonId,
@@ -50,16 +56,19 @@ const SignupAdmin = ({
 	users,
 	signups,
 	viewerUid,
+	confirming,
+	onConfirming,
 }: {
 	seasonId: string;
 	season: Season;
 	users: AppUser[];
 	signups: SeenSignup[];
 	viewerUid: string;
+	confirming: boolean;
+	onConfirming: (open: boolean) => void;
 }) => {
 	const write = useWrite();
 	const [answeringFor, setAnsweringFor] = useState<string | null>(null);
-	const [confirming, setConfirming] = useState(false);
 
 	const statusByUid = new Map(signups.map(signup => [signup.uid, signup.status]));
 	const usersByUid = new Map(users.map(person => [person.uid, person]));
@@ -103,7 +112,7 @@ const SignupAdmin = ({
 					{yesUids.length} joining{share > 0 && `, ${formatSek(share)} each`}
 				</p>
 
-				<Button variant='primary' fullWidth disabled={!viewerIsIn} onClick={() => setConfirming(true)}>
+				<Button variant='primary' fullWidth disabled={!viewerIsIn} onClick={() => onConfirming(true)}>
 					Confirm season
 				</Button>
 
@@ -156,7 +165,7 @@ const SignupAdmin = ({
 
 			<ConfirmSeasonSheet
 				open={confirming}
-				onClose={() => setConfirming(false)}
+				onClose={() => onConfirming(false)}
 				season={season}
 				yesUids={yesUids}
 				usersByUid={usersByUid}
