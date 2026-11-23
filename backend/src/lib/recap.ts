@@ -28,7 +28,7 @@ export const announceRecapIfReady = async (
 	nowIso = new Date().toISOString()
 ): Promise<RecapAnnouncement> => {
 	const seasonRef = db.doc(`seasons/${seasonId}`);
-	const { finished, players } = await readSeasonEnd(db, seasonRef, nowIso);
+	const { finished, players } = await readSeasonEnd(db, seasonRef);
 
 	if (!finished) return (await seasonRef.get()).exists ? 'not-finished' : 'missing';
 

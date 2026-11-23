@@ -11,12 +11,28 @@ import { claimOnce, useOnArrival } from './useArrival';
 const SENT_KEY = 'frescati:recap';
 
 /**
+ * Mark this season's recap as already shown this session, so the season home
+ * does not send somebody back into it.
+ *
+ * The recap screen claims it on its own, because the takeover is not the only
+ * way in. A notification, a profile link or a pasted URL opens it with nothing
+ * claimed, and closing it would land on a home screen that sends them straight
+ * back once.
+ */
+export const claimRecapSession = (seasonId: string): boolean => claimOnce(SENT_KEY, seasonId);
+
+/**
  * Opens a finished season's recap instead of its home screen, for somebody who
  * played in it and has not watched it to the end.
  *
- * The same arrival rules as `useLiveGameRedirect`, for the same reasons: on the
- * load and on a return to the foreground, never on a re-render, and with
- * `replace` so Back from the recap is not a Back into a redirect.
+ * The same arrival rules as `useLiveGameRedirect`: on the load and on a return
+ * to the foreground, never on a re-render.
+ *
+ * `push` where that hook uses `replace`, on purpose. The chevron goes back when
+ * there is somewhere to go back to, and a replace would leave the step before
+ * the season home behind the recap, so Back would skip the home altogether.
+ * Pushing is safe because of the session mark: Back lands on the home, which has
+ * already claimed this season and stays put.
  *
  * Once per season per session. Closing the recap early lands back on the home
  * screen, and it has to stay there; it takes over again next time the app is
@@ -52,9 +68,9 @@ export const useRecapTakeover = ({
 		if (!ready || !readyAt || !uid || !isVisible()) return;
 		if (watched?.includes(seasonId)) return;
 		if (!entries.some(entry => entry.positions[uid] !== undefined)) return;
-		if (!claimOnce(SENT_KEY, seasonId)) return;
+		if (!claimRecapSession(seasonId)) return;
 
-		router.replace(`/s/${seasonId}/recap`);
+		router.push(`/s/${seasonId}/recap`);
 	}, [router]);
 
 	useOnArrival(ready, arrive);

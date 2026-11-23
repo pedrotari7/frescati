@@ -51,6 +51,17 @@ describe('announceRecapIfReady', () => {
 		expect(send.mock.calls[0][1]).toEqual({ seasonId: SEASON_ID, seasonName: 'Autumn 2020' });
 	});
 
+	// Confirm has no clock on it. Scored and confirmed ten minutes before the
+	// slot ends is still the end of the season, and nothing would ask again.
+	it('announces a last game confirmed before its slot was up', async () => {
+		await writeSeason(SEASON_ID);
+		await writeGame(SEASON_ID, 'g1', { endsAt: '2099-01-01T00:00:00.000Z', status: 'played' });
+		await writeLedger('g1', ['a']);
+		vi.spyOn(push, 'sendRecapReady').mockResolvedValue({ pushed: 1, emailed: 0 });
+
+		expect(await announceRecapIfReady(SEASON_ID, NOW)).toBe('announced');
+	});
+
 	it('says nothing a second time', async () => {
 		await writeSeason(SEASON_ID);
 		await writeGame(SEASON_ID, 'g1', { endsAt: ENDED, status: 'played' });

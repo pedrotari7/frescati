@@ -11,8 +11,7 @@ import { isSeasonFinished } from '../../../shared/recap';
  */
 export const readSeasonEnd = async (
 	db: Firestore,
-	seasonRef: DocumentReference,
-	nowIso: string
+	seasonRef: DocumentReference
 ): Promise<{ finished: boolean; players: string[] }> => {
 	const [games, ledger] = await Promise.all([
 		seasonRef.collection('games').get(),
@@ -23,8 +22,7 @@ export const readSeasonEnd = async (
 	return {
 		finished: isSeasonFinished(
 			games.docs.map(doc => ({ ...(doc.data() as Game), id: doc.id })),
-			entries,
-			nowIso
+			entries
 		),
 		players: [...new Set(entries.flatMap(entry => Object.keys(entry.positions)))],
 	};

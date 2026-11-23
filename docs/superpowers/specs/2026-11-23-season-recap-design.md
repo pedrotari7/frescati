@@ -35,7 +35,7 @@ One thing does move after the recap appears, and that's accepted. The last game'
 
 ## When a season is finished
 
-`isSeasonFinished(games, entries, now)` in `shared/recap.ts` decides it. Every game that isn't `cancelled` must have an `endsAt` before `now` and must have a ledger entry. A season with no games that count is never finished.
+`isSeasonFinished(games, entries)` in `shared/recap.ts` decides it. Every game that isn't `cancelled` must have a ledger entry. There is no clock in it, because the confirm button has none: a last game rated before its slot ends has still ended the season. A season with no games that count is never finished.
 
 A game that was played but never scored holds the recap back until somebody scores it or cancels it. That's on purpose: a recap with a game missing would tell a different story from the table beside it.
 

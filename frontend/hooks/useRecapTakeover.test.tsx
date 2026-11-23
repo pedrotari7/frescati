@@ -1,11 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
 import type { RatingLedgerEntry } from '@shared/types';
 
+const mockPush = vi.fn();
 const mockReplace = vi.fn();
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: mockReplace, push: vi.fn() }) }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: mockReplace, push: mockPush }) }));
 
-import { useRecapTakeover } from './useRecapTakeover';
+import { claimRecapSession, useRecapTakeover } from './useRecapTakeover';
 
 const played = [{ gameId: 'g1', positions: { anna: 0, bosse: 1 } } as unknown as RatingLedgerEntry];
 
@@ -37,33 +38,50 @@ describe('useRecapTakeover', () => {
 	it('opens the recap for somebody who played and has not watched it', () => {
 		render();
 
-		expect(mockReplace).toHaveBeenCalledWith('/s/autumn/recap');
+		expect(mockPush).toHaveBeenCalledWith('/s/autumn/recap');
 	});
 
 	it('leaves a season that is not over alone', () => {
 		render({ readyAt: undefined });
 
-		expect(mockReplace).not.toHaveBeenCalled();
+		expect(mockPush).not.toHaveBeenCalled();
 	});
 
 	it('leaves somebody who already watched it alone', () => {
 		render({ watched: ['spring', 'autumn'] });
 
-		expect(mockReplace).not.toHaveBeenCalled();
+		expect(mockPush).not.toHaveBeenCalled();
 	});
 
 	it('leaves somebody who never played alone', () => {
 		render({ uid: 'zoe' });
 
-		expect(mockReplace).not.toHaveBeenCalled();
+		expect(mockPush).not.toHaveBeenCalled();
 	});
 
 	it('waits until it knows', () => {
 		const { rerender } = render({ ready: false });
-		expect(mockReplace).not.toHaveBeenCalled();
+		expect(mockPush).not.toHaveBeenCalled();
 
 		rerender(props());
-		expect(mockReplace).toHaveBeenCalledTimes(1);
+		expect(mockPush).toHaveBeenCalledTimes(1);
+	});
+
+	// Pushed, not replaced: the chevron goes back before it goes to `backHref`,
+	// and a replace would make that back step skip the season home entirely.
+	it('leaves the season home behind it, so Back returns there', () => {
+		render();
+
+		expect(mockReplace).not.toHaveBeenCalled();
+	});
+
+	// A notification or a profile link opens the recap with nothing claimed, so
+	// closing it would otherwise land here and be sent straight back.
+	it('stays put when the recap was already opened this session', () => {
+		claimRecapSession('autumn');
+		render();
+
+		expect(mockPush).not.toHaveBeenCalled();
 	});
 
 	// Back out of the recap lands here again, and has to stay here.
@@ -71,7 +89,7 @@ describe('useRecapTakeover', () => {
 		render().unmount();
 		render();
 
-		expect(mockReplace).toHaveBeenCalledTimes(1);
+		expect(mockPush).toHaveBeenCalledTimes(1);
 	});
 
 	it('does not take over when it cannot remember having done so', () => {
@@ -81,20 +99,20 @@ describe('useRecapTakeover', () => {
 
 		render();
 
-		expect(mockReplace).not.toHaveBeenCalled();
+		expect(mockPush).not.toHaveBeenCalled();
 		setItem.mockRestore();
 	});
 
 	it('takes over on a return to the app, not only on a load', () => {
 		setVisibility('hidden');
 		render();
-		expect(mockReplace).not.toHaveBeenCalled();
+		expect(mockPush).not.toHaveBeenCalled();
 
 		act(() => {
 			setVisibility('visible');
 			document.dispatchEvent(new Event('visibilitychange'));
 		});
 
-		expect(mockReplace).toHaveBeenCalledWith('/s/autumn/recap');
+		expect(mockPush).toHaveBeenCalledWith('/s/autumn/recap');
 	});
 });

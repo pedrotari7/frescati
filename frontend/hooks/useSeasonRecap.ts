@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RecapInput } from '@shared/recap';
 import type { Game, Season } from '@shared/types';
 import { fetchRecapGames } from '../lib/db/recap';
@@ -19,25 +19,37 @@ const NO_GAMES: RecapGames = { motm: {}, matches: {} };
  * responses, votes and scorelines are one-shot reads, keyed on the rated game
  * ids so a counter ticking on a game document never re-reads them.
  *
- * `input` stays `null` until all of it has landed. Half a recap is worse than a
- * skeleton: an award computed off the votes of three games out of ten names the
- * wrong person with complete confidence.
+ * `input` stays `null` until all of it has landed, the season's own games
+ * included. Half a recap is worse than a skeleton: an award computed off the
+ * votes of three games out of ten names the wrong person with complete
+ * confidence, and a recap built before the games arrive has no answers in it at
+ * all, then rebuilds under somebody halfway through it.
+ *
+ * `retry` re-runs all three reads, because the screen only knows something
+ * failed and not which.
  */
-export const useSeasonRecap = (season: Season | null, games: Game[]) => {
+export const useSeasonRecap = (season: Season | null, games: Game[], seasonLoading: boolean) => {
 	const seasonId = season?.id ?? null;
-	const { entries, loading: ledgerLoading, error: ledgerError } = useSeasonLedger(seasonId);
-	const { responses, loading: responsesLoading, error: responsesError, retry } = useSeasonResponses(seasonId, games);
+	const { entries, loading: ledgerLoading, error: ledgerError, retry: retryLedger } = useSeasonLedger(seasonId);
+	const {
+		responses,
+		loading: responsesLoading,
+		error: responsesError,
+		retry: retryResponses,
+	} = useSeasonResponses(seasonId, games);
 
 	const ratedIds = useMemo(() => entries.map(entry => entry.gameId).sort(), [entries]);
 	const key = ratedIds.join(',');
 
 	const [extras, setExtras] = useState<{ key: string; games: RecapGames } | null>(null);
 	const [extrasError, setExtrasError] = useState<Error | null>(null);
+	const [attempt, setAttempt] = useState(0);
 
 	useEffect(() => {
 		if (!seasonId || ledgerLoading) return;
 
 		let live = true;
+		setExtrasError(null);
 
 		fetchRecapGames(seasonId, ratedIds)
 			.then(fetched => {
@@ -58,9 +70,15 @@ export const useSeasonRecap = (season: Season | null, games: Game[]) => {
 		};
 		// `ratedIds` is what the effect reads and `key` is its stable spelling.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [seasonId, key, ledgerLoading]);
+	}, [seasonId, key, ledgerLoading, attempt]);
 
-	const ready = !!season && !ledgerLoading && !responsesLoading && extras?.key === key;
+	const retry = useCallback(() => {
+		retryLedger();
+		retryResponses();
+		setAttempt(current => current + 1);
+	}, [retryLedger, retryResponses]);
+
+	const ready = !!season && !seasonLoading && !ledgerLoading && !responsesLoading && extras?.key === key;
 
 	const input = useMemo<RecapInput | null>(
 		() =>
