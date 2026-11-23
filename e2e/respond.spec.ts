@@ -61,26 +61,55 @@ const settledHeadcount = async (page: Page): Promise<number> => {
 };
 
 /**
- * Put a control into the state a test needs it in, whichever one it is in now.
+ * Turn the bell on, whichever state it is in now.
  *
  * The bell **is a toggle**: tapping one already on unfollows, so a helper that
  * tapped regardless would unfollow the game it had been asked to follow. It
  * did, and that is what made every test after the first one here fail for a
- * reason none of them was about. The In/Out pair is a choice between two
- * answers rather than a toggle, so a wasted tap there is only a wasted tap, but
- * reading the state first is what makes this helper right for both.
+ * reason none of them was about. It is a `switch` with `aria-checked`, driven
+ * straight off the watchers document as the listener has it, which is not there
+ * yet on arrival, so callers wait that out first.
  *
- * Which attribute says so depends on the control: the In/Out pair are buttons
- * with `aria-pressed`, the bell is a `switch` with `aria-checked`. Both are
- * driven straight off the document as the listener has it, with no optimistic
- * state behind them, "Saving…" is the pending state and the button does not
- * move until the write has come back, so both are server truth. They just are
- * not there yet on arrival, which is what each caller waits out first.
+ * One tap and no retry, for the same reason. A second tap after a slow first
+ * one turns it back off.
  */
-const ensureOn = async (control: Locator, attribute: 'aria-pressed' | 'aria-checked'): Promise<void> => {
-	if ((await control.getAttribute(attribute)) !== 'true') await control.click();
+const ensureOn = async (bell: Locator): Promise<void> => {
+	if ((await bell.getAttribute('aria-checked')) !== 'true') await bell.click();
 
-	await expect(control).toHaveAttribute(attribute, 'true');
+	await expect(bell).toHaveAttribute('aria-checked', 'true');
+};
+
+/**
+ * Tap one half of the In/Out pair until it is the answer.
+ *
+ * A single tap here was not enough. The season home draws a card at the top for
+ * every season still signing up, and `signup.spec.ts` makes one while this file
+ * runs. When it arrives it slides in above the next game and pushes the pair
+ * down the page. Playwright checks what is under the pointer and then clicks,
+ * and if the card lands between the two, the tap hits empty page, nothing is
+ * written, and the test waits fifteen seconds on a button that was never
+ * pressed.
+ *
+ * Retrying is safe because the pair is a choice between two answers, not a
+ * toggle. Tapping the answer you already have writes nothing, so a second tap
+ * after a first that did land changes nothing.
+ *
+ * Each try waits for the pair to stop saying "Saving". Both locators accept that
+ * label, because the half being written says it, so while In is still saving the
+ * Out locator finds the In button, and an In that reads as pressed would pass
+ * for an Out that is.
+ */
+const choose = async (half: Locator): Promise<void> => {
+	const saving = half.page().getByRole('button', { name: /Saving/ });
+
+	await expect(async () => {
+		await expect(saving).toHaveCount(0, { timeout: 5_000 });
+
+		if ((await half.getAttribute('aria-pressed')) !== 'true') await half.click({ timeout: 5_000 });
+
+		await expect(half).toHaveAttribute('aria-pressed', 'true', { timeout: 5_000 });
+		await expect(saving).toHaveCount(0, { timeout: 5_000 });
+	}).toPass({ timeout: 45_000 });
 };
 
 /** Get this player to the given answer, and wait for the count to agree. */
@@ -89,7 +118,7 @@ const answer = async (page: Page, status: 'in' | 'out'): Promise<number> => {
 
 	const { inButton, outButton } = respondControl(page);
 
-	await ensureOn(status === 'in' ? inButton : outButton, 'aria-pressed');
+	await choose(status === 'in' ? inButton : outButton);
 
 	return settledHeadcount(page);
 };
@@ -110,12 +139,10 @@ test.describe('answering the next game', () => {
 		// trigger is still catching up is the number from before this test.
 		const baseline = await answer(page, 'out');
 
-		await inButton.click();
-
 		// The button moves when the response document comes back; the number
 		// takes a second hop, through `onResponseWrite` re-tallying the whole
 		// collection. That hop is the part nothing else in the repo tests.
-		await expect(inButton).toHaveAttribute('aria-pressed', 'true');
+		await choose(inButton);
 		await expect(headcount).toHaveText(String(baseline + 1));
 	});
 
@@ -125,9 +152,7 @@ test.describe('answering the next game', () => {
 
 		const playing = await answer(page, 'in');
 
-		await respondControl(page).outButton.click();
-
-		await expect(respondControl(page).outButton).toHaveAttribute('aria-pressed', 'true');
+		await choose(respondControl(page).outButton);
 		await expect(page.getByTestId('headcount-playing')).toHaveText(String(playing - 1));
 	});
 
@@ -216,11 +241,11 @@ test.describe('following a game from the calendar', () => {
 		const href = await row.getByRole('link').getAttribute('href');
 		expect(href, 'the row leads nowhere').toBeTruthy();
 
-		// Through `ensureOn` for a subtler version of the same reason the answers
-		// need it: the bell draws off until the watchers snapshot lands, so a tap
-		// on whatever was found could be acting on a state one frame old.
-		// Following is a `setDoc`, so following twice is following.
-		await ensureOn(bell, 'aria-checked');
+		// Through `ensureOn` because the bell draws off until the watchers
+		// snapshot lands, so a tap on whatever was found could be acting on a
+		// state one frame old. Following is a `setDoc`, so following twice is
+		// following.
+		await ensureOn(bell);
 
 		await row.getByRole('link').click();
 		await expect(page).toHaveURL(AT.game);
