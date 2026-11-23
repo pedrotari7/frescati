@@ -563,11 +563,33 @@ const DangerZone = ({ seasonId, season }: { seasonId: string; season: Season }) 
  * The sign-up half of a draft's admin page, subscribed here so `SignupAdmin`
  * stays a function of its props.
  */
-const DraftSignup = ({ seasonId, season, viewerUid }: { seasonId: string; season: Season; viewerUid: string }) => {
+const DraftSignup = ({
+	seasonId,
+	season,
+	viewerUid,
+	confirming,
+	onConfirming,
+}: {
+	seasonId: string;
+	season: Season;
+	viewerUid: string;
+	confirming: boolean;
+	onConfirming: (open: boolean) => void;
+}) => {
 	const { users } = useUsersByUid();
 	const { signups } = useSignups(seasonId);
 
-	return <SignupAdmin seasonId={seasonId} season={season} users={users} signups={signups} viewerUid={viewerUid} />;
+	return (
+		<SignupAdmin
+			seasonId={seasonId}
+			season={season}
+			users={users}
+			signups={signups}
+			viewerUid={viewerUid}
+			confirming={confirming}
+			onConfirming={onConfirming}
+		/>
+	);
 };
 
 const SeasonAdminPage = () => {
@@ -575,6 +597,10 @@ const SeasonAdminPage = () => {
 	const { seasonId, season, games, loading, error, retry, isAdmin } = useSeasonContext();
 
 	const [subscribeOpen, setSubscribeOpen] = useState(false);
+	// Held here rather than in `SignupAdmin`, so the sign-up section outlives the
+	// draft for as long as its confirm sheet is up. Confirming is what ends the
+	// draft, and the snapshot saying so can beat the callable's own answer.
+	const [confirming, setConfirming] = useState(false);
 
 	if (loading) {
 		return (
@@ -636,8 +662,14 @@ const SeasonAdminPage = () => {
 						</button>
 					</div>
 
-					{season.status === 'draft' && user && (
-						<DraftSignup seasonId={seasonId} season={season} viewerUid={user.uid} />
+					{(season.status === 'draft' || confirming) && user && (
+						<DraftSignup
+							seasonId={seasonId}
+							season={season}
+							viewerUid={user.uid}
+							confirming={confirming}
+							onConfirming={setConfirming}
+						/>
 					)}
 
 					{season.status !== 'draft' && (

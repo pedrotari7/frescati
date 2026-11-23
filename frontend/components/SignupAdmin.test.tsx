@@ -36,7 +36,14 @@ const season = (overrides: Partial<Season> = {}): Season =>
 		...overrides,
 	}) as Season;
 
-const draw = async (signups: SeenSignup[], viewerUid = 'a', seasonOverrides: Partial<Season> = {}) => {
+const onConfirming = vi.fn();
+
+const draw = async (
+	signups: SeenSignup[],
+	viewerUid = 'a',
+	seasonOverrides: Partial<Season> = {},
+	confirming = false
+) => {
 	render(
 		<SignupAdmin
 			seasonId='season-1'
@@ -44,6 +51,8 @@ const draw = async (signups: SeenSignup[], viewerUid = 'a', seasonOverrides: Par
 			users={[user('a'), user('b'), user('c')]}
 			signups={signups}
 			viewerUid={viewerUid}
+			confirming={confirming}
+			onConfirming={onConfirming}
 		/>
 	);
 	await act(async () => {});
@@ -89,6 +98,24 @@ describe('SignupAdmin', () => {
 
 		expect(screen.getByRole('button', { name: 'Confirm season' })).toBeEnabled();
 		expect(screen.queryByText(/Say yes yourself first/)).not.toBeInTheDocument();
+	});
+
+	it('asks its caller to open the confirm sheet rather than opening it itself', async () => {
+		await draw([signup('a', 'yes')]);
+
+		fireEvent.click(screen.getByRole('button', { name: 'Confirm season' }));
+
+		expect(onConfirming).toHaveBeenCalledWith(true);
+		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+	});
+
+	it('keeps the confirm sheet up once the season has left draft underneath it', async () => {
+		// The snapshot saying the season is active can land before the callable
+		// that made it so has answered. The sheet is still waiting on that answer.
+		await draw([signup('a', 'yes')], 'a', { status: 'active' }, true);
+
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+		expect(screen.getByText(/will make up the squad/)).toBeInTheDocument();
 	});
 
 	it('records an answer for somebody else under the admin uid', async () => {
