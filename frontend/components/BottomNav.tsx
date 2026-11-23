@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CalendarDaysIcon, TrophyIcon, UserCircleIcon, UsersIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import { bp, colors, tint } from '../app/tokens.stylex';
-import { elevation, surfaces, utils } from '../lib/styles';
+import { animations, elevation, surfaces, utils } from '../lib/styles';
 import { hapticLight } from '../lib/utils/haptics';
 
 export interface NavItem {
@@ -104,8 +104,9 @@ const styles = stylex.create({
 		bottom: 8,
 		borderRadius: 12,
 		transitionProperty: 'left, width',
-		transitionDuration: '0.3s',
-		transitionTimingFunction: 'ease-out',
+		transitionDuration: '0.4s',
+		/* A little past the tab and back, so the pill lands rather than stops. */
+		transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
 	},
 
 	tab: {
@@ -183,7 +184,9 @@ const BottomNav = ({ items, sectionHrefs }: { items: NavItem[]; sectionHrefs?: s
 							aria-current={isActive ? 'page' : undefined}
 							{...stylex.props(styles.tab, isActive ? styles.tabOn : styles.tabOff)}
 						>
-							<Icon {...stylex.props(styles.icon)} aria-hidden='true' />
+							{/* Every screen draws the bar again, so the hop plays
+							    on arriving at a tab, which is the tap that got you there. */}
+							<Icon {...stylex.props(styles.icon, isActive && animations.hop)} aria-hidden='true' />
 							<span {...stylex.props(styles.label)}>{item.label}</span>
 						</Link>
 					);

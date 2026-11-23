@@ -5,6 +5,7 @@ import type { TeamStanding } from '@shared/types';
 import { placeLabel } from '@shared/format';
 import TeamBadge from './TeamBadge';
 import { colors, tint } from '../app/tokens.stylex';
+import { animations, stagger } from '../lib/styles';
 
 const styles = stylex.create({
 	scroller: { overflowX: 'auto' },
@@ -63,11 +64,11 @@ const StandingsTable = ({ standings, unequal }: { standings: TeamStanding[]; une
 					</thead>
 
 					<tbody>
-						{ordered.map(row => {
+						{ordered.map((row, index) => {
 							const shared = ordered.filter(other => other.position === row.position).length > 1;
 
 							return (
-								<tr key={row.team} {...stylex.props(styles.row)}>
+								<tr key={row.team} {...stylex.props(styles.row, animations.rise, stagger.at(index))}>
 									<td {...stylex.props(styles.place)}>{placeLabel(row.position, shared)}</td>
 									<td {...stylex.props(styles.badgeCell)}>
 										<TeamBadge index={row.team} />

@@ -31,6 +31,7 @@ import CalendarSubscribeSheet from '../../../../components/CalendarSubscribeShee
 import PlayedSection from '../../../../components/PlayedSection';
 import { SectionHeading } from '../../../../components/Section';
 import RecapCard from '../../../../components/recap/RecapCard';
+import { animations, stagger } from '../../../../lib/styles';
 
 const styles = stylex.create({
 	page: { display: 'flex', flexDirection: 'column', gap: 24, padding: 16 },
@@ -126,19 +127,23 @@ const NextUp = ({
 /** A stack of games, with a bell on them only where one would do anything. */
 const GameRows = ({ games, answering, watch }: { games: Game[]; answering: Answering; watch?: Watching }) => (
 	<div {...stylex.props(styles.rows)}>
-		{games.map(game => (
-			<GameRow
-				key={game.id}
-				game={game}
-				season={answering.season}
-				myResponse={answering.myResponses[game.id]}
-				watching={watch ? watch.isWatching(game.id) : false}
-				debtLock={answering.debtLock}
-				now={answering.now}
-				onRespond={status => answering.onRespond(game.id, status)}
-				onClear={() => answering.onClear(game.id)}
-				onWatchChange={watch && (following => watch.toggle(game.id, following))}
-			/>
+		{/* Each row comes in a beat after the one above it. The entrance is on a
+		    wrapper rather than the card, because an animation that fills holds
+		    its last frame over the card's own opacity and its press. */}
+		{games.map((game, index) => (
+			<div key={game.id} {...stylex.props(animations.rise, stagger.at(index))}>
+				<GameRow
+					game={game}
+					season={answering.season}
+					myResponse={answering.myResponses[game.id]}
+					watching={watch ? watch.isWatching(game.id) : false}
+					debtLock={answering.debtLock}
+					now={answering.now}
+					onRespond={status => answering.onRespond(game.id, status)}
+					onClear={() => answering.onClear(game.id)}
+					onWatchChange={watch && (following => watch.toggle(game.id, following))}
+				/>
+			</div>
 		))}
 	</div>
 );

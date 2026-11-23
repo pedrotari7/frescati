@@ -14,7 +14,8 @@ import StatusPill from './StatusPill';
 import Button from './Button';
 import { useConfirm } from './ConfirmDialog';
 import { bp, colors, tint } from '../app/tokens.stylex';
-import { text, utils } from '../lib/styles';
+import { animations, text, utils } from '../lib/styles';
+import { useArrivals } from '../lib/utils/arrivals';
 
 const styles = stylex.create({
 	sections: { display: 'flex', flexDirection: 'column', gap: 20 },
@@ -111,8 +112,11 @@ const Row = ({
 	struck = false,
 	trailing,
 	answer,
+	arrived = false,
 }: {
 	entry: RosterEntry;
+	/** Joined this group while the screen was open, and slides in to say so. */
+	arrived?: boolean;
 	tone: 'in' | 'out' | 'pending' | 'extra';
 	struck?: boolean;
 	trailing?: React.ReactNode;
@@ -123,7 +127,7 @@ const Row = ({
 	 */
 	answer?: React.ReactNode;
 }) => (
-	<div {...stylex.props(styles.row)}>
+	<div {...stylex.props(styles.row, arrived && animations.arrive)}>
 		{/* Only the name is the link, not the whole row: an admin's Drop button
 		    sits in `trailing`, and a <button> inside an <a> is invalid and breaks
 		    keyboard navigation. */}
@@ -162,6 +166,8 @@ const Section = ({
 	renderTrailing?: (entry: RosterEntry) => React.ReactNode;
 	renderAnswer?: (entry: RosterEntry) => React.ReactNode;
 }) => {
+	const arrived = useArrivals(entries.map(entry => entry.uid));
+
 	if (entries.length === 0) return null;
 
 	return (
@@ -180,6 +186,7 @@ const Section = ({
 						struck={struck}
 						trailing={renderTrailing?.(entry)}
 						answer={renderAnswer?.(entry)}
+						arrived={arrived(entry.uid)}
 					/>
 				))}
 			</div>
