@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { stylesOf } from '../../test/stylex';
 import Story from './Story';
 
 const slides = ['One', 'Two', 'Three'].map(text => <p key={text}>{text}</p>);
@@ -69,5 +70,31 @@ describe('Story', () => {
 
 		expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1');
 		expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '3');
+	});
+
+	// Forward and back are different gestures, so they look different: a slide
+	// comes in from the side the story is moving towards.
+	it('brings a slide in from the side it is moving towards', () => {
+		render(<Story slides={slides} onLast={vi.fn()} />);
+
+		fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+		const forward = stylesOf(screen.getByText('Two').parentElement);
+
+		fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+		const back = stylesOf(screen.getByText('One').parentElement);
+
+		expect(forward).not.toEqual(back);
+	});
+
+	it('fills the segment it is on, and leaves the ones ahead empty', () => {
+		render(<Story slides={slides} onLast={vi.fn()} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+		const [done, current, ahead] = Array.from(screen.getByRole('progressbar').children);
+
+		expect(done.firstElementChild).not.toBeNull();
+		expect(current.firstElementChild).not.toBeNull();
+		expect(stylesOf(current.firstElementChild)).not.toEqual(stylesOf(done.firstElementChild));
+		expect(ahead.firstElementChild).toBeNull();
 	});
 });
