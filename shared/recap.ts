@@ -13,6 +13,12 @@ import type { Game, RatingLedgerEntry, TournamentMatch, TournamentMotm } from '.
  * up the next time somebody watches.
  */
 
+/** Fewer games than this and the bottom of the table is bad luck, not a spoon. */
+export const SPOON_MIN_APPEARANCES = 3;
+
+/** How close to kickoff an answer has to be last touched to count as late. */
+const LAST_MINUTE_HOURS = 24;
+
 export interface RecapInput {
 	seasonId: string;
 	memberUids: string[];
@@ -97,6 +103,26 @@ const seasonEntries = (input: Pick<RecapInput, 'entries' | 'seasonId'>): RatingL
 		.filter(entry => entry.seasonId === input.seasonId)
 		.sort((a, b) => a.kickoffMillis - b.kickoffMillis || (a.gameId < b.gameId ? -1 : 1));
 
+export interface AwardsRecap {
+	/** Games each player was among the counted winners of. */
+	motm: Award | null;
+	ironMan: Award | null;
+	/** Everybody who played every game, by uid. */
+	perfectAttendance: string[];
+	/** Largest positive rating movement, in Elo. */
+	climber: Award | null;
+	/** Most consecutive wins, in kickoff order. */
+	streak: Award | null;
+}
+
+export interface BanterRecap {
+	noShows: Award | null;
+	/** Answers last touched in the `LAST_MINUTE_HOURS` before kickoff. */
+	lastMinute: Award | null;
+	/** Bottom of the table among players with `SPOON_MIN_APPEARANCES`. The value is their wins. */
+	woodenSpoon: Award | null;
+}
+
 const roundToTenth = (value: number): number => Math.round(value * 10) / 10;
 
 /** Every scoreline, earliest game first, so a tie between two goes to the one that came first. */
@@ -151,5 +177,96 @@ export const getClubRecap = (input: RecapInput): ClubRecap => {
 		biggestWin: bestBy(highlights, margin),
 		closestFinish: bestBy(highlights, closeness),
 		bestTurnout: bestTurnout(entries),
+	};
+};
+
+const increment = (counts: Map<string, number>, uid: string) => counts.set(uid, (counts.get(uid) ?? 0) + 1);
+
+const motmWins = (entries: RatingLedgerEntry[], motm: RecapInput['motm']): Map<string, number> => {
+	const wins = new Map<string, number>();
+
+	for (const entry of entries) for (const uid of motm[entry.gameId]?.winners ?? []) increment(wins, uid);
+
+	return wins;
+};
+
+const longestStreaks = (entries: RatingLedgerEntry[]): Map<string, number> => {
+	const current = new Map<string, number>();
+	const best = new Map<string, number>();
+
+	for (const entry of entries) {
+		for (const [uid, position] of Object.entries(entry.positions ?? {})) {
+			const run = position === 0 ? (current.get(uid) ?? 0) + 1 : 0;
+
+			current.set(uid, run);
+			best.set(uid, Math.max(best.get(uid) ?? 0, run));
+		}
+	}
+
+	return best;
+};
+
+export const getAwards = (input: RecapInput): AwardsRecap => {
+	const entries = seasonEntries(input);
+	const table = getSeasonTable(entries, input.seasonId);
+	const appearances = new Map(table.map(row => [row.uid, row.appearances]));
+
+	return {
+		motm: topAward(motmWins(entries, input.motm)),
+		ironMan: topAward(appearances),
+		perfectAttendance: table
+			.filter(row => row.appearances === entries.length)
+			.map(row => row.uid)
+			.sort(),
+		climber: topAward(new Map(table.map(row => [row.uid, row.movement]))),
+		streak: topAward(longestStreaks(entries)),
+	};
+};
+
+/** Every response to a game that was played, with the kickoff it answered. */
+const playedResponses = (entries: RatingLedgerEntry[], responses: SeasonResponses) =>
+	entries.flatMap(entry =>
+		Object.values(responses[entry.gameId] ?? {}).map(response => ({ response, kickoff: entry.kickoff }))
+	);
+
+const lastMinuteAnswers = (answers: ReturnType<typeof playedResponses>): Map<string, number> => {
+	const late = new Map<string, number>();
+	const window = LAST_MINUTE_HOURS * 60 * 60 * 1000;
+
+	for (const { response, kickoff } of answers) {
+		const before = Date.parse(kickoff) - Date.parse(response.updatedAt);
+		if (before >= 0 && before <= window) increment(late, response.uid);
+	}
+
+	return late;
+};
+
+const noShows = (answers: ReturnType<typeof playedResponses>): Map<string, number> => {
+	const absent = new Map<string, number>();
+
+	for (const { response } of answers) if (response.absent) increment(absent, response.uid);
+
+	return absent;
+};
+
+/** The worst place anybody with enough games finished in, shared on a tie. Not a maximum, so not `topAward`. */
+const woodenSpoon = (table: SeasonRow[]): Award | null => {
+	const qualified = table.filter(row => row.appearances >= SPOON_MIN_APPEARANCES);
+	if (qualified.length === 0) return null;
+
+	const worst = Math.max(...qualified.map(row => row.position));
+	const bottom = qualified.filter(row => row.position === worst);
+
+	return { uids: bottom.map(row => row.uid).sort(), value: bottom[0].wins };
+};
+
+export const getBanter = (input: RecapInput): BanterRecap => {
+	const entries = seasonEntries(input);
+	const answers = playedResponses(entries, input.responses);
+
+	return {
+		noShows: topAward(noShows(answers)),
+		lastMinute: topAward(lastMinuteAnswers(answers)),
+		woodenSpoon: woodenSpoon(getSeasonTable(entries, input.seasonId)),
 	};
 };

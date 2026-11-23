@@ -1,6 +1,6 @@
-import { getClubRecap, isSeasonFinished, topAward } from './recap';
+import { SPOON_MIN_APPEARANCES, getAwards, getBanter, getClubRecap, isSeasonFinished, topAward } from './recap';
 import type { RecapInput } from './recap';
-import type { Game, GameResponse, RatingLedgerEntry, TournamentMatch } from './types';
+import type { Game, GameResponse, RatingLedgerEntry, TournamentMatch, TournamentMotm } from './types';
 
 const SEASON = 's1';
 
@@ -41,8 +41,18 @@ const match = (order: number, scoreA: number, scoreB: number): TournamentMatch =
 	updatedAt: '2026-09-01T18:00:00.000Z',
 });
 
-const response = (uid: string, role: GameResponse['role'] = 'member'): GameResponse =>
-	({ uid, status: 'in', role, respondedAt: '', updatedAt: '' }) as GameResponse;
+const response = (
+	uid: string,
+	role: GameResponse['role'] = 'member',
+	extra: Partial<GameResponse> = {}
+): GameResponse => ({ uid, status: 'in', role, respondedAt: '', updatedAt: '', ...extra }) as GameResponse;
+
+const motm = (winners: string[], counts: Record<string, number> = {}): TournamentMotm =>
+	({ winners, counts: Object.entries(counts).map(([uid, votes]) => ({ uid, votes })) }) as TournamentMotm;
+
+/** One game a week from 1 September, with `results` as each player's finishing place. */
+const season = (results: Record<string, number>[]): RatingLedgerEntry[] =>
+	results.map((positions, index) => entry(`g${index + 1}`, 1 + index * 7, positions));
 
 const input = (overrides: Partial<RecapInput>): RecapInput => ({
 	seasonId: SEASON,
@@ -214,5 +224,145 @@ describe('getClubRecap', () => {
 			closestFinish: null,
 			bestTurnout: null,
 		});
+	});
+});
+
+describe('getAwards', () => {
+	it('counts man-of-the-match wins, shared ones included', () => {
+		const awards = getAwards(
+			input({
+				entries: season([
+					{ a: 0, b: 1 },
+					{ a: 0, b: 1 },
+				]),
+				motm: { g1: motm(['a', 'b']), g2: motm(['a']) },
+			})
+		);
+
+		expect(awards.motm).toEqual({ uids: ['a'], value: 2 });
+	});
+
+	it('finds the longest run of wins in kickoff order', () => {
+		// a: W W L W W W, b wins the one a lost and nothing else.
+		const results = [0, 0, 1, 0, 0, 0].map(a => ({ a, b: 1 - a }));
+		const awards = getAwards(input({ entries: season(results).reverse() }));
+
+		expect(awards.streak).toEqual({ uids: ['a'], value: 3 });
+	});
+
+	it('shares the streak when two runs are as long', () => {
+		const awards = getAwards(
+			input({
+				entries: season([
+					{ a: 0, b: 1 },
+					{ a: 0, b: 1 },
+					{ a: 1, b: 0 },
+					{ a: 1, b: 0 },
+				]),
+			})
+		);
+
+		expect(awards.streak).toEqual({ uids: ['a', 'b'], value: 2 });
+	});
+
+	it('hands iron man to the most appearances and lists anybody who never missed', () => {
+		const awards = getAwards(
+			input({
+				entries: season([
+					{ a: 0, b: 1, c: 1 },
+					{ a: 0, b: 1 },
+					{ a: 0, c: 1 },
+				]),
+			})
+		);
+
+		expect(awards.ironMan).toEqual({ uids: ['a'], value: 3 });
+		expect(awards.perfectAttendance).toEqual(['a']);
+	});
+
+	it('names no climber when nobody gained', () => {
+		expect(getAwards(input({ entries: season([{ a: 0, b: 1 }]) })).climber).toBeNull();
+	});
+
+	it('names the biggest climber', () => {
+		const entries = season([{ a: 0, b: 1 }]).map(entry => ({
+			...entry,
+			before: { a: { elo: 1000 }, b: { elo: 1000 } },
+			after: { a: { elo: 1020 }, b: { elo: 980 } },
+		})) as unknown as RatingLedgerEntry[];
+
+		expect(getAwards(input({ entries })).climber).toEqual({ uids: ['a'], value: 20 });
+	});
+});
+
+describe('getBanter', () => {
+	it('counts the no-shows', () => {
+		const banter = getBanter(
+			input({
+				entries: season([{ a: 0 }, { a: 0 }]),
+				responses: {
+					g1: { b: response('b', 'member', { absent: true }) },
+					g2: { b: response('b', 'member', { absent: true }), c: response('c', 'member', { absent: true }) },
+				},
+			})
+		);
+
+		expect(banter.noShows).toEqual({ uids: ['b'], value: 2 });
+	});
+
+	it('has no no-show award when everybody turned up', () => {
+		expect(
+			getBanter(input({ entries: season([{ a: 0 }]), responses: { g1: { a: response('a') } } })).noShows
+		).toBeNull();
+	});
+
+	it('counts an answer last touched in the 24 hours before kickoff, and nothing either side of it', () => {
+		// g1 kicks off at 2026-09-01T17:00Z.
+		const at = (updatedAt: string) => response('x', 'member', { updatedAt });
+		const banter = getBanter(
+			input({
+				entries: season([{ a: 0 }]),
+				responses: {
+					g1: {
+						edge: { ...at('2026-08-31T17:00:00.000Z'), uid: 'edge' },
+						early: { ...at('2026-08-31T16:59:59.999Z'), uid: 'early' },
+						after: { ...at('2026-09-01T17:00:00.001Z'), uid: 'after' },
+					},
+					// No ledger entry, so the game never happened as far as the recap knows.
+					g9: { ghost: { ...at('2026-09-01T16:00:00.000Z'), uid: 'ghost' } },
+				},
+			})
+		);
+
+		expect(banter.lastMinute).toEqual({ uids: ['edge'], value: 1 });
+	});
+
+	it('gives the spoon to the lowest player with enough games, not the one who barely played', () => {
+		// d is bottom but played twice; c is the lowest of those with three.
+		const banter = getBanter(
+			input({
+				entries: season([
+					{ a: 0, b: 1, c: 2, d: 3 },
+					{ a: 0, b: 1, c: 1, d: 3 },
+					{ a: 1, b: 0, c: 2 },
+				]),
+			})
+		);
+
+		expect(SPOON_MIN_APPEARANCES).toBe(3);
+		expect(banter.woodenSpoon).toEqual({ uids: ['c'], value: 0 });
+	});
+
+	it('has no spoon when nobody played enough', () => {
+		expect(
+			getBanter(
+				input({
+					entries: season([
+						{ a: 0, b: 1 },
+						{ a: 1, b: 0 },
+					]),
+				})
+			).woodenSpoon
+		).toBeNull();
 	});
 });
