@@ -571,6 +571,7 @@ const useGameScreen = (gameId: string) => {
 		season,
 		game,
 		responses,
+		responsesLoading,
 		kit,
 		usersByUid,
 		myResponses,
@@ -596,6 +597,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 		season,
 		game,
 		responses,
+		responsesLoading,
 		kit,
 		usersByUid,
 		myResponses,
@@ -661,7 +663,12 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 					lifecycle={lifecycle}
 				/>
 
+				{/* Drawn afresh once the answers are in, so the people the first
+				    snapshot sorts out of "no answer" are the roster opening rather
+				    than a crowd arriving. Only somebody who answers after that
+				    slides in. */}
 				<Roster
+					key={responsesLoading ? 'loading' : 'ready'}
 					seasonId={seasonId}
 					gameId={gameId}
 					memberUids={season.memberUids}

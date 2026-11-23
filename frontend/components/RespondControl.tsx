@@ -11,6 +11,7 @@ import { formatSek } from '@shared/format';
 import { bp, colors, shadows, tint } from '../app/tokens.stylex';
 import { animations } from '../lib/styles';
 import { useToast } from './Toast';
+import Burst from './Burst';
 import { hapticLight, hapticSuccess } from '../lib/utils/haptics';
 import { captureError } from '../lib/sentry';
 
@@ -413,6 +414,11 @@ const RespondControl = ({
 									aria-hidden='true'
 								/>
 							)}
+
+							{/* A yes gets a little more than the ring. It is the answer
+							    the whole app is asking for. Mounted and unmounted with
+							    the ring, which outlasts it. */}
+							{landing && option.status === 'in' && <Burst />}
 
 							{/* The icon changes shape as well as state when a half
 							    becomes the answer, a tick becoming a ticked circle,

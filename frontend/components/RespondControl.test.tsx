@@ -372,6 +372,41 @@ describe('RespondControl', () => {
 			expect(isRinging(screen.getByRole('button', { name: /I'm in/ }))).toBe(false);
 		});
 
+		describe('sparks', () => {
+			beforeEach(() => vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true })));
+			afterEach(() => vi.unstubAllGlobals());
+
+			const sparks = (button: HTMLElement) => button.querySelectorAll('[aria-hidden="true"] > span').length;
+
+			it('throws sparks off a yes as it lands', () => {
+				const { rerender } = render(
+					<RespondControl response={undefined} onRespond={vi.fn()} onClear={vi.fn()} />
+				);
+
+				rerender(<RespondControl response={answered('in')} onRespond={vi.fn()} onClear={vi.fn()} />);
+
+				expect(sparks(screen.getByRole('button', { name: /You're in/ }))).toBeGreaterThan(0);
+			});
+
+			// A no gets its ring and nothing more. The sparks are for the answer
+			// the app is asking for.
+			it('throws none off a no', () => {
+				const { rerender } = render(
+					<RespondControl response={undefined} onRespond={vi.fn()} onClear={vi.fn()} />
+				);
+
+				rerender(<RespondControl response={answered('out')} onRespond={vi.fn()} onClear={vi.fn()} />);
+
+				expect(sparks(screen.getByRole('button', { name: /You're out/ }))).toBe(0);
+			});
+
+			it('throws none for a yes that was already there', () => {
+				render(<RespondControl response={answered('in')} onRespond={vi.fn()} onClear={vi.fn()} />);
+
+				expect(sparks(screen.getByRole('button', { name: /You're in/ }))).toBe(0);
+			});
+		});
+
 		// Withdrawing leaves no chosen half, and the pair going quiet is the
 		// whole point of that action.
 		it('rings nothing when the answer is withdrawn', () => {

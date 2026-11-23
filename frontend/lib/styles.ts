@@ -19,9 +19,14 @@ const fadeIn = stylex.keyframes({
 	to: { opacity: 1 },
 });
 
+/*
+ * Lands on `none` rather than `translateY(0)`. The two look the same, but the
+ * fill holds the last frame for good, and any transform but `none` makes the
+ * element a containing block for whatever inside it is `position: fixed`.
+ */
 const rise = stylex.keyframes({
 	from: { opacity: 0, transform: 'translateY(10px)' },
-	to: { opacity: 1, transform: 'translateY(0)' },
+	to: { opacity: 1, transform: 'none' },
 });
 
 const pop = stylex.keyframes({
@@ -70,6 +75,25 @@ const swell = stylex.keyframes({
 	'0%': { transform: 'scale(1)' },
 	'35%': { transform: 'scale(1.16)' },
 	'100%': { transform: 'scale(1)' },
+});
+
+/** A tab icon answering the tap that made it the current one. */
+const hop = stylex.keyframes({
+	'0%': { transform: 'translateY(0) scale(1)' },
+	'35%': { transform: 'translateY(-4px) scale(1.15)' },
+	'65%': { transform: 'translateY(0) scale(0.95)' },
+	'100%': { transform: 'translateY(0) scale(1)' },
+});
+
+/**
+ * Somebody joining a list while you are looking at it. They slide in and the
+ * row holds a light for a moment, so you see the change rather than working it
+ * out from a count that went up.
+ */
+const arrive = stylex.keyframes({
+	'0%': { opacity: 0, transform: 'translateX(-12px)', backgroundColor: tint.white10 },
+	'35%': { opacity: 1, transform: 'none', backgroundColor: tint.white10 },
+	'100%': { opacity: 1, transform: 'none', backgroundColor: 'transparent' },
 });
 
 export const animations = stylex.create({
@@ -122,6 +146,18 @@ export const animations = stylex.create({
 		animationDuration: '0.45s',
 		animationTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
 	},
+	/* No fill mode, like `swell`, because it starts and ends where the icon already is. */
+	hop: {
+		animationName: hop,
+		animationDuration: '0.5s',
+		animationTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+	},
+	arrive: {
+		animationName: arrive,
+		animationDuration: '1.2s',
+		animationTimingFunction: 'ease-out',
+		animationFillMode: 'both',
+	},
 	shimmer: {
 		animationName: shimmer,
 		animationDuration: '1.6s',
@@ -133,6 +169,18 @@ export const animations = stylex.create({
 		animationTimingFunction: 'linear',
 		animationIterationCount: 'infinite',
 	},
+});
+
+/**
+ * Where one item of a list sits in its entrance, for a list that is drawn in
+ * one go and reads better coming down the screen than appearing as a block.
+ *
+ * Capped, so the tenth row of a long season is not still blank half a second
+ * after the first. `globals.css` zeroes the delay under reduced motion, which
+ * is what keeps a staggered row from holding at `opacity: 0` there.
+ */
+export const stagger = stylex.create({
+	at: (index: number) => ({ animationDelay: `${Math.min(index, 8) * 40}ms` }),
 });
 
 export const surfaces = stylex.create({

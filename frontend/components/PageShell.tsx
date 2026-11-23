@@ -4,7 +4,7 @@ import BottomNav from './BottomNav';
 import type { NavItem } from './BottomNav';
 import TopBar from './TopBar';
 import { bp } from '../app/tokens.stylex';
-import { utils } from '../lib/styles';
+import { animations, utils } from '../lib/styles';
 
 const styles = stylex.create({
 	root: { minHeight: '100dvh' },
@@ -56,7 +56,10 @@ const PageShell = ({
 			<TopBar title={title} subtitle={subtitle} backHref={backHref} navItems={tabs} adminHref={adminHref} />
 
 			<main {...stylex.props(utils.ptSafe, styles.main, tabs.length === 0 && styles.mainNoTabs)}>
-				<div {...stylex.props(styles.body)}>{children}</div>
+				{/* Every screen fades in under bars that stay put. Opacity alone,
+				    because a transform here would hold on the whole screen and
+				    make it the containing block for every fixed thing in it. */}
+				<div {...stylex.props(styles.body, animations.fadeIn)}>{children}</div>
 			</main>
 
 			{tabs.length > 0 && <BottomNav items={tabs} sectionHrefs={sectionHrefs} />}

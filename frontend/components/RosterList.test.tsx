@@ -5,6 +5,7 @@ import { DEFAULT_NOTIFICATION_PREFS } from '@shared/types';
 import { stylesFor, stylesOf } from '../test/stylex';
 import RosterList, { buildRoster } from './RosterList';
 import { ConfirmProvider } from './ConfirmDialog';
+import { animations } from '../lib/styles';
 
 /* A name struck through is somebody who said In and then did not turn up. */
 const expected = stylex.create({ struck: { textDecorationLine: 'line-through' } });
@@ -153,6 +154,39 @@ describe('RosterList', () => {
 		expect(screen.getByText('Carol Diaz')).toBeInTheDocument();
 		expect(screen.getByText('Out')).toBeInTheDocument();
 		expect(screen.getByText('Bob Lee')).toBeInTheDocument();
+	});
+
+	// Opening the screen is quiet. Only somebody who answers while it is open
+	// slides in, and only into the group they joined.
+	it('slides in somebody who joins a group while the list is open', () => {
+		const rowOf = (name: string) => screen.getByText(name).closest('a')!.parentElement!;
+		const arriving = (name: string) =>
+			stylesFor(animations.arrive).every(style => stylesOf(rowOf(name)).includes(style));
+
+		const { rerender } = render(
+			<RosterList
+				memberUids={['alice', 'bob']}
+				responses={[response({ uid: 'alice', status: 'in', role: 'member' })]}
+				usersByUid={usersByUid}
+			/>
+		);
+
+		expect(arriving('Alice Ng')).toBe(false);
+		expect(arriving('Bob Lee')).toBe(false);
+
+		rerender(
+			<RosterList
+				memberUids={['alice', 'bob']}
+				responses={[
+					response({ uid: 'alice', status: 'in', role: 'member' }),
+					response({ uid: 'bob', status: 'in', role: 'member' }),
+				]}
+				usersByUid={usersByUid}
+			/>
+		);
+
+		expect(arriving('Bob Lee')).toBe(true);
+		expect(arriving('Alice Ng')).toBe(false);
 	});
 
 	it('omits a section entirely when it has no entries', () => {
