@@ -4,12 +4,13 @@
 
 A season ends and the app has nothing to say about it. The season home keeps showing a game list with nothing left in it until somebody starts the next one. The numbers for a proper send-off are already stored: the ledger has every appearance, win and rating move, the responses have who turned up, and the MOTM documents have the votes. Nothing puts them together.
 
-This change adds a recap told as full-screen slides. It covers the club's season, a set of awards and each player's own season. Once the season is over it takes the place of the season home for everybody who played, until they have watched it to the end.
+This change adds a recap told as full-screen slides. It covers the club's season, a set of awards and each player's own season. Once the season is over it takes the place of the season home for everybody who played, until they have watched it to the end, and the same moment sends each of them a notification saying it is there.
 
 ## Goals
 
 - A story of slides at `/s/{seasonId}/recap`: tap right or left to move between slides, swipe works too, and a progress bar runs across the top.
 - It takes over the season home once the season is finished, for anybody with at least one appearance, until they reach the last slide.
+- When the last game's result is confirmed, everybody who played gets one notification that opens the recap.
 - "Watched" is stored on the user document, so finishing it on a phone counts on the desktop too.
 - It can be watched again from a card on the season page and from a player's profile.
 - An app admin can preview it from `/debug` at any point in the season.
@@ -18,15 +19,19 @@ This change adds a recap told as full-screen slides. It covers the club's season
 
 - No sharing. A screenshot covers it for now.
 - No money and no kit. Unpaid dues never appear anywhere in the recap.
-- No backend change. The numbers are computed on the client, from documents anyone signed in can already read.
+- No stored numbers. The backend decides when the recap is ready and says so, but every number on a slide is computed on the client, from documents anyone signed in can already read.
 - No individual goals. The app doesn't record scorers, so no slide pretends to know them.
 - No admin step to publish it. It starts on its own.
+- No profile switch for the notification. It comes once a season.
 
 ## Anti-goals
 
-- **A recap that changes after you've watched it.** It doesn't start until every game has been rated, so the table and the awards are final when it first appears.
+- **A recap missing a game.** It doesn't start until every game has been rated, so the table has every result in it when it first appears.
+- **Two notifications for one season.** The ready stamp is written once, in a transaction, and only the call that writes it sends.
 - **A preview that uses up your real one.** The debug preview never writes `recapsWatched`.
 - **Back walking into a loop.** The takeover uses `router.replace`, so Back from the recap doesn't land on a season home that sends you straight back.
+
+One thing does move after the recap appears, and that's accepted. The last game's MOTM vote opens when its result is confirmed, which is the moment the recap becomes ready. So the MOTM award, and the rating bonus the vote's replay adds, can change for a day or two after the notification. The slides are computed when they open, so whoever opens them later sees the settled numbers.
 
 ## When a season is finished
 
@@ -34,7 +39,36 @@ This change adds a recap told as full-screen slides. It covers the club's season
 
 A game that was played but never scored holds the recap back until somebody scores it or cancels it. That's on purpose: a recap with a game missing would tell a different story from the table beside it.
 
+**The backend asks the question and the client reads the answer.** `announceRecapIfReady(seasonId)` in `backend/src/lib/recap.ts` loads the season's games and ledger entries and runs `isSeasonFinished`. If the season is finished and has no `recapReadyAt`, it stamps `seasons/{id}.recapReadyAt` in a transaction and then sends the notification. Two places call it, because those are the only two ways the last missing piece can arrive:
+
+- `finaliseGame`, after `openMotmVoting`, for a confirmation that applied. This is the usual one.
+- `onGameWrite`, when a game moves to `cancelled`. Cancelling the one game nobody scored finishes the season too.
+
+Both swallow and report a failure, the same way `raiseGameDues` does. The game is confirmed either way.
+
+The takeover, the replay card and the profile links read `recapReadyAt` from the season document, so the season home pays no extra reads to find out. A season ready before this shipped has no stamp unless the backfill gives it one.
+
 The season stays `active` throughout. Nothing about `status` changes, and `/seasons` keeps sending people to the sole active season's home, which is where the takeover happens.
+
+## The notification
+
+`recapReady` is a new `SeasonNotification`.
+
+- **Audience.** Everybody with an appearance in the season's ledger: members and extras who played, nobody else.
+- **Switch.** `NOTIFICATION_PREF.recapReady` is `null`, the same as `seasonConfirmed`. It is one message a season. `emailFallback` still applies, as it does to every kind.
+- **Copy.** Title "{season name} is over", body "Your season recap is ready.", run through unslop.
+- **Tap.** It opens `/s/{id}/recap`. Not `respondable`.
+- **Tag.** `recap-{seasonId}`.
+- **Senders.** `finaliseTournament` and `finaliseDueTournaments` reach `finaliseGame`, and `onGameWrite` declares `EMAIL_SECRETS`, so the email fallback works from all three.
+- **Debug.** `/debug` gets a row for it like every other kind, with a test send that goes to you only.
+
+## Rules
+
+`recapReadyAt` joins the season allowlist in `seasonShapeOk` as a bounded string, and it is frozen against client writes the same way `confirmedAt` is. Only the function writes it.
+
+## Old seasons
+
+`backfill-recap-ready` is a script in `backend/scripts`, with `--dry-run` like the other backfills. It goes through every season that `isSeasonFinished` passes and that has no `recapReadyAt`. For each one it stamps the field and adds the season id to `recapsWatched` for everybody who played in it. Nothing is sent. Old seasons get their replay card and profile links, and nobody's home is taken over by a season from last year.
 
 ## Content
 
@@ -86,7 +120,7 @@ This hook loads the ledger entries for the season, its games, and each game's re
 
 ### Takeover
 
-`/s/[seasonId]/page.tsx` checks three things: the season is finished, the viewer has an appearance in it, and the season isn't in their `recapsWatched`. When all three hold, it calls `router.replace('/s/{id}/recap')`. When the season is finished, the season home also shows a "Watch the season recap" card at the top, for everybody.
+`/s/[seasonId]/page.tsx` checks three things: the season has a `recapReadyAt`, the viewer has an appearance in it, and the season isn't in their `recapsWatched`. When all three hold, it calls `router.replace('/s/{id}/recap')`. When the season is finished, the season home also shows a "Watch the season recap" card at the top, for everybody.
 
 ### The route
 
@@ -94,7 +128,7 @@ This hook loads the ledger entries for the season, its games, and each game's re
 
 ### Profile link
 
-A player's profile lists the seasons they have appeared in that are finished, each one linking to `/s/{id}/recap?player={uid}`.
+A player's profile lists the seasons they have appeared in that have a `recapReadyAt`, each one linking to `/s/{id}/recap?player={uid}`.
 
 ### Debug preview
 
@@ -104,10 +138,12 @@ A player's profile lists the seasons they have appeared in that are finished, ea
 
 - `shared/recap.test.ts`: `isSeasonFinished`, including cancelled games and a played game nobody scored; every award, including ties, nobody qualifying, and the spoon's 3-game floor; Lucy's 24-hour edge; and the personal slides for somebody with one game.
 - A jsdom test for the takeover: it redirects when unwatched, doesn't redirect when watched or when the viewer never played, and the last slide writes `recapsWatched`, except in a preview.
-- `rules/`: the `recapsWatched` cases above.
+- `rules/`: the `recapsWatched` cases above, and that no client can set or change `recapReadyAt`.
+- `backend`: `announceRecapIfReady` stamps and sends once when the last game is confirmed. It does nothing on a second call, nothing while a game is unrated, and it fires when the last unscored game is cancelled. The audience is exactly the players in the ledger. These run in `pnpm test:backend` against the emulator.
+- `shared/notifications.test.ts`: the `recapReady` payload, its URL and its tag.
 - `e2e/recap.spec.ts`: a new seeded season in `scenarios.ts`, with every game played and rated, and a cast member who has played. It checks the takeover from the season home, clicking through to the last slide, that the home is back afterwards, and that the replay card works, on both viewports. The season is its own, so it stays disjoint from the other specs.
 - `pnpm typecheck`, `pnpm fallow` and `pnpm format:check` before the commit.
 
 ## Docs
 
-`docs/season-recap.md` describes when a season counts as finished, what each award measures and why the banter is there, and it gets a line in the feature-docs list in `AGENTS.md`.
+`docs/season-recap.md` describes when a season counts as finished, what each award measures and why the banter is there, and it gets a line in the feature-docs list in `AGENTS.md`. `docs/notifications.md` gets a bullet for `recapReady`: why it has no switch, and who it goes to.
