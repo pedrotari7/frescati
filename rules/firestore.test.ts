@@ -3,6 +3,7 @@ import { join } from 'path';
 import type { RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import {
+	arrayUnion,
 	collection,
 	collectionGroup,
 	deleteDoc,
@@ -158,6 +159,18 @@ describe('users', () => {
 		await setDoc(doc(authed(MEMBER), `users/${MEMBER}`), { uid: MEMBER, displayName: 'A', isAppAdmin: false });
 
 		await assertFails(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { isAppAdmin: true }));
+	});
+
+	it('lets a user remember which recaps they have watched, and nobody else', async () => {
+		await setDoc(doc(authed(MEMBER), `users/${MEMBER}`), { uid: MEMBER, displayName: 'A', isAppAdmin: false });
+
+		await assertSucceeds(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { recapsWatched: arrayUnion(SEASON) }));
+		await assertFails(updateDoc(doc(authed(EXTRA), `users/${MEMBER}`), { recapsWatched: arrayUnion('another') }));
+
+		// Read by every roster screen through one listener, so it is bounded and it is a list.
+		await assertFails(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { recapsWatched: 'all of them' }));
+		const tooMany = Array.from({ length: 201 }, (_, index) => `season-${index}`);
+		await assertFails(updateDoc(doc(authed(MEMBER), `users/${MEMBER}`), { recapsWatched: tooMany }));
 	});
 
 	// `set-admin` promotes by uid and can land before the person has ever written
