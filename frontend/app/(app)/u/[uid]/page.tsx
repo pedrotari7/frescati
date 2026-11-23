@@ -12,6 +12,7 @@ import type { AppUser, RatingLedgerEntry, Season } from '@shared/types';
 import { hasPlayed, isProvisional, toDisplayRating } from '@shared/rating';
 import { counted, formatGameDate, placeLabel } from '@shared/format';
 import { usePlayerScreen } from '../../../../hooks/useData';
+import RecapLinks from '../../../../components/recap/RecapLinks';
 import { displayNameOf, nameByUid } from '../../../../lib/people';
 import { useAuth } from '../../../../lib/auth';
 import { useSeasonScope } from '../../../../components/SeasonScope';
@@ -571,6 +572,7 @@ const PlayerPage = ({ params }: { params: Promise<{ uid: string }> }) => {
 							usersById={usersById}
 							appearances={record.appearances}
 						/>
+						<RecapLinks uid={uid} entries={entries} seasonsById={seasonsById} />
 						<EveryGame games={record.games} seasonsById={seasonsById} />
 					</>
 				)}

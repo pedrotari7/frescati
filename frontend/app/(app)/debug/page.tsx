@@ -31,6 +31,7 @@ import Button from '../../../components/Button';
 import StatusPill from '../../../components/StatusPill';
 import type { PillTone } from '../../../components/StatusPill';
 import { Field, Select } from '../../../components/Field';
+import RecapPreviewCard from '../../../components/recap/RecapPreviewCard';
 import ErrorTriggers from '../../../components/ErrorTriggers';
 import PaymentTriggers from '../../../components/PaymentTriggers';
 import { colors, tint } from '../../tokens.stylex';
@@ -684,6 +685,8 @@ const DebugPage = () => {
 					silentUids={silentUids}
 					showSilent={Boolean(gameId) && silentUids.length > 0}
 				/>
+
+				<RecapPreviewCard seasonId={seasonId} />
 
 				<PaymentTriggers season={season} displayName={user.displayName} />
 
