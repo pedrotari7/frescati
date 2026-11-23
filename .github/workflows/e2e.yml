@@ -8,9 +8,21 @@ on:
         type: string
 
 jobs:
-  e2e:
+  # One job per viewport, each with a stack and a seeded database of its own.
+  # Locally the two share one database, so `playwright.config.ts` makes desktop
+  # wait for mobile. Here nothing is shared, so `--no-deps` lets them run at the
+  # same time, and the e2e job takes about as long as one viewport instead of
+  # both back to back. The price is a second setup and startup, about two
+  # runner minutes.
+  viewport:
     if: ${{ inputs.isE2e == 'true' }}
+    name: ${{ matrix.project }}
     runs-on: ubuntu-latest
+    strategy:
+      # A red mobile run says nothing about desktop, so let it finish.
+      fail-fast: false
+      matrix:
+        project: [mobile, desktop]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
@@ -39,13 +51,22 @@ jobs:
       # rather than browser differences, and the two viewports already cover the
       # thing that does vary: mobile is the primary target.
       - run: pnpm exec playwright install --with-deps chromium
+      # The seed waits for the frontend build, and that build is the slowest
+      # thing in startup. Its webpack cache keeps the unchanged half of it from
+      # being redone. Keyed on the source so a hit means a matching build, and
+      # restored from the nearest one otherwise.
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: frontend/.next/cache
+          key: ${{ runner.os }}-e2e-next-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('frontend/**/*.ts', 'frontend/**/*.tsx', 'frontend/**/*.js', 'frontend/**/*.css', 'shared/**/*.ts', '!frontend/node_modules/**', '!frontend/.next/**') }}
+          restore-keys: ${{ runner.os }}-e2e-next-${{ hashFiles('pnpm-lock.yaml') }}-
       # `pnpm test:e2e` starts the stack itself, through Playwright's webServer:
       # `pnpm dev:e2e` builds both halves, boots every emulator, seeds a real
       # scenario and serves the built app. The frontend build reads the
       # `NEXT_PUBLIC_*` values below out of this step's environment and inlines
       # them, which is why they are set here rather than on a build step of
       # their own.
-      - run: pnpm test:e2e
+      - run: pnpm test:e2e --project=${{ matrix.project }} --no-deps
         env:
           # Emulator-only config. Every route into Firebase goes through the
           # emulators here, so these never reach a real project, but the client
@@ -63,6 +84,22 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: playwright-report/
           retention-days: 7
+
+  # Branch protection requires a check called `e2e / e2e`, and the matrix above
+  # reports as `e2e / mobile` and `e2e / desktop`. This is the one name the rule
+  # waits for, red unless both viewports passed. Skipped along with them when
+  # nothing the suite covers changed, which the rule counts as passing, as it
+  # did when this was a single job.
+  e2e:
+    needs: viewport
+    if: ${{ always() && inputs.isE2e == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ needs.viewport.result != 'success' }}
+        run: |
+          echo "A viewport did not pass: ${{ needs.viewport.result }}"
+          exit 1
+      - run: echo "Both viewports passed."
