@@ -294,6 +294,12 @@ describe('getStorylines', () => {
 		expect(getStorylines(entries, ['ana'], { ana: settled }, KICKOFF)).toEqual([]);
 	});
 
+	it('does not count a shared first as part of a winning run', () => {
+		const entries = series('ana', ['win', 'draw', 'win', 'win'], KICKOFF - 28 * DAY);
+
+		expect(getStorylines(entries, ['ana'], { ana: settled }, KICKOFF)).toEqual([]);
+	});
+
 	it('tells a losing run of four', () => {
 		const entries = series('joao', ['loss', 'loss', 'loss', 'loss'], KICKOFF - 28 * DAY);
 

@@ -37,7 +37,7 @@ vi.mock('../../hooks/useFullTimeCard', () => ({
 	useFullTimeCard: () => ({ card: mock.card, loading: mock.loading, error: mock.error, retry: vi.fn() }),
 }));
 vi.mock('../../lib/fullTimeSeen', () => ({
-	markFullTimeSeen: (at: string) => seen.mark(at),
+	markFullTimeSeen: (seasonId: string, at: string) => seen.mark(seasonId, at),
 	claimFullTimeSession: (gameId: string) => seen.claim(gameId),
 }));
 vi.mock('./FullTimeCard', () => ({
@@ -99,7 +99,7 @@ describe('FullTimeScreen', () => {
 
 		fireEvent.click(screen.getByRole('button', { name: 'Done' }));
 
-		expect(seen.mark).toHaveBeenCalledWith(card.finalisedAt);
+		expect(seen.mark).toHaveBeenCalledWith('s', card.finalisedAt);
 		expect(router.back).toHaveBeenCalled();
 	});
 
@@ -119,6 +119,19 @@ describe('FullTimeScreen', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Share' }));
 
 		expect(share).toHaveBeenCalled();
-		expect(seen.mark).toHaveBeenCalledWith(card.finalisedAt);
+		expect(seen.mark).toHaveBeenCalledWith('s', card.finalisedAt);
+	});
+
+	it('marks the card seen as soon as it is shown, so leaving by the chevron counts', () => {
+		mock.card = card;
+		render(<FullTimeScreen seasonId='s' gameId='g' />);
+
+		expect(seen.mark).toHaveBeenCalledWith('s', card.finalisedAt);
+	});
+
+	it('marks nothing seen while there is no card', () => {
+		render(<FullTimeScreen seasonId='s' gameId='g' />);
+
+		expect(seen.mark).not.toHaveBeenCalled();
 	});
 });

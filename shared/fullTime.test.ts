@@ -183,6 +183,30 @@ describe('getFullTimeCard', () => {
 		expect(cardFor(games, lostHigh)?.highlights).toEqual([]);
 	});
 
+	it('does not call a shared first the start of a run', () => {
+		const shared = entry({
+			gameId: 'g2',
+			day: 8,
+			positions: { [ME]: 0, rival: 0 },
+			teams: { [ME]: 0, rival: 1 },
+		});
+		const level = resultFor([standing(0, 0, 0, 1), standing(1, 0, 0, 1)]);
+
+		expect(cardFor([played('g1', 1, true), shared], level)?.highlights).toEqual([]);
+	});
+
+	it('does not call a shared first a first win', () => {
+		const shared = entry({
+			gameId: 'g1',
+			day: 1,
+			positions: { [ME]: 0, rival: 0 },
+			teams: { [ME]: 0, rival: 1 },
+		});
+		const level = resultFor([standing(0, 0, 0, 1), standing(1, 0, 0, 1)]);
+
+		expect(cardFor([shared], level)?.highlights.some(highlight => highlight.kind === 'firstWin')).toBe(false);
+	});
+
 	it('celebrates a first win', () => {
 		const games = [played('g1', 1, false), played('g2', 8, true)];
 		// Far enough ahead that the win moves nobody on the table.
@@ -227,7 +251,7 @@ describe('pickFullTimeTakeover', () => {
 		expect(pickFullTimeTakeover([latest], ME, new Date(finalised + DAY), latest.finalisedAt)).toBeNull();
 	});
 
-	it('shows it again when a replay confirmed it after it was seen', () => {
+	it('shows it again when the result was cleared and confirmed after it was seen', () => {
 		const seenAt = new Date(finalised - 60_000).toISOString();
 
 		expect(pickFullTimeTakeover([latest], ME, new Date(finalised + DAY), seenAt)).toBe(latest);

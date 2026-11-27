@@ -121,9 +121,16 @@ describe('useFullTimeTakeover', () => {
 	});
 
 	it('stays put once this device has seen the card', () => {
-		window.localStorage.setItem('frescati:full-time-seen', '2026-11-24T21:00:00.000Z');
+		window.localStorage.setItem('frescati:full-time-seen', JSON.stringify({ autumn: '2026-11-24T21:00:00.000Z' }));
 		render();
 
 		expect(mockPush).not.toHaveBeenCalled();
+	});
+
+	it('still opens the card when only another season has a later mark', () => {
+		window.localStorage.setItem('frescati:full-time-seen', JSON.stringify({ spring: '2026-11-25T09:00:00.000Z' }));
+		render();
+
+		expect(mockPush).toHaveBeenCalledWith('/s/autumn/g/g1/full-time');
 	});
 });

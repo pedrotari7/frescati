@@ -42,6 +42,13 @@ const FullTimeScreen = ({ seasonId, gameId }: { seasonId: string; gameId: string
 		claimFullTimeSession(gameId);
 	}, [gameId]);
 
+	// Seen the moment it is on screen, however they leave: the chevron and the
+	// tabs are as good a way out as Done, and a card that came back on every
+	// launch for a week because nobody pressed Done would be a nag.
+	useEffect(() => {
+		if (card) markFullTimeSeen(seasonId, card.finalisedAt);
+	}, [card, seasonId]);
+
 	if (error) {
 		return (
 			<SeasonShell title='Full time' backHref={home}>
@@ -67,7 +74,7 @@ const FullTimeScreen = ({ seasonId, gameId }: { seasonId: string; gameId: string
 	}
 
 	const done = () => {
-		markFullTimeSeen(card.finalisedAt);
+		markFullTimeSeen(seasonId, card.finalisedAt);
 
 		if (canGoBack) router.back();
 		else router.push(home);
@@ -92,7 +99,7 @@ const ShareableCard = ({ card, timezone, onDone }: { card: Card; timezone: strin
 	});
 
 	const onShare = () => {
-		markFullTimeSeen(card.finalisedAt);
+		markFullTimeSeen(card.seasonId, card.finalisedAt);
 		void share();
 	};
 

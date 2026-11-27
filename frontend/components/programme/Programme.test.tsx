@@ -11,10 +11,16 @@ const mock = {
 vi.mock('../../hooks/useProgramme', () => ({
 	useProgramme: () => ({ ...mock, retry: vi.fn() }),
 }));
+const context = {
+	loading: false,
+	games: [{ id: 'g', kickoff: '2026-11-24T18:00:00.000Z' }],
+};
+
 vi.mock('../SeasonProvider', () => ({
 	useSeasonContext: () => ({
 		season: { id: 's', slot: { timezone: 'Europe/Stockholm' } },
-		games: [{ id: 'g', kickoff: '2026-11-24T18:00:00.000Z' }],
+		games: context.games,
+		loading: context.loading,
 	}),
 }));
 vi.mock('../../hooks/useData', () => ({
@@ -41,6 +47,8 @@ beforeEach(() => {
 	mock.loading = false;
 	mock.error = null;
 	backTo.mockClear();
+	context.loading = false;
+	context.games = [{ id: 'g', kickoff: '2026-11-24T18:00:00.000Z' }];
 });
 
 describe('Programme', () => {
@@ -78,5 +86,13 @@ describe('Programme', () => {
 		expect(screen.getByRole('heading', { name: 'Matchday' })).toBeInTheDocument();
 		expect(screen.getByText('First game for Ana')).toBeInTheDocument();
 		expect(screen.queryByText('Chance of topping the table')).not.toBeInTheDocument();
+	});
+
+	it('says so when the game is not in the season, rather than loading forever', () => {
+		context.games = [];
+		render(<Programme seasonId='s' gameId='gone' />);
+
+		expect(screen.getByText('Game not found')).toBeInTheDocument();
+		expect(backTo).toHaveBeenCalledWith('/s/s/g/gone');
 	});
 });
