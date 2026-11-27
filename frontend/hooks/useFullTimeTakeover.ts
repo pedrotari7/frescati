@@ -7,6 +7,7 @@ import { findLiveGame } from '@shared/game';
 import type { Game, GameResponse, Season } from '@shared/types';
 import { isVisible } from '../lib/device';
 import { useAuth } from '../lib/auth';
+import { FULL_TIME_FROM } from '../lib/fullTimeFrom';
 import { claimFullTimeSession, readFullTimeSeen } from '../lib/fullTimeSeen';
 import { useOnArrival } from './useArrival';
 import { useSeasonLedger } from './useData';
@@ -50,7 +51,7 @@ export const useFullTimeTakeover = ({
 		const now = new Date();
 		if (findLiveGame(games, season, myResponses, now)) return;
 
-		const game = pickFullTimeTakeover(entries, uid, now, readFullTimeSeen(season.id));
+		const game = pickFullTimeTakeover(entries, uid, now, readFullTimeSeen(season.id), FULL_TIME_FROM);
 		if (!game || !claimFullTimeSession(game.gameId)) return;
 
 		router.push(`/s/${season.id}/g/${game.gameId}/full-time`);

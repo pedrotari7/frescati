@@ -136,6 +136,13 @@ export const getFullTimeCard = (
 };
 
 /**
+ * Whether a game kicked off before full-time cards began. `from` is that start,
+ * or `null` where there is none, which is how the emulators run: their whole
+ * history is seeded in the past, and none of it is anybody's real last game.
+ */
+export const isBeforeFullTime = (kickoff: string, from: string | null): boolean => from !== null && kickoff < from;
+
+/**
  * The game whose card should take over the season home, if any: the season's
  * most recently confirmed game, if `uid` played in it, it was confirmed within
  * `FULL_TIME_WINDOW_DAYS`, and this device has not seen a card confirmed that
@@ -145,18 +152,21 @@ export const getFullTimeCard = (
  * so a result cleared and confirmed again, which stamps a new `finalisedAt`,
  * takes over once more. A rating replay keeps the original stamp, so it does
  * not, and the card still shows the replayed numbers whenever it is opened.
+ * A game that kicked off before `from` never takes over.
  */
 export const pickFullTimeTakeover = (
 	seasonEntries: RatingLedgerEntry[],
 	uid: string,
 	now: Date,
-	seenAt: string | null
+	seenAt: string | null,
+	from: string | null
 ): RatingLedgerEntry | null => {
 	const latest = [...seasonEntries].sort(
 		(a, b) => b.finalisedAt.localeCompare(a.finalisedAt) || b.gameId.localeCompare(a.gameId)
 	)[0];
 
 	if (!latest || latest.positions[uid] === undefined) return null;
+	if (isBeforeFullTime(latest.kickoff, from)) return null;
 	if (now.getTime() - new Date(latest.finalisedAt).getTime() > FULL_TIME_WINDOW_DAYS * 86_400_000) return null;
 	if (seenAt !== null && latest.finalisedAt <= seenAt) return null;
 

@@ -641,7 +641,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 				/>
 
 				<ProgrammeLink game={game} season={season} now={now} />
-				<FullTimeLink seasonId={seasonId} gameId={gameId} played={played} />
+				<FullTimeLink seasonId={seasonId} gameId={gameId} kickoff={game.kickoff} played={played} />
 
 				<TeamsLink
 					href={`${home}/g/${gameId}/tournament`}
