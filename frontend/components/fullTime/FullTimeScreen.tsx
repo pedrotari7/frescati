@@ -12,6 +12,7 @@ import LoadFailed from '../LoadFailed';
 import { useSeasonContext } from '../SeasonProvider';
 import SeasonShell from '../SeasonShell';
 import Skeleton from '../Skeleton';
+import StatusPill from '../StatusPill';
 import { formatGameDateLong } from '@shared/format';
 import type { FullTimeCard as Card } from '@shared/fullTime';
 import { teamName } from '../TeamBadge';
@@ -20,8 +21,47 @@ import FullTimeCard from './FullTimeCard';
 import { useShareCard } from './useShareCard';
 
 const styles = stylex.create({
-	page: { padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'stretch' },
+	page: { padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 12 },
+	badge: { alignSelf: 'center' },
 });
+
+/**
+ * Claiming the session and marking the card seen, both skipped for a preview,
+ * which must not use up the real card it is a preview of.
+ *
+ * Seen the moment it is on screen, however they leave: the chevron and the tabs
+ * are as good a way out as Done, and a card that came back on every launch for a
+ * week because nobody pressed Done would be a nag. `mark` is for Done and Share,
+ * which say the same thing again.
+ */
+const useSeenMark = (seasonId: string, gameId: string, card: Card | null, previewing: boolean) => {
+	useEffect(() => {
+		if (!previewing) claimFullTimeSession(gameId);
+	}, [gameId, previewing]);
+
+	useEffect(() => {
+		if (card && !previewing) markFullTimeSeen(seasonId, card.finalisedAt);
+	}, [card, seasonId, previewing]);
+
+	return () => {
+		if (card && !previewing) markFullTimeSeen(seasonId, card.finalisedAt);
+	};
+};
+
+/** Whose card this is: a previewing app admin's pick, otherwise always the person looking. */
+const useSubject = (preview: boolean, player: string | undefined) => {
+	const { user } = useAuth();
+	const previewing = preview && !!user?.isAppAdmin;
+
+	return { previewing, subject: previewing && player ? player : (user?.uid ?? null) };
+};
+
+const NoCard = ({ previewing }: { previewing: boolean }) =>
+	previewing ? (
+		<EmptyState title='They did not play in this game' message='Pick somebody the result rated.' />
+	) : (
+		<EmptyState title='You did not play in this game' message='Your card is waiting after the next one.' />
+	);
 
 /**
  * The full-time card's screen, reached from the takeover on the season home or
@@ -29,30 +69,34 @@ const styles = stylex.create({
  *
  * Claims the session on the way in, whichever way that was, so closing it never
  * lands on a season home that sends them straight back.
+ *
+ * `preview` with `player` is the debug screen's way in: an app admin sees that
+ * player's card, labelled as a preview, and nothing about it is recorded.
+ * Anybody else asking for it gets their own card, the same as without it.
  */
-const FullTimeScreen = ({ seasonId, gameId }: { seasonId: string; gameId: string }) => {
+const FullTimeScreen = ({
+	seasonId,
+	gameId,
+	preview = false,
+	player,
+}: {
+	seasonId: string;
+	gameId: string;
+	preview?: boolean;
+	player?: string;
+}) => {
 	const router = useRouter();
-	const { user } = useAuth();
 	const { canGoBack } = useAppHistory();
 	const { season } = useSeasonContext();
-	const { card, loading, error, retry } = useFullTimeCard(seasonId, gameId, user?.uid ?? null);
+	const { previewing, subject } = useSubject(preview, player);
+	const { card, loading, error, retry } = useFullTimeCard(seasonId, gameId, subject);
+	const markSeen = useSeenMark(seasonId, gameId, card, previewing);
 	const home = `/s/${seasonId}`;
-
-	useEffect(() => {
-		claimFullTimeSession(gameId);
-	}, [gameId]);
-
-	// Seen the moment it is on screen, however they leave: the chevron and the
-	// tabs are as good a way out as Done, and a card that came back on every
-	// launch for a week because nobody pressed Done would be a nag.
-	useEffect(() => {
-		if (card) markFullTimeSeen(seasonId, card.finalisedAt);
-	}, [card, seasonId]);
 
 	if (error) {
 		return (
 			<SeasonShell title='Full time' backHref={home}>
-				<LoadFailed what='your full-time card' onRetry={retry} />
+				<LoadFailed what='this full-time card' onRetry={retry} />
 			</SeasonShell>
 		);
 	}
@@ -68,13 +112,13 @@ const FullTimeScreen = ({ seasonId, gameId }: { seasonId: string; gameId: string
 	if (!card) {
 		return (
 			<SeasonShell title='Full time' backHref={home}>
-				<EmptyState title='You did not play in this game' message='Your card is waiting after the next one.' />
+				<NoCard previewing={previewing} />
 			</SeasonShell>
 		);
 	}
 
 	const done = () => {
-		markFullTimeSeen(seasonId, card.finalisedAt);
+		markSeen();
 
 		if (canGoBack) router.back();
 		else router.push(home);
@@ -83,14 +127,25 @@ const FullTimeScreen = ({ seasonId, gameId }: { seasonId: string; gameId: string
 	return (
 		<SeasonShell title='Full time' backHref={home}>
 			<div {...stylex.props(styles.page)}>
-				<ShareableCard card={card} timezone={season?.slot.timezone ?? 'UTC'} onDone={done} />
+				{previewing && <StatusPill sx={styles.badge}>Preview</StatusPill>}
+				<ShareableCard card={card} timezone={season?.slot.timezone ?? 'UTC'} onSeen={markSeen} onDone={done} />
 			</div>
 		</SeasonShell>
 	);
 };
 
 /** The card with its share action, split out so the hook only runs once there is a card to share. */
-const ShareableCard = ({ card, timezone, onDone }: { card: Card; timezone: string; onDone: () => void }) => {
+const ShareableCard = ({
+	card,
+	timezone,
+	onSeen,
+	onDone,
+}: {
+	card: Card;
+	timezone: string;
+	onSeen: () => void;
+	onDone: () => void;
+}) => {
 	const { swatches, share } = useShareCard(card, {
 		team: `Team ${teamName(card.team)}`,
 		finish: describeFinish(card),
@@ -99,7 +154,7 @@ const ShareableCard = ({ card, timezone, onDone }: { card: Card; timezone: strin
 	});
 
 	const onShare = () => {
-		markFullTimeSeen(card.seasonId, card.finalisedAt);
+		onSeen();
 		void share();
 	};
 

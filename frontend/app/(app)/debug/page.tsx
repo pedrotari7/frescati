@@ -21,7 +21,7 @@ import { usePushRegistration } from '../../../hooks/usePushRegistration';
 import { sendTestPush } from '../../../lib/db/testPush';
 import { sendTestEmail } from '../../../lib/db/testEmail';
 import type { EmailTestOutcome, EmailTestStatus, TestEmailResult } from '../../../lib/db/testEmail';
-import { useGames, useResponses, useSeasons, useUsers } from '../../../hooks/useData';
+import { useGames, useResponses, useSeasons, useUsersByUid } from '../../../hooks/useData';
 import { useToast } from '../../../components/Toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import PageShell from '../../../components/PageShell';
@@ -32,6 +32,7 @@ import StatusPill from '../../../components/StatusPill';
 import type { PillTone } from '../../../components/StatusPill';
 import { Field, Select } from '../../../components/Field';
 import RecapPreviewCard from '../../../components/recap/RecapPreviewCard';
+import MatchdayPreviewCard from '../../../components/fullTime/MatchdayPreviewCard';
 import ErrorTriggers from '../../../components/ErrorTriggers';
 import PaymentTriggers from '../../../components/PaymentTriggers';
 import { colors, tint } from '../../tokens.stylex';
@@ -643,7 +644,7 @@ const EmailCard = ({
 
 const DebugPage = () => {
 	const { user } = useAuth();
-	const { users } = useUsers();
+	const { users, usersByUid } = useUsersByUid();
 	const { support, enabled } = usePushRegistration(user?.uid);
 	const { seasons, seasonId, season, games, gameId, target, setChosenSeason, setChosenGame } = useDebugTarget();
 	const { responses } = useResponses(seasonId, gameId);
@@ -687,6 +688,8 @@ const DebugPage = () => {
 				/>
 
 				<RecapPreviewCard seasonId={seasonId} />
+
+				<MatchdayPreviewCard seasonId={seasonId} gameId={gameId} usersByUid={usersByUid} />
 
 				<PaymentTriggers season={season} displayName={user.displayName} />
 
