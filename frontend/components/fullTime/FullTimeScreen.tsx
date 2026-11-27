@@ -12,7 +12,12 @@ import LoadFailed from '../LoadFailed';
 import { useSeasonContext } from '../SeasonProvider';
 import SeasonShell from '../SeasonShell';
 import Skeleton from '../Skeleton';
+import { formatGameDateLong } from '@shared/format';
+import type { FullTimeCard as Card } from '@shared/fullTime';
+import { teamName } from '../TeamBadge';
+import { describeFinish } from './describeHighlight';
 import FullTimeCard from './FullTimeCard';
+import { useShareCard } from './useShareCard';
 
 const styles = stylex.create({
 	page: { padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'stretch' },
@@ -71,14 +76,30 @@ const FullTimeScreen = ({ seasonId, gameId }: { seasonId: string; gameId: string
 	return (
 		<SeasonShell title='Full time' backHref={home}>
 			<div {...stylex.props(styles.page)}>
-				<FullTimeCard
-					card={card}
-					timezone={season?.slot.timezone ?? 'UTC'}
-					onShare={() => markFullTimeSeen(card.finalisedAt)}
-					onDone={done}
-				/>
+				<ShareableCard card={card} timezone={season?.slot.timezone ?? 'UTC'} onDone={done} />
 			</div>
 		</SeasonShell>
+	);
+};
+
+/** The card with its share action, split out so the hook only runs once there is a card to share. */
+const ShareableCard = ({ card, timezone, onDone }: { card: Card; timezone: string; onDone: () => void }) => {
+	const { swatches, share } = useShareCard(card, {
+		team: `Team ${teamName(card.team)}`,
+		finish: describeFinish(card),
+		date: formatGameDateLong(card.kickoff, timezone),
+		app: 'Frescati',
+	});
+
+	const onShare = () => {
+		markFullTimeSeen(card.finalisedAt);
+		void share();
+	};
+
+	return (
+		<FullTimeCard card={card} timezone={timezone} onShare={onShare} onDone={onDone}>
+			{swatches}
+		</FullTimeCard>
 	);
 };
 

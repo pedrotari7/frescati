@@ -47,6 +47,19 @@ const styles = stylex.create({
  * Half a display point spread over twelve games has no direction worth reading.
  * It shares `signed` and nothing else.
  */
+/**
+ * The badge's text on its own, for anywhere that has to print the same number
+ * without drawing the badge, which is the share image.
+ *
+ * `signed` prints an unsigned `0`, which is right for the movement that is
+ * genuinely nothing and wrong for the one that rounded to nothing.
+ */
+export const movementLabel = (delta: number): string => {
+	const shown = toDisplayMovement(delta);
+
+	return shown !== 0 ? signed(shown) : delta > 0 ? '+0' : delta < 0 ? '-0' : '0';
+};
+
 const RatingMovement = ({
 	delta,
 	sx,
@@ -57,11 +70,7 @@ const RatingMovement = ({
 }) => {
 	if (delta === undefined) return null;
 
-	const shown = toDisplayMovement(delta);
-
-	// `signed` prints an unsigned `0`, which is right for the movement that is
-	// genuinely nothing and wrong for the one that rounded to nothing.
-	const label = shown !== 0 ? signed(shown) : delta > 0 ? '+0' : delta < 0 ? '-0' : '0';
+	const label = movementLabel(delta);
 
 	return (
 		<span {...stylex.props(styles.movement, delta > 0 ? styles.up : delta < 0 ? styles.down : styles.level, sx)}>
