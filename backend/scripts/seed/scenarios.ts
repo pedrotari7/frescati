@@ -500,6 +500,9 @@ const full: Scenario = {
 				// So the sweep has game charges to raise as well as ten entry ones,
 				// Greta's among them.
 				[-2]: { extrasPlaying: 3 },
+				// The last game, confirmed days ago, with every member on the pitch,
+				// so whoever `matchday.spec` signs in as has a full-time card waiting.
+				[-1]: { playing: 10 },
 				[0]: { responses: 'partial', playing: 9 },
 				[1]: { responses: 'none' },
 			},

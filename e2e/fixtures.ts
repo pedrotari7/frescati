@@ -115,39 +115,51 @@ export const signInAs = async (page: Page, user: DevUser): Promise<void> => {
 /** Names carry accents and the odd dot; none of them are meant as syntax. */
 export const escapeForRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Pages already told to stay off the live game, so a spec opening several screens adds the script once. */
+/** Pages already told to stay put, so a spec opening several screens adds the script once. */
 const pinned = new WeakSet<Page>();
 
 /**
- * Keep the season home from jumping to a game that is on right now.
+ * Keep the season home from jumping somewhere else on arrival.
  *
  * `useLiveGameRedirect` sends anybody arriving during a game they are In for
  * straight to it. The seeder lays its games on the real calendar, so for the
  * ninety minutes after a seeded kickoff, Sunday's 10:00 among them, the home a
  * spec opened turned into a game page, and whatever it went on to look for was
- * not there. The hook already skips a jump it cannot record, so this refuses the
- * one `sessionStorage` key it records the jump in.
+ * not there. The full-time card does the same for a week after every result,
+ * and the seeded calendar always has one. Both skip a jump they cannot record,
+ * so this refuses the `sessionStorage` key each records the jump in.
+ * `matchday.spec` lets the card through, because the card is what it tests.
  */
-const stayOffTheLiveGame = async (page: Page): Promise<void> => {
+const stayHome = async (page: Page, { fullTime }: { fullTime: boolean }): Promise<void> => {
 	if (pinned.has(page)) return;
 	pinned.add(page);
 
-	await page.addInitScript(() => {
+	const refused = fullTime ? ['frescati:live-game'] : ['frescati:live-game', 'frescati:full-time'];
+
+	await page.addInitScript(keys => {
 		const setItem = Storage.prototype.setItem;
 
 		Storage.prototype.setItem = function (key: string, value: string) {
-			if (key === 'frescati:live-game') throw new DOMException('Refused by the e2e suite', 'SecurityError');
+			if (keys.includes(key)) throw new DOMException('Refused by the e2e suite', 'SecurityError');
 			setItem.call(this, key, value);
 		};
-	});
+	}, refused);
 };
 
 /**
  * Open the app as somebody. Waits for the switcher rather than `networkidle`,
  * which never settles with a page full of open Firestore listeners.
+ *
+ * `fullTime` lets the full-time card take over the season home, which every
+ * other spec keeps out of the way.
  */
-export const openAs = async (page: Page, user: DevUser, path = '/'): Promise<void> => {
-	await stayOffTheLiveGame(page);
+export const openAs = async (
+	page: Page,
+	user: DevUser,
+	path = '/',
+	{ fullTime = false }: { fullTime?: boolean } = {}
+): Promise<void> => {
+	await stayHome(page, { fullTime });
 	await page.goto(path);
 	await expect(page.getByRole('button', { name: 'Switch seeded user' })).toBeVisible();
 	await signInAs(page, user);
