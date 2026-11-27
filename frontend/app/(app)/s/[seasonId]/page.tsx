@@ -11,8 +11,7 @@ import { useAuth } from '../../../../lib/auth';
 import { usePayment, useSignups, useUsersByUid } from '../../../../hooks/useData';
 import { useRespond } from '../../../../hooks/useRespond';
 import { useWatchGames } from '../../../../hooks/useWatchGames';
-import { useLiveGameRedirect } from '../../../../hooks/useLiveGameRedirect';
-import { useSeasonRecapTakeover } from '../../../../hooks/useRecapTakeover';
+import { useHomeTakeovers } from '../../../../hooks/useHomeTakeovers';
 import { useNow } from '../../../../hooks/useNow';
 import SeasonShell from '../../../../components/SeasonShell';
 import Skeleton from '../../../../components/Skeleton';
@@ -268,17 +267,10 @@ const SeasonHomePage = () => {
 	const now = useNow();
 
 	// This is the screen the app lands on, so it's where somebody arriving during
-	// a game they're playing in gets taken to it. Above the early returns, so a
-	// slow first snapshot doesn't skip it. It waits for `ready` instead.
-	useLiveGameRedirect({
-		seasonId,
-		season,
-		games,
-		myResponses,
-		ready: !loading,
-	});
-
-	useSeasonRecapTakeover(season, !loading);
+	// a game they're playing in gets taken to it, or to the season's recap, or to
+	// last game's full-time card. Above the early returns, so a slow first
+	// snapshot doesn't skip them. They wait for `ready` instead.
+	useHomeTakeovers({ seasonId, season, games, myResponses, ready: !loading });
 
 	const { next, upcoming, voting, played } = useMemo(
 		() => (season ? groupGames(games, now) : { next: null, upcoming: [], voting: [], played: [] }),
