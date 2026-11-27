@@ -4,17 +4,29 @@ import type { Game, GameResponse, RatingLedgerEntry, Season } from '@shared/type
 const mockPush = vi.fn();
 const mockReplace = vi.fn();
 const ledger = { entries: [] as RatingLedgerEntry[], loading: false };
+const launch = { from: null as string | null };
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: mockReplace, push: mockPush }) }));
 vi.mock('../lib/auth', () => ({ useAuth: () => ({ user: { uid: 'anna' } }) }));
 vi.mock('./useData', () => ({ useSeasonLedger: () => ({ ...ledger, error: null, retry: vi.fn() }) }));
+vi.mock('../lib/fullTimeFrom', () => ({
+	get FULL_TIME_FROM() {
+		return launch.from;
+	},
+}));
 
 import { useFullTimeTakeover } from './useFullTimeTakeover';
 
 const NOW = Date.parse('2026-11-25T10:00:00.000Z');
 
 const confirmed = (gameId: string, finalisedAt: string, positions: Record<string, number> = { anna: 0, bosse: 1 }) =>
-	({ seasonId: 'autumn', gameId, finalisedAt, positions }) as unknown as RatingLedgerEntry;
+	({
+		seasonId: 'autumn',
+		gameId,
+		finalisedAt,
+		kickoff: '2026-11-24T18:00:00.000Z',
+		positions,
+	}) as unknown as RatingLedgerEntry;
 
 const season = { id: 'autumn', responseDeadlineHours: 3 } as Season;
 
@@ -44,6 +56,7 @@ describe('useFullTimeTakeover', () => {
 		window.localStorage.clear();
 		ledger.entries = [confirmed('g1', '2026-11-24T21:00:00.000Z')];
 		ledger.loading = false;
+		launch.from = null;
 	});
 
 	afterEach(() => {
@@ -132,5 +145,12 @@ describe('useFullTimeTakeover', () => {
 		render();
 
 		expect(mockPush).toHaveBeenCalledWith('/s/autumn/g/g1/full-time');
+	});
+
+	it('leaves a game played before full-time cards began alone', () => {
+		launch.from = '2026-11-27T23:00:00.000Z';
+		render();
+
+		expect(mockPush).not.toHaveBeenCalled();
 	});
 });

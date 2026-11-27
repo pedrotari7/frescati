@@ -25,12 +25,18 @@ const mock = {
 	canGoBack: false,
 	isAppAdmin: false,
 	asked: [] as (string | null)[],
+	from: null as string | null,
 };
 const router = { back: vi.fn(), push: vi.fn() };
 const seen = { mark: vi.fn(), claim: vi.fn() };
 const backTo = vi.fn();
 const share = vi.fn();
 
+vi.mock('../../lib/fullTimeFrom', () => ({
+	get FULL_TIME_FROM() {
+		return mock.from;
+	},
+}));
 vi.mock('next/navigation', () => ({ useRouter: () => router }));
 vi.mock('../../lib/auth', () => ({ useAuth: () => ({ user: { uid: 'me', isAppAdmin: mock.isAppAdmin } }) }));
 vi.mock('../AppHistory', () => ({ useAppHistory: () => ({ canGoBack: mock.canGoBack }) }));
@@ -69,6 +75,7 @@ beforeEach(() => {
 	mock.canGoBack = false;
 	mock.isAppAdmin = false;
 	mock.asked = [];
+	mock.from = null;
 });
 
 describe('FullTimeScreen', () => {
@@ -177,6 +184,26 @@ describe('FullTimeScreen', () => {
 
 			expect(mock.asked.at(-1)).toBe('me');
 			expect(screen.queryByText('Preview')).not.toBeInTheDocument();
+		});
+	});
+
+	describe('before full-time cards began', () => {
+		it('has no card for a game played before then', () => {
+			mock.card = card;
+			mock.from = '2026-11-27T23:00:00.000Z';
+			render(<FullTimeScreen seasonId='s' gameId='g' />);
+
+			expect(screen.getByText('Full-time cards start with the next game')).toBeInTheDocument();
+			expect(seen.mark).not.toHaveBeenCalled();
+		});
+
+		it('still lets an app admin preview one', () => {
+			mock.card = card;
+			mock.from = '2026-11-27T23:00:00.000Z';
+			mock.isAppAdmin = true;
+			render(<FullTimeScreen seasonId='s' gameId='g' preview player='ana' />);
+
+			expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
 		});
 	});
 });

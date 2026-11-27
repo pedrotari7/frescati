@@ -15,6 +15,8 @@ import Skeleton from '../Skeleton';
 import StatusPill from '../StatusPill';
 import { formatGameDateLong } from '@shared/format';
 import type { FullTimeCard as Card } from '@shared/fullTime';
+import { isBeforeFullTime } from '@shared/fullTime';
+import { FULL_TIME_FROM } from '../../lib/fullTimeFrom';
 import { teamName } from '../TeamBadge';
 import { describeFinish } from './describeHighlight';
 import FullTimeCard from './FullTimeCard';
@@ -56,12 +58,22 @@ const useSubject = (preview: boolean, player: string | undefined) => {
 	return { previewing, subject: previewing && player ? player : (user?.uid ?? null) };
 };
 
-const NoCard = ({ previewing }: { previewing: boolean }) =>
-	previewing ? (
+const NoCard = ({ previewing, tooEarly }: { previewing: boolean; tooEarly: boolean }) => {
+	if (tooEarly) {
+		return (
+			<EmptyState
+				title='Full-time cards start with the next game'
+				message='This one was played before they began.'
+			/>
+		);
+	}
+
+	return previewing ? (
 		<EmptyState title='They did not play in this game' message='Pick somebody the result rated.' />
 	) : (
 		<EmptyState title='You did not play in this game' message='Your card is waiting after the next one.' />
 	);
+};
 
 /**
  * The full-time card's screen, reached from the takeover on the season home or
@@ -89,7 +101,10 @@ const FullTimeScreen = ({
 	const { canGoBack } = useAppHistory();
 	const { season } = useSeasonContext();
 	const { previewing, subject } = useSubject(preview, player);
-	const { card, loading, error, retry } = useFullTimeCard(seasonId, gameId, subject);
+	const fetched = useFullTimeCard(seasonId, gameId, subject);
+	const { loading, error, retry } = fetched;
+	const tooEarly = !previewing && !!fetched.card && isBeforeFullTime(fetched.card.kickoff, FULL_TIME_FROM);
+	const card = tooEarly ? null : fetched.card;
 	const markSeen = useSeenMark(seasonId, gameId, card, previewing);
 	const home = `/s/${seasonId}`;
 
@@ -112,7 +127,7 @@ const FullTimeScreen = ({
 	if (!card) {
 		return (
 			<SeasonShell title='Full time' backHref={home}>
-				<NoCard previewing={previewing} />
+				<NoCard previewing={previewing} tooEarly={tooEarly} />
 			</SeasonShell>
 		);
 	}

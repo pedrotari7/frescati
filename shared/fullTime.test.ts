@@ -1,4 +1,4 @@
-import { getFullTimeCard, pickFullTimeTakeover } from './fullTime';
+import { getFullTimeCard, isBeforeFullTime, pickFullTimeTakeover } from './fullTime';
 import type { RatingLedgerEntry, TeamStanding, TournamentResult } from './types';
 
 const DAY = 86_400_000;
@@ -234,32 +234,62 @@ describe('pickFullTimeTakeover', () => {
 	const finalised = new Date(latest.finalisedAt).getTime();
 
 	it('picks the latest confirmed game they played', () => {
-		expect(pickFullTimeTakeover([latest, older], ME, new Date(finalised + DAY), null)).toBe(latest);
+		expect(pickFullTimeTakeover([latest, older], ME, new Date(finalised + DAY), null, null)).toBe(latest);
 	});
 
 	it('lets a card go after seven days', () => {
-		expect(pickFullTimeTakeover([latest], ME, new Date(finalised + 7 * DAY + 60_000), null)).toBeNull();
+		expect(pickFullTimeTakeover([latest], ME, new Date(finalised + 7 * DAY + 60_000), null, null)).toBeNull();
 	});
 
 	it('shows nothing when they missed the latest game', () => {
 		const without = entry({ gameId: 'latest', day: 20, positions: { someone: 0 } });
 
-		expect(pickFullTimeTakeover([without, older], ME, new Date(finalised + DAY), null)).toBeNull();
+		expect(pickFullTimeTakeover([without, older], ME, new Date(finalised + DAY), null, null)).toBeNull();
 	});
 
 	it('shows nothing once that card has been seen', () => {
-		expect(pickFullTimeTakeover([latest], ME, new Date(finalised + DAY), latest.finalisedAt)).toBeNull();
+		expect(pickFullTimeTakeover([latest], ME, new Date(finalised + DAY), latest.finalisedAt, null)).toBeNull();
 	});
 
 	it('shows it again when the result was cleared and confirmed after it was seen', () => {
 		const seenAt = new Date(finalised - 60_000).toISOString();
 
-		expect(pickFullTimeTakeover([latest], ME, new Date(finalised + DAY), seenAt)).toBe(latest);
+		expect(pickFullTimeTakeover([latest], ME, new Date(finalised + DAY), seenAt, null)).toBe(latest);
 	});
 
 	it('breaks a tie on confirmation time by game id', () => {
 		const twin = { ...played('latest-b', 20, true), finalisedAt: latest.finalisedAt };
 
-		expect(pickFullTimeTakeover([latest, twin], ME, new Date(finalised + DAY), null)).toBe(twin);
+		expect(pickFullTimeTakeover([latest, twin], ME, new Date(finalised + DAY), null, null)).toBe(twin);
+	});
+
+	it('shows nothing for a game that kicked off before full-time cards began', () => {
+		expect(
+			pickFullTimeTakeover(
+				[latest],
+				ME,
+				new Date(finalised + DAY),
+				null,
+				new Date(latest.kickoffMillis + 1).toISOString()
+			)
+		).toBeNull();
+	});
+
+	it('shows a game that kicked off once full-time cards had begun', () => {
+		expect(pickFullTimeTakeover([latest], ME, new Date(finalised + DAY), null, latest.kickoff)).toBe(latest);
+	});
+});
+
+describe('isBeforeFullTime', () => {
+	it('is true for a kickoff before the start', () => {
+		expect(isBeforeFullTime('2026-11-24T18:00:00.000Z', '2026-11-27T23:00:00.000Z')).toBe(true);
+	});
+
+	it('is false from the start on', () => {
+		expect(isBeforeFullTime('2026-11-27T23:00:00.000Z', '2026-11-27T23:00:00.000Z')).toBe(false);
+	});
+
+	it('is never true when there is no start, which is how the emulators run', () => {
+		expect(isBeforeFullTime('2000-01-01T00:00:00.000Z', null)).toBe(false);
 	});
 });

@@ -1,5 +1,7 @@
 import { SparklesIcon } from '@heroicons/react/24/outline';
+import { isBeforeFullTime } from '@shared/fullTime';
 import { useTournamentResult } from '../hooks/useData';
+import { FULL_TIME_FROM } from '../lib/fullTimeFrom';
 import { useAuth } from '../lib/auth';
 import LinkCard from './LinkCard';
 
@@ -8,12 +10,22 @@ import LinkCard from './LinkCard';
  * Only on a played game, and only for somebody the result rated, so the result
  * is not read for a game still to come.
  */
-const FullTimeLink = ({ seasonId, gameId, played }: { seasonId: string; gameId: string; played: boolean }) => {
+const FullTimeLink = ({
+	seasonId,
+	gameId,
+	kickoff,
+	played,
+}: {
+	seasonId: string;
+	gameId: string;
+	kickoff: string;
+	played: boolean;
+}) => {
 	const { user } = useAuth();
 	const { result } = useTournamentResult(played ? seasonId : null, played ? gameId : null);
 	const rated = !!user && !!result?.changes.some(change => change.uid === user.uid);
 
-	if (!played || !rated) return null;
+	if (!played || !rated || isBeforeFullTime(kickoff, FULL_TIME_FROM)) return null;
 
 	return (
 		<LinkCard
