@@ -45,10 +45,10 @@ export const colors = stylex.defineVars({
 	teamD: '#e879f9',
 
 	/*
-	 * The season recap's party colours, and nothing else's. A recap is the one
-	 * screen that celebrates rather than informs, so it gets a palette that
-	 * means nothing anywhere else: the medals on its podium, and the light
-	 * behind its awards, its banter and the reader's own season.
+	 * The party colours, for the season recap and the matchday programme, the
+	 * two screens that celebrate rather than inform. They mean nothing anywhere
+	 * else: the medals on the recap's podium, the light behind its awards, and
+	 * the programme's storylines and rivalry.
 	 */
 	gold: '#fcd34d',
 	silver: '#cbd5e1',
@@ -142,6 +142,9 @@ export const tint = stylex.defineConsts({
 	teamC40: `color-mix(in srgb, ${colors.teamC} 40%, transparent)`,
 	teamD40: `color-mix(in srgb, ${colors.teamD} 40%, transparent)`,
 
+	gold15: `color-mix(in srgb, ${colors.gold} 15%, transparent)`,
+	flare15: `color-mix(in srgb, ${colors.flare} 15%, transparent)`,
+	sky15: `color-mix(in srgb, ${colors.sky} 15%, transparent)`,
 	gold30: `color-mix(in srgb, ${colors.gold} 30%, transparent)`,
 	silver30: `color-mix(in srgb, ${colors.silver} 30%, transparent)`,
 	bronze30: `color-mix(in srgb, ${colors.bronze} 30%, transparent)`,

@@ -5,7 +5,7 @@ import { formatGameDateLong, formatGameTime } from '@shared/format';
 import { colors } from '../../app/tokens.stylex';
 import { useUsersByUid } from '../../hooks/useData';
 import { useProgramme } from '../../hooks/useProgramme';
-import { nameByUid } from '../../lib/people';
+import { personRow } from '../../lib/people';
 import EmptyState from '../EmptyState';
 import LoadFailed from '../LoadFailed';
 import { useSeasonContext } from '../SeasonProvider';
@@ -64,7 +64,7 @@ const Programme = ({ seasonId, gameId }: { seasonId: string; gameId: string }) =
 		);
 	}
 
-	const nameOf = (uid: string) => nameByUid(usersByUid, uid);
+	const personOf = (uid: string) => personRow(usersByUid, uid);
 
 	return (
 		<SeasonShell title='Matchday' subtitle={subtitle} backHref={backHref}>
@@ -77,10 +77,12 @@ const Programme = ({ seasonId, gameId }: { seasonId: string; gameId: string }) =
 				) : (
 					<>
 						<p {...stylex.props(styles.kicker)}>The programme</p>
-						{programme.odds && <Odds odds={programme.odds} />}
-						<Storylines storylines={programme.storylines} nameOf={nameOf} />
-						{programme.rivalry && <RivalryPanel rivalry={programme.rivalry} nameOf={nameOf} />}
-						<FormGuide form={programme.form} nameOf={nameOf} />
+						{programme.odds && <Odds odds={programme.odds} squads={programme.squads} personOf={personOf} />}
+						<Storylines storylines={programme.storylines} personOf={personOf} />
+						{programme.rivalry && (
+							<RivalryPanel rivalry={programme.rivalry} squads={programme.squads} personOf={personOf} />
+						)}
+						<FormGuide form={programme.form} personOf={personOf} />
 					</>
 				)}
 			</div>
