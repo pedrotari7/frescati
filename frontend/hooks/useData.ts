@@ -29,6 +29,7 @@ import {
 	subscribeToMatches,
 	subscribeToPlayerLedger,
 	subscribeToResult,
+	subscribeToLedger,
 	subscribeToSeasonLedger,
 	subscribeToTeams,
 } from '../lib/db/tournament';
@@ -350,6 +351,18 @@ export const useSeasonLedger = (seasonId: string | null) => {
 		seasonId ? (onChange, onError) => subscribeToSeasonLedger(seasonId, onChange, onError) : null,
 		[seasonId],
 		'seasonLedger'
+	);
+
+	return { entries: data, loading, error, retry };
+};
+
+/** Every rated game there is. Only listened to while `enabled`, since it is the biggest read in the app. */
+export const useLedger = (enabled: boolean) => {
+	const { data, loading, error, retry } = useFirestoreSubscription<RatingLedgerEntry[]>(
+		NO_LEDGER,
+		enabled ? (onChange, onError) => subscribeToLedger(onChange, onError) : null,
+		[enabled],
+		'ledger'
 	);
 
 	return { entries: data, loading, error, retry };

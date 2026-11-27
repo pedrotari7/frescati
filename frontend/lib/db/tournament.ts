@@ -144,6 +144,19 @@ export const subscribeToSeasonLedger = (
 	);
 
 /**
+ * The whole ledger, every rated game in every season.
+ *
+ * The programme needs it because a rivalry and a form guide reach back across
+ * seasons for every player in the pool at once, and one read of the collection
+ * is cheaper than one query per player. A group plays one game a week, so this
+ * stays at a few hundred small documents for years.
+ */
+export const subscribeToLedger = (
+	onChange: (entries: RatingLedgerEntry[]) => void,
+	onError: (error: Error) => void
+): Unsubscribe => subscribeToCollection(ratingLedgerCol(), asData<RatingLedgerEntry>(), onChange, onError);
+
+/**
  * Every rated game one player appeared in, across every season.
  *
  * Filtered on their own key inside `positions` rather than by reading the whole
