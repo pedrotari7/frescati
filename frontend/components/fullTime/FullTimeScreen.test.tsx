@@ -23,6 +23,8 @@ const mock = {
 	loading: false,
 	error: null as Error | null,
 	canGoBack: false,
+	isAppAdmin: false,
+	asked: [] as (string | null)[],
 };
 const router = { back: vi.fn(), push: vi.fn() };
 const seen = { mark: vi.fn(), claim: vi.fn() };
@@ -30,11 +32,14 @@ const backTo = vi.fn();
 const share = vi.fn();
 
 vi.mock('next/navigation', () => ({ useRouter: () => router }));
-vi.mock('../../lib/auth', () => ({ useAuth: () => ({ user: { uid: 'me' } }) }));
+vi.mock('../../lib/auth', () => ({ useAuth: () => ({ user: { uid: 'me', isAppAdmin: mock.isAppAdmin } }) }));
 vi.mock('../AppHistory', () => ({ useAppHistory: () => ({ canGoBack: mock.canGoBack }) }));
 vi.mock('../SeasonProvider', () => ({ useSeasonContext: () => ({ season: { slot: { timezone: 'UTC' } } }) }));
 vi.mock('../../hooks/useFullTimeCard', () => ({
-	useFullTimeCard: () => ({ card: mock.card, loading: mock.loading, error: mock.error, retry: vi.fn() }),
+	useFullTimeCard: (_season: string, _game: string, uid: string | null) => {
+		mock.asked.push(uid);
+		return { card: mock.card, loading: mock.loading, error: mock.error, retry: vi.fn() };
+	},
 }));
 vi.mock('../../lib/fullTimeSeen', () => ({
 	markFullTimeSeen: (seasonId: string, at: string) => seen.mark(seasonId, at),
@@ -62,6 +67,8 @@ beforeEach(() => {
 	mock.loading = false;
 	mock.error = null;
 	mock.canGoBack = false;
+	mock.isAppAdmin = false;
+	mock.asked = [];
 });
 
 describe('FullTimeScreen', () => {
@@ -133,5 +140,43 @@ describe('FullTimeScreen', () => {
 		render(<FullTimeScreen seasonId='s' gameId='g' />);
 
 		expect(seen.mark).not.toHaveBeenCalled();
+	});
+
+	describe('as a preview', () => {
+		it('shows an app admin the player they asked for', () => {
+			mock.isAppAdmin = true;
+			mock.card = card;
+			render(<FullTimeScreen seasonId='s' gameId='g' preview player='ana' />);
+
+			expect(mock.asked.at(-1)).toBe('ana');
+			expect(screen.getByText('Preview')).toBeInTheDocument();
+		});
+
+		it('marks nothing seen and claims nothing, so the real card still takes over', () => {
+			mock.isAppAdmin = true;
+			mock.card = card;
+			render(<FullTimeScreen seasonId='s' gameId='g' preview player='ana' />);
+
+			fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+			fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+
+			expect(seen.mark).not.toHaveBeenCalled();
+			expect(seen.claim).not.toHaveBeenCalled();
+		});
+
+		it('names the player who did not play, rather than saying you did not', () => {
+			mock.isAppAdmin = true;
+			render(<FullTimeScreen seasonId='s' gameId='g' preview player='ana' />);
+
+			expect(screen.getByText('They did not play in this game')).toBeInTheDocument();
+		});
+
+		it('shows anybody else only their own card', () => {
+			mock.card = card;
+			render(<FullTimeScreen seasonId='s' gameId='g' preview player='ana' />);
+
+			expect(mock.asked.at(-1)).toBe('me');
+			expect(screen.queryByText('Preview')).not.toBeInTheDocument();
+		});
 	});
 });
