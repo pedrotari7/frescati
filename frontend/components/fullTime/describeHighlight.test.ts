@@ -1,4 +1,4 @@
-import { describeHighlight } from './describeHighlight';
+import { describeFinish, describeHighlight } from './describeHighlight';
 
 describe('describeHighlight', () => {
 	it('tells a run started', () => {
@@ -27,5 +27,19 @@ describe('describeHighlight', () => {
 
 	it('tells a first win', () => {
 		expect(describeHighlight({ kind: 'firstWin' })).toBe('Your first win');
+	});
+});
+
+describe('describeFinish', () => {
+	it('says the place out of how many', () => {
+		expect(describeFinish({ position: 1, shared: false, teamCount: 3 })).toBe('2nd of 3');
+	});
+
+	it('says level first for a shared top', () => {
+		expect(describeFinish({ position: 0, shared: true, teamCount: 2 })).toBe('Level first');
+	});
+
+	it('says level on a shared place lower down', () => {
+		expect(describeFinish({ position: 1, shared: true, teamCount: 4 })).toBe('Level 2nd');
 	});
 });

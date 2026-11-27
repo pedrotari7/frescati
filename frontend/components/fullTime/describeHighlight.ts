@@ -1,4 +1,5 @@
-import type { FullTimeHighlight } from '@shared/fullTime';
+import { placeLabel } from '@shared/format';
+import type { FullTimeCard, FullTimeHighlight } from '@shared/fullTime';
 
 /** 1st, 2nd, 3rd, 11th. A season table runs past the four places `placeLabel` covers. */
 const ordinal = (place: number): string => {
@@ -26,4 +27,11 @@ export const describeHighlight = (highlight: FullTimeHighlight): string => {
 		case 'firstWin':
 			return 'Your first win';
 	}
+};
+
+/** Where the team finished, the way the card and the image both say it. */
+export const describeFinish = (card: Pick<FullTimeCard, 'position' | 'shared' | 'teamCount'>): string => {
+	if (card.shared) return card.position === 0 ? 'Level first' : `Level ${placeLabel(card.position)}`;
+
+	return `${placeLabel(card.position)} of ${card.teamCount}`;
 };

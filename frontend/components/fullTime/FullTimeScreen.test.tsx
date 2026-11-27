@@ -27,6 +27,7 @@ const mock = {
 const router = { back: vi.fn(), push: vi.fn() };
 const seen = { mark: vi.fn(), claim: vi.fn() };
 const backTo = vi.fn();
+const share = vi.fn();
 
 vi.mock('next/navigation', () => ({ useRouter: () => router }));
 vi.mock('../../lib/auth', () => ({ useAuth: () => ({ user: { uid: 'me' } }) }));
@@ -47,6 +48,7 @@ vi.mock('./FullTimeCard', () => ({
 		</div>
 	),
 }));
+vi.mock('./useShareCard', () => ({ useShareCard: () => ({ swatches: null, share }) }));
 vi.mock('../SeasonShell', () => ({
 	default: ({ backHref, children }: { backHref?: string; children: React.ReactNode }) => {
 		backTo(backHref);
@@ -108,5 +110,15 @@ describe('FullTimeScreen', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Done' }));
 
 		expect(router.push).toHaveBeenCalledWith('/s/s');
+	});
+
+	it('shares the image and marks the card seen', () => {
+		mock.card = card;
+		render(<FullTimeScreen seasonId='s' gameId='g' />);
+
+		fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+
+		expect(share).toHaveBeenCalled();
+		expect(seen.mark).toHaveBeenCalledWith(card.finalisedAt);
 	});
 });
