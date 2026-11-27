@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import type { FullTimeCard } from '@shared/fullTime';
 import { colors } from '../../app/tokens.stylex';
@@ -41,13 +41,37 @@ export const useShareCard = (card: FullTimeCard, labels: CardLabels) => {
 		</span>
 	);
 
+	// Painted as soon as the card is on screen rather than on the tap. iOS only
+	// opens the share sheet inside the tap that asked for it, and waiting for
+	// fonts and a canvas between the two loses the tap on the way.
+	const painted = useRef<Blob | null>(null);
+	const paint = () =>
+		holder.current ? renderFullTimeImage(card, labels, readCardPalette(holder.current)) : Promise.resolve(null);
+
+	useEffect(() => {
+		let live = true;
+
+		paint()
+			.then(image => {
+				if (live) painted.current = image;
+			})
+			// Painted again on the tap, which reports a failure where a person sees it.
+			.catch(() => {});
+
+		return () => {
+			live = false;
+		};
+		// The card and its labels arrive together and the page remounts on a new one.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [card]);
+
 	const share = async () => {
 		hapticLight();
 
 		await write(async () => {
-			if (!holder.current) return;
+			const image = painted.current ?? (await paint());
+			if (!image) return;
 
-			const image = await renderFullTimeImage(card, labels, readCardPalette(holder.current));
 			const outcome = await shareImage(image, `full-time-${card.gameId}.png`);
 
 			// The share sheet is its own confirmation. A download lands silently,

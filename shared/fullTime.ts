@@ -1,5 +1,6 @@
 import { getSeasonTable } from './leaderboard';
-import { RUN_MIN } from './matchday';
+import type { FormResult } from './matchday';
+import { RUN_MIN, getResults, trailing } from './matchday';
 import type { PlayerGame } from './player';
 import { getPlayerGames } from './player';
 import { PROVISIONAL_GAMES, toDisplayRating } from './rating';
@@ -51,18 +52,10 @@ export interface FullTimeCard {
 	highlights: FullTimeHighlight[];
 }
 
-const trailingWins = (games: PlayerGame[]): number => {
-	let count = 0;
+const runHighlight = (earlier: FormResult[], result: FormResult): FullTimeHighlight | null => {
+	const before = trailing(earlier, previous => previous === 'W');
 
-	for (let index = games.length - 1; index >= 0 && games[index].won; index--) count++;
-
-	return count;
-};
-
-const runHighlight = (earlier: PlayerGame[], won: boolean): FullTimeHighlight | null => {
-	const before = trailingWins(earlier);
-
-	if (!won) return before >= RUN_MIN ? { kind: 'runEnded', count: before } : null;
+	if (result !== 'W') return result === 'L' && before >= RUN_MIN ? { kind: 'runEnded', count: before } : null;
 	if (before + 1 >= RUN_MIN) return { kind: 'runExtended', count: before + 1 };
 
 	return before + 1 === 2 ? { kind: 'runStarted' } : null;
@@ -113,14 +106,16 @@ export const getFullTimeCard = (
 
 	const games = getPlayerGames(careerEntries, uid);
 	const index = games.findIndex(game => game.gameId === gameId);
-	const earlier = index === -1 ? games : games.slice(0, index);
-	const won = standing.position === 0;
+	const before = index === -1 ? games.length : index;
+	const earlier = getResults(careerEntries, uid).slice(0, before);
+	const shared = result.standings.some(other => other.team !== team && other.position === standing.position);
+	const outcome: FormResult = standing.position !== 0 ? 'L' : shared ? 'D' : 'W';
 
 	const highlights = [
-		runHighlight(earlier, won),
+		runHighlight(earlier, outcome),
 		tableHighlight(seasonEntries, entry, uid),
-		bestHighlight(earlier, change.after),
-		won && !earlier.some(game => game.won) ? ({ kind: 'firstWin' } as const) : null,
+		bestHighlight(games.slice(0, before), change.after),
+		outcome === 'W' && !earlier.includes('W') ? ({ kind: 'firstWin' } as const) : null,
 	].filter((highlight): highlight is FullTimeHighlight => highlight !== null);
 
 	return {
@@ -130,7 +125,7 @@ export const getFullTimeCard = (
 		finalisedAt: entry.finalisedAt,
 		team,
 		position: standing.position,
-		shared: result.standings.some(other => other.team !== team && other.position === standing.position),
+		shared,
 		teamCount: result.standings.length,
 		record: { won: standing.won, drawn: standing.drawn, lost: standing.lost },
 		before: change.before,
@@ -146,8 +141,10 @@ export const getFullTimeCard = (
  * `FULL_TIME_WINDOW_DAYS`, and this device has not seen a card confirmed that
  * late or later.
  *
- * `seenAt` is a confirmation time rather than a game id, so a replay that
- * re-confirms a game after its card was seen shows the corrected card again.
+ * `seenAt` is this season's mark, a confirmation time rather than a game id,
+ * so a result cleared and confirmed again, which stamps a new `finalisedAt`,
+ * takes over once more. A rating replay keeps the original stamp, so it does
+ * not, and the card still shows the replayed numbers whenever it is opened.
  */
 export const pickFullTimeTakeover = (
 	seasonEntries: RatingLedgerEntry[],

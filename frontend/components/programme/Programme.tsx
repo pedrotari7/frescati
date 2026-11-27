@@ -29,7 +29,7 @@ const styles = stylex.create({
  * kept to game day.
  */
 const Programme = ({ seasonId, gameId }: { seasonId: string; gameId: string }) => {
-	const { season, games } = useSeasonContext();
+	const { season, games, loading: seasonLoading } = useSeasonContext();
 	const { usersByUid } = useUsersByUid();
 	const { programme, loading, error, retry } = useProgramme(seasonId, gameId, true);
 	const game = games.find(candidate => candidate.id === gameId);
@@ -44,6 +44,14 @@ const Programme = ({ seasonId, gameId }: { seasonId: string; gameId: string }) =
 		return (
 			<SeasonShell title='Matchday' backHref={backHref}>
 				<LoadFailed what='the programme' onRetry={retry} />
+			</SeasonShell>
+		);
+	}
+
+	if (!seasonLoading && season && !game) {
+		return (
+			<SeasonShell title='Matchday' backHref={backHref}>
+				<EmptyState title='Game not found' message='It may have been deleted from the calendar.' />
 			</SeasonShell>
 		);
 	}

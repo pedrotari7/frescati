@@ -7,17 +7,23 @@ afterEach(() => {
 });
 
 describe('the full-time seen mark', () => {
-	it('reads back what was marked', () => {
-		markFullTimeSeen('2026-11-20T21:00:00.000Z');
+	it('reads back what was marked for a season', () => {
+		markFullTimeSeen('sunday', '2026-11-20T21:00:00.000Z');
 
-		expect(readFullTimeSeen()).toBe('2026-11-20T21:00:00.000Z');
+		expect(readFullTimeSeen('sunday')).toBe('2026-11-20T21:00:00.000Z');
 	});
 
 	it('keeps the later of two marks', () => {
-		markFullTimeSeen('2026-11-20T21:00:00.000Z');
-		markFullTimeSeen('2026-11-13T21:00:00.000Z');
+		markFullTimeSeen('sunday', '2026-11-20T21:00:00.000Z');
+		markFullTimeSeen('sunday', '2026-11-13T21:00:00.000Z');
 
-		expect(readFullTimeSeen()).toBe('2026-11-20T21:00:00.000Z');
+		expect(readFullTimeSeen('sunday')).toBe('2026-11-20T21:00:00.000Z');
+	});
+
+	it('keeps each season its own mark, so a later card in one hides nothing in another', () => {
+		markFullTimeSeen('tuesday', '2026-11-25T21:00:00.000Z');
+
+		expect(readFullTimeSeen('sunday')).toBeNull();
 	});
 
 	it('reads nothing when storage throws', () => {
@@ -25,7 +31,7 @@ describe('the full-time seen mark', () => {
 			throw new DOMException('blocked', 'SecurityError');
 		});
 
-		expect(readFullTimeSeen()).toBeNull();
+		expect(readFullTimeSeen('sunday')).toBeNull();
 	});
 
 	it('does not throw when storage refuses a mark', () => {
@@ -33,7 +39,7 @@ describe('the full-time seen mark', () => {
 			throw new DOMException('blocked', 'SecurityError');
 		});
 
-		expect(() => markFullTimeSeen('2026-11-20T21:00:00.000Z')).not.toThrow();
+		expect(() => markFullTimeSeen('sunday', '2026-11-20T21:00:00.000Z')).not.toThrow();
 	});
 
 	it('claims a game once a session', () => {

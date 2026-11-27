@@ -50,7 +50,7 @@ export const useFullTimeTakeover = ({
 		const now = new Date();
 		if (findLiveGame(games, season, myResponses, now)) return;
 
-		const game = pickFullTimeTakeover(entries, uid, now, readFullTimeSeen());
+		const game = pickFullTimeTakeover(entries, uid, now, readFullTimeSeen(season.id));
 		if (!game || !claimFullTimeSession(game.gameId)) return;
 
 		router.push(`/s/${season.id}/g/${game.gameId}/full-time`);

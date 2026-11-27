@@ -2,7 +2,6 @@ import { zonedCivilDate } from './datetime';
 import { getGameLifecycle } from './game';
 import { getHeadToHead, getHeadToHeadRun } from './headToHead';
 import { FORM_LENGTH } from './leaderboard';
-import type { PlayerGame } from './player';
 import { getPlayerGames } from './player';
 import { BASE_ELO, getWinProbability, hasPlayed, toDisplayRating } from './rating';
 import { getStandings } from './standings';
@@ -188,21 +187,25 @@ const isSharedTop = (entry: RatingLedgerEntry): boolean => {
 	return topTeams.size > 1;
 };
 
-/** Everybody's last few results, W for an outright first, D for a shared one, L for anything else. */
-export const getForm = (entries: RatingLedgerEntry[], uids: string[]): FormLine[] => {
+/**
+ * Every result a player has, oldest first, in the same order as
+ * `getPlayerGames`: W for an outright first, D for a first shared with another
+ * team, L for anything else. One reading of a shared first for the whole
+ * feature, so a form guide, a run and a first win never disagree about it.
+ */
+export const getResults = (entries: RatingLedgerEntry[], uid: string): FormResult[] => {
 	const byGame = new Map(entries.map(entry => [entry.gameId, entry]));
 
-	return uids.map(uid => ({
-		uid,
-		results: getPlayerGames(entries, uid)
-			.slice(-FORM_LENGTH)
-			.map(game => {
-				if (!game.won) return 'L';
+	return getPlayerGames(entries, uid).map(game => {
+		if (!game.won) return 'L';
 
-				return isSharedTop(byGame.get(game.gameId)!) ? 'D' : 'W';
-			}),
-	}));
+		return isSharedTop(byGame.get(game.gameId)!) ? 'D' : 'W';
+	});
 };
+
+/** Everybody's last few results, the way `getResults` reads them. */
+export const getForm = (entries: RatingLedgerEntry[], uids: string[]): FormLine[] =>
+	uids.map(uid => ({ uid, results: getResults(entries, uid).slice(-FORM_LENGTH) }));
 
 export interface Rivalry {
 	/** The pair, `a` before `b` by uid so the same two always read the same way round. */
@@ -285,11 +288,11 @@ export type Storyline =
 
 const STORYLINE_ORDER: Storyline['kind'][] = ['winRun', 'lossRun', 'milestone', 'debut', 'return', 'motmRun'];
 
-/** How many games at the end of the list pass `test`, counting back from the latest. */
-const trailing = (games: PlayerGame[], test: (game: PlayerGame) => boolean): number => {
+/** How many items at the end of the list pass `test`, counting back from the latest. */
+export const trailing = <T>(items: T[], test: (item: T) => boolean): number => {
 	let count = 0;
 
-	for (let index = games.length - 1; index >= 0 && test(games[index]); index--) count++;
+	for (let index = items.length - 1; index >= 0 && test(items[index]); index--) count++;
 
 	return count;
 };
@@ -305,14 +308,17 @@ const milestoneFor = (rating: PlayerRating | undefined): number | null => {
 /** The one storyline this player gets, the highest in `STORYLINE_ORDER` they qualify for. */
 const storylineFor = (
 	uid: string,
-	games: PlayerGame[],
+	entries: RatingLedgerEntry[],
 	rating: PlayerRating | undefined,
 	kickoffMillis: number
 ): Storyline | null => {
-	const wins = trailing(games, game => game.won);
+	const games = getPlayerGames(entries, uid);
+	const results = getResults(entries, uid);
+
+	const wins = trailing(results, result => result === 'W');
 	if (wins >= RUN_MIN) return { kind: 'winRun', uid, count: wins };
 
-	const losses = trailing(games, game => !game.won);
+	const losses = trailing(results, result => result === 'L');
 	if (losses >= RUN_MIN) return { kind: 'lossRun', uid, count: losses };
 
 	const target = milestoneFor(rating);
@@ -344,7 +350,7 @@ export const getStorylines = (
 	limit = 3
 ): Storyline[] =>
 	pool
-		.map(uid => storylineFor(uid, getPlayerGames(entries, uid), ratings[uid], kickoffMillis))
+		.map(uid => storylineFor(uid, entries, ratings[uid], kickoffMillis))
 		.filter((storyline): storyline is Storyline => storyline !== null)
 		.sort(
 			(x, y) =>
