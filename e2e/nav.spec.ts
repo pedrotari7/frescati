@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { aMember } from './fixtures';
 import { openSeasonAs, openTab } from './helpers';
-import { AT, gameLinks, playerLinks } from './locators';
+import { AT, NO_PROFILE_YET, gameLinks, playerLinks } from './locators';
 
 /**
  * The way back out of a screen.
@@ -121,6 +121,11 @@ test.describe('the way back out of a screen', () => {
 	 */
 	test('comes back to the part of the game that was being read', async ({ page }) => {
 		await openAGame(page);
+
+		// The roster is rebuilt once the answers land and re-sorted once the names
+		// do, and either one under a scroll or a click detached the row being
+		// aimed at. The names are the later of the two to arrive.
+		await expect(page.getByText(NO_PROFILE_YET), 'the profiles never landed').toHaveCount(0);
 
 		// Somewhere unambiguously down the page, and only if there is room. A
 		// short game has nothing to restore and nothing to get wrong.
