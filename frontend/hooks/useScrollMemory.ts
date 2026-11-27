@@ -52,6 +52,20 @@ import { useCallback, useEffect, useRef } from 'react';
  */
 const MAX_WAIT_MS = 3_000;
 
+/**
+ * How long to keep a restored position held, in milliseconds, after first
+ * putting it back.
+ *
+ * Tall enough is not the same as finished. The game screen rebuilds its whole
+ * roster the moment the answers land, which empties the list for a frame, and
+ * the browser clamps the position to the short page it briefly is. Nothing put
+ * it back, so a game left at 823 came back at 139, every time, on a CI runner
+ * slow enough for the answers to arrive after the restore. For this long after
+ * restoring, a position that has been pulled lower is put back again, unless
+ * the person has scrolled themselves.
+ */
+const SETTLE_MS = 1_500;
+
 /** Paths remembered. More than anybody walks through before a reload. */
 const LIMIT = 64;
 
@@ -144,23 +158,26 @@ export const useScrollMemory = () => {
 			};
 
 			const deadline = performance.now() + MAX_WAIT_MS;
+			let settledBy: number | null = null;
 
 			const attempt = () => {
 				if (cancelled) return done();
 
+				const now = performance.now();
 				const room = document.documentElement.scrollHeight - window.innerHeight;
 
 				// Tall enough to hold the position, which for this app is how a
-				// screen says its subscriptions have answered.
-				if (room >= target) {
+				// screen says its subscriptions have answered. Put back again if a
+				// reflow since has clamped it lower, see `SETTLE_MS`.
+				if (room >= target && window.scrollY < target - 1) {
 					window.scrollTo({ top: target, behavior: 'instant' });
-					return done();
+					settledBy ??= now + SETTLE_MS;
 				}
 
-				// Out of patience. Left where it is rather than scrolled to the
-				// bottom of a screen that never filled out, which is the shape of
-				// the bug this exists to fix.
-				if (performance.now() >= deadline) return done();
+				// Held long enough. Or out of patience, left where it is rather than
+				// scrolled to the bottom of a screen that never filled out, which is
+				// the shape of the bug this exists to fix.
+				if (now >= (settledBy ?? deadline)) return done();
 
 				waiting.current = requestAnimationFrame(attempt);
 			};
