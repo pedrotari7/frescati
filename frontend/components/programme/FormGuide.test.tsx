@@ -8,7 +8,12 @@ const names = new Map([
 
 describe('FormGuide', () => {
 	it('lists each result with a label a screen reader can say', () => {
-		render(<FormGuide form={[{ uid: 'ana', results: ['W', 'D', 'L'] }]} nameOf={uid => names.get(uid)!} />);
+		render(
+			<FormGuide
+				form={[{ uid: 'ana', results: ['W', 'D', 'L'] }]}
+				personOf={uid => ({ uid, displayName: names.get(uid)!, photoURL: null })}
+			/>
+		);
 
 		const row = screen.getByRole('listitem', { name: 'Ana' });
 		expect(within(row).getByLabelText('won')).toHaveTextContent('W');
@@ -17,7 +22,12 @@ describe('FormGuide', () => {
 	});
 
 	it('says debut for somebody who has never played', () => {
-		render(<FormGuide form={[{ uid: 'rui', results: [] }]} nameOf={uid => names.get(uid)!} />);
+		render(
+			<FormGuide
+				form={[{ uid: 'rui', results: [] }]}
+				personOf={uid => ({ uid, displayName: names.get(uid)!, photoURL: null })}
+			/>
+		);
 
 		expect(within(screen.getByRole('listitem', { name: 'Rui' })).getByText('Debut')).toBeInTheDocument();
 	});

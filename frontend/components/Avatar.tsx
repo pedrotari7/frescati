@@ -25,9 +25,10 @@ const styles = stylex.create({
 	sm: { width: 28, height: 28, fontSize: 10 },
 	md: { width: 36, height: 36, fontSize: 12, lineHeight: '16px' },
 	lg: { width: 48, height: 48, fontSize: 14, lineHeight: '20px' },
+	xl: { width: 64, height: 64, fontSize: 20, lineHeight: '28px' },
 });
 
-const SIZES = { sm: styles.sm, md: styles.md, lg: styles.lg };
+const SIZES = { sm: styles.sm, md: styles.md, lg: styles.lg, xl: styles.xl };
 
 const Avatar = ({
 	displayName,

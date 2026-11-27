@@ -77,6 +77,16 @@ describe('useProgramme', () => {
 		expect(odds.reduce((total, row) => total + row.percent, 0)).toBe(100);
 	});
 
+	it("hands over each team's players in team order, for the faces on the odds", () => {
+		const uids = players(12);
+		mocks.responses = uids.map(uid => response(uid, 'in'));
+		mocks.teams = lineup([uids.slice(0, 6), uids.slice(6)]);
+
+		const { result } = renderHook(() => useProgramme('s', 'g', true));
+
+		expect(result.current.programme?.squads).toEqual([uids.slice(0, 6), uids.slice(6)]);
+	});
+
 	it('gives the same odds on a re-render with the same lineup', () => {
 		const uids = players(12);
 		mocks.responses = uids.map(uid => response(uid, 'in'));

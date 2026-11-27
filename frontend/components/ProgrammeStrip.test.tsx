@@ -26,7 +26,7 @@ const game = {
 const gameDay = new Date('2026-09-01T09:00:00.000Z');
 const dayBefore = new Date('2026-08-31T09:00:00.000Z');
 
-const base: Programme = { pool: ['ana'], odds: null, form: [], rivalry: null, storylines: [] };
+const base: Programme = { pool: ['ana'], odds: null, squads: [], form: [], rivalry: null, storylines: [] };
 
 beforeEach(() => {
 	mock.programme = null;

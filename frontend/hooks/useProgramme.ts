@@ -14,6 +14,8 @@ export interface Programme {
 	pool: string[];
 	/** `null` until there are teams to have odds for. */
 	odds: TeamOdds[] | null;
+	/** Each team's players, in team order, empty until there are teams. */
+	squads: string[][];
 	form: FormLine[];
 	rivalry: Rivalry | null;
 	storylines: Storyline[];
@@ -89,6 +91,7 @@ export const useProgramme = (seasonId: string, gameId: string, enabled: boolean)
 		return {
 			pool,
 			odds,
+			squads: teams?.teams.map(team => team.uids) ?? [],
 			form: getForm(entries, pool),
 			rivalry: getRivalry(entries, pool, teams),
 			storylines: getStorylines(entries, pool, ratings, game.kickoffMillis),

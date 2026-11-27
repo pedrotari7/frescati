@@ -40,7 +40,7 @@ vi.mock('../SeasonShell', () => ({
 	},
 }));
 
-const empty: ProgrammeData = { pool: [], odds: null, form: [], rivalry: null, storylines: [] };
+const empty: ProgrammeData = { pool: [], odds: null, squads: [], form: [], rivalry: null, storylines: [] };
 
 beforeEach(() => {
 	mock.programme = null;
