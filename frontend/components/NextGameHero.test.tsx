@@ -388,4 +388,31 @@ describe('NextGameHero', () => {
 		expect(bell()).not.toBeInTheDocument();
 		expect(shareButton()).toBeInTheDocument();
 	});
+
+	describe('on game day', () => {
+		const hero = (at: Date) =>
+			render(
+				<NextGameHero
+					game={game({})}
+					season={season}
+					myResponse={undefined}
+					isExtra={false}
+					now={at}
+					onRespond={vi.fn()}
+					onClear={vi.fn()}
+				/>
+			);
+
+		it('points to the matchday programme', () => {
+			hero(new Date('2026-09-01T08:00:00.000Z'));
+
+			expect(screen.getByRole('link', { name: /matchday programme/i })).toBeInTheDocument();
+		});
+
+		it('says nothing about a programme the week before', () => {
+			hero(now);
+
+			expect(screen.queryByRole('link', { name: /matchday programme/i })).not.toBeInTheDocument();
+		});
+	});
 });

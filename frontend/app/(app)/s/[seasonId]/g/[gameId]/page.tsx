@@ -1,8 +1,7 @@
 'use client';
 
 import { use, useCallback, useMemo } from 'react';
-import Link from 'next/link';
-import { ChevronRightIcon, MapPinIcon, TrophyIcon } from '@heroicons/react/24/outline';
+import { MapPinIcon, TrophyIcon } from '@heroicons/react/24/outline';
 import * as stylex from '@stylexjs/stylex';
 import {
 	canAnswerFor,
@@ -42,6 +41,8 @@ import EmptyState from '../../../../../../components/EmptyState';
 import ExtraSpotNote from '../../../../../../components/ExtraSpotNote';
 import LoadFailed from '../../../../../../components/LoadFailed';
 import GameKit from '../../../../../../components/GameKit';
+import LinkCard from '../../../../../../components/LinkCard';
+import ProgrammeLink from '../../../../../../components/ProgrammeLink';
 import GameWatchers from '../../../../../../components/GameWatchers';
 import HeadcountBar from '../../../../../../components/HeadcountBar';
 import type { DebtLock } from '../../../../../../components/RespondControl';
@@ -80,14 +81,6 @@ const styles = stylex.create({
 	note: { color: colors.muted, marginBottom: 16, fontSize: 14, lineHeight: '20px' },
 	off: { color: colors.out, marginTop: 20, fontSize: 14, lineHeight: '20px' },
 	respond: { marginTop: 20 },
-
-	teams: { display: 'block', borderRadius: 16, padding: 16 },
-	teamsRow: { display: 'flex', alignItems: 'center', gap: 12 },
-	trophy: { color: colors.brand, width: 20, height: 20, flexShrink: 0 },
-	teamsBody: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: '0%' },
-	teamsTitle: { color: colors.ink, fontSize: 14, lineHeight: '20px', fontWeight: 600 },
-	format: { color: colors.faint, fontSize: 12, lineHeight: '16px' },
-	chevron: { color: colors.faint, width: 16, height: 16, flexShrink: 0 },
 
 	rosterHead: {
 		color: colors.ink,
@@ -264,18 +257,7 @@ const GameCard = ({
 const TeamsLink = ({ href, playing, lifecycle }: { href: string; playing: number; lifecycle: GameLifecycle }) => {
 	if (lifecycle === 'cancelled' || playing < MIN_TOURNAMENT_PLAYERS) return null;
 
-	return (
-		<Link href={href} {...stylex.props(surfaces.glassCard, styles.teams)}>
-			<div {...stylex.props(styles.teamsRow)}>
-				<TrophyIcon {...stylex.props(styles.trophy)} aria-hidden='true' />
-				<div {...stylex.props(styles.teamsBody)}>
-					<p {...stylex.props(styles.teamsTitle)}>Teams</p>
-					<p {...stylex.props(styles.format)}>{getFormat(playing)}</p>
-				</div>
-				<ChevronRightIcon {...stylex.props(styles.chevron)} aria-hidden='true' />
-			</div>
-		</Link>
-	);
+	return <LinkCard href={href} icon={<TrophyIcon />} title='Teams' detail={getFormat(playing) ?? undefined} />;
 };
 
 /**
@@ -656,6 +638,8 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 					usersByUid={usersByUid}
 					lifecycle={lifecycle}
 				/>
+
+				<ProgrammeLink game={game} season={season} now={now} />
 
 				<TeamsLink
 					href={`${home}/g/${gameId}/tournament`}
