@@ -22,7 +22,7 @@ import type { Game, PlayerRating, RatingLedgerEntry, Season, TournamentMatch, To
 const RIVALRY_MIN_MEETINGS = 3;
 
 /** Wins or losses in a row before a run is worth mentioning. */
-const RUN_MIN = 3;
+export const RUN_MIN = 3;
 
 /** Days since the last game before a player counts as coming back. */
 const RETURN_MIN_DAYS = 28;

@@ -1,0 +1,167 @@
+import { getSeasonTable } from './leaderboard';
+import { RUN_MIN } from './matchday';
+import type { PlayerGame } from './player';
+import { getPlayerGames } from './player';
+import { PROVISIONAL_GAMES, toDisplayRating } from './rating';
+import type { RatingLedgerEntry, TournamentResult } from './types';
+
+/**
+ * One player's own night, told the moment the result is confirmed.
+ *
+ * Computed on every open from the result document and the ledger, like the
+ * programme and the recap, so a corrected score tells the corrected story.
+ */
+
+/** How long after a result its card still takes over the season home. */
+const FULL_TIME_WINDOW_DAYS = 7;
+
+/** The most highlight lines one card carries. */
+const MAX_HIGHLIGHTS = 2;
+
+/** A table move worth a line: this many places, or any move into first. */
+const TABLE_MOVE_MIN = 2;
+
+export type FullTimeHighlight =
+	| { kind: 'runStarted' }
+	| { kind: 'runExtended'; count: number }
+	| { kind: 'runEnded'; count: number }
+	/** 0-indexed season table places, as `SeasonRow.position` counts them. */
+	| { kind: 'tableMove'; from: number; to: number }
+	/** On the displayed 0 to 100 scale. */
+	| { kind: 'careerBest'; rating: number }
+	| { kind: 'firstWin' };
+
+export interface FullTimeCard {
+	seasonId: string;
+	gameId: string;
+	kickoff: string;
+	finalisedAt: string;
+	team: number;
+	/** 0-indexed, shared on a tie. */
+	position: number;
+	/** Another team finished in the same place. */
+	shared: boolean;
+	teamCount: number;
+	record: { won: number; drawn: number; lost: number };
+	/** Elo, straight from the result's `RatingDelta`, so the card agrees with the team sheet. */
+	before: number;
+	after: number;
+	delta: number;
+	/** At most `MAX_HIGHLIGHTS`, the best first. */
+	highlights: FullTimeHighlight[];
+}
+
+const trailingWins = (games: PlayerGame[]): number => {
+	let count = 0;
+
+	for (let index = games.length - 1; index >= 0 && games[index].won; index--) count++;
+
+	return count;
+};
+
+const runHighlight = (earlier: PlayerGame[], won: boolean): FullTimeHighlight | null => {
+	const before = trailingWins(earlier);
+
+	if (!won) return before >= RUN_MIN ? { kind: 'runEnded', count: before } : null;
+	if (before + 1 >= RUN_MIN) return { kind: 'runExtended', count: before + 1 };
+
+	return before + 1 === 2 ? { kind: 'runStarted' } : null;
+};
+
+const tableHighlight = (seasonEntries: RatingLedgerEntry[], entry: RatingLedgerEntry, uid: string) => {
+	const placeIn = (entries: RatingLedgerEntry[]) =>
+		getSeasonTable(entries, entry.seasonId).find(row => row.uid === uid)?.position;
+
+	const from = placeIn(seasonEntries.filter(other => other.gameId !== entry.gameId));
+	const to = placeIn(seasonEntries);
+
+	if (from === undefined || to === undefined) return null;
+	if (from - to >= TABLE_MOVE_MIN || (to === 0 && from > 0)) return { kind: 'tableMove' as const, from, to };
+
+	return null;
+};
+
+const bestHighlight = (earlier: PlayerGame[], after: number): FullTimeHighlight | null => {
+	if (earlier.length < PROVISIONAL_GAMES) return null;
+
+	const rating = toDisplayRating(after);
+	const peak = Math.max(...earlier.flatMap(game => [game.before ?? game.after, game.after]).map(toDisplayRating));
+
+	return rating > peak ? { kind: 'careerBest', rating } : null;
+};
+
+/**
+ * The card for `uid` in `gameId`, or `null` when the result did not rate them
+ * or the ledger cannot say which team they were on.
+ *
+ * `careerEntries` is every game they have played, for runs and their best
+ * rating. `seasonEntries` is the season's, for the table and the team map.
+ */
+export const getFullTimeCard = (
+	careerEntries: RatingLedgerEntry[],
+	seasonEntries: RatingLedgerEntry[],
+	result: TournamentResult,
+	gameId: string,
+	uid: string
+): FullTimeCard | null => {
+	const change = result.changes.find(candidate => candidate.uid === uid);
+	const entry = seasonEntries.find(candidate => candidate.gameId === gameId);
+	const team = entry?.teams?.[uid];
+	const standing = result.standings.find(candidate => candidate.team === team);
+
+	if (!change || !entry || team === undefined || !standing) return null;
+
+	const games = getPlayerGames(careerEntries, uid);
+	const index = games.findIndex(game => game.gameId === gameId);
+	const earlier = index === -1 ? games : games.slice(0, index);
+	const won = standing.position === 0;
+
+	const highlights = [
+		runHighlight(earlier, won),
+		tableHighlight(seasonEntries, entry, uid),
+		bestHighlight(earlier, change.after),
+		won && !earlier.some(game => game.won) ? ({ kind: 'firstWin' } as const) : null,
+	].filter((highlight): highlight is FullTimeHighlight => highlight !== null);
+
+	return {
+		seasonId: entry.seasonId,
+		gameId,
+		kickoff: entry.kickoff,
+		finalisedAt: entry.finalisedAt,
+		team,
+		position: standing.position,
+		shared: result.standings.some(other => other.team !== team && other.position === standing.position),
+		teamCount: result.standings.length,
+		record: { won: standing.won, drawn: standing.drawn, lost: standing.lost },
+		before: change.before,
+		after: change.after,
+		delta: change.delta,
+		highlights: highlights.slice(0, MAX_HIGHLIGHTS),
+	};
+};
+
+/**
+ * The game whose card should take over the season home, if any: the season's
+ * most recently confirmed game, if `uid` played in it, it was confirmed within
+ * `FULL_TIME_WINDOW_DAYS`, and this device has not seen a card confirmed that
+ * late or later.
+ *
+ * `seenAt` is a confirmation time rather than a game id, so a replay that
+ * re-confirms a game after its card was seen shows the corrected card again.
+ */
+export const pickFullTimeTakeover = (
+	seasonEntries: RatingLedgerEntry[],
+	uid: string,
+	now: Date,
+	seenAt: string | null
+): RatingLedgerEntry | null => {
+	const latest = [...seasonEntries].sort(
+		(a, b) => b.finalisedAt.localeCompare(a.finalisedAt) || b.gameId.localeCompare(a.gameId)
+	)[0];
+
+	if (!latest || latest.positions[uid] === undefined) return null;
+	if (now.getTime() - new Date(latest.finalisedAt).getTime() > FULL_TIME_WINDOW_DAYS * 86_400_000) return null;
+	if (seenAt !== null && latest.finalisedAt <= seenAt) return null;
+
+	return latest;
+};
