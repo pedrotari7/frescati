@@ -9,13 +9,22 @@ const DURATION_MS = 900;
 const places = (target: number) => (Number.isInteger(target) ? 0 : 1);
 
 /**
- * A number that counts up from zero when its slide opens, unless motion is
- * turned down. It eases out, so it races and then settles, and the last frame
+ * A number that counts up when it opens, unless motion is turned down. It
+ * starts from zero, or from `from` when there is a number before it. It eases out, so it races and then settles, and the last frame
  * is the number itself rather than the number put through the easing, which
  * is what an average turnout of 11.5 used to come out of as 12.
  */
-const CountUp = ({ value, format }: { value: number; format?: (value: number) => string }) => {
-	const [shown, setShown] = useState(() => (prefersMotion() ? 0 : value));
+const CountUp = ({
+	value,
+	from = 0,
+	format,
+}: {
+	value: number;
+	/** Where the count starts. A rating moving from 64 to 66 counts from 64, not from nothing. */
+	from?: number;
+	format?: (value: number) => string;
+}) => {
+	const [shown, setShown] = useState(() => (prefersMotion() ? from : value));
 
 	useEffect(() => {
 		if (!prefersMotion()) {
@@ -27,13 +36,13 @@ const CountUp = ({ value, format }: { value: number; format?: (value: number) =>
 		let frame = 0;
 		const tick = (now: number) => {
 			const progress = Math.min(1, (now - started) / DURATION_MS);
-			setShown(progress < 1 ? value * (1 - (1 - progress) ** 4) : value);
+			setShown(progress < 1 ? from + (value - from) * (1 - (1 - progress) ** 4) : value);
 			if (progress < 1) frame = requestAnimationFrame(tick);
 		};
 
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);
-	}, [value]);
+	}, [value, from]);
 
 	const rounded = Number(shown.toFixed(places(value)));
 

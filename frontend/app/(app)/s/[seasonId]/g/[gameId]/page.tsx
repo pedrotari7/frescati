@@ -40,6 +40,7 @@ import Skeleton from '../../../../../../components/Skeleton';
 import EmptyState from '../../../../../../components/EmptyState';
 import ExtraSpotNote from '../../../../../../components/ExtraSpotNote';
 import LoadFailed from '../../../../../../components/LoadFailed';
+import FullTimeLink from '../../../../../../components/FullTimeLink';
 import GameKit from '../../../../../../components/GameKit';
 import LinkCard from '../../../../../../components/LinkCard';
 import ProgrammeLink from '../../../../../../components/ProgrammeLink';
@@ -640,6 +641,7 @@ const GamePage = ({ params }: { params: Promise<{ seasonId: string; gameId: stri
 				/>
 
 				<ProgrammeLink game={game} season={season} now={now} />
+				<FullTimeLink seasonId={seasonId} gameId={gameId} played={played} />
 
 				<TeamsLink
 					href={`${home}/g/${gameId}/tournament`}

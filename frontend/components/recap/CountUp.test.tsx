@@ -41,4 +41,14 @@ describe('CountUp', () => {
 
 		expect(screen.getByText('7%')).toBeInTheDocument();
 	});
+
+	it('can count from a number other than nothing', () => {
+		preferMotion(true);
+		render(<CountUp from={64} value={66} />);
+		expect(screen.getByText('64')).toBeInTheDocument();
+
+		act(() => vi.advanceTimersByTime(2000));
+
+		expect(screen.getByText('66')).toBeInTheDocument();
+	});
 });
