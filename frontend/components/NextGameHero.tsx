@@ -11,6 +11,7 @@ import { useKit, useResponses, useUsersByUid } from '../hooks/useData';
 import ExtraSpotNote from './ExtraSpotNote';
 import GameKit from './GameKit';
 import HeadcountBar from './HeadcountBar';
+import ProgrammeStrip from './ProgrammeStrip';
 import type { GameAnswer } from './RespondControl';
 import RespondControl from './RespondControl';
 import ShareGame from './ShareGame';
@@ -253,6 +254,9 @@ const NextGameHero = ({
 				</Link>
 
 				<HeadcountBar game={liveGame} season={season} sx={styles.bar} settling={responsesLoading} />
+
+				{/* Game day only. The rest of the week this card stays exactly as it was. */}
+				<ProgrammeStrip game={game} season={season} now={now} />
 
 				{/* Only ever drawn when something required is genuinely missing,
 				    which is the point: this card is what most people ever look
